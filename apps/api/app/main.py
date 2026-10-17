@@ -5,14 +5,22 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.core import cache
 from app.core.config import get_settings
+from app.core.logging import log
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Raises ConfigError (and the server exits) if any startup check fails.
-    app.state.settings = get_settings()
-    yield
+    settings = get_settings()
+    app.state.settings = settings
+    cache.connect(settings.secrets.redis_url.get_secret_value())
+    log("api.started", status="ok")
+    try:
+        yield
+    finally:
+        await cache.close()
 
 
 def create_app() -> FastAPI:

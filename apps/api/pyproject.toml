@@ -10,6 +10,8 @@ dependencies = [
     "pydantic~=2.14.1",
     "redis~=8.1.0",
     "sqlalchemy[asyncio]~=2.1.5",
+    # Readable-text extraction for crawled pages (P0-10).
+    "trafilatura~=2.3.1",
     "asyncpg~=0.32.0",
     "alembic~=1.20.0",
     "uvicorn[standard]~=0.54.0",

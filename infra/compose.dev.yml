@@ -102,6 +102,9 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    environment:
+      # Vite proxies /api to the API on the Compose network (apps/web/vite.config.ts).
+      API_PROXY_TARGET: http://api:8000
     ports:
       - 127.0.0.1:${WEB_PORT:-5173}:5173
     volumes:

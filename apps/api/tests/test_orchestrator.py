@@ -23,6 +23,7 @@ from app.chat.orchestrator import (
 from app.core import cache
 from app.core.config import Settings
 from app.core.db import session_factory
+from app.retrieval.types import RetrievedChunk
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.chat_fixtures import DATASETS, TAGS, USAGE, World, chunks_for
 from tests.fakes import FakeRedis, FakeRetriever, Recorder, completion, delta, error, sse
@@ -436,3 +437,62 @@ async def test_log_lines_carry_no_question_answer_or_chunk_text(
     assert [line["event"] for line in lines] == ["chat.answer"]
     for text in (question, "turquoise-heron", "Synthetic capacity grew"):
         assert text not in out
+
+
+# --- integration notes from Group B (findings R14, R15) ---------------------------------
+
+
+async def _add_source(world: World, kind: str, mapping: dict[str, str]) -> uuid.UUID:
+    source_id: uuid.UUID = await world.admin.fetchval(
+        "INSERT INTO sources (type, title, publisher, published_on, canonical_url, "
+        "licence_basis, tags, status, ragflow_document_ids) "
+        "VALUES ($1, 'Synthetic Note', 'Our Analysis Team', '2026-03-01', "
+        "'https://example.org/note', 'synthetic', $2, 'ingested', $3::jsonb) RETURNING id",
+        kind,
+        list(DATASETS),
+        json.dumps(mapping),
+    )
+    return source_id
+
+
+async def test_unpaged_source_types_cite_no_page(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    await _add_source(world, "docx", {DATASETS["sample-analysis"]: "doc-docx"})
+    retriever = FakeRetriever(
+        [RetrievedChunk("chunk-docx", "doc-docx", DATASETS["sample-analysis"], "Note.", 0.9, 1)]
+    )
+    recorder = Recorder(sse(delta("Noted [1]."), delta("", USAGE)))
+    events = await run(orchestrator(settings, engine, retriever, recorder), world, "Note?")
+
+    assert [c.page_or_slide for c in citations_of(events).citations] == [None]
+    stored = await world.admin.fetchval(
+        "SELECT page_or_slide FROM citations WHERE message_id = $1", done_of(events).message_id
+    )
+    assert stored is None
+    assert 'page="' not in recorder.bodies()[0]["messages"][-1]["content"]
+
+
+async def test_source_in_two_datasets_is_cited_once(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    source_id = await _add_source(
+        world,
+        "pdf",
+        {DATASETS["sample-reports"]: "doc-in-reports", DATASETS["sample-analysis"]: "doc-in-an"},
+    )
+    text = "Synthetic storage doubled by 2026."
+    retriever = FakeRetriever(
+        [
+            RetrievedChunk("c-1", "doc-in-reports", DATASETS["sample-reports"], text, 0.9, 2),
+            RetrievedChunk("c-2", "doc-in-an", DATASETS["sample-analysis"], text, 0.88, 2),
+        ]
+    )
+    recorder = Recorder(sse(delta("Doubled [1][2]."), delta("", USAGE)))
+    events = await run(orchestrator(settings, engine, retriever, recorder), world, "Storage?")
+
+    # Only one passage reached the model, so [2] is dangling and dropped.
+    assert recorder.bodies()[0]["messages"][-1]["content"].count(text) == 1
+    assert text_of(events) == "Doubled [1]."
+    citations = citations_of(events).citations
+    assert [(c.source_id, c.chunk_id) for c in citations] == [(str(source_id), "c-1")]

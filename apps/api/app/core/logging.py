@@ -34,6 +34,10 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "source_id",
         "chunk_count",
         "error_code",
+        # Shared-corpus identifiers for the content CLIs (P0-08 to P0-10): never bodies.
+        "tag",
+        "dataset_id",
+        "document_id",
     }
 )
 

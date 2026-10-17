@@ -15,6 +15,14 @@ dependencies = [
     "uvicorn[standard]~=0.54.0",
 ]
 
+[project.scripts]
+# Content operations: datasets sync (P0-08), ingest (P0-09), crawl (P0-10).
+ask-spore = "app.cli:main"
+
+[build-system]
+requires = ["uv_build==0.11.32"]
+build-backend = "uv_build"
+
 [dependency-groups]
 dev = [
     "mypy~=2.4.0",
@@ -24,7 +32,12 @@ dev = [
 ]
 
 [tool.uv]
-package = false
+package = true
+
+[tool.uv.build-backend]
+# The import package is "app", at the project root (no src/ layout).
+module-name = "app"
+module-root = ""
 
 [tool.ruff]
 line-length = 100

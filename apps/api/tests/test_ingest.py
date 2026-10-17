@@ -60,12 +60,19 @@ class Env:
         self.datasets = datasets
 
 
+async def reset_register(admin_conn: asyncpg.Connection) -> None:
+    # Chat tests (P0-14, P0-15) share the session database and leave citations, which
+    # restrict deleting the sources they cite.
+    await admin_conn.execute("DELETE FROM citations")
+    await admin_conn.execute("DELETE FROM sources")
+    await admin_conn.execute("DELETE FROM datasets")
+
+
 @pytest.fixture
 async def env(
     database: MigratedDatabase, admin_conn: asyncpg.Connection
 ) -> AsyncIterator[tuple[Env, Ingest]]:
-    await admin_conn.execute("DELETE FROM sources")
-    await admin_conn.execute("DELETE FROM datasets")
+    await reset_register(admin_conn)
     fake = FakeRagflow()
     datasets: dict[str, str] = {}
     for tag, config in TAGS.items():
@@ -101,8 +108,7 @@ async def env(
 
     yield Env(fake, datasets), run
     await engine.dispose()
-    await admin_conn.execute("DELETE FROM sources")
-    await admin_conn.execute("DELETE FROM datasets")
+    await reset_register(admin_conn)
 
 
 async def source_row(admin_conn: asyncpg.Connection, source_id: UUID) -> asyncpg.Record:

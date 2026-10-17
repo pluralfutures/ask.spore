@@ -1,0 +1,24 @@
+FROM python:3.12.15-slim-bookworm
+RUN pip install --no-cache-dir uv==0.11.32
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH=/opt/venv/bin:$PATH \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /srv/api
+COPY pyproject.toml uv.lock .python-version ./
+RUN uv sync --locked --no-dev --no-install-project
+
+COPY alembic.ini ./
+COPY alembic ./alembic
+COPY app ./app
+
+RUN useradd --system --uid 10001 api
+USER api
+
+EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=3s --retries=6 \
+  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).status == 200 else 1)"
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

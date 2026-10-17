@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, "phase-*/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API (ruff, mypy, pytest)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.15-bookworm
+        env:
+          POSTGRES_USER: askspore
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: askspore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U askspore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TEST_ADMIN_DATABASE_URL: postgresql://askspore:ci-only-password@localhost:5432/postgres
+      REQUIRE_DB_TESTS: "1"
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.11.32"
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy app
+      - run: uv run pytest
+
+  web:
+    name: Web (eslint, prettier, tsc, vitest)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: apps/web/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.22.0"
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  compose:
+    name: Compose config
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: cp infra/ragflow/.env.example infra/ragflow/.env
+      - run: docker compose -f infra/compose.dev.yml config --quiet
+      - name: No floating image tags
+        run: |
+          if docker compose -f infra/compose.dev.yml config --images | grep -Ev ':[^:]+$' | grep -Ev '^ask-spore-dev-'; then
+            echo "untagged image"; exit 1
+          fi
+          if docker compose -f infra/compose.dev.yml config --images | grep -E ':latest$'; then
+            echo "floating :latest tag"; exit 1
+          fi

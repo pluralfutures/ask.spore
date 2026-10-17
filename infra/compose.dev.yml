@@ -1,0 +1,123 @@
+# Local development stack: Postgres, Redis, API, web dev server and the pinned
+# RAGFlow tier from infra/ragflow/.
+#
+#   cp infra/ragflow/.env.example infra/ragflow/.env   # set passwords
+#   docker compose -f infra/compose.dev.yml up -d
+#
+# Host ports bind to 127.0.0.1 only. RAGFlow publishes only its web UI; the API
+# reaches RAGFlow's HTTP API over the `ragflow` network.
+
+name: ask-spore-dev
+
+include:
+  - path: ./ragflow/docker-compose.yml
+    env_file: ./ragflow/.env
+
+services:
+  postgres:
+    image: postgres:16.15-bookworm
+    environment:
+      POSTGRES_DB: askspore
+      POSTGRES_USER: askspore
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-askspore-dev}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-askspore-app-dev}
+    ports:
+      - 127.0.0.1:${POSTGRES_PORT:-5432}:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/10-app-role.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U askspore -d askspore"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - app
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4.11-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - 127.0.0.1:${REDIS_PORT:-6379}:6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - app
+    restart: unless-stopped
+
+  # One-shot: apply Alembic migrations as the schema owner, then exit.
+  migrate:
+    build:
+      context: ../apps/api
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      # PHASE0_INTERNAL_USERS (seeded internal users).
+      - path: ../.env
+        required: false
+    environment:
+      MIGRATIONS_DATABASE_URL: postgresql+asyncpg://askspore:${POSTGRES_PASSWORD:-askspore-dev}@postgres:5432/askspore
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app
+    restart: "no"
+
+  api:
+    build:
+      context: ../apps/api
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      # MISTRAL_API_KEY, RAGFLOW_API_KEY. If absent, the API exits at startup and names
+      # the missing variables (app.core.config).
+      - path: ../.env
+        required: false
+    environment:
+      ASK_SPORE_CONFIG_DIR: /srv/config
+      DATABASE_URL: postgresql+asyncpg://askspore_app:${APP_DB_PASSWORD:-askspore-app-dev}@postgres:5432/askspore
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ../config:/srv/config:ro
+    ports:
+      - 127.0.0.1:${API_PORT:-8000}:8000
+    networks:
+      - app
+      - ragflow
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile.dev
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${WEB_PORT:-5173}:5173
+    volumes:
+      - ../apps/web/src:/srv/web/src:ro
+      - ../apps/web/index.html:/srv/web/index.html:ro
+      - ../apps/web/vite.config.ts:/srv/web/vite.config.ts:ro
+      - ../apps/web/tsconfig.json:/srv/web/tsconfig.json:ro
+      - ../apps/web/tsconfig.app.json:/srv/web/tsconfig.app.json:ro
+      - ../apps/web/tsconfig.node.json:/srv/web/tsconfig.node.json:ro
+    networks:
+      - app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  app:
+    driver: bridge

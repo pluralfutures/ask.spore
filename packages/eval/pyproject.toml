@@ -1,0 +1,9 @@
+[project]
+name = "ask-spore-eval"
+version = "0.0.0"
+description = "ask.spore evaluation set and harness (P0-17, P0-18)"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[tool.uv]
+package = false

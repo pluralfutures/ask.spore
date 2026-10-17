@@ -22,6 +22,14 @@ timeout_seconds = 30
 [prompts]
 corpus_only = "v1"
 rewrite = "v1"
+
+[chat]
+history_messages = 6
+history_max_tokens = 2000
+top_k = 10
+similarity_threshold = 0.2
+max_context_tokens = 6000
+cache_ttl_seconds = 86400
 """
 
 ENV = {

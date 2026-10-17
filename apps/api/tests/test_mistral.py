@@ -4,96 +4,14 @@ from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import Callable
 from datetime import date
 from typing import Any
 
 import httpx
 import pytest
-from pydantic import SecretStr
 
-from app.core.config import MistralConfig
 from app.llm.mistral import LLMError, MistralClient, PromptChunk, Turn, render_context
-
-CONFIG = MistralConfig(
-    base_url="https://api.mistral.ai",
-    chat_model="mistral-large-2512",
-    rewrite_model="mistral-small-2603",
-    timeout_seconds=5,
-)
-API_KEY = "test-mistral-key"
-
-Handler = Callable[[httpx.Request], httpx.Response]
-
-
-class Recorder:
-    """A mock transport that records every request and replies from a queue."""
-
-    def __init__(self, *replies: httpx.Response | Exception) -> None:
-        self.replies = list(replies)
-        self.requests: list[httpx.Request] = []
-
-    def __call__(self, request: httpx.Request) -> httpx.Response:
-        request.read()
-        self.requests.append(request)
-        reply = self.replies.pop(0)
-        if isinstance(reply, Exception):
-            raise reply
-        return reply
-
-    def client(self, rewrite_system: str = "Rewrite prompt.") -> MistralClient:
-        http = httpx.AsyncClient(transport=httpx.MockTransport(self))
-        return MistralClient(CONFIG, SecretStr(API_KEY), rewrite_system, http_client=http)
-
-    def bodies(self) -> list[dict[str, Any]]:
-        return [json.loads(r.content) for r in self.requests]
-
-
-def sse(*events: dict[str, Any] | str) -> httpx.Response:
-    lines = []
-    for event in events:
-        data = event if isinstance(event, str) else json.dumps(event)
-        lines.append(f"data: {data}\n\n")
-    return httpx.Response(
-        200, headers={"content-type": "text/event-stream"}, content="".join(lines).encode()
-    )
-
-
-def delta(text: str, usage: dict[str, int] | None = None) -> dict[str, Any]:
-    chunk: dict[str, Any] = {
-        "id": "cmpl-1",
-        "model": CONFIG.chat_model,
-        "object": "chat.completion.chunk",
-        "choices": [{"index": 0, "delta": {"content": text}, "finish_reason": None}],
-    }
-    if usage is not None:
-        chunk["usage"] = usage
-        chunk["choices"][0]["finish_reason"] = "stop"
-    return chunk
-
-
-def completion(text: str) -> httpx.Response:
-    return httpx.Response(
-        200,
-        json={
-            "id": "cmpl-2",
-            "object": "chat.completion",
-            "model": CONFIG.rewrite_model,
-            "created": 0,
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {"role": "assistant", "content": text},
-                    "finish_reason": "stop",
-                }
-            ],
-            "usage": {"prompt_tokens": 40, "completion_tokens": 8, "total_tokens": 48},
-        },
-    )
-
-
-def error(status: int) -> httpx.Response:
-    return httpx.Response(status, json={"message": "synthetic upstream error body"})
+from tests.fakes import API_KEY, Recorder, completion, delta, error, sse
 
 
 async def collect(client: MistralClient, **kwargs: Any) -> tuple[str, Any]:

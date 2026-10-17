@@ -81,11 +81,24 @@ class PromptsConfig(_Strict):
     rewrite: str = Field(pattern=r"^v[1-9][0-9]*$")
 
 
+class ChatConfig(_Strict):
+    """Orchestrator parameters (P0-14). Token counts are estimates (~4 characters each)."""
+
+    history_messages: int = Field(ge=0, le=50)
+    history_max_tokens: int = Field(ge=0)
+    top_k: int = Field(ge=1, le=100)
+    similarity_threshold: float = Field(ge=0, le=1)
+    max_context_tokens: int = Field(gt=0)
+    # Answer cache TTL; app.core.cache caps every TTL at the 30-day retention limit.
+    cache_ttl_seconds: int = Field(gt=0, le=30 * 24 * 3600)
+
+
 class ModelsConfig(_Strict):
     allow_list: AllowList
     mistral: MistralConfig
     ragflow: RagflowConfig
     prompts: PromptsConfig
+    chat: ChatConfig
 
 
 @dataclass(frozen=True)

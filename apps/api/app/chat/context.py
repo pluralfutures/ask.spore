@@ -13,6 +13,9 @@ from app.llm.mistral import PromptChunk
 from app.retrieval.types import RetrievedChunk
 
 CHARS_PER_TOKEN = 4  # estimate; no tokenizer dependency in Phase 0
+# RAGFlow gives DOCX, HTML and Markdown chunks a pseudo-position on page 1, so a page
+# or slide number is real only for these source types (findings R14).
+PAGED_SOURCE_TYPES = frozenset({"pdf", "pptx"})
 _SPACE = re.compile(r"\s+")
 
 
@@ -31,13 +34,19 @@ class ContextChunk:
     chunk: RetrievedChunk
     provenance: Provenance
 
+    @property
+    def page_or_slide(self) -> int | None:
+        if self.provenance.type not in PAGED_SOURCE_TYPES:
+            return None
+        return self.chunk.page_or_slide
+
     def for_prompt(self) -> PromptChunk:
         # Only provenance and text cross the model boundary; IDs stay here.
         return PromptChunk(
             publisher=self.provenance.publisher,
             title=self.provenance.title,
             published_on=self.provenance.published_on,
-            page_or_slide=self.chunk.page_or_slide,
+            page_or_slide=self.page_or_slide,
             text=self.chunk.text,
             untrusted=self.provenance.untrusted,
         )

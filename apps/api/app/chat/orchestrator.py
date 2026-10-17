@@ -124,7 +124,7 @@ def _citation(marker: int, item: ContextChunk) -> CitationOut:
         marker=marker,
         source_id=str(item.provenance.source_id),
         chunk_id=item.chunk.chunk_id,
-        page_or_slide=item.chunk.page_or_slide,
+        page_or_slide=item.page_or_slide,
         excerpt=item.chunk.text[:EXCERPT_MAX_CHARS],
         publisher=item.provenance.publisher,
         title=item.provenance.title,

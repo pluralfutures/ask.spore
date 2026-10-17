@@ -121,3 +121,42 @@ def test_prompt_chunk_from_context_carries_no_ids() -> None:
     rendered = repr(selected[0].for_prompt())
     for identifier in ("chunk-xyz", "doc-xyz", "ds-a", str(source)):
         assert identifier not in rendered
+
+
+@pytest.mark.parametrize(
+    ("kind", "expected"),
+    [("pdf", 3), ("pptx", 3), ("docx", None), ("html", None), ("markdown", None)],
+)
+def test_page_or_slide_only_for_paged_source_types(kind: str, expected: int | None) -> None:
+    # RAGFlow reports page 1 (here 3, to tell it from a default) for every format (R14).
+    chunk = RetrievedChunk("c", "d", "ds-a", "text", 0.9, 3)
+    selected = select_context(
+        [chunk],
+        {"d": _prov(uuid.uuid4(), kind)},
+        dataset_ids=["ds-a"],
+        similarity_threshold=0,
+        max_tokens=100,
+    )
+    assert selected[0].page_or_slide == expected
+    assert selected[0].for_prompt().page_or_slide == expected
+
+
+def test_select_context_dedupes_a_source_linked_into_two_datasets() -> None:
+    # R15: one source under two tags is two RAGFlow documents with different chunk and
+    # document IDs; only the provenance join tells they are the same source.
+    shared, other = uuid.uuid4(), uuid.uuid4()
+    provenance = {"doc-a": _prov(shared), "doc-b": _prov(shared), "doc-c": _prov(other)}
+    chunks = [
+        _chunk("chunk-a", "doc-a", "Capacity grew 12%.", 0.7, dataset="ds-a"),
+        _chunk("chunk-b", "doc-b", "Capacity grew 12%.", 0.8, dataset="ds-b"),
+        # Same text from a different source is a separate citation.
+        _chunk("chunk-c", "doc-c", "Capacity grew 12%.", 0.6, dataset="ds-a"),
+    ]
+    selected = select_context(
+        chunks,
+        provenance,
+        dataset_ids=["ds-a", "ds-b"],
+        similarity_threshold=0,
+        max_tokens=100,
+    )
+    assert [c.chunk.chunk_id for c in selected] == ["chunk-b", "chunk-c"]

@@ -1,8 +1,8 @@
 """Conversations, messages, citations and feedback. Tenant-scoped with RLS.
 
 Child rows reference parents through composite (tenant_id, id) foreign keys, so a
-row can never point at another tenant's row. Mirrors alembic revision 0001; the
-migration is authoritative.
+row can never point at another tenant's row. Mirrors alembic revisions 0001-0002; the
+migrations are authoritative.
 """
 
 from __future__ import annotations
@@ -77,6 +77,11 @@ class Message(Base):
         ),
         CheckConstraint("role IN ('user', 'assistant')", name="role_valid"),
         CheckConstraint("mode IN ('corpus_only')", name="mode_valid"),
+        CheckConstraint(
+            "(role = 'user' AND outcome IS NULL) OR "
+            "(role = 'assistant' AND outcome IN ('answered', 'unsupported', 'abstained'))",
+            name="outcome_valid",
+        ),
         Index(None, "tenant_id", "conversation_id", "created_at"),
     )
 
@@ -90,6 +95,8 @@ class Message(Base):
     tokens_in: Mapped[int | None] = mapped_column(Integer)
     tokens_out: Mapped[int | None] = mapped_column(Integer)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
+    # Assistant messages only (revision 0002): answered | unsupported | abstained.
+    outcome: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _created()
 
 

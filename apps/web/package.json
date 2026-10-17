@@ -14,14 +14,21 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "gen:api": "openapi-typescript ../api/openapi.json -o src/api/schema.d.ts && prettier --write src/api/schema.d.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@tanstack/react-query": "5.104.1",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "react-markdown": "10.1.0",
+    "react-router-dom": "7.18.4"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/vite": "4.3.3",
     "@types/node": "22.20.5",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
@@ -31,7 +38,9 @@
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-react-refresh": "0.5.7",
     "globals": "17.13.0",
+    "openapi-typescript": "7.13.0",
     "prettier": "3.9.10",
+    "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.2",
     "vite": "8.3.4",

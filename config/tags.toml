@@ -1,0 +1,12 @@
+# Content tags. One RAGFlow dataset per tag (architecture §4.4); the tag-to-dataset
+# mapping lives in the `datasets` table, written by `ask-spore datasets sync` (P0-08).
+#
+# PHASE 0: the single internal tenant's package is every tag listed here. The chat
+# orchestrator reads only the table names; per-tag settings (chunking method,
+# P0-08) live inside each table.
+
+[tags.sample-reports]
+
+[tags.sample-analysis]
+
+[tags.sample-web]

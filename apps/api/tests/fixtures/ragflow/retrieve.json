@@ -1,0 +1,149 @@
+{
+  "code": 0,
+  "data": {
+    "chunks": [
+      {
+        "content": "2. Capacity by zone\n3.Costs\nThe levelised cost of electricity for fixed-bottom projects fell to 61 EUR/MWh in the synthetic 2025\nauction round, down from 74 EUR/MWh in 2023. Floating projects remain above 120 EUR/MWh.\nFlCE attributes thedecline tolarger turbines(15 MWclass)andlower financing costs.",
+        "content_ltks": "2 capac by zone 3 cost the levelis cost of electr for fix bottom project fell to 61 eur mwh in the synthet 2025 auction round down from 74 eur mwh in 2023 float project remain abov 120 eur mwh flce attribut thedeclin tolarg turbin 15 mwclass andlow financ cost",
+        "dataset_id": "d2680670ca8111f18b280bc8b8cfdbb7",
+        "doc_type_kwd": "",
+        "document_id": "d27287b2ca8111f18b280bc8b8cfdbb7",
+        "document_keyword": "tidewater-offshore-wind-2026.pdf",
+        "id": "e417ac9113976a0e",
+        "image_id": "d2680670ca8111f18b280bc8b8cfdbb7-e417ac9113976a0e",
+        "important_keywords": [],
+        "mom_id": "",
+        "positions": [
+          [
+            1,
+            78,
+            207,
+            229,
+            242
+          ],
+          [
+            2,
+            77,
+            132,
+            81,
+            93
+          ],
+          [
+            2,
+            77,
+            508,
+            103,
+            114
+          ],
+          [
+            2,
+            78,
+            504,
+            116,
+            127
+          ],
+          [
+            2,
+            77,
+            457,
+            128,
+            138
+          ]
+        ],
+        "row_id": null,
+        "similarity": 0.32458531709906596,
+        "tag_kwd": [],
+        "term_similarity": 0.10465673871295143,
+        "vector_similarity": 0.837752
+      },
+      {
+        "content": "1. Summary\nInstalled offshore wind capacity in the fictional Tidewater region reached 4.2 GW at the end of\n2025. FICE projects 9.8 GW by 2030 if the Marlow Bank auction clears on schedule. Grid\nconnection queues remain the main constraint; the average wait for a connection offer rose from 14\nto 22 months.",
+        "content_ltks": "1 summari instal offshor wind capac in the fiction tidewat region reach 42 gw at the end of 2025 fice project 98 gw by 2030 if the marlow bank auction clear on schedul grid connect queue remain the main constraint the averag wait for a connect offer rose from 14 to 22 month",
+        "dataset_id": "d2680670ca8111f18b280bc8b8cfdbb7",
+        "doc_type_kwd": "",
+        "document_id": "d27287b2ca8111f18b280bc8b8cfdbb7",
+        "document_keyword": "tidewater-offshore-wind-2026.pdf",
+        "id": "f395a2a04092fc65",
+        "image_id": "d2680670ca8111f18b280bc8b8cfdbb7-f395a2a04092fc65",
+        "important_keywords": [],
+        "mom_id": "",
+        "positions": [
+          [
+            1,
+            78,
+            157,
+            144,
+            157
+          ],
+          [
+            1,
+            77,
+            492,
+            168,
+            178
+          ],
+          [
+            1,
+            77,
+            473,
+            179,
+            190
+          ],
+          [
+            1,
+            77,
+            516,
+            192,
+            202
+          ],
+          [
+            1,
+            77,
+            138,
+            204,
+            214
+          ]
+        ],
+        "row_id": null,
+        "similarity": 0.3035362958033464,
+        "tag_kwd": [],
+        "term_similarity": 0.07933309400478057,
+        "vector_similarity": 0.8266771
+      },
+      {
+        "content": "<table><caption> Table 1 lists installed and planned capacity by zone.</caption>\n<tr><th  >Zone</th><th  >Installed 2025 (GW)</th><th  >Planned 2030 (GW)</th></tr>\n<tr><td  >MarlowBank</td><td  >1.1</td><td  >3.9</td></tr>\n<tr><td  >GreyShoal</td><td  >2.0</td><td  >3.4</td></tr>\n<tr><td  >EskDeep</td><td  >1.1</td><td  >2.5</td></tr>\n</table>",
+        "content_ltks": "tabl 1 list instal and plan capac by zone zone instal 2025 gw plan 2030 gw marlowbank 11 39 greyshoal 20 34 eskdeep 11 25",
+        "dataset_id": "d2680670ca8111f18b280bc8b8cfdbb7",
+        "doc_type_kwd": "table",
+        "document_id": "d27287b2ca8111f18b280bc8b8cfdbb7",
+        "document_keyword": "tidewater-offshore-wind-2026.pdf",
+        "id": "c9308c4bf0e23bc8",
+        "image_id": "d2680670ca8111f18b280bc8b8cfdbb7-c9308c4bf0e23bc8",
+        "important_keywords": [],
+        "mom_id": "",
+        "positions": [
+          [
+            1,
+            162,
+            433,
+            267,
+            341
+          ]
+        ],
+        "row_id": null,
+        "similarity": 0.2477025075691631,
+        "tag_kwd": [],
+        "term_similarity": 0.03238591081309012,
+        "vector_similarity": 0.7501079
+      }
+    ],
+    "doc_aggs": [
+      {
+        "count": 3,
+        "doc_id": "d27287b2ca8111f18b280bc8b8cfdbb7",
+        "doc_name": "tidewater-offshore-wind-2026.pdf"
+      }
+    ],
+    "total": 3
+  }
+}

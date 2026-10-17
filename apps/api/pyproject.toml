@@ -6,6 +6,7 @@ requires-python = ">=3.12,<3.13"
 # Minor versions pinned per design/Stack Decision.md; exact versions live in uv.lock.
 dependencies = [
     "fastapi~=0.143.3",
+    "httpx~=0.28.1",
     "pydantic~=2.14.1",
     "redis~=8.1.0",
     "sqlalchemy[asyncio]~=2.1.5",
@@ -16,7 +17,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "httpx~=0.28.1",
     "mypy~=2.4.0",
     "pytest~=9.1.1",
     "pytest-asyncio~=1.4.0",

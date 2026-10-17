@@ -1,0 +1,43 @@
+{
+  "code": 0,
+  "data": {
+    "docs": [
+      {
+        "chunk_count": 0,
+        "chunk_method": "paper",
+        "create_date": "2026-10-18T01:21:02",
+        "create_time": 1792279262796,
+        "created_by": "e17c0764ca7d11f1adf0cf0af9c5eb0e",
+        "dataset_id": "6b527934ca8111f18b280bc8b8cfdbb7",
+        "id": "6b61cad8ca8111f18b280bc8b8cfdbb7",
+        "location": "tidewater-offshore-wind-2026.pdf",
+        "meta_fields": {},
+        "name": "tidewater-offshore-wind-2026.pdf",
+        "nickname": "dev",
+        "parser_config": {
+          "image_context_size": 0,
+          "llm_id": "",
+          "table_context_size": 0
+        },
+        "pipeline_id": null,
+        "pipeline_name": null,
+        "process_begin_at": "2026-10-18T01:21:33",
+        "process_duration": 106.078,
+        "progress": -1.0,
+        "progress_msg": "01:22:17 Page(1~2): Page 0~2: Text merging finished\n01:22:18 Page(1~2): Generate 5 chunks\n01:22:18 Page(1~2): Embedding chunks (0.95s)\n01:23:19 Page(1~2): [ERROR]Insert chunk error: [\"e82e893f13c0952f:{'type': 'unavailable_shards_exception', 'reason': '[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][0] primary shard is not active Timeout: [1m], request: [BulkShardRequest [[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][0]] containing [2] requests]'}\", \"418d0dbbcdbad153:{'type': 'unavailable_shards_exception', 'reason': '[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1] primary shard is not active Timeout: [1m], request: [BulkShardRequest [[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1]] containing [3] requests]'}\", \"74e5e3cde0afc48e:{'type': 'unavailable_shards_exception', 'reason': '[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1] primary shard is not active Timeout: [1m], request: [BulkShardRequest [[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1]] containing [3] requests]'}\", \"ac843e55e3b45332:{'type': 'unavailable_shards_exception', 'reason': '[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1] primary shard is not active Timeout: [1m], request: [BulkShardRequest [[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1]] containing [3] requests]'}\", \"4f140e1007cc1b44:{'type': 'unavailable_shards_exception', 'reason': '[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][0] primary shard is not active Timeout: [1m], request: [BulkShardRequest [[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][0]] containing [2] requests]'}\"], please check log file and Elasticsearch/Infinity status!\n01:23:19 [ERROR][Exception]: Insert chunk error: [\"e82e893f13c0952f:{'type': 'unavailable_shards_exception', 'reason': '[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][0] primary shard is not active Timeout: [1m], request: [BulkShardRequest [[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][0]] containing [2] requests]'}\", \"418d0dbbcdbad153:{'type': 'unavailable_shards_exception', 'reason': '[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1] primary shard is not active Timeout: [1m], request: [BulkShardRequest [[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1]] containing [3] requests]'}\", \"74e5e3cde0afc48e:{'type': 'unavailable_shards_exception', 'reason': '[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1] primary shard is not active Timeout: [1m], request: [BulkShardRequest [[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1]] containing [3] requests]'}\", \"ac843e55e3b45332:{'type': 'unavailable_shards_exception', 'reason': '[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1] primary shard is not active Timeout: [1m], request: [BulkShardRequest [[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][1]] containing [3] requests]'}\", \"4f140e1007cc1b44:{'type': 'unavailable_shards_exception', 'reason': '[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][0] primary shard is not active Timeout: [1m], request: [BulkShardRequest [[ragflow_e17c0764ca7d11f1adf0cf0af9c5eb0e][0]] containing [2] requests]'}\"], please check log file and Elasticsearch/Infinity status!",
+        "run": "FAIL",
+        "size": 3212,
+        "source_type": "local",
+        "status": "1",
+        "suffix": "pdf",
+        "thumbnail": "/api/v1/documents/images/6b527934ca8111f18b280bc8b8cfdbb7-thumbnail_6b61cad8ca8111f18b280bc8b8cfdbb7.png",
+        "token_count": 0,
+        "type": "pdf",
+        "update_date": "2026-10-18T01:23:19",
+        "update_time": 1792279399078
+      }
+    ],
+    "total": 1
+  },
+  "message": "success"
+}

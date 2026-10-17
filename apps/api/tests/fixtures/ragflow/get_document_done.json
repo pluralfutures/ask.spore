@@ -1,0 +1,43 @@
+{
+  "code": 0,
+  "data": {
+    "docs": [
+      {
+        "chunk_count": 5,
+        "chunk_method": "paper",
+        "create_date": "2026-10-18T01:23:55",
+        "create_time": 1792279435581,
+        "created_by": "e17c0764ca7d11f1adf0cf0af9c5eb0e",
+        "dataset_id": "d2680670ca8111f18b280bc8b8cfdbb7",
+        "id": "d27287b2ca8111f18b280bc8b8cfdbb7",
+        "location": "tidewater-offshore-wind-2026.pdf",
+        "meta_fields": {},
+        "name": "tidewater-offshore-wind-2026.pdf",
+        "nickname": "dev",
+        "parser_config": {
+          "image_context_size": 0,
+          "llm_id": "",
+          "table_context_size": 0
+        },
+        "pipeline_id": null,
+        "pipeline_name": null,
+        "process_begin_at": "2026-10-18T01:23:55",
+        "process_duration": 18.9573,
+        "progress": 1.0,
+        "progress_msg": "\n01:23:58 Task has been received.\n01:23:59 Page(1~2): Start to parse.\n01:23:59 Page(1~2): OCR started\n01:24:02 Page(1~2): OCR finished (3.86s)\n01:24:05 Page(1~2): Layout analysis (2.23s)\n01:24:07 Page(1~2): Table analysis (2.14s)\n01:24:07 Page(1~2): Text merged (0.04s)\n01:24:07 Page(1~2): Page 0~2: Text merging finished\n01:24:07 Page(1~2): Generate 5 chunks\n01:24:08 Page(1~2): Embedding chunks (0.74s)\n01:24:08 Page(1~2): Indexing done (0.31s).\n01:24:13 Page(1~2): Task done (14.95s)",
+        "run": "DONE",
+        "size": 3212,
+        "source_type": "local",
+        "status": "1",
+        "suffix": "pdf",
+        "thumbnail": "/api/v1/documents/images/d2680670ca8111f18b280bc8b8cfdbb7-thumbnail_d27287b2ca8111f18b280bc8b8cfdbb7.png",
+        "token_count": 314,
+        "type": "pdf",
+        "update_date": "2026-10-18T01:24:13",
+        "update_time": 1792279453957
+      }
+    ],
+    "total": 1
+  },
+  "message": "success"
+}

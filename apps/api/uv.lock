@@ -55,6 +55,7 @@ dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "pydantic" },
     { name = "redis" },
     { name = "sqlalchemy", extra = ["asyncio"] },
@@ -63,7 +64,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -75,6 +75,7 @@ requires-dist = [
     { name = "alembic", specifier = "~=1.20.0" },
     { name = "asyncpg", specifier = "~=0.32.0" },
     { name = "fastapi", specifier = "~=0.143.3" },
+    { name = "httpx", specifier = "~=0.28.1" },
     { name = "pydantic", specifier = "~=2.14.1" },
     { name = "redis", specifier = "~=8.1.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = "~=2.1.5" },
@@ -83,7 +84,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = "~=0.28.1" },
     { name = "mypy", specifier = "~=2.4.0" },
     { name = "pytest", specifier = "~=9.1.1" },
     { name = "pytest-asyncio", specifier = "~=1.4.0" },

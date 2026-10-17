@@ -247,3 +247,20 @@ Open decisions:
 - Whether to use cross-tenant query data for retrieval tuning at all; if yes, the aggregation threshold.
 - Entitlement model: flat tiers versus per-client packages, and whether a client-specific package ever justifies a separate index.
 - Whether to pursue ISO 27001 alongside SOC 2 for EU procurement.
+
+## Addendum (Oct 17, 2026): answer modes, sign-in links and fixed retention
+
+Scoping decisions recorded in the Platform Architecture & Functional Design document change three points above.
+
+**Answer modes.** Corpus-only remains the default. Two optional modes exist, enabled per tenant by the platform operator:
+
+- *General knowledge*: the model may add its own knowledge where the corpus is silent. No new data flow; the only change is that uncited sentences are visibly marked and the answer carries a banner. Keep the output disclaimer in the terms of service broad enough to cover uncited content.
+- *Web search*: the rewritten query is sent to a web search provider and the top result pages are fetched server-side. This adds a sub-processor that receives query text. Requirements: the provider is listed in the sub-processor list with a DPA and, where applicable, SCCs and a TIA; the mode is covered by an explicit clause in the client DPA and is enabled only for tenants that have accepted it; only the rewritten query is sent, never chat history or corpus chunks; fetched web text is treated as untrusted input and is never written to the corpus; web citations are labelled separately from corpus citations; every search call is audited with tenant, mode and timestamp. Add "web-search provider retention change" and "licensed content displaced by web content" to the risk register.
+
+**Sign-in links by email.** Emailed single-use links are an accepted login method alongside SSO. The transactional email provider (Scaleway Transactional Email, Paris) becomes a sub-processor receiving user email addresses only. Controls: single-use tokens, 15-minute expiry, browser binding, rate limits, no account enumeration, second factor required for tenant admins. Map to CC6.1 and CC6.2.
+
+**Retention.** Chat-history retention is fixed at a 30-day maximum; tenants may shorten it but not extend it. The "open decision" on retention above is closed. The DPA states the 30-day cap.
+
+**Decisions closed.** Cross-tenant query data is not used for retrieval tuning beyond aggregated, pseudonymised metrics with a minimum group size. Packages are client-specific sets of content tags on a shared index; no separate index per client. ISO 27001 is not pursued now; SOC 2 Security and Confidentiality remains the target.
+
+**Update (same day).** Web-search mode will use Mistral's built-in web-search tool on the EU endpoint, so no new sub-processor is added; confirm in writing that tool calls fall under the existing Mistral DPA and zero-retention letter, and disclose the mode in the client DPA as described above. Answer modes are enabled only by the platform operator per tenant. Our own DOCX/PPTX analysis is downloadable from the platform by entitled users; downloads are served through signed, short-lived URLs, audited and capped per user, and this is added to the bulk-extraction controls (CC6.6, CC7.2). Emailed sign-in links are on by default for every tenant and can be disabled per tenant by the operator.

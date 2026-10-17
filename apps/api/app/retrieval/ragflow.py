@@ -116,8 +116,11 @@ def _document(raw: Mapping[str, Any], dataset_id: str) -> RagflowDocument:
 def page_or_slide(raw: Mapping[str, Any]) -> int | None:
     """First page (PDF) or slide (PPTX) of a retrieved chunk, 1-based, if known.
 
-    RAGFlow returns ``positions`` as ``[[page, x0, x1, top, bottom], ...]``; chunks
-    from formats without pages (DOCX, HTML, Markdown) have none.
+    RAGFlow returns ``positions`` as ``[[page, x0, x1, top, bottom], ...]``. It also
+    gives DOCX, HTML and Markdown chunks a pseudo-position ``[[1, 0, 0, 0, 0]]``,
+    indistinguishable from slide 1 of a deck, so this value is meaningful only for
+    ``pdf`` and ``pptx`` sources; callers that know the source type must ignore it
+    for the others (findings R14).
     """
     positions = raw.get("positions")
     if isinstance(positions, list) and positions:

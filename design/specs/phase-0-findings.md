@@ -15,6 +15,13 @@ Recorded as found, per `CLAUDE.md` ("follow the real API and record the differen
 | R5 | P0-02 | n/a | Health endpoints: `GET /api/v1/system/ping` → `pong`; `GET /api/v1/system/healthz` → `{"db","doc_engine","redis","storage","status"}`. Legacy `/v1/system/healthz` also answers. `/v1/system/ping` is 404. | Container healthcheck uses `/api/v1/system/healthz`. |
 | R6 | P0-02 | Images pinned | Upstream Compose uses floating tags for Valkey (`valkey/valkey:8`), SeekDB and the sandbox executor (`:latest`). | Valkey pinned to `8.1.10`; SeekDB and sandbox are not used and were dropped. |
 
+## 1b. Where Mistral differs from what the spec assumes
+
+| # | Found in | Spec / design assumption | Reality | What we did |
+| --- | --- | --- | --- | --- |
+| M1 | P0-03 | "Mistral EU base URL" as a distinct endpoint | No separate EU hostname could be found; la Plateforme is `https://api.mistral.ai`, described as EU-processed by default (no official regional variant found; Mistral's documentation site was not reachable from the build environment). | `config/models.toml` uses `https://api.mistral.ai` and allow-lists only that host. **To confirm** against the Mistral DPA / zero-retention letter before P0-13 makes the first call, together with §13 assumption 1. |
+| M2 | P0-03 | Pinned `mistral-large-<date>` and a pinned small model | Dated IDs could not be verified against the live model list from the build environment. Pinned `mistral-large-2512` (Mistral Large 3) and `mistral-small-2603` as the best available information. | Startup enforces the dated format and rejects `-latest`. **To confirm** with `GET /v1/models` on the team's account before P0-13; change only `config/models.toml`. |
+
 ## 2. RAGFlow endpoints and parameters used
 
 To be filled by P0-07.

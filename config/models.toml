@@ -1,0 +1,25 @@
+# Provider endpoints, pinned model names and the outbound host allow-list.
+# Loaded and validated at API startup by app.core.config; the API refuses to start
+# if any outbound host below is not in [allow_list].hosts, if a model name is an
+# undated alias (for example "-latest"), or if a required secret is missing.
+#
+# Secrets never live here. They come from the environment (see .env.example).
+
+[allow_list]
+# EU-hosted endpoints only. Add a host here only with the DPA / zero-retention
+# evidence for it recorded next to this file.
+hosts = [
+    "api.mistral.ai", # Mistral la Plateforme, EU-hosted (see design/specs/phase-0-findings.md M1)
+    "ragflow",        # RAGFlow on the private Compose network; never public
+]
+
+[mistral]
+base_url = "https://api.mistral.ai"
+# Dated model versions only; never "-latest" (reproducible evals).
+chat_model = "mistral-large-2512"
+rewrite_model = "mistral-small-2603"
+timeout_seconds = 60
+
+[ragflow]
+base_url = "http://ragflow:9380"
+timeout_seconds = 30

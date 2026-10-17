@@ -64,6 +64,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: apps/web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - name: Client types match apps/api/openapi.json
+        run: pnpm gen:api && git diff --exit-code src/api/schema.d.ts
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test

@@ -22,6 +22,15 @@ Recorded as found, per `CLAUDE.md` ("follow the real API and record the differen
 | M1 | P0-03 | "Mistral EU base URL" as a distinct endpoint | No separate EU hostname could be found; la Plateforme is `https://api.mistral.ai`, described as EU-processed by default (no official regional variant found; Mistral's documentation site was not reachable from the build environment). | `config/models.toml` uses `https://api.mistral.ai` and allow-lists only that host. **To confirm** against the Mistral DPA / zero-retention letter before P0-13 makes the first call, together with §13 assumption 1. |
 | M2 | P0-03 | Pinned `mistral-large-<date>` and a pinned small model | Dated IDs could not be verified against the live model list from the build environment. Pinned `mistral-large-2512` (Mistral Large 3) and `mistral-small-2603` as the best available information. | Startup enforces the dated format and rejects `-latest`. **To confirm** with `GET /v1/models` on the team's account before P0-13; change only `config/models.toml`. |
 
+## 1c. Where the Group C build differs from the spec
+
+| # | Found in | Spec says | What we did and why |
+| --- | --- | --- | --- |
+| C1 | P0-14 | Persist "message, citations, usage"; `done` carries `{message_id, unsupported, tokens_in, tokens_out}` | Migration `0002` adds `messages.outcome` (`answered`, `unsupported`, `abstained`) so a reloaded conversation shows the same badge and "nothing relevant found" state as the live stream. `done` also carries `abstained` and `cached`, which the web app needs. |
+| C2 | P0-14 | "Cache by tenant + normalised question + corpus version" | Keyed on the normalised *standalone* (rewritten) query, plus dataset IDs, prompt version and model. Keying on the literal question would serve one conversation's answer to "and in Germany?" in another. The corpus version is a hash over the package's source rows (no trigger needed). |
+| C3 | P0-15 | `GET /healthz` among the `/api/v1` routes, "all routes behind P0-06" | The authenticated route is `/api/v1/healthz`. The root `/healthz` stays unauthenticated for the Compose probe (P0-02). |
+| C4 | P0-08 / P0-14 | Chunking method per tag: `paper` for reports, `presentation` for PPTX, `naive` for DOCX and web | `sample-analysis` holds both DOCX and PPTX, which would need two methods in one dataset. For Group B (P0-08) to settle; the orchestrator does not depend on it. |
+
 ## 2. RAGFlow endpoints and parameters used
 
 To be filled by P0-07.

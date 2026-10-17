@@ -72,6 +72,8 @@ class MistralConfig(_Strict):
 class RagflowConfig(_Strict):
     base_url: str
     timeout_seconds: float = Field(gt=0)
+    # Embedding model new datasets are created with, as RAGFlow names it (P0-08).
+    embedding_model: str = Field(min_length=1)
 
 
 class PromptsConfig(_Strict):
@@ -148,6 +150,8 @@ def _check_models(models: ModelsConfig) -> list[str]:
                 f"{name} '{model}' must be a dated version such as 'mistral-large-2512', "
                 "not an alias like '-latest'"
             )
+    if "latest" in models.ragflow.embedding_model.lower():
+        problems.append("ragflow.embedding_model must name a fixed model, not a '-latest' alias")
     return problems
 
 

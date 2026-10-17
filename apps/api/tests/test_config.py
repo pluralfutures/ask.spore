@@ -18,6 +18,7 @@ timeout_seconds = 60
 [ragflow]
 base_url = "http://ragflow:9380"
 timeout_seconds = 30
+embedding_model = "BAAI/bge-m3@Builtin"
 
 [prompts]
 corpus_only = "v1"
@@ -155,4 +156,11 @@ def test_rejects_short_bearer_token(tmp_path: Path) -> None:
     env = {**ENV, "PHASE0_BEARER_TOKEN": "short"}
     assert problems_for(tmp_path, VALID_TOML, env) == [
         "PHASE0_BEARER_TOKEN must be at least 32 characters"
+    ]
+
+
+def test_rejects_latest_embedding_model(tmp_path: Path) -> None:
+    text = VALID_TOML.replace("BAAI/bge-m3@Builtin", "mistral-embed-latest")
+    assert problems_for(tmp_path, text) == [
+        "ragflow.embedding_model must name a fixed model, not a '-latest' alias"
     ]

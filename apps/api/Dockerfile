@@ -14,6 +14,8 @@ RUN uv sync --locked --no-dev --no-install-project
 COPY alembic.ini ./
 COPY alembic ./alembic
 COPY app ./app
+# Installs the project itself, which provides the `ask-spore` command.
+RUN uv sync --locked --no-dev
 
 RUN useradd --system --uid 10001 api
 USER api

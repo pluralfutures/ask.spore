@@ -1,0 +1,43 @@
+{
+  "code": 0,
+  "data": {
+    "docs": [
+      {
+        "chunk_count": 0,
+        "chunk_method": "presentation",
+        "create_date": "2026-10-18T01:24:37",
+        "create_time": 1792279477461,
+        "created_by": "e17c0764ca7d11f1adf0cf0af9c5eb0e",
+        "dataset_id": "d2680670ca8111f18b280bc8b8cfdbb7",
+        "id": "eb6b65e0ca8111f18b280bc8b8cfdbb7",
+        "location": "kestrel-valley-storage-briefing.pptx",
+        "meta_fields": {},
+        "name": "kestrel-valley-storage-briefing.pptx",
+        "nickname": "dev",
+        "parser_config": {
+          "image_context_size": 0,
+          "llm_id": "",
+          "table_context_size": 0
+        },
+        "pipeline_id": null,
+        "pipeline_name": null,
+        "process_begin_at": "2026-10-18T01:24:37",
+        "process_duration": 0.0,
+        "progress": 0.0032348,
+        "progress_msg": "Task is queued...",
+        "run": "RUNNING",
+        "size": 36789,
+        "source_type": "local",
+        "status": "1",
+        "suffix": "pptx",
+        "thumbnail": "",
+        "token_count": 0,
+        "type": "doc",
+        "update_date": "2026-10-18T01:24:37",
+        "update_time": 1792279477532
+      }
+    ],
+    "total": 1
+  },
+  "message": "success"
+}

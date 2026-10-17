@@ -6,18 +6,28 @@ requires-python = ">=3.12,<3.13"
 # Minor versions pinned per design/Stack Decision.md; exact versions live in uv.lock.
 dependencies = [
     "fastapi~=0.143.3",
+    "httpx~=0.28.1",
     "pydantic~=2.14.1",
     "redis~=8.1.0",
     "sqlalchemy[asyncio]~=2.1.5",
+    # Readable-text extraction for crawled pages (P0-10).
+    "trafilatura~=2.3.1",
     "asyncpg~=0.32.0",
     "alembic~=1.20.0",
     "mistralai~=2.10.1",
     "uvicorn[standard]~=0.54.0",
 ]
 
+[project.scripts]
+# Content operations: datasets sync (P0-08), ingest (P0-09), crawl (P0-10).
+ask-spore = "app.cli:main"
+
+[build-system]
+requires = ["uv_build==0.11.32"]
+build-backend = "uv_build"
+
 [dependency-groups]
 dev = [
-    "httpx~=0.28.1",
     "mypy~=2.4.0",
     "pytest~=9.1.1",
     "pytest-asyncio~=1.4.0",
@@ -25,7 +35,12 @@ dev = [
 ]
 
 [tool.uv]
-package = false
+package = true
+
+[tool.uv.build-backend]
+# The import package is "app", at the project root (no src/ layout).
+module-name = "app"
+module-root = ""
 
 [tool.ruff]
 line-length = 100

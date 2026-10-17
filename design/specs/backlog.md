@@ -8,3 +8,8 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 - Phase 1: replace the 4-characters-per-token estimate (history and context caps) with Mistral's tokenizer. Raised in P0-14.
 - Phase 1: keep the question (and a partial answer, flagged) when the model fails or the client disconnects mid-stream; Phase 0 persists nothing for a failed turn, only an audit event. Raised in P0-14.
 - Phase 1: "stop generation" button in the chat view (architecture §7.1); P0-16 does not list it. Raised in P0-16.
+- Phase 1: re-ingestion and withdrawal commands (architecture §6.2: new parse, old chunks withdrawn, citations shown as superseded). P0-09 only refuses an identical file that is already ingested. Raised in P0-09.
+- Phase 1: keep the original own-analysis files in platform storage for download links (architecture §6.2). P0-09 uploads to RAGFlow only. Raised in P0-09.
+- Phase 1: an approval step between registering a source and ingesting it (architecture §6.2, "reviewer approves"); P0-09 ingests on the editor's command. Raised in P0-09.
+- Phase 1: crawler policy items beyond P0-10 (architecture §6.4): skip special-category pages at crawl time, store raw HTML and fetch date per page, keep a per-site allow decision and scope rules in the register, per-path TDMRep rules (P0-10 treats any reservation in tdmrep.json as blocking the whole site), and site terms review. Raised in P0-10.
+- Phase 1: publication dates for crawled pages from explicit page metadata only; P0-10 leaves `published_on` empty because readability libraries guess dates from body text. Raised in P0-10.

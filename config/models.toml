@@ -23,6 +23,10 @@ timeout_seconds = 60
 [ragflow]
 base_url = "http://ragflow:9380"
 timeout_seconds = 30
+# Embedding model for new datasets: bge-m3 served by the self-hosted TEI container,
+# which RAGFlow exposes as its "Builtin" provider (infra/ragflow, findings R1, R7).
+# Changing it means re-creating and re-ingesting every dataset.
+embedding_model = "BAAI/bge-m3@Builtin"
 
 [prompts]
 # Active versions of config/prompts/<name>/<version>.md. Changing a prompt means a

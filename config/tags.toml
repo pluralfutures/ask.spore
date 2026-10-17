@@ -4,9 +4,20 @@
 # PHASE 0: the single internal tenant's package is every tag listed here. The chat
 # orchestrator reads only the table names; per-tag settings (chunking method,
 # P0-08) live inside each table.
+#
+# chunk_method is the RAGFlow chunking method of the tag's dataset. RAGFlow sets it
+# per dataset with a per-document override; chunk_method_by_type gives that override
+# per source type (pdf, docx, pptx, html, markdown) and is applied at ingestion.
 
 [tags.sample-reports]
+# Third-party PDF reports.
+chunk_method = "paper"
 
 [tags.sample-analysis]
+# Own analysis: DOCX with "naive", PPTX with "presentation".
+chunk_method = "naive"
+chunk_method_by_type = { pptx = "presentation" }
 
 [tags.sample-web]
+# Crawled pages, rendered to Markdown.
+chunk_method = "naive"

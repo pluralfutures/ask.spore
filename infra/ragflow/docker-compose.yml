@@ -110,10 +110,18 @@ services:
   # Self-hosted embedding service. The RAGFlow image does not bundle an embedding
   # model (see design/specs/phase-0-findings.md); upstream ships this as the
   # optional `tei-cpu` profile, here it is always on.
+  # --max-batch-tokens sizes TEI's warm-up batch and with it the memory it keeps
+  # resident: with bge-m3 on CPU, 4096 -> ~4.1 GiB, 8192 -> ~10.4 GiB, upstream's
+  # default 16384 -> killed above 15 GiB (findings R2).
   ragflow-tei:
     image: infiniflow/text-embeddings-inference:cpu-1.8
     hostname: tei
-    command: ["--model-id", "/data/${TEI_MODEL:-BAAI/bge-m3}", "--auto-truncate"]
+    command:
+      - --model-id
+      - /data/${TEI_MODEL:-BAAI/bge-m3}
+      - --auto-truncate
+      - --max-batch-tokens
+      - "${TEI_MAX_BATCH_TOKENS:-4096}"
     networks:
       - ragflow
     restart: unless-stopped
@@ -154,6 +162,10 @@ services:
       - MINIO_HOST=ragflow-minio
       - REDIS_HOST=ragflow-redis
       - TEI_HOST=ragflow-tei
+      # RAGFlow registers the TEI service as its "Builtin" embedding provider only when
+      # COMPOSE_PROFILES contains "tei-" (upstream's profile name). This file has no
+      # profiles; the variable is set for that check alone (findings R7).
+      - COMPOSE_PROFILES=tei-cpu
       - REGISTER_ENABLED=${REGISTER_ENABLED:-0}
     volumes:
       - ragflow_logs:/ragflow/logs

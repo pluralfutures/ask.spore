@@ -35,6 +35,8 @@ class FakeRagflow:
     outcomes: dict[str, Outcome] = field(default_factory=dict)
     fail_upload: RagflowError | None = None
     created: list[str] = field(default_factory=list)
+    deleted: list[str] = field(default_factory=list)
+    fail_delete: RagflowError | None = None
     _polls: dict[str, int] = field(default_factory=dict)
 
     def add_dataset(
@@ -103,6 +105,13 @@ class FakeRagflow:
             self.parsed.append(document_id)
             self._polls[document_id] = 0
             self.documents[document_id] = replace(self.documents[document_id], run="RUNNING")
+
+    async def delete_documents(self, dataset_id: str, document_ids: Sequence[str]) -> None:
+        if self.fail_delete is not None:
+            raise self.fail_delete
+        for document_id in document_ids:
+            self.deleted.append(document_id)
+            del self.documents[document_id]
 
     async def get_document(self, dataset_id: str, document_id: str) -> RagflowDocument:
         document = self.documents[document_id]

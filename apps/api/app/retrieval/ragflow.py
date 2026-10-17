@@ -279,6 +279,17 @@ class RagflowClient:
             json={"document_ids": list(document_ids)},
         )
 
+    async def delete_documents(self, dataset_id: str, document_ids: Sequence[str]) -> None:
+        """Delete the named documents and their chunks. Never ``delete_all``."""
+        if not document_ids:
+            return
+        await self._call(
+            "delete_documents",
+            "DELETE",
+            f"/datasets/{dataset_id}/documents",
+            json={"ids": list(document_ids)},
+        )
+
     async def get_document(self, dataset_id: str, document_id: str) -> RagflowDocument:
         data = await self._call(
             "get_document",

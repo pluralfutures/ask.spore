@@ -20,6 +20,7 @@ Recorded as found, per `CLAUDE.md` ("follow the real API and record the differen
 | R10 | P0-07 | `ragflow-sdk` pinned to the server version covers the calls | `ragflow-sdk` 0.27.2 is synchronous `requests` with no timeout parameter, and lags the 0.27.2 server: it sends the deprecated `top_k` to `/retrieval` (server logs a deprecation warning; the replacement is `knn_top_k`) and parses via the legacy `POST /datasets/{id}/chunks` rather than `POST /datasets/{id}/documents/parse`. | The client uses `httpx` for every call (Stack Decision allows it "otherwise"); using the SDK from the async API would block the event loop and could hang without bound. Stack Decision updated. |
 | R11 | P0-07 | Retrieval is a pure search call | `/api/v1/retrieval` options `keyword`, `cross_languages`, `toc_enhance`, `use_kg` and an `auto`/`semi_auto` `meta_data_filter` make RAGFlow send the question to the chat LLM configured inside RAGFlow. `include_knowledge_compilation` (default `true`) adds LLM-compiled chunks. | The client sends all of these explicitly off and excludes knowledge-compilation chunks; a contract test asserts it. No LLM is configured inside RAGFlow. |
 | R12 | P0-07 | n/a | Elasticsearch refuses to allocate shards (cluster red, every insert fails with `unavailable_shards_exception`) once free disk drops below the high watermark set in `infra/ragflow/docker-compose.yml` (3 GB). The pinned images alone are ~28 GB. | Host sizing (P0-20): give the Instance disk headroom well above image size + corpus + 3 GB. A failed insert surfaces as document `run = FAIL` with the ES error in `progress_msg`, which ingestion records. |
+| R13 | P0-09 | A file RAGFlow cannot parse ends in `run = FAIL` | A corrupt PDF ends `run = DONE`, `progress = 1`, with 0 chunks. Infrastructure errors (R12) do end in `FAIL`. | Ingestion treats `DONE` with 0 chunks as failed (`no_chunks`). Any failed source has its RAGFlow documents deleted, so nothing of it can be retrieved or cited. |
 
 ## 1b. Where Mistral differs from what the spec assumes
 
@@ -40,6 +41,7 @@ Confirmed against RAGFlow `v0.27.2` (server source in the image and live calls f
 | `set_document_chunk_method` | `PATCH /datasets/{dataset_id}/documents/{document_id}` | `{"chunk_method": …}` | envelope only |
 | `start_parse` | `POST /datasets/{dataset_id}/documents/parse` | `{"document_ids": [...]}` | `data.success_count` |
 | `get_document` (poll) | `GET /datasets/{dataset_id}/documents` | `id`, `page=1`, `page_size=1` | `docs[0].run` (`UNSTART`, `RUNNING`, `CANCEL`, `DONE`, `FAIL`, `SCHEDULE`), `progress` (−1 on failure), `progress_msg`, `chunk_count` |
+| `delete_documents` (P0-09, failed ingestion only) | `DELETE /datasets/{dataset_id}/documents` | `{"ids": [...]}`; never `delete_all` | `data.deleted` |
 | `retrieve_chunks` / `retrieve` | `POST /retrieval` | `dataset_ids`, `question`, `page=1`, `page_size=top_k`, `similarity_threshold`, `vector_similarity_weight=0.3`, `knn_top_k=1024`, and off: `keyword`, `cross_languages=[]`, `toc_enhance`, `use_kg`, `highlight`, `include_knowledge_compilation` (R11) | `data.chunks[]`: `id`, `document_id`, `dataset_id`, `content`, `similarity`, `positions` |
 
 Notes:
@@ -48,7 +50,7 @@ Notes:
 - **Score.** `similarity` is RAGFlow's hybrid score, `vector_similarity_weight × cosine + (1 − weight) × keyword score`, and `similarity_threshold` filters on it. On the synthetic corpus, clearly relevant chunks scored 0.25–0.33 with weight 0.3, so a threshold of 0.2 is plausible but must be tuned with eval set v1 (P0-20).
 - **Pages and slides.** `positions` is `[[page, left, right, top, bottom], …]` with 1-based pages (PDF) or slides (PPTX); DOCX, HTML and Markdown chunks have none. `page_or_slide` is the first entry's page. A `paper` chunk can span a page break, in which case it carries several pages and we report the first.
 - **Chunk method per document.** The method is set per dataset, and can be overridden per document with `PATCH …/documents/{id}` before parsing. P0-09 uses that for PPTX files in a dataset whose default is `naive`.
-- **Not used:** document download, chunk listing, deletion of datasets or documents (integration-test clean-up only), chats, agents and every endpoint that calls an LLM inside RAGFlow.
+- **Not used:** document download, chunk listing, dataset deletion (integration-test clean-up only), chats, agents and every endpoint that calls an LLM inside RAGFlow.
 
 ## 3. Phase 0 assumptions (§13 of the architecture document)
 

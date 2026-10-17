@@ -338,3 +338,14 @@ async def test_module_retrieve_logs_error_code_only(
         "error_code": "ragflow_102",
     }
     assert QUESTION not in json.dumps(line)
+
+
+async def test_delete_documents_names_ids_never_delete_all() -> None:
+    rec = Recorder(fixture("delete_documents"))
+    async with client(rec) as c:
+        await c.delete_documents(DATASET_ID, [DOCUMENT_ID])
+        await c.delete_documents(DATASET_ID, [])
+    assert len(rec.requests) == 1  # an empty list sends nothing
+    assert rec.last.method == "DELETE"
+    assert rec.last.url.path == f"/api/v1/datasets/{DATASET_ID}/documents"
+    assert rec.last_json() == {"ids": [DOCUMENT_ID]}

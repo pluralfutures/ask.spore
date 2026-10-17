@@ -33,11 +33,15 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "S", "T20", "ASYNC", "RUF"]
 
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Header"]
+
 [tool.ruff.lint.isort]
 known-third-party = ["alembic"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S608"]
+# Tests use synthetic credentials and build SQL from constant table names.
+"tests/**" = ["S101", "S105", "S106", "S608"]
 # Migrations build DDL from module constants, never from input.
 "alembic/versions/**" = ["S608"]
 

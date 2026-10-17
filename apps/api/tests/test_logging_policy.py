@@ -62,7 +62,8 @@ def scan_source(source: str, path: Path) -> list[str]:
             if isinstance(func, ast.Name) and func.id == "print":
                 report(node, "print(); use app.core.logging.log()")
             if (
-                isinstance(func, ast.Attribute)
+                not allow_logging
+                and isinstance(func, ast.Attribute)
                 and func.attr == "write"
                 and isinstance(func.value, ast.Attribute)
                 and func.value.attr in {"stdout", "stderr"}

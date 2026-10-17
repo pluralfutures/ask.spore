@@ -34,7 +34,9 @@ REQUIRED_SECRETS: tuple[str, ...] = (
     "RAGFLOW_API_KEY",
     "DATABASE_URL",
     "REDIS_URL",
+    "PHASE0_BEARER_TOKEN",  # Phase 0 only (P0-06); removed with Authentik in Phase 1
 )
+MIN_BEARER_TOKEN_LENGTH = 32
 
 # Dated model versions such as "mistral-large-2512"; rejects "-latest" and other aliases.
 _DATED_MODEL = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-\d{4}$")
@@ -83,6 +85,7 @@ class Secrets:
     ragflow_api_key: SecretStr
     database_url: SecretStr
     redis_url: SecretStr
+    phase0_bearer_token: SecretStr
 
 
 @dataclass(frozen=True)
@@ -156,6 +159,11 @@ def load_settings(
     missing = [name for name in REQUIRED_SECRETS if not env.get(name, "").strip()]
     if missing:
         problems.append("missing required secrets in the environment: " + ", ".join(missing))
+    token = env.get("PHASE0_BEARER_TOKEN", "").strip()
+    if token and len(token) < MIN_BEARER_TOKEN_LENGTH:
+        problems.append(
+            f"PHASE0_BEARER_TOKEN must be at least {MIN_BEARER_TOKEN_LENGTH} characters"
+        )
 
     if problems or models is None:
         raise ConfigError(problems)
@@ -165,6 +173,7 @@ def load_settings(
         ragflow_api_key=SecretStr(env["RAGFLOW_API_KEY"]),
         database_url=SecretStr(env["DATABASE_URL"]),
         redis_url=SecretStr(env["REDIS_URL"]),
+        phase0_bearer_token=SecretStr(token),
     )
     return Settings(models=models, secrets=secrets, config_dir=directory)
 

@@ -2,7 +2,6 @@ import json
 
 import pytest
 
-from app.core import logging as app_logging
 from app.core.logging import ALLOWED_FIELDS, ForbiddenLogField, format_line, log
 
 
@@ -53,12 +52,6 @@ def test_allowed_fields_render_as_one_json_line() -> None:
 
 
 def test_log_writes_to_stdout(capsys: pytest.CaptureFixture[str]) -> None:
-    # The handler is bound to the stdout present at import; point it at the captured one.
-    handler = app_logging._logger.handlers[0]
-    assert hasattr(handler, "setStream")
-    import sys
-
-    handler.setStream(sys.stdout)
     log("api.started", status="ok")
     out = capsys.readouterr().out
     assert json.loads(out)["event"] == "api.started"

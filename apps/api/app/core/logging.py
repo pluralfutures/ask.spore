@@ -55,10 +55,21 @@ class ForbiddenLogField(ValueError):
     """A log call used a field name, value type or event name that is not allowed."""
 
 
+class _StdoutHandler(_stdlib_logging.Handler):
+    """Writes each record to the current ``sys.stdout`` (resolved at emit time)."""
+
+    def emit(self, record: _stdlib_logging.LogRecord) -> None:
+        try:
+            sys.stdout.write(self.format(record) + "\n")
+            sys.stdout.flush()
+        except Exception:
+            self.handleError(record)
+
+
 def _build_logger() -> _stdlib_logging.Logger:
     logger = _stdlib_logging.getLogger("ask_spore")
     if not logger.handlers:
-        handler = _stdlib_logging.StreamHandler(sys.stdout)
+        handler = _StdoutHandler()
         handler.setFormatter(_stdlib_logging.Formatter("%(message)s"))
         logger.addHandler(handler)
     logger.setLevel(_stdlib_logging.INFO)

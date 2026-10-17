@@ -25,6 +25,7 @@ ENV = {
     "RAGFLOW_API_KEY": "test-ragflow-key",
     "DATABASE_URL": "postgresql+asyncpg://u:p@localhost/db",
     "REDIS_URL": "redis://localhost:6379/0",
+    "PHASE0_BEARER_TOKEN": "test-bearer-token-0123456789abcdef",
 }
 
 
@@ -132,3 +133,10 @@ async def test_app_refuses_to_start_without_secrets(monkeypatch: pytest.MonkeyPa
         async with app.router.lifespan_context(app):
             pass
     config.get_settings.cache_clear()
+
+
+def test_rejects_short_bearer_token(tmp_path: Path) -> None:
+    env = {**ENV, "PHASE0_BEARER_TOKEN": "short"}
+    assert problems_for(tmp_path, VALID_TOML, env) == [
+        "PHASE0_BEARER_TOKEN must be at least 32 characters"
+    ]

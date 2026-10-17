@@ -5,7 +5,8 @@ Startup checks (design/Stack Decision.md, Conventions):
 - every outbound host (provider and RAGFlow base URLs) must be in the allow-list;
 - public providers must be reached over HTTPS;
 - model names must be dated versions, never "-latest" aliases;
-- every required secret must be present in the environment.
+- every required secret must be present in the environment;
+- every active prompt version must exist under ``prompts/`` in the config directory.
 
 Any failure raises ConfigError listing every problem; the API does not start.
 Error messages name the offending setting or variable, never a secret value.
@@ -73,10 +74,18 @@ class RagflowConfig(_Strict):
     timeout_seconds: float = Field(gt=0)
 
 
+class PromptsConfig(_Strict):
+    """Active prompt versions: ``prompts/<name>/<version>.md`` (app.chat.prompts)."""
+
+    corpus_only: str = Field(pattern=r"^v[1-9][0-9]*$")
+    rewrite: str = Field(pattern=r"^v[1-9][0-9]*$")
+
+
 class ModelsConfig(_Strict):
     allow_list: AllowList
     mistral: MistralConfig
     ragflow: RagflowConfig
+    prompts: PromptsConfig
 
 
 @dataclass(frozen=True)
@@ -129,6 +138,17 @@ def _check_models(models: ModelsConfig) -> list[str]:
     return problems
 
 
+def _check_prompts(prompts: PromptsConfig, directory: Path) -> list[str]:
+    problems: list[str] = []
+    for name, version in prompts.model_dump().items():
+        path = directory / "prompts" / name / f"{version}.md"
+        if not path.is_file():
+            problems.append(f"prompts.{name} = '{version}' but {path} does not exist")
+        elif not path.read_text(encoding="utf-8").strip():
+            problems.append(f"prompts.{name}: {path} is empty")
+    return problems
+
+
 def _load_toml(path: Path) -> tuple[ModelsConfig | None, list[str]]:
     try:
         raw: dict[str, Any] = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -155,6 +175,7 @@ def load_settings(
     models, problems = _load_toml(directory / "models.toml")
     if models is not None:
         problems += _check_models(models)
+        problems += _check_prompts(models.prompts, directory)
 
     missing = [name for name in REQUIRED_SECRETS if not env.get(name, "").strip()]
     if missing:

@@ -18,6 +18,10 @@ timeout_seconds = 60
 [ragflow]
 base_url = "http://ragflow:9380"
 timeout_seconds = 30
+
+[prompts]
+corpus_only = "v1"
+rewrite = "v1"
 """
 
 ENV = {
@@ -29,8 +33,12 @@ ENV = {
 }
 
 
-def write_config(tmp_path: Path, text: str = VALID_TOML) -> Path:
+def write_config(tmp_path: Path, text: str = VALID_TOML, *, prompts: bool = True) -> Path:
     (tmp_path / "models.toml").write_text(text, encoding="utf-8")
+    if prompts:
+        for name in ("corpus_only", "rewrite"):
+            (tmp_path / "prompts" / name).mkdir(parents=True, exist_ok=True)
+            (tmp_path / "prompts" / name / "v1.md").write_text("Synthetic prompt.\n")
     return tmp_path
 
 

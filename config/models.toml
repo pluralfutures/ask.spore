@@ -23,3 +23,9 @@ timeout_seconds = 60
 [ragflow]
 base_url = "http://ragflow:9380"
 timeout_seconds = 30
+
+[prompts]
+# Active versions of config/prompts/<name>/<version>.md. Changing a prompt means a
+# new version file and an eval run (CLAUDE.md); never edit a released version.
+corpus_only = "v1"
+rewrite = "v1"

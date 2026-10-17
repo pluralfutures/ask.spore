@@ -10,12 +10,11 @@ no columns for either, so this adds:
 ragflow_document_id}``. ``sources`` is shared corpus metadata, not tenant-scoped,
 so it has no row-level security.
 
-MERGE NOTE: numbered 0003 because Group C's 0002 (messages.outcome) is on another
-branch. Until those branches meet, this revises 0001; when they merge, set
-``down_revision = "0002"`` so the history stays linear.
+Numbered 0003 after Group C's 0002 (messages.outcome); the two touch different
+tables, and the chain is 0001 -> 0002 -> 0003.
 
 Revision ID: 0003
-Revises: 0001
+Revises: 0002
 Create Date: 2026-10-17 23:40:00
 """
 
@@ -25,7 +24,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0003"
-down_revision: str | None = "0001"
+down_revision: str | None = "0002"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

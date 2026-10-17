@@ -20,10 +20,12 @@ services:
       POSTGRES_DB: askspore
       POSTGRES_USER: askspore
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-askspore-dev}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-askspore-app-dev}
     ports:
       - 127.0.0.1:${POSTGRES_PORT:-5432}:5432
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/10-app-role.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U askspore -d askspore"]
       interval: 5s
@@ -47,10 +49,30 @@ services:
       - app
     restart: unless-stopped
 
+  # One-shot: apply Alembic migrations as the schema owner, then exit.
+  migrate:
+    build:
+      context: ../apps/api
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      # PHASE0_INTERNAL_USERS (seeded internal users).
+      - path: ../.env
+        required: false
+    environment:
+      MIGRATIONS_DATABASE_URL: postgresql+asyncpg://askspore:${POSTGRES_PASSWORD:-askspore-dev}@postgres:5432/askspore
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app
+    restart: "no"
+
   api:
     build:
       context: ../apps/api
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -62,7 +84,7 @@ services:
         required: false
     environment:
       ASK_SPORE_CONFIG_DIR: /srv/config
-      DATABASE_URL: postgresql+asyncpg://askspore:${POSTGRES_PASSWORD:-askspore-dev}@postgres:5432/askspore
+      DATABASE_URL: postgresql+asyncpg://askspore_app:${APP_DB_PASSWORD:-askspore-app-dev}@postgres:5432/askspore
       REDIS_URL: redis://redis:6379/0
     volumes:
       - ../config:/srv/config:ro

@@ -11,6 +11,8 @@ WORKDIR /srv/api
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --locked --no-dev --no-install-project
 
+COPY alembic.ini ./
+COPY alembic ./alembic
 COPY app ./app
 
 RUN useradd --system --uid 10001 api

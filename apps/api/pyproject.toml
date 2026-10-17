@@ -8,6 +8,9 @@ dependencies = [
     "fastapi~=0.143.3",
     "pydantic~=2.14.1",
     "redis~=8.1.0",
+    "sqlalchemy[asyncio]~=2.1.5",
+    "asyncpg~=0.32.0",
+    "alembic~=1.20.0",
     "uvicorn[standard]~=0.54.0",
 ]
 
@@ -30,8 +33,13 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "S", "T20", "ASYNC", "RUF"]
 
+[tool.ruff.lint.isort]
+known-third-party = ["alembic"]
+
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+"tests/**" = ["S101", "S608"]
+# Migrations build DDL from module constants, never from input.
+"alembic/versions/**" = ["S608"]
 
 [tool.mypy]
 strict = true

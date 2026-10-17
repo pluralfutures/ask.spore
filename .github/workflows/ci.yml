@@ -16,6 +16,23 @@ jobs:
   api:
     name: API (ruff, mypy, pytest)
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.15-bookworm
+        env:
+          POSTGRES_USER: askspore
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: askspore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U askspore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TEST_ADMIN_DATABASE_URL: postgresql://askspore:ci-only-password@localhost:5432/postgres
+      REQUIRE_DB_TESTS: "1"
     defaults:
       run:
         working-directory: apps/api

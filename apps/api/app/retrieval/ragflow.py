@@ -380,3 +380,17 @@ async def retrieve(
         latency_ms=round((time.monotonic() - started) * 1000),
     )
     return chunks
+
+
+class RagflowRetriever:
+    """The chat orchestrator's ``Retriever`` (app.retrieval.protocol), backed by RAGFlow."""
+
+    async def retrieve(
+        self, *, dataset_ids: list[str], query: str, top_k: int, similarity_threshold: float
+    ) -> list[RetrievedChunk]:
+        return await retrieve(
+            dataset_ids=dataset_ids,
+            query=query,
+            top_k=top_k,
+            similarity_threshold=similarity_threshold,
+        )

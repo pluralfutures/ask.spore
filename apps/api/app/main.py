@@ -16,10 +16,11 @@ from app.core.logging import log
 from app.core.phase0_auth import Phase0AuthMiddleware
 from app.llm.mistral import MistralClient
 from app.retrieval.protocol import Retriever
+from app.retrieval.ragflow import RagflowRetriever
 
 
 def create_app(retriever: Retriever | None = None) -> FastAPI:
-    """``retriever`` is the RAGFlow client (P0-07). Without one, asking returns 503."""
+    """``retriever`` is the RAGFlow retriever (P0-07). Without one, asking returns 503."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -64,4 +65,4 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
     return app
 
 
-app = create_app()
+app = create_app(retriever=RagflowRetriever())

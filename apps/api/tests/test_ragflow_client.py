@@ -17,7 +17,8 @@ import pytest
 
 from app.core.config import load_settings
 from app.retrieval import ragflow
-from app.retrieval.ragflow import RagflowClient, RagflowError, page_or_slide
+from app.retrieval.protocol import Retriever
+from app.retrieval.ragflow import RagflowClient, RagflowError, RagflowRetriever, page_or_slide
 from app.retrieval.types import RetrievedChunk
 
 FIXTURES = Path(__file__).parent / "fixtures" / "ragflow"
@@ -338,6 +339,41 @@ async def test_module_retrieve_logs_error_code_only(
         "error_code": "ragflow_102",
     }
     assert QUESTION not in json.dumps(line)
+
+
+async def test_ragflow_retriever_is_the_orchestrator_retriever(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = load_settings(environ=ENV)
+    rec = Recorder(fixture("retrieve"))
+    original = RagflowClient.from_settings
+    monkeypatch.setattr(ragflow, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        RagflowClient,
+        "from_settings",
+        staticmethod(lambda s, transport=None: original(s, transport=rec.transport())),
+    )
+    retriever: Retriever = RagflowRetriever()
+
+    chunks = await retriever.retrieve(
+        dataset_ids=[DATASET_ID], query=QUESTION, top_k=3, similarity_threshold=0.2
+    )
+
+    assert len(chunks) == 3
+    body = rec.last_json()
+    assert (body["dataset_ids"], body["question"], body["page_size"]) == ([DATASET_ID], QUESTION, 3)
+    assert body["similarity_threshold"] == 0.2
+
+
+async def test_main_app_asks_through_ragflow(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Without a retriever the API answers 503 retrieval_unavailable (Group C, P0-15).
+    from app import main
+
+    settings = load_settings(environ=ENV)
+    monkeypatch.setattr(main, "get_settings", lambda: settings)
+    async with main.app.router.lifespan_context(main.app):
+        orchestrator = main.app.state.orchestrator
+    assert isinstance(orchestrator._retriever, RagflowRetriever)
 
 
 async def test_delete_documents_names_ids_never_delete_all() -> None:

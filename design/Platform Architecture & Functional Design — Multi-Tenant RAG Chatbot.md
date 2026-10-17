@@ -1,10 +1,10 @@
 # Platform Architecture & Functional Design — Multi-Tenant RAG Chatbot
 
-Oct 17, 2026 · Revision 2 (incorporates scoping answers)
+Oct 17, 2026 · Revision 3 (scoping complete)
 
 Companion to [Compliance & Privacy Design Guide](./Compliance%20%26%20Privacy%20Design%20Guide%20%E2%80%94%20Multi-Tenant%20RAG%20Chatbot%20%28Public%20Sources%20Only%29.md). That document sets the SOC 2, GDPR and ZDR requirements; this one describes the system that satisfies them. Where the two disagree, the compliance guide wins and this document should be amended. One addendum to the compliance guide (web-search mode) was added alongside this revision.
 
-This is a design, not an implementation plan. Scoping decisions are recorded in §12; the few remaining questions are in §13.
+This is a design, not an implementation plan. Scoping decisions are recorded in §12. No questions remain open; §13 lists assumptions still to be verified during Phase 0.
 
 ---
 
@@ -20,11 +20,12 @@ Key decisions:
 | Corpus model | One shared RAGFlow instance; one dataset (knowledge base) per content tag; a tenant package is a set of tags | Logical isolation was chosen; packages are composed by us without re-ingesting documents |
 | Tenant boundary | Our own application layer, not RAGFlow's tenant model | RAGFlow's users/teams are an admin convenience, not a security boundary we would expose to clients |
 | Generation | Our application calls the LLM directly; RAGFlow is used for retrieval only | Full control of prompt contents, ZDR endpoint, region pin, citation format, answer modes, streaming and logging |
-| LLM provider | Mistral (La Plateforme, EU) primary; Scaleway Generative APIs (Paris) as second provider and fallback | Both EU-hosted; OpenAI-compatible interfaces; zero-retention confirmations in hand |
+| LLM provider and model | Mistral (La Plateforme, EU) primary, Mistral Large class pinned by default; Scaleway Generative APIs (Paris) as fallback with the closest available Mistral model | Both EU-hosted; zero-retention confirmations in hand; Large chosen for answer quality on long research contexts |
+| Web search | Mistral's built-in web-search tool, called through the same EU endpoint and DPA | Fewest vendors; query text stays with a sub-processor already under contract |
 | Embeddings | Self-hosted on the retrieval host (RAGFlow bundled model, e.g. bge-m3) | Corpus text never leaves the VPS during ingestion; multilingual |
-| Identity | Self-hosted identity broker (Authentik recommended) with Microsoft Entra, Google Workspace, generic OIDC/SAML federation, and emailed sign-in links | All requested login methods in one EU-hosted component; per-tenant login policy |
-| Answer modes | Corpus-only (default); General-knowledge; Web-search. Enabled per tenant by the platform operator | Strict grounding by default; modes are explicit, labelled and auditable |
-| Source access | Excerpt plus link to the original; no in-app full-document viewer | Licensing-safe by construction; simpler product |
+| Identity | Self-hosted identity broker (Authentik recommended) with Microsoft Entra, Google Workspace, generic OIDC/SAML federation, and emailed sign-in links (on by default, operator can disable per tenant) | All requested login methods in one EU-hosted component; per-tenant login policy |
+| Answer modes | Corpus-only (default); General-knowledge; Web-search. Enabled per tenant by the platform operator only; tenant admins cannot enable modes | Strict grounding by default; modes are explicit, contractual, labelled and auditable |
+| Source access | Excerpt plus link: third-party sources link to the publisher's canonical location; our own DOCX/PPTX analysis is downloadable from the platform | Licensing-safe for third-party content; our own work is ours to distribute |
 | History retention | 30 days maximum, fixed; tenant admin may shorten to 0 | Decided |
 | Hosting | Scaleway (Paris) Instances, Private Network, Object Storage, Transactional Email, Secret Manager | Single EU vendor for hosting, email and fallback inference; low expected load |
 
@@ -76,7 +77,6 @@ flowchart LR
     MIS[Mistral La Plateforme\nEU, ZDR]
     SCW[Scaleway Generative APIs\nParis, no retention]
     TEM[Scaleway Transactional Email\nsign-in links]
-    WS[Web search provider\nweb-search mode only]
   end
 
   OBJ[(Scaleway Object Storage\nencrypted backups)]
@@ -91,7 +91,7 @@ flowchart LR
   API -- retrieval only\n(dataset IDs injected) --> RF
   API -- query + chunks + system prompt --> MIS
   API -. fallback .-> SCW
-  WRK -. web-search mode .-> WS
+  API -. web-search mode:\nMistral web-search tool .-> MIS
   WRK --> RF
   WRK <--> PG
   RF <--> ES
@@ -106,7 +106,7 @@ Boundaries that matter:
 
 - **Clients only ever talk to the reverse proxy.** RAGFlow, its databases and MinIO sit on the Scaleway Private Network with no public listener.
 - **The platform API is the only RAGFlow client.** It holds one RAGFlow service API key per environment. Tenant identity never reaches RAGFlow; only the list of dataset IDs in the tenant's package.
-- **Outbound calls carrying query data**: the generation request to the LLM provider in every mode, and the search request to the web-search provider in web-search mode only. Everything else stays on the two hosts.
+- **Outbound calls carrying query data**: the generation request to the LLM provider in every mode; in web-search mode the same provider's web-search tool is invoked within that request. No other third party receives query text. Everything else stays on the two hosts.
 
 ---
 
@@ -145,7 +145,7 @@ Login methods, all terminating at the broker so the application sees one OIDC is
 Policy:
 
 - **Tenant discovery by email domain**: the login page asks for an email address; the domain maps to a tenant and to that tenant's allowed methods. A user is only ever created inside their tenant; a domain can belong to one tenant.
-- **Per-tenant login policy** set by the operator: which methods are allowed, whether sign-in links are permitted for all users or only as a fallback, session lifetime.
+- **Per-tenant login policy** set by the operator: which SSO sources are configured, whether emailed sign-in links are enabled (on by default for every tenant; the operator switches them off per tenant, typically once a client's SSO is live and their IT asks for it), session lifetime.
 - **Tenant admins** must use SSO or sign-in link plus a second factor (TOTP or passkey). Platform operators use a separate internal tenant with hardware-key MFA.
 - **Just-in-time provisioning** from SSO is allowed only for domains the operator has verified; otherwise users are invited by the tenant admin.
 - Login, logout, failed login, link issuance and admin events are forwarded to the audit log.
@@ -169,7 +169,6 @@ Background processes on the application host:
 
 - **Crawler**: scheduled crawls of registered sites. Honours robots.txt and the EU text-and-data-mining opt-out signals, respects crawl delay, stores raw HTML plus a cleaned Markdown rendering, records fetch date and hash. Candidate tooling: Crawl4AI or Scrapy with a readability pass. Produces files that are then uploaded to the right RAGFlow dataset.
 - **Ingestion**: moves approved source-register entries into RAGFlow (upload, trigger parse, poll status), records chunk counts and parse errors back in the register.
-- **Web-fetch** (web-search mode only): calls the search provider, fetches the top result pages server-side, strips boilerplate, and returns text snippets to the orchestrator. Nothing fetched is written to the corpus or persisted beyond the chat record's citation list.
 - **Retention**: nightly job applying the chat-history TTL per tenant, log retention, cache expiry, and the source-level delete cascade for takedowns.
 - **Evaluation**: runs the versioned eval set against the current retrieval and prompt configuration on every change (§9).
 
@@ -192,9 +191,9 @@ Background processes on the application host:
 | --- | --- | --- | --- |
 | **Corpus-only** (default) | Retrieved chunks from the tenant's package only; abstains otherwise | Always on | "Answered from your research package" |
 | **General knowledge** | Retrieved chunks, plus the model's own knowledge where the corpus is silent or incomplete | Operator, per tenant | Corpus-backed statements carry citations; uncited sentences are rendered in a distinct style and the answer carries a "includes general knowledge, not from your package" banner |
-| **Web search** | Retrieved chunks, plus live web results fetched server-side | Operator, per tenant | Web citations are shown separately from corpus citations with the fetched URL and date; banner states that the query was sent to a web search provider |
+| **Web search** | Retrieved chunks, plus live web results returned by Mistral's web-search tool | Operator, per tenant | Web citations are shown separately from corpus citations with URL and retrieval date; banner states that the query was used for a live web search |
 
-When more than one mode is enabled, the user picks the mode per conversation; the tenant admin sets the default. The mode is stored on every message and in the audit event. Corpus citations always take precedence in the prompt ordering so that licensed research is never displaced by web text.
+Modes are enabled only by the platform operator, per tenant, against a contractual basis; tenant admins cannot enable or disable them. When more than one mode is enabled, the user picks the mode per conversation and the tenant admin sets the default. The mode is stored on every message and in the audit event. Corpus citations always take precedence in the prompt ordering so that licensed research is never displaced by web text.
 
 ### 5.2 Request flow
 
@@ -203,10 +202,10 @@ When more than one mode is enabled, the user picks the mode per conversation; th
 3. **Conversation context**: load the last N turns of this conversation (bounded by tokens).
 4. **Query rewriting** (small EU model): turn a follow-up such as "and in Germany?" into a standalone retrieval query using the conversation context.
 5. **Retrieval**: call RAGFlow retrieval with the package's dataset IDs, rewritten query, `top_k` (8–12 after re-ranking), similarity threshold. User-selected filters (publisher, date range, source type, tag) are applied as RAGFlow document filters or post-retrieval using register metadata.
-6. **Web search** (web-search mode only): the web-fetch worker runs the rewritten query against the search provider, fetches the top 3–5 pages, extracts text, and returns snippets with URL and fetch time. Snippets are wrapped as untrusted content.
-7. **Chunk selection**: de-duplicate overlapping chunks, cap total context tokens (corpus first, then web), attach provenance (publisher, title, date, tag, source ID, page/slide, or URL) to every chunk.
+6. **Web search** (web-search mode only): the generation request to Mistral includes the web-search tool, scoped to the rewritten query. The tool's results (URL, title, snippet, retrieval date) come back as part of the response and are mapped to web citations. Returned web text is treated as untrusted content; the prompt instructs the model to cite web claims to a web result and never to let web content override corpus citations.
+7. **Chunk selection**: de-duplicate overlapping chunks, cap total context tokens, attach provenance (publisher, title, date, tag, source ID, page/slide) to every chunk.
 8. **Prompt assembly**: mode-specific system prompt, numbered context chunks, conversation turns, user query. No tenant name, user identifier or package information in the prompt. Corpus-only prompt forbids outside knowledge; general-knowledge prompt requires outside-knowledge sentences to be marked; web prompt requires web claims to cite a web chunk.
-9. **Generation**: streamed call to the primary EU provider; automatic failover to the secondary on 5xx/timeouts. Model version pinned in configuration.
+9. **Generation**: streamed call to Mistral Large (pinned version) on the EU endpoint; automatic failover to the Scaleway endpoint on 5xx/timeouts. Web-search mode does not fail over, because the fallback provider has no equivalent tool; the user is told to retry or switch mode.
 10. **Guardrails out**: scan the stream for system-prompt leakage and for strings matching other tenants' identifiers; truncate on bulk-reproduction patterns (very long verbatim spans from a single licensed source).
 11. **Citation mapping**: map `[n]` markers to the chunk set, split into corpus and web citations; drop markers that reference nothing; in corpus-only mode flag answers with no citations as "unsupported".
 12. **Persist**: message, answer, mode, citation set (source IDs + chunk IDs + offsets, or URLs for web), token counts, latency, model version. Write audit event.
@@ -243,7 +242,7 @@ No document reaches RAGFlow without an approved register row. This is both the l
 | --- | --- |
 | Third-party PDF | Editor uploads to the register with licence basis and canonical link → reviewer approves → worker uploads to the tagged datasets → RAGFlow parses (DeepDoc, "paper"/"book" method) → chunk count and errors recorded → spot-check in the RAGFlow UI → status "ingested" |
 | Crawled website | Editor registers the site, scope rules and crawl schedule → worker checks robots.txt and TDM opt-out, crawls, renders Markdown, computes hashes → changed pages are re-ingested, removed pages are withdrawn → register updated per page; the page URL is the canonical link |
-| Own analysis (DOCX/PPTX) | Editor uploads with target tags → ingested with "naive"/"presentation" method → optional metadata (project, client package) attached; canonical link is an operator-chosen location (shared drive link or none) |
+| Own analysis (DOCX/PPTX) | Editor uploads with target tags → ingested with "naive"/"presentation" method → optional metadata (project, client package) attached; the original file is kept in platform storage and served as a download link to users whose package includes the tag |
 
 Re-ingestion is versioned: a new parse creates new chunk IDs, old chunks are withdrawn, stored citations keep pointing at the old chunk ID and are shown as "superseded" in the UI.
 
@@ -266,7 +265,7 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 
 - **Chat** with streaming answers; markdown rendering; stop generation.
 - **Answer mode selector** shown only when the tenant has more than one mode enabled; mode banner on every answer.
-- **Citations**: numbered inline markers; side panel listing sources with publisher, title, date, page/slide and the exact excerpt used; a link to the original at its canonical location. Web citations (web-search mode) listed separately with URL and fetch time. No in-app full-document viewer.
+- **Citations**: numbered inline markers; side panel listing sources with publisher, title, date, page/slide and the exact excerpt used. Third-party sources link to the publisher's canonical location; our own analysis offers a download of the original DOCX/PPTX from the platform (download is audited and rate-limited). Web citations (web-search mode) listed separately with URL and retrieval date. No in-app full-document viewer.
 - **Conversation history**: list, search by title, rename, delete (hard delete, immediate), export a single conversation as PDF/Markdown with citations. Expiry date shown on each conversation.
 - **Follow-up questions** and suggested questions generated from the retrieved sources.
 - **Source filters**: restrict a query to publishers, date range, source type or a tag within the package.
@@ -277,7 +276,7 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 
 - Invite, deactivate and role-assign users; see last login and login method.
 - Shorten chat-history retention from the 30-day maximum (down to 0); the maximum cannot be raised.
-- Set the default answer mode among those the operator enabled.
+- Set the default answer mode among those the operator enabled (cannot enable or disable modes).
 - Usage dashboard: queries per day by mode, active users, top sources (no query text).
 - Download tenant audit log (auth and admin events).
 - View the tenant's configured SSO connection (configuration itself is done by the operator with the client's IT contact).
@@ -294,10 +293,10 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 
 - Tenant lifecycle: create, suspend, terminate (triggers purge cascade with certificate of deletion for history and account data).
 - **Package builder**: compose a tenant's package from tags, preview document counts, publish; package changes are versioned and audited.
-- **Answer modes** per tenant: enable General knowledge and Web search; record the contractual basis (DPA clause reference) when enabling web search.
-- **Login policy** per tenant: allowed methods, verified email domains, SSO source configuration (Entra tenant ID, Google hosted domain, OIDC/SAML metadata), MFA requirement for admins.
+- **Answer modes** per tenant: enable General knowledge and Web search; record the contractual basis (DPA clause reference) when enabling web search. This switch exists only in the operator console.
+- **Login policy** per tenant: sign-in links on/off (default on), verified email domains, SSO source configuration (Entra tenant ID, Google hosted domain, OIDC/SAML metadata), MFA requirement for admins.
 - Cross-tenant aggregates only: query volumes by mode, latency, cost per provider, error rates. No per-tenant query text.
-- Vendor and model configuration: provider endpoints, model pins, failover order, search provider, prompt template versions.
+- Vendor and model configuration: provider endpoints, model pins (Mistral Large by default), failover order, prompt template versions.
 - Evaluation results and regression gate status.
 - Support access: time-boxed "view tenant settings" mode without impersonation; any access is logged and visible to the tenant.
 
@@ -322,7 +321,8 @@ This section states how the compliance guide's controls are realised; it does no
 | Query and history isolation | PostgreSQL row-level security on every tenant table; the API sets `tenant_id` per transaction from the token, never from request parameters. Integration test asserts cross-tenant reads return zero rows |
 | Cache isolation | Redis keys prefixed by tenant and mode; a lint rule rejects cache calls without the tenant prefix helper |
 | Data minimisation at the model boundary | One prompt-builder module per mode; templates under version control; unit test asserts no tenant/user identifiers appear in the serialised request |
-| Web-search boundary | Search calls only from the web-fetch worker, only for tenants with the mode enabled, only with the rewritten query (never conversation history or chunks); provider pinned in configuration; every call audited |
+| Web-search boundary | The web-search tool is attached to the generation request only for tenants with the mode enabled; the tool query is the rewritten query only; the tool is pinned to Mistral's EU endpoint under the existing DPA and ZDR letter; every web-mode request audited |
+| Own-analysis downloads | Served only to users whose package contains the document's tag; signed, short-lived download URLs; each download audited; per-user daily download cap to deter bulk export |
 | Region and ZDR pin | Provider base URLs and model names in configuration with an allow-list; startup check refuses non-EU endpoints; ZDR letter references stored next to the configuration |
 | Encryption | TLS 1.2+ at the proxy; Scaleway Private Network between hosts, WireGuard if a host ever sits outside it; encrypted volumes; backups encrypted with a key held in Scaleway Secret Manager |
 | Metadata-only logs | Structured logging with an explicit allow-list of fields; request and response bodies never logged; linter rule and code-review checklist item |
@@ -381,11 +381,10 @@ This is light load. The retrieval host is sized by RAGFlow's baseline needs (par
 | Staging host | 4 vCPU, 16 GB RAM, used intermittently | ~€40 |
 | Object Storage backups | ~200 GB | ~€5 |
 | Transactional Email | a few thousand sign-in links per month | ~€0–10 |
-| LLM usage, Mistral Medium class | 3,000 queries/day × ~7k tokens | ~€150–250 |
-| LLM usage, Mistral Large class (if chosen) | same volume | ~€400–600 |
-| Web search provider (if enabled for some tenants) | per-query pricing | depends on provider and share of web-mode queries |
+| LLM usage, Mistral Large class (default) | 3,000 queries/day × ~7k tokens | ~€400–600 |
+| Mistral web-search tool (tenants with the mode enabled) | per-call pricing on top of tokens | depends on share of web-mode queries |
 
-Order of magnitude: €450–600 per month for infrastructure plus mid-tier inference at 20 tenants, before monitoring extras and the annual pentest. Costs scale almost linearly with query volume on the LLM line only.
+Order of magnitude: €700–900 per month for infrastructure plus Mistral Large inference at 20 tenants, before web-search tool calls, monitoring extras and the annual pentest. Costs scale almost linearly with query volume on the LLM line only.
 
 ---
 
@@ -395,10 +394,10 @@ Order of magnitude: €450–600 per month for infrastructure plus mid-tier infe
 | --- | --- | --- |
 | 0 — Proof of value (4–6 weeks) | RAGFlow on one Scaleway Instance, a sample corpus, a thin login (sign-in link only) and chat UI, Mistral EU endpoint, corpus-only mode | Internal team and one friendly client get cited answers; eval set v1 exists |
 | 1 — MVP (8–12 weeks) | Platform API with tenancy, packages, own generation path, corpus-only and general-knowledge modes, history with 30-day cap, excerpt-plus-link citations, content console, source register, audit log, retention jobs, Authentik with Entra, Google, OIDC/SAML and sign-in links, two-host deployment | Compliance guide's "before first client login" checklist complete; first paying tenants |
-| 2 — Scale and assurance | Web-search mode with its DPA clause and UI labelling, tenant admin dashboard, extraction detection tuning, provider failover drills, trust page; SOC 2 observation window starts | SOC 2 Type I; three or more tenants |
+| 2 — Scale and assurance | Web-search mode (Mistral tool) with its DPA clause and UI labelling, tenant admin dashboard, extraction detection tuning, provider failover drills, trust page; SOC 2 observation window starts | SOC 2 Type I; three or more tenants |
 | 3 — Depth | Shared conversations, briefs, alerts, tenant self-service SSO, tenant API | Driven by client demand |
 
-Web-search mode is placed in Phase 2 because it adds a sub-processor, a DPA clause and new UI labelling; it can be pulled into Phase 1 if a launch client requires it.
+Web-search mode is placed in Phase 2 because it needs a DPA clause and new UI labelling; since it uses Mistral's own tool under the existing contract, no new sub-processor is added, and it can be pulled into Phase 1 if a launch client requires it.
 
 ---
 
@@ -416,15 +415,20 @@ Web-search mode is placed in Phase 2 because it adds a sub-processor, a DPA clau
 | Assurance | SOC 2 (Security and Confidentiality); ISO 27001 not pursued now |
 | Isolation | Logical isolation on a shared platform; no dedicated instances |
 | Hosting | Scaleway, Paris; low load (10 users × 15 queries/day per tenant) |
+| Web search provider | Mistral's built-in web-search tool under the existing Mistral DPA |
+| Mode control | Only the platform operator enables modes, per tenant; tenant admins choose the default among enabled modes |
+| Own-analysis access | Original DOCX/PPTX downloadable from the platform by entitled users |
+| Sign-in links | Enabled for every tenant by default; operator can switch off per tenant |
+| Model | Mistral Large class by default, version pinned |
 
 ---
 
-## 13. Remaining questions
+## 13. Assumptions to verify in Phase 0
 
-These are second-order and do not block Phase 0 or most of Phase 1.
+Scoping is complete. These are technical assumptions the Phase 0 build should confirm before Phase 1 is committed.
 
-1. **Web search provider.** The query text leaves our control in this mode, so the provider must be EU-hosted or covered by a DPA with transfer safeguards. Candidates to evaluate: Mistral's built-in web-search tool (EU, same DPA), a self-hosted meta-search engine (queries still reach upstream engines), or a commercial search API under SCCs. Which trade-off do you prefer: fewest vendors (Mistral tool) or best result quality?
-2. **Who may enable modes.** The design gives the operator the switch and the tenant admin the default. Should tenant admins be allowed to enable General knowledge themselves, with only Web search gated by us?
-3. **Own-analysis links.** For DOCX/PPTX we produce, is the "link to the original" a download from our platform, a shared-drive link, or nothing beyond the excerpt?
-4. **Sign-in links for all users.** Allowed for every tenant by default, or only where the client has no SSO? Some client IT departments ask that sign-in links be disabled once SSO is live.
-5. **Model tier.** Mistral Medium class is sufficient for cited Q&A and halves inference cost against Large; confirm Medium as the default with Large available per tenant if needed.
+1. **Mistral web-search tool coverage.** Confirm the tool is available on the EU endpoint for the pinned Large model, that calls through it are covered by the zero-retention letter, and what its per-call pricing is.
+2. **RAGFlow retrieval API behaviour.** Confirm document-level metadata filters work as expected across multiple datasets in one call and that the same file linked into several datasets does not double-count in results.
+3. **Authentik email-link stage.** Confirm browser binding and single-use behaviour with Scaleway Transactional Email, and that per-tenant brands can hide the link option where it is switched off.
+4. **Embedding model quality.** Confirm the self-hosted multilingual model meets the eval set's retrieval hit-rate target; otherwise switch to `mistral-embed` under the same DPA.
+5. **Host sizing.** Measure RAGFlow parse throughput and memory on the 8 vCPU / 32 GB retrieval host with a realistic corpus sample; resize before Phase 1 if needed.

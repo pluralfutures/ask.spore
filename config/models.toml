@@ -66,6 +66,6 @@ judge = "v1"
 history_messages = 6        # last N messages of the conversation sent as context
 history_max_tokens = 2000   # ...bounded by this many tokens, newest first
 top_k = 10
-similarity_threshold = 0.2  # below this nothing is relevant: abstain without an LLM call
+similarity_threshold = 0.25  # below this nothing is relevant: abstain without an LLM call (findings section 5: v1 real-corpus runs)
 max_context_tokens = 6000   # cap on retrieved passages sent to the model
 cache_ttl_seconds = 86400   # answer cache; key includes the corpus version

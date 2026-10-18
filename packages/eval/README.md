@@ -18,6 +18,15 @@ uv run --directory packages/eval python -m eval validate sets/v1.jsonl
 uv run --directory packages/eval python -m eval validate sets/synthetic-v0.jsonl --min-items 30 --min-out-of-corpus 6
 ```
 
+If the set names its sources by corpus file name, `map-sources` replaces each name with the
+file's `canonical_url` from the corpus manifest (`design/specs/corpus-manifest.md`) and writes
+nothing while any name is not in the manifest; map such a name with `--alias "old=new"`:
+
+```
+uv run --directory packages/eval python -m eval map-sources <set-with-file-names>.jsonl \
+    --manifest /srv/corpus/manifest.csv -o sets/v1.jsonl
+```
+
 `validate` checks every line and lists every problem with its line number. By default it also
 requires the spec's minimums for eval set v1: at least 60 items, at least 10 of them
 `out_of_corpus`.

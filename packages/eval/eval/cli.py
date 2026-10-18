@@ -1,4 +1,4 @@
-"""``python -m eval``: validate eval sets, run the harness, compare results."""
+"""``python -m eval``: validate eval sets, map their sources, run the harness, compare results."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 from app.core.config import ConfigError
 
-from eval import compare, results
+from eval import compare, results, sources
 from eval.schema import V1_MIN_ITEMS, V1_MIN_OUT_OF_CORPUS, json_schema, load_set
 
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
@@ -44,6 +44,25 @@ def cmd_validate(args: argparse.Namespace) -> int:
         f"{args.file}: {status}: {len(report.items)} valid items ({summary}); {synthetic} synthetic"
     )
     return 0 if report.ok else 1
+
+
+def cmd_map_sources(args: argparse.Namespace) -> int:
+    try:
+        aliases = sources.parse_aliases(args.alias)
+        set_text = Path(args.file).read_text(encoding="utf-8")
+        urls = sources.manifest_urls(Path(args.manifest).read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError) as exc:
+        _err(f"python -m eval map-sources: {exc}")
+        return 2
+    mapped = sources.map_sources(set_text, urls, aliases)
+    for problem in mapped.problems:
+        _err(f"{args.file}: {problem}")
+    if mapped.problems:
+        _out(f"{args.file}: not written: {len(mapped.problems)} problem(s)")
+        return 1
+    Path(args.output).write_text("\n".join(mapped.lines) + "\n", encoding="utf-8")
+    _out(f"wrote {args.output}: {len(mapped.lines)} items, {mapped.aliased} entries via aliases")
+    return 0
 
 
 def cmd_schema(args: argparse.Namespace) -> int:
@@ -123,6 +142,23 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--min-out-of-corpus", type=int, default=V1_MIN_OUT_OF_CORPUS)
     validate.set_defaults(func=cmd_validate)
 
+    map_cmd = commands.add_parser(
+        "map-sources",
+        help="replace file names in expected_source_ids with canonical URLs from a manifest",
+        description="Reads a .jsonl set whose expected_source_ids are corpus file names and "
+        "the corpus manifest.csv, and writes the set with each file's canonical_url. Writes "
+        "nothing if any name is not in the manifest; map it with --alias.",
+    )
+    map_cmd.add_argument("file", help="eval set with file names (.jsonl)")
+    map_cmd.add_argument("--manifest", required=True, help="corpus manifest.csv")
+    map_cmd.add_argument("--output", "-o", required=True, help="where to write the mapped set")
+    map_cmd.add_argument(
+        "--alias",
+        action="append",
+        default=[],
+        help="'name in the set=file name in the manifest'; repeatable",
+    )
+    map_cmd.set_defaults(func=cmd_map_sources)
     schema = commands.add_parser("schema", help="print the JSON Schema of one eval item")
     schema.add_argument("--write", action="store_true", help=f"write it to {SCHEMA_FILE.name}")
     schema.set_defaults(func=cmd_schema)

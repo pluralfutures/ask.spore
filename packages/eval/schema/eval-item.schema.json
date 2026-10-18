@@ -1,0 +1,68 @@
+{
+  "additionalProperties": false,
+  "description": "One eval question.",
+  "properties": {
+    "id": {
+      "description": "Stable, unique within the set; never reused for a different question.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "question": {
+      "description": "Asked exactly as written, as the first turn of a new conversation.",
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Question",
+      "type": "string"
+    },
+    "type": {
+      "description": "factual: one fact from one source; synthesis: combines several statements, usually across sources; out_of_corpus: the corpus cannot answer it.",
+      "enum": [
+        "factual",
+        "synthesis",
+        "out_of_corpus"
+      ],
+      "title": "Type",
+      "type": "string"
+    },
+    "expected_source_ids": {
+      "description": "Sources that answer the question: source register UUIDs or the sources' canonical URLs. At least one for factual and synthesis; empty for out_of_corpus.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Expected Source Ids",
+      "type": "array"
+    },
+    "expected_answer_notes": {
+      "description": "What a correct answer says, for human review of results. For out_of_corpus: why the corpus cannot answer.",
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Expected Answer Notes",
+      "type": "string"
+    },
+    "labels": {
+      "description": "Optional free grouping, e.g. 'table', 'pptx', 'lang:de'.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+    },
+    "synthetic": {
+      "default": false,
+      "description": "True for invented items written against the synthetic corpus.",
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "question",
+    "type",
+    "expected_source_ids",
+    "expected_answer_notes"
+  ],
+  "title": "ask.spore eval item",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

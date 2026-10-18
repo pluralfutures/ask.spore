@@ -1,4 +1,69 @@
 # packages/eval
 
-Evaluation set and harness. Sets live in `sets/`, synthetic fixtures in `fixtures/`, results in `results/`.
-The eval set schema and validator arrive with P0-17, the harness with P0-18.
+Evaluation set and harness (P0-17, P0-18).
+
+| Path | What |
+| --- | --- |
+| `sets/` | Eval sets, one JSON object per line (`.jsonl`). `template.jsonl` shows one item of each type. |
+| `sets/synthetic-v0.jsonl` | **Synthetic** set (38 invented items) against the synthetic corpus, used to prove the harness end to end. Not eval set v1. |
+| `schema/eval-item.schema.json` | JSON Schema of one item, generated from `eval/schema.py` (`python -m eval schema --write`). |
+| `fixtures/corpus/` | Synthetic corpus (invented organisations and figures) and `ingest.sh`, which ingests it with the canonical URLs the synthetic set expects. |
+| `results/` | Harness output, one folder per run. |
+
+Commands, from the repository root:
+
+```
+uv run --directory packages/eval python -m eval validate sets/v1.jsonl
+uv run --directory packages/eval python -m eval validate sets/synthetic-v0.jsonl --min-items 30 --min-out-of-corpus 6
+```
+
+`validate` checks every line and lists every problem with its line number. By default it also
+requires the spec's minimums for eval set v1: at least 60 items, at least 10 of them
+`out_of_corpus`.
+
+## Writing eval set v1 (research team)
+
+Eval set v1 is `sets/v1.jsonl`, written by the research team from the **real** sample corpus
+ingested on the Phase 0 Instance. The harness does not depend on the synthetic set; it runs
+whatever set it is given.
+
+### One item
+
+```json
+{"id": "v1-001", "question": "What was installed offshore wind capacity in the Tidewater region at the end of 2025?", "type": "factual", "expected_source_ids": ["https://publisher.example/reports/tidewater-2026"], "expected_answer_notes": "4.2 GW at the end of 2025 (Table 1).", "labels": ["pdf", "table"]}
+```
+
+Each item is one line. Start from `sets/template.jsonl`.
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `id` | yes | Stable identifier, unique in the set: letters, digits, `.`, `_`, `-`, up to 64 characters. Results are compared by `id`, so never reuse an `id` for a different question; retire it and add a new one. |
+| `question` | yes | Asked exactly as written, as the first message of a new conversation (no follow-ups in v1). At most 4,000 characters. |
+| `type` | yes | `factual`: one fact from one source. `synthesis`: combines several statements, usually from several sources. `out_of_corpus`: the corpus cannot answer it. |
+| `expected_source_ids` | yes | The sources that answer the question. Each entry is either the source's **canonical URL** exactly as registered at ingestion (`--canonical-url`) or its **source register UUID** (`sources.id`). At least one for `factual` and `synthesis`; must be `[]` for `out_of_corpus`. |
+| `expected_answer_notes` | yes | What a correct answer says (figures, units, years, the gist), for whoever reviews the results. For `out_of_corpus`, why the corpus cannot answer. Not sent to any model. |
+| `labels` | no | Free grouping for review, lowercase: e.g. `pdf`, `table`, `speaker-notes`, `lang:de`, `near-miss`. |
+| `synthetic` | no | `true` only for invented items. Leave it out in v1. |
+
+### Rules of thumb
+
+- **At least 60 items, at least 10 `out_of_corpus`.** Aim for a mix by source type (PDF, DOCX, PPTX, crawled pages) and by where the answer sits (body text, tables, slides, figure captions).
+- **Prefer canonical URLs** in `expected_source_ids`: they survive re-ingestion, while a source's UUID changes if it is deleted and ingested again. Use the UUID for own DOCX/PPTX analysis registered without a canonical URL. The harness warns about entries that match no source in the register.
+- **List every source that fully answers the question**, not only the one you had in mind. A source that is cited but not listed lowers citation precision.
+- **`out_of_corpus` items** should include *near misses*, not only off-topic questions: a year, region or technology next to what the corpus covers ("onshore" when the corpus has only offshore). Off-topic questions test the similarity threshold; near misses test the model's refusal.
+- **Write questions the way an analyst would ask them**, not copied from a sentence in the source: copied wording inflates retrieval scores.
+- **No client data, no real user queries, no personal data.** Questions are written by the research team from the corpus.
+- **Changing a question** means a new `id`. Do not edit a released item in place.
+- Run `validate` before committing; CI runs it too.
+
+## Synthetic set
+
+`sets/synthetic-v0.jsonl` exists so that the harness can be run and tested before v1 exists. Its
+items are invented, marked `"synthetic": true`, use ids `syn-NNN`, and point at
+`https://example.org/synthetic/...` canonical URLs set by `fixtures/corpus/ingest.sh`. Results
+from it say nothing about the real corpus.
+
+```
+uv run --directory apps/api ask-spore datasets sync
+sh packages/eval/fixtures/corpus/ingest.sh
+```

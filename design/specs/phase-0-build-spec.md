@@ -23,7 +23,7 @@ Binding. Record ideas for these in `backlog.md`, do not build them.
 - Crawler scheduling and the full source register workflow. A minimal register table and a CLI ingestion command are enough.
 - Retention jobs, audit export to object storage, backups, monitoring stack, Caddy TLS, Scaleway Secret Manager. A `.env` file and plain HTTP on a firewalled Instance are acceptable for Phase 0.
 - Conversation export, feedback UI beyond thumbs, source filters, suggested questions.
-- Fallback to Scaleway. Mistral only.
+- Provider failover logic. One active provider at a time. (Amended Oct 18, 2026: the active Phase 0 provider is Scaleway Generative APIs with `deepseek-v4.1-flash`, because the Mistral workspace had no API quota and no Large tier; the Mistral client stays in the code, inactive, behind a `[llm] provider` switch. See Stack Decision and findings M2.)
 
 ## Deployment target
 

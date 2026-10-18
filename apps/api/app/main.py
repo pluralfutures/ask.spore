@@ -14,7 +14,7 @@ from app.core.config import get_settings
 from app.core.db import create_engine, session_factory
 from app.core.logging import log
 from app.core.phase0_auth import Phase0AuthMiddleware
-from app.llm.mistral import MistralClient
+from app.llm.factory import create_llm_client
 from app.retrieval.protocol import Retriever
 from app.retrieval.ragflow import RagflowRetriever
 
@@ -31,11 +31,7 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
         app.state.db_factory = session_factory(engine)
         app.state.package_tags = phase0_package_tags(settings.config_dir)
         cache.connect(settings.secrets.redis_url.get_secret_value())
-        llm = MistralClient(
-            settings.models.mistral,
-            settings.secrets.mistral_api_key,
-            active_prompt(settings, "rewrite").text,
-        )
+        llm = create_llm_client(settings, active_prompt(settings, "rewrite").text)
         if retriever is not None:
             app.state.orchestrator = Orchestrator(
                 settings=settings,

@@ -112,6 +112,17 @@ def format_line(event: str, level: Level = "info", **fields: LogValue) -> str:
     return json.dumps(record, separators=(",", ":"), ensure_ascii=False)
 
 
+def silence_library_loggers(*names: str) -> None:
+    """Mute third-party loggers that can write request bodies (e.g. ``openai`` when
+    OPENAI_LOG=debug). Only this module may touch the stdlib logging module."""
+    for name in names:
+        logger = _stdlib_logging.getLogger(name)
+        logger.setLevel(_stdlib_logging.CRITICAL + 1)
+        logger.propagate = False
+        logger.handlers.clear()
+        logger.addHandler(_stdlib_logging.NullHandler())
+
+
 def log(event: str, level: Level = "info", **fields: LogValue) -> None:
     """Write a metadata-only JSON log line. Raises ForbiddenLogField on any other field."""
     _logger.log(_LEVELS[level], format_line(event, level, **fields))

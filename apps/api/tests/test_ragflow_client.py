@@ -278,6 +278,7 @@ async def test_timeout_and_unreachable_never_mention_the_key() -> None:
 
 ENV = {
     "MISTRAL_API_KEY": "test-mistral-key",
+    "SCALEWAY_API_KEY": "test-scaleway-key",
     "RAGFLOW_API_KEY": API_KEY,
     "DATABASE_URL": "postgresql+asyncpg://u:p@localhost/db",
     "REDIS_URL": "redis://localhost:6379/0",

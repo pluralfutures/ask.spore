@@ -36,6 +36,7 @@ cache_ttl_seconds = 86400
 
 ENV = {
     "MISTRAL_API_KEY": "test-mistral-key",
+    "SCALEWAY_API_KEY": "test-scaleway-key",
     "RAGFLOW_API_KEY": "test-ragflow-key",
     "DATABASE_URL": "postgresql+asyncpg://u:p@localhost/db",
     "REDIS_URL": "redis://localhost:6379/0",
@@ -165,3 +166,100 @@ def test_rejects_latest_embedding_model(tmp_path: Path) -> None:
     assert problems_for(tmp_path, text) == [
         "ragflow.embedding_model must name a fixed model, not a '-latest' alias"
     ]
+
+
+# --- LLM provider switch and Scaleway (findings M2) ---------------------------------------
+
+SCALEWAY_TOML = VALID_TOML.replace(
+    'hosts = ["api.mistral.ai", "ragflow"]',
+    'hosts = ["api.mistral.ai", "api.scaleway.ai", "ragflow"]',
+).replace(
+    "[ragflow]",
+    """[llm]
+provider = "scaleway"
+
+[scaleway]
+base_url = "https://api.scaleway.ai"
+chat_model = "deepseek-v4.1-flash"
+rewrite_model = "deepseek-v4.1-flash"
+judge_model = "deepseek-v4.1-flash"
+timeout_seconds = 30
+rate_limit_rps = 5
+tokens_per_minute = 1000000
+
+[ragflow]""",
+)
+PROJECT = "0b8c5d3e-1f2a-4b6c-9d7e-8f9a0b1c2d3e"
+
+
+def test_provider_defaults_to_mistral(tmp_path: Path) -> None:
+    settings = load_settings(environ=ENV, config_dir=write_config(tmp_path))
+    assert settings.models.llm.provider == "mistral"
+    assert settings.models.scaleway is None
+
+
+def test_scaleway_config_loads_with_undated_model_names(tmp_path: Path) -> None:
+    env = {**ENV, "SCALEWAY_PROJECT_ID": PROJECT}
+    settings = load_settings(environ=env, config_dir=write_config(tmp_path, SCALEWAY_TOML))
+    assert settings.models.scaleway is not None
+    assert settings.models.scaleway.chat_model == "deepseek-v4.1-flash"
+    assert settings.models.scaleway.reasoning_effort == "none"
+    assert settings.secrets.scaleway_api_key is not None
+    assert settings.secrets.scaleway_project_id == PROJECT
+
+
+@pytest.mark.parametrize(
+    ("provider_toml", "missing", "unused"),
+    [
+        ("VALID", "MISTRAL_API_KEY", "SCALEWAY_API_KEY"),
+        ("SCALEWAY", "SCALEWAY_API_KEY", "MISTRAL_API_KEY"),
+    ],
+)
+def test_only_the_active_providers_key_is_required(
+    tmp_path: Path, provider_toml: str, missing: str, unused: str
+) -> None:
+    text = VALID_TOML if provider_toml == "VALID" else SCALEWAY_TOML
+    without_unused = {k: v for k, v in ENV.items() if k != unused}
+    load_settings(environ=without_unused, config_dir=write_config(tmp_path, text))
+    env = {k: v for k, v in ENV.items() if k != missing}
+    assert problems_for(tmp_path, text, env) == [
+        f"missing required secrets in the environment: {missing}"
+    ]
+
+
+@pytest.mark.parametrize("model", ["deepseek-latest", "deepseek-v4.1-flash-latest", "Deep Seek"])
+def test_scaleway_rejects_alias_or_malformed_model_names(tmp_path: Path, model: str) -> None:
+    text = SCALEWAY_TOML.replace('judge_model = "deepseek-v4.1-flash"', f'judge_model = "{model}"')
+    [problem] = problems_for(tmp_path, text)
+    assert problem.startswith(f"scaleway.judge_model '{model}' must be a fixed model name")
+
+
+def test_scaleway_host_must_be_allow_listed_and_https(tmp_path: Path) -> None:
+    text = SCALEWAY_TOML.replace(
+        'base_url = "https://api.scaleway.ai"', 'base_url = "http://api.scaleway.example"'
+    )
+    assert sorted(problems_for(tmp_path, text)) == [
+        "scaleway.base_url host 'api.scaleway.example' is not in allow_list.hosts",
+        "scaleway.base_url must use https",
+    ]
+
+
+def test_scaleway_provider_needs_its_section(tmp_path: Path) -> None:
+    text = VALID_TOML.replace("[ragflow]", '[llm]\nprovider = "scaleway"\n\n[ragflow]')
+    assert problems_for(tmp_path, text) == [
+        "llm.provider is 'scaleway' but there is no [scaleway] section"
+    ]
+
+
+def test_scaleway_project_id_must_be_a_uuid(tmp_path: Path) -> None:
+    env = {**ENV, "SCALEWAY_PROJECT_ID": "../../other"}
+    assert problems_for(tmp_path, SCALEWAY_TOML, env) == [
+        "SCALEWAY_PROJECT_ID must be a project UUID"
+    ]
+
+
+def test_repository_config_uses_scaleway_on_an_allow_listed_host() -> None:
+    settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
+    assert settings.models.llm.provider == "scaleway"
+    assert settings.models.scaleway is not None
+    assert "latest" not in settings.models.scaleway.chat_model

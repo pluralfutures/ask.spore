@@ -16,7 +16,9 @@ identifier (UUID or 32-hex ID) reached it; never the prompt.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
+import os
 import re
 import sys
 from functools import partial
@@ -25,8 +27,11 @@ from typing import Any
 import httpx
 import pytest
 import uvicorn
+from pydantic import SecretStr
 
 from app import main
+from app.core.config import LlmConfig, Settings, load_settings
+from app.llm import factory
 from app.llm.mistral import MistralClient
 from app.retrieval.ragflow import RagflowRetriever
 from tests.fakes import completion, delta, sse
@@ -64,9 +69,23 @@ def handler(request: httpx.Request) -> httpx.Response:
     return sse(*(delta(part) for part in _answer(last)), delta("", _USAGE))
 
 
+def _mistral_settings() -> Settings:
+    """The real configuration with the provider forced to Mistral, which this fake mimics."""
+    settings = load_settings(
+        {"MISTRAL_API_KEY": "dev-fake", "SCALEWAY_API_KEY": "dev-fake", **os.environ}
+    )
+    models = settings.models.model_copy(update={"llm": LlmConfig(provider="mistral")})
+    secrets = dataclasses.replace(
+        settings.secrets, mistral_api_key=settings.secrets.mistral_api_key or SecretStr("dev-fake")
+    )
+    return dataclasses.replace(settings, models=models, secrets=secrets)
+
+
 def run(host: str, port: int) -> None:
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    pytest.MonkeyPatch().setattr(main, "MistralClient", partial(MistralClient, http_client=http))
+    patch = pytest.MonkeyPatch()
+    patch.setattr(factory, "MistralClient", partial(MistralClient, http_client=http))
+    patch.setattr(main, "get_settings", _mistral_settings)
     uvicorn.run(main.create_app(retriever=RagflowRetriever()), host=host, port=port)
 
 

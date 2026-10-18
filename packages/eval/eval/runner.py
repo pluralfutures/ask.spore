@@ -28,8 +28,10 @@ import httpx
 from app.chat.prompts import active_prompt
 from app.core.config import Settings, load_settings
 from app.core.db import create_engine, session_factory
+from app.llm.factory import LLMClient, create_llm_client
 from app.llm.mistral import MistralClient
 from app.retrieval.ragflow import RagflowClient
+from pydantic import SecretStr
 
 from eval import mock, results
 from eval.judge import Judge
@@ -193,13 +195,17 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
 
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     ragflow = RagflowClient.from_settings(settings)
-    judge_http = httpx.AsyncClient(transport=mock.transport()) if options.mock_mistral else None
-    llm = MistralClient(
-        settings.models.mistral,
-        settings.secrets.mistral_api_key,
-        active_prompt(settings, "rewrite").text,
-        http_client=judge_http,
-    )
+    rewrite_system = active_prompt(settings, "rewrite").text
+    llm: LLMClient
+    if options.mock_mistral:  # dev only: Mistral-shaped lexical stand-in, whatever the provider
+        llm = MistralClient(
+            settings.models.mistral,
+            settings.secrets.mistral_api_key or SecretStr("mock"),
+            rewrite_system,
+            http_client=httpx.AsyncClient(transport=mock.transport()),
+        )
+    else:
+        llm = create_llm_client(settings, rewrite_system)
     pipeline = ApiPipeline(options.api_url, token, options.user_email)
     warnings: list[str] = []
     item_results: list[ItemResult] = []
@@ -244,8 +250,6 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
     finally:
         await pipeline.aclose()
         await llm.aclose()
-        if judge_http is not None:
-            await judge_http.aclose()
         await ragflow.aclose()
         await engine.dispose()
 

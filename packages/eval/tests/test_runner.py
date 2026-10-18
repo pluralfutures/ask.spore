@@ -19,6 +19,7 @@ from eval.schema import EvalItem
 
 ENV = {
     "MISTRAL_API_KEY": "k",
+    "SCALEWAY_API_KEY": "test-scaleway-key",
     "RAGFLOW_API_KEY": "k",
     "DATABASE_URL": "postgresql+asyncpg://u:p@localhost/db",
     "PHASE0_BEARER_TOKEN": "t" * 32,
@@ -51,7 +52,7 @@ def test_ragflow_url_override_rejects_public_or_unknown_hosts(url: str) -> None:
 def test_config_errors_surface() -> None:
     from app.core.config import ConfigError
 
-    with pytest.raises(ConfigError, match="MISTRAL_API_KEY"):
+    with pytest.raises(ConfigError, match="SCALEWAY_API_KEY"):
         load_harness_settings(Path(DEFAULT_CONFIG_DIR / "models.toml"), {})
 
 

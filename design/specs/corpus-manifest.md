@@ -1,5 +1,7 @@
 # Sample corpus manifest — `manifest.csv`
 
+Implemented by `ask-spore ingest-manifest` (P0-11, `apps/api/app/content/manifest.py`); the licence basis vocabulary is enforced as proposed below unless the owner amends it. Two details the command fixes: `canonical_url` is required unless `licence_basis` is `own-work`, and a `site` row without `max_pages` crawls at most 50 pages.
+
 Format for the manifest that drives batch ingestion of the Phase 0 sample corpus (spec items P0-09, P0-10, P0-11). The columns map one-to-one onto the `ask-spore ingest` and `ask-spore crawl` flags and onto the `sources` table (P0-05).
 
 Status: proposal from the coding session, 2026-10-18. The licence basis vocabulary needs confirmation from the research lead before the team fills in rows.

@@ -133,6 +133,19 @@ Each item is one line. Start from `sets/template.jsonl`.
 - **Changing a question** means a new `id`. Do not edit a released item in place.
 - Run `validate` before committing; CI runs it too.
 
+## Eval set v1 (`sets/v1.jsonl`)
+
+Written by the research team against the real Phase 0 corpus; converted on the Phase 0 Instance on Oct 18, 2026 with `map-sources` from the team's file (sources named by file name) and the corpus manifest. Notes for whoever runs or edits it:
+
+- **Aliases applied** (same documents under different names in the team's file): a folder prefix (`[GPO]` → `[FSMC]`), a spelling (Gunderson → Gundersen) and a renamed climate resilience plan.
+- **`pending-source` (`hc-v1-029`, `hc-v1-049`)**: they name a 2022 report of which the corpus holds only the 2023 edition. Mapped provisionally to the 2023 edition and excluded from runs with `--exclude-label pending-source` until the owner confirms. Then drop the label, or retire the items and add new ids.
+- **Register UUIDs instead of canonical URLs** for files whose canonical URL other files share (publisher landing pages; 21 manifest rows, 7 URLs), so a sibling file cannot count as a hit. 28 items: hc-v1-001, hc-v1-002, hc-v1-003, hc-v1-004, hc-v1-005, hc-v1-006, hc-v1-007, hc-v1-009, hc-v1-010, hc-v1-011, hc-v1-012, hc-v1-013, hc-v1-030, hc-v1-031, hc-v1-032, hc-v1-033, hc-v1-034, hc-v1-038, hc-v1-040, hc-v1-041, hc-v1-042, hc-v1-043, hc-v1-044, hc-v1-046, hc-v1-047, hc-v1-048, hc-v1-049, hc-v1-050. **These UUIDs belong to the Instance's register: re-run `map-sources --uuid-for-shared-urls` after re-ingesting any of those files, or after giving them distinct canonical URLs in the manifest (then the UUIDs disappear).**
+
+```
+uv run --directory packages/eval python -m eval map-sources <team file>.jsonl \
+    --manifest /srv/corpus/Corpus/manifest.csv -o sets/v1.jsonl --uuid-for-shared-urls --alias "old=new" ...
+```
+
 ## Synthetic set
 
 `sets/synthetic-v0.jsonl` exists so that the harness can be run and tested before v1 exists. Its

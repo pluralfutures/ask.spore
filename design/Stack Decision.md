@@ -17,6 +17,7 @@ Fixes the technology choices left open in the Platform Architecture & Functional
 | RAGFlow client | Raw HTTP (`httpx`, async) for every call. Originally "`ragflow-sdk` where it covers the call"; changed in P0-07 because the SDK is synchronous `requests` without timeouts and lags the server API (findings R10) | Contract tests against responses recorded from the pinned RAGFlow version; re-record on upgrade | Async, bounded timeouts, no drift hidden inside an SDK |
 | LLM | `mistralai` Python SDK against the EU endpoint; model `mistral-large-*` dated version in config, never `-latest` in production | Pin model string in `config/models.toml` | Reproducible evals |
 | Fallback LLM | Scaleway Generative APIs via OpenAI-compatible client (`openai` SDK with custom base URL) | Pin model string | Second EU provider |
+| External models (Phase 1a) | OpenRouter via the same OpenAI-compatible client with zero-data-retention routing set on every request; models `openai/gpt-6.1-sol`, `anthropic/claude-opus-5.5` | Pin model slugs; ZDR flag asserted by a test | Owner decision Oct 18, 2026 (architecture §14, compliance addendum); non-EU, per-tenant opt-in |
 | Identity (Phase 1+) | Authentik, official Compose | Pin image tag | Per the architecture document; not used in Phase 0 |
 | Email (Phase 1+) | Scaleway Transactional Email over SMTP | n/a | Sign-in links |
 | Reverse proxy | Caddy | Pin image tag | Automatic TLS, minimal config |
@@ -70,5 +71,5 @@ ask.spore/
 - Logging goes through `app.core.logging.log()` which accepts only allow-listed fields. Logging `message`, `answer`, `query`, `prompt`, `chunk_text` or any request body is forbidden and is caught by a custom ruff rule and a code-review checklist item.
 - Cache access goes through `app.core.cache` helpers that require a tenant ID argument. Direct Redis calls outside that module are forbidden.
 - Prompts are files under `config/prompts/<mode>/<version>.md`; the active version is set in `config/models.toml`. Prompt text is never built with string concatenation in code.
-- All outbound hosts (Mistral, Scaleway, RAGFlow, SMTP) are listed in `config/models.toml` and checked at startup against an EU allow-list; the API refuses to start otherwise.
+- All outbound hosts (Mistral, Scaleway, OpenRouter, RAGFlow, SMTP) are listed in `config/models.toml` and checked at startup against the allow-list, which is split into EU hosts and external hosts; the API refuses to start otherwise, and refuses an external host for a tenant without the "external models" entitlement.
 - Migrations only through Alembic; schema changes never by hand.

@@ -1,0 +1,90 @@
+# Phase 1a Build Spec — First Test Client
+
+Oct 18, 2026 · Status: draft for owner review · Target duration: 5–7 weeks · Starts after the Phase 0 exit criteria hold
+
+Source decisions: architecture document §14 and the compliance guide addendum of Oct 18, 2026. Phase 1 of the architecture document is split into 1a (this spec) and 1b (`backlog.md`).
+
+## Goal
+
+Put one paying test client on the platform with: real sign-in, several users, three workspaces each with its own corpus and admin-set prompt, a choice of four models with reasoning on or off, and a read-only list of the files behind each workspace with downloads. Everything the CLAUDE.md rules require for multi-tenancy exists from the first migration, even though there are two tenants (ours and the client's).
+
+Exit criteria (all must hold):
+
+- The test client's users sign in with emailed links, pick one of three workspaces, and get cited answers from that workspace's corpus only; the cross-workspace and cross-tenant isolation tests pass in CI.
+- Each user can choose any enabled model and toggle reasoning when starting a conversation; the answer shows the model and a reasoning badge; usage and cost are recorded per tenant.
+- The operator can enable external models for the client and set a spend cap; a tenant without the entitlement cannot reach OpenRouter (test).
+- Each workspace shows its file list; downloads work, are audited and are capped.
+- Eval set v1 on `deepseek-v4.1-flash` shows no regression against the Phase 0 baseline; the prompt-guardrail adversarial set passes.
+- Compliance addendum items done: OpenRouter DPA accepted and filed, one-page TIA written, client DPA names external models and the file-download feature.
+
+## Not in this phase
+
+Binding. Record ideas in `backlog.md`.
+
+- Content console, source register approval flow, crawler scheduling (Phase 1b). Ingestion stays on the Phase 0 CLI.
+- Two-host deployment, Caddy TLS beyond a single host, monitoring stack, Secret Manager (Phase 1b). One Instance with Caddy TLS is enough.
+- SSO connectors (Entra, Google, OIDC/SAML). Sign-in links only.
+- Retention job beyond the 30-day expiry already applied at read time (Phase 1b).
+- Web-search mode (Phase 2).
+- User-edited workspace prompts (Phase 2). Tenant admins only.
+- Per-model eval baselines. Eval runs on the default model only.
+- Search or filters on the file list; source filters on queries.
+- Switching workspace, model or reasoning inside an existing conversation.
+- Showing reasoning text to users or storing it.
+- Tenant admin dashboard (Phase 2); the admin pages here are user management, workspace prompts and defaults.
+
+## Deployment target
+
+The Phase 0 Instance, re-sized if the Phase 0 findings on host sizing say so. Compose adds Authentik and Caddy with TLS on a public hostname; RAGFlow stays on the Compose network only.
+
+## Work items
+
+Build in this order; items in a group can be parallelised. Every tenant-scoped table gets `tenant_id`, an RLS policy and a `tenant_id`-first index in its first migration.
+
+### Group A — Tenancy and identity
+
+**P1a-01 Tenants and users.** Tables `tenants(id, slug, display_name, verified_domains[], created_at, status)`, `users(id, tenant_id, email, role in {user, tenant_admin}, status, last_login_at, last_login_method)`, `tenant_entitlements(tenant_id, answer_modes[], enabled_models[], external_models_enabled, external_spend_cap_cents, sign_in_links_enabled)`. Phase 0's hard-coded tenant becomes a row. The request context resolves the tenant from the authenticated user and sets `app.tenant_id` on the connection. Tests: RLS blocks a cross-tenant read of users and entitlements; a request without tenant context fails closed.
+
+**P1a-02 Authentik with sign-in links.** Authentik from the official Compose, pinned tag, with an email-link stage over Scaleway Transactional Email. The API validates Authentik's OIDC tokens and maps the identity to a `users` row by tenant and email; unknown emails are refused without enumeration. Auth success and failure write `audit_events` (closes the Phase 0 backlog item). Tests: token for a user of tenant A cannot act on tenant B; expired or reused link is refused; audit event written with method.
+
+**P1a-03 Operator console, minimum.** Operator-only routes and pages: create tenant, invite first admin, set entitlements (answer modes, enabled models, external models on/off with spend cap, sign-in links on/off), and an operator notices list (fed by P1a-07 and P1a-10). Operator role lives outside tenant RLS and is checked by a separate dependency. Every change writes an audit event with before and after values. Tests: a tenant admin cannot reach operator routes; entitlement change audited.
+
+### Group B — Workspaces
+
+**P1a-04 Workspace model.** Table `workspaces(id, tenant_id, slug, name, tag_ids[], default_mode, default_model, default_reasoning, created_at)` and `workspace_prompts(id, tenant_id, workspace_id, version, text, author_user_id, created_at)`; the active prompt is the latest version. Operator assigns tags per workspace in the package builder; tags may repeat across a tenant's workspaces (common corpus). Conversations gain `workspace_id`, `model`, `reasoning` columns, all fixed at creation; messages record `model` and `reasoning`. Tests: resolving a workspace's dataset IDs never reads the request body; a tenant-B user cannot read tenant-A workspaces; two workspaces sharing a tag resolve to overlapping dataset sets and a document in both appears once after retrieval de-duplication.
+
+**P1a-05 Workspace-scoped orchestration.** The orchestrator takes the conversation's workspace and retrieves from that workspace's datasets only. Cache key becomes `tenant_id + workspace_id + mode + model + reasoning + prompt_version + normalised query + corpus version` (and gains the retrieval settings from the Phase 0 backlog item). Audit event records workspace, model, reasoning. Tests: the package-enforcement test from architecture §8 run per workspace (query matching only workspace-B documents from a workspace-A conversation returns nothing); cache miss on a prompt version change.
+
+**P1a-06 Prompt layering.** `config/prompts/corpus_only/v2.md` and `general_knowledge/v1.md` gain a delimited slot for the workspace's additional instructions, marked as tenant-authored and lower priority than the platform rules. `app.chat.prompts` renders the slot from the active `workspace_prompts` row, length-capped (2,000 characters), with delimiter characters escaped. Tests: rendered prompt contains the block inside the delimiters only; empty block renders cleanly; the prompt-content test still proves no tenant, user, workspace or dataset identifiers are added by the code path.
+
+**P1a-07 Tenant-name flag.** On every saved workspace prompt the API matches the text against the tenant display name, verified domains and the tenant's user names and emails (case-insensitive, whole-word). A match writes an `audit_events` row and an operator notice; the save succeeds and the user sees nothing. Tests: match produces notice and audit row, no response field reveals it; non-match produces nothing.
+
+**P1a-08 Prompt-guardrail eval.** `packages/eval/fixtures/adversarial_prompts/` with at least 15 hostile additional-instructions blocks (ignore the context, answer from memory, drop citations, reveal the system prompt, answer a different workspace's question). `python -m eval guardrails` runs eval items under each block and fails if abstention or citation behaviour degrades beyond the compare threshold. Runs in CI on prompt changes.
+
+### Group C — Models and reasoning
+
+**P1a-09 Model catalogue and entitlement.** `config/models.toml` gains `[catalogue]` entries per model (provider, id, display name, reasoning switch kind, price per million tokens in and out, `external = true/false`) and splits `[allow_list]` into `eu_hosts` and `external_hosts`; `api.openrouter.ai` joins `external_hosts`. Add `qwen3.8-27b` to the Scaleway section. The orchestrator refuses a model not in the tenant's `enabled_models`, and refuses any external model when `external_models_enabled` is false, before any outbound call. Tests: startup rejects an unlisted host; disabled model and external-without-entitlement both fail closed with no HTTP call (asserted with a mocked transport).
+
+**P1a-10 OpenRouter client and spend cap.** `app.llm.openrouter` on the OpenAI-compatible path, same interface as the Scaleway client, with the zero-data-retention routing option set on every request, pinned slugs, timeouts, one retry on 5xx. Usage per message is priced from the catalogue into `usage_ledger(tenant_id, month, model, tokens_in, tokens_out, cost_cents)`. At 80 percent of the cap an operator notice is written once per month; at 100 percent new conversations on external models are refused with a user-facing notice and fall back to the workspace default model. Tests: serialised request carries the ZDR flag and no tenant, user or workspace identifiers; cap at 100 percent falls back and audits; reasoning parameter mapped per model kind.
+
+**P1a-11 Reasoning switch.** Reasoning on or off per conversation maps to: DeepSeek and Qwen thinking enabled or disabled; GPT and Claude reasoning effort medium or none. Reasoning content in the stream is discarded, never persisted. Tests: stream with reasoning segments yields only the answer text; `reasoning` is stored on the message; the badge data is in the API response.
+
+### Group D — Web app
+
+**P1a-12 Conversation start panel.** New conversation requires workspace (hidden when the tenant has one), model (hidden when one is enabled) and reasoning toggle, pre-filled from the workspace defaults. The conversation header shows the workspace label, model name and reasoning badge; none can be changed after the first message. Tests: vitest for the panel states; Playwright for a start-to-answer flow.
+
+**P1a-13 Tenant admin pages.** Users: invite, deactivate, role; last login and method. Workspaces: edit additional instructions (shows version history, no revert yet), set default mode, model and reasoning among enabled options. Retention shortening from 30 days. Tests: a `user` role cannot open admin pages; saving a prompt creates a new version.
+
+**P1a-14 Workspace file list and downloads.** Per workspace, a page listing PDF, DOCX and PPTX files in the workspace's tags with publisher, title, publication date, canonical link and ingestion date, from the source register; crawled sites appear once with page count. Each file has a download action served through a signed URL valid for 60 seconds, audited (`download` event with source_id), capped at a configurable number per user per day (default 50). Tests: a file in a tag outside the workspace is neither listed nor downloadable, even by direct URL; cap enforced; audit event written; API response carries no dataset or document IDs beyond our own register UUIDs.
+
+### Group E — Compliance and release
+
+**P1a-15 Compliance paperwork.** OpenRouter DPA accepted and filed; one-page TIA in `design/compliance/`; client DPA draft names external models, the download feature and the 30-day cap; sub-processor list updated; trust-page text drafted. Checklist in the compliance guide updated.
+
+**P1a-16 Release checks.** Phase 0 eval set on `deepseek-v4.1-flash` compared against the Phase 0 baseline; guardrail eval passing; isolation tests reviewed and signed in `design/specs/phase-1a-findings.md`; CLAUDE.md rules verified by a reviewer.
+
+## Open items for the owner
+
+- Confirm the Scaleway catalogue name `qwen3.8-27b` and the OpenRouter slugs when the accounts are opened; the spec pins what was given on Oct 18.
+- Confirm the per-user daily download cap (default 50) and the external spend cap for the test client.
+- Confirm the test client's three workspaces: names, tag sets, which tags are common.

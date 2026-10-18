@@ -17,3 +17,8 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 - Phase 1: move RAGFlow's `vector_similarity_weight` (hard-coded 0.3) into `[chat]` config and tune it with the threshold on eval set v1 (findings section 5). Raised in P0-20.
 - Phase 1: a separate pinned `judge_model` for the eval harness, so the judge does not grade its own model's answers (findings D6). Raised in P0-18.
 - Phase 1: eval gate in CI against staging (spec P0-19 "automatic gating"); run `compare` against the last committed baseline and block on regression. Raised in P0-19.
+- Phase 1b: content console, source register approval flow, two-host deployment, retention jobs, SSO connectors (Entra, Google, OIDC/SAML); deferred from Phase 1 so that Phase 1a can ship the test client's features. Raised Oct 18, 2026.
+- Phase 2: any tenant user may edit a workspace's additional-instructions prompt; every edit versioned with author and time, audited, revertible by the tenant admin. Phase 1a allows tenant admins only. Raised Oct 18, 2026.
+- Phase 2: before the SOC 2 observation window, revisit the light OpenRouter paperwork (compliance addendum Oct 18, 2026): bespoke ZDR confirmation, fuller TIA, upstream vendor list review.
+- Phase 2: source filters driven from the per-workspace file list (architecture §7.1); P1a-09 is a plain list with no search or filters.
+- Phase 2: per-model eval baselines; Phase 1a evaluates on `deepseek-v4.1-flash` only by owner decision.

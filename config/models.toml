@@ -16,7 +16,9 @@ hosts = [
 [mistral]
 base_url = "https://api.mistral.ai"
 # Dated model versions only; never "-latest" (reproducible evals).
-chat_model = "mistral-large-2512"
+# PHASE 0 substitute for Large, approved by the owner (findings M2): the account's tier
+# does not offer mistral-large-2512. Also the eval judge's model (findings D6).
+chat_model = "mistral-medium-2604"
 rewrite_model = "mistral-small-2603"
 timeout_seconds = 60
 

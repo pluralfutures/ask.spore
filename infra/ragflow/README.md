@@ -15,7 +15,7 @@ Pinned RAGFlow retrieval tier. Version: see `VERSION` (currently `v0.27.2`).
 | TEI embedding service always on (upstream: optional `tei-cpu` profile), default model `BAAI/bge-m3` | The RAGFlow image no longer bundles an embedding model |
 | TEI started with `--max-batch-tokens ${TEI_MAX_BATCH_TOKENS:-4096}` (upstream default 16384) | Upstream's default keeps more than 15 GiB resident with bge-m3 on CPU; 4096 keeps ~4.1 GiB (findings R2) |
 | `COMPOSE_PROFILES=tei-cpu` set in the `ragflow` service environment | RAGFlow only offers TEI as its `Builtin` embedding model when that variable names a `tei-` profile (findings R7) |
-| `MAX_CONCURRENT_TASKS=2`, `EMBEDDING_BATCH_SIZE=8` in the `ragflow` service (upstream 5 and 16) | On CPU, parallel DeepDoc OCR starved TEI past RAGFlow's hard-coded 30 s embedding timeout and long PDFs never finished (findings R17) |
+| `MAX_CONCURRENT_TASKS=2`, `EMBEDDING_BATCH_SIZE=8` and `cpus: ${RAGFLOW_CPUS:-0}` in the `ragflow` service (upstream 5, 16, no limit); the Phase 0 Instance sets `RAGFLOW_CPUS=5` and `EMBEDDING_BATCH_SIZE=1` in `.env` | On CPU, parallel DeepDoc OCR starved TEI past RAGFlow's hard-coded 30 s embedding timeout and long PDFs never finished (findings R17) |
 | `service_conf.yaml.template` and `entrypoint.sh` not mounted; the image's own copies are used | Nothing to override yet |
 | Secrets required (`:?`) instead of upstream's well-known defaults | No default passwords |
 | `TZ` defaults to `Europe/Paris` | Upstream defaults to `Asia/Shanghai` |

@@ -22,6 +22,8 @@ import pytest
 from alembic import command
 from alembic.config import Config
 
+pytest_plugins = ("tests.chat_fixtures",)
+
 API_DIR = Path(__file__).resolve().parents[1]
 SEED_USERS = "analyst@example.org:Test Analyst,Editor@Example.org:Test Editor"
 

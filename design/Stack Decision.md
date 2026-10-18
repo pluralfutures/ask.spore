@@ -14,7 +14,7 @@ Fixes the technology choices left open in the Platform Architecture & Functional
 | App database | PostgreSQL 16 | Major pinned in Compose | Row-level security, JSONB for citation sets |
 | Cache, sessions, rate limits | Redis 7 | Major pinned | Simple; already part of the RAGFlow stack skill set |
 | Retrieval | RAGFlow, official Docker Compose, Elasticsearch backend, bundled embedding model | Pin RAGFlow image tag; record it in `infra/ragflow/VERSION` | Per the architecture document |
-| RAGFlow client | `ragflow-sdk` Python package where it covers the call; raw HTTP (`httpx`) otherwise | Pin to the RAGFlow server version | Avoids drift between SDK and server |
+| RAGFlow client | Raw HTTP (`httpx`, async) for every call. Originally "`ragflow-sdk` where it covers the call"; changed in P0-07 because the SDK is synchronous `requests` without timeouts and lags the server API (findings R10) | Contract tests against responses recorded from the pinned RAGFlow version; re-record on upgrade | Async, bounded timeouts, no drift hidden inside an SDK |
 | LLM | `mistralai` Python SDK against the EU endpoint; model `mistral-large-*` dated version in config, never `-latest` in production | Pin model string in `config/models.toml` | Reproducible evals |
 | Fallback LLM | Scaleway Generative APIs via OpenAI-compatible client (`openai` SDK with custom base URL) | Pin model string | Second EU provider |
 | Identity (Phase 1+) | Authentik, official Compose | Pin image tag | Per the architecture document; not used in Phase 0 |

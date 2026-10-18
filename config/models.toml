@@ -23,3 +23,22 @@ timeout_seconds = 60
 [ragflow]
 base_url = "http://ragflow:9380"
 timeout_seconds = 30
+# Embedding model for new datasets: bge-m3 served by the self-hosted TEI container,
+# which RAGFlow exposes as its "Builtin" provider (infra/ragflow, findings R1, R7).
+# Changing it means re-creating and re-ingesting every dataset.
+embedding_model = "BAAI/bge-m3@Builtin"
+
+[prompts]
+# Active versions of config/prompts/<name>/<version>.md. Changing a prompt means a
+# new version file and an eval run (CLAUDE.md); never edit a released version.
+corpus_only = "v1"
+rewrite = "v1"
+
+[chat]
+# Orchestrator parameters (P0-14). Token figures are estimates (~4 characters per token).
+history_messages = 6        # last N messages of the conversation sent as context
+history_max_tokens = 2000   # ...bounded by this many tokens, newest first
+top_k = 10
+similarity_threshold = 0.2  # below this nothing is relevant: abstain without an LLM call
+max_context_tokens = 6000   # cap on retrieved passages sent to the model
+cache_ttl_seconds = 86400   # answer cache; key includes the corpus version

@@ -1,0 +1,35 @@
+{
+  "code": 0,
+  "data": {
+    "chunk_count": 0,
+    "chunk_method": "paper",
+    "content_hash": "46418bce688eb1b4f10d155a598d9e2f",
+    "create_date": "2026-10-18T01:23:55",
+    "create_time": 1792279435581,
+    "created_by": "e17c0764ca7d11f1adf0cf0af9c5eb0e",
+    "dataset_id": "d2680670ca8111f18b280bc8b8cfdbb7",
+    "id": "d27287b2ca8111f18b280bc8b8cfdbb7",
+    "location": "tidewater-offshore-wind-2026.pdf",
+    "name": "tidewater-offshore-wind-2026.pdf",
+    "parser_config": {
+      "image_context_size": 0,
+      "llm_id": "",
+      "table_context_size": 0
+    },
+    "pipeline_id": null,
+    "process_begin_at": null,
+    "process_duration": 0.0,
+    "progress": 0.0,
+    "progress_msg": "",
+    "run": "UNSTART",
+    "size": 3212,
+    "source_type": "local",
+    "status": "1",
+    "suffix": "pdf",
+    "thumbnail": "thumbnail_d27287b2ca8111f18b280bc8b8cfdbb7.png",
+    "token_count": 0,
+    "type": "pdf",
+    "update_date": "2026-10-18T01:23:55",
+    "update_time": 1792279435604
+  }
+}

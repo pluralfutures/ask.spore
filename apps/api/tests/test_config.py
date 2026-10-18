@@ -18,6 +18,19 @@ timeout_seconds = 60
 [ragflow]
 base_url = "http://ragflow:9380"
 timeout_seconds = 30
+embedding_model = "BAAI/bge-m3@Builtin"
+
+[prompts]
+corpus_only = "v1"
+rewrite = "v1"
+
+[chat]
+history_messages = 6
+history_max_tokens = 2000
+top_k = 10
+similarity_threshold = 0.2
+max_context_tokens = 6000
+cache_ttl_seconds = 86400
 """
 
 ENV = {
@@ -29,8 +42,12 @@ ENV = {
 }
 
 
-def write_config(tmp_path: Path, text: str = VALID_TOML) -> Path:
+def write_config(tmp_path: Path, text: str = VALID_TOML, *, prompts: bool = True) -> Path:
     (tmp_path / "models.toml").write_text(text, encoding="utf-8")
+    if prompts:
+        for name in ("corpus_only", "rewrite"):
+            (tmp_path / "prompts" / name).mkdir(parents=True, exist_ok=True)
+            (tmp_path / "prompts" / name / "v1.md").write_text("Synthetic prompt.\n")
     return tmp_path
 
 
@@ -139,4 +156,11 @@ def test_rejects_short_bearer_token(tmp_path: Path) -> None:
     env = {**ENV, "PHASE0_BEARER_TOKEN": "short"}
     assert problems_for(tmp_path, VALID_TOML, env) == [
         "PHASE0_BEARER_TOKEN must be at least 32 characters"
+    ]
+
+
+def test_rejects_latest_embedding_model(tmp_path: Path) -> None:
+    text = VALID_TOML.replace("BAAI/bge-m3@Builtin", "mistral-embed-latest")
+    assert problems_for(tmp_path, text) == [
+        "ragflow.embedding_model must name a fixed model, not a '-latest' alias"
     ]

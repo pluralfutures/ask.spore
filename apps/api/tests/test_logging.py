@@ -33,6 +33,9 @@ def test_allow_list_matches_spec() -> None:
         "source_id",
         "chunk_count",
         "error_code",
+        "tag",
+        "dataset_id",
+        "document_id",
     }
 
 

@@ -1,8 +1,10 @@
 # Phase 0 Findings
 
-Status: complete for what the build environment can establish (P0-20, Oct 18, 2026). Open
-items are marked **Needs the real corpus**, **Needs the Instance** or **Needs the Mistral
-account**; section 4 waits on the content editor's spot checks (P0-11).
+Status: updated from the Phase 0 Instance run (Oct 18 to 19, 2026: real corpus, eval set v1, Scaleway
+`deepseek-v4.1-flash`; log in `phase-0-instance-run-notes.md`). Assumptions 4 and 5 are answered;
+1 (Mistral web search) and 3 (Authentik) remain open. Section 4 still needs the content editor's
+side-by-side review in the RAGFlow UI (P0-11). Earlier markers **Needs the real corpus** or
+**Needs the Instance** in sections 1 and 3 predate that run.
 
 ## 1. Where RAGFlow differs from what the spec assumes
 
@@ -43,6 +45,7 @@ Recorded as found, per `CLAUDE.md` ("follow the real API and record the differen
 | C2 | P0-14 | "Cache by tenant + normalised question + corpus version" | Keyed on the normalised *standalone* (rewritten) query, plus dataset IDs, prompt version and model. Keying on the literal question would serve one conversation's answer to "and in Germany?" in another. The corpus version is a hash over the package's source rows (no trigger needed). |
 | C3 | P0-15 | `GET /healthz` among the `/api/v1` routes, "all routes behind P0-06" | The authenticated route is `/api/v1/healthz`. The root `/healthz` stays unauthenticated for the Compose probe (P0-02). |
 | C4 | P0-08 / P0-14 | Chunking method per tag: `paper` for reports, `presentation` for PPTX, `naive` for DOCX and web | `sample-analysis` holds both DOCX and PPTX, which would need two methods in one dataset. For Group B (P0-08) to settle; the orchestrator does not depend on it. Settled by Group B: `config/tags.toml` `chunk_method_by_type` sets `presentation` per PPTX document (section 6). |
+| C5 | P0-15 | `POST /conversations` returns a conversation the client can use immediately | **Found on the Instance (eval v1, threshold 0.25 run):** `POST /api/v1/conversations/{id}/messages` returned 404 for a conversation created a moment before (`hc-v1-024`; the clean-up `DELETE` was 404 too). `create_conversation` only flushes; the commit happens when the `db_session` dependency exits, which can come after the response is sent, so a fast client can race it. Seen once in about 174 conversations. | **Open, not fixed in this session** so that the three threshold runs ran the same code. Proposed fix: commit inside the write endpoints before returning (or make the dependency commit before the response), plus a test that creates a conversation and posts to it immediately. |
 
 ## 1d. Where the Group D build differs from the spec
 
@@ -87,8 +90,8 @@ Notes:
 | 1 | Mistral web-search tool: available on the EU endpoint for the pinned Large model, covered by the zero-retention letter, priced per call | **Open. Needs the Mistral account.** |
 | 2 | RAGFlow: metadata filters across datasets in one call; a file in several datasets does not double-count | **Half answered.** Double-counting answered; metadata filters not tested |
 | 3 | Authentik email-link stage: browser binding, single use, per-tenant brands can hide it | **Open.** Desk check not done |
-| 4 | Self-hosted multilingual embedding meets the eval set's hit-rate target | **Open. Needs the real corpus** (eval set v1). The harness to measure it is ready |
-| 5 | Host sizing: parse throughput and memory on 8 vCPU / 32 GB | **Memory answered on a smaller host; throughput needs the Instance** |
+| 4 | Self-hosted multilingual embedding meets the eval set's hit-rate target | **Answered for English on this corpus:** factual hit@10 and hit@5 are 100 against the proposed 90 / 80 targets. Cross-language not tested (v1 is all English) |
+| 5 | Host sizing: parse throughput and memory on 8 vCPU / 32 GB | **Answered:** memory fits (18 GiB peak); CPU parsing is too slow (about 13 s per PDF page); resize before Phase 1 (item 5) |
 
 **1. Mistral web-search tool.** Nothing could be confirmed from the build environment. No Mistral
 key exists, and Mistral's documentation was not reachable (M1). Still to check, all on the team's
@@ -125,22 +128,11 @@ in a different browser from the one that asked for it is refused, or can be made
 out the email-link option where the operator turned it off; (d) SMTP delivery through Scaleway
 Transactional Email.
 
-**4. Embedding quality.** No evidence yet. On the synthetic set, hit@5 and hit@10 are 100 at
-thresholds 0.2 and 0.25 (section 5). But that corpus has 5 documents and 12 chunks, so the result
-says nothing about bge-m3. To be measured with eval set v1 on the Instance, **needs the real
-corpus**. Three points for that run:
+**4. Embedding quality.** **Answered for English on the Phase 0 corpus** (eval set v1, section 5). Against the targets proposed here before the run, hit@10 ≥ 90 and hit@5 ≥ 80 on `factual` items: **factual hit@10 = hit@5 = 100** (29 items) at thresholds 0.20 and 0.25, and synthesis items also 100. The first expected source is at rank 1 for 40 of 48 in-corpus items. So bge-m3 with RAGFlow's hybrid score (`0.3 × vector + 0.7 × keyword`) meets the targets; there is no case for switching to `mistral-embed` or a hosted embedding on quality grounds. Caveats:
 
-- *There is no hit-rate target.* §13 refers to "the eval set's retrieval hit-rate target", but no
-  document sets one. Proposal for the team to adopt before the v1 run: hit@10 ≥ 90 and hit@5 ≥ 80
-  on `factual` items.
-- *The embedding counts for only 30 percent of the score.* RAGFlow's score is
-  `0.3 × vector + 0.7 × keyword` with the hard-coded `vector_similarity_weight = 0.3`, and keyword
-  matching gates retrieval altogether (R16). A miss is therefore as likely to come from the
-  keyword side as from bge-m3. Tune the weight (section 5) before switching to `mistral-embed`.
-  Switching would send all corpus text to Mistral at ingestion, a change to the compliance
-  guide's data flow even under the same DPA.
-- *v1 should include* paraphrased questions and questions in the other languages clients will use
-  (R16).
+- *The corpus is small* (59 documents, 2,580 chunks) and topically narrow, and many questions share terms with their sources, which the keyword side rewards. Retrieval will get harder as packages grow; keep the targets and re-run per corpus.
+- *Not tested:* other languages (v1 is all English, so R16's cross-language risk stands) and paraphrased questions without shared terms. v2 of the set should add both, as proposed.
+- *The targets were proposed in this document, not adopted.* The team should confirm them so that later runs gate against them.
 
 **5. Host sizing.** **Answered on the Phase 0 Instance (Oct 18, 2026): memory is ample, CPU is not.**
 
@@ -205,15 +197,50 @@ Observed earlier on the **synthetic** files in `packages/eval/fixtures/corpus/` 
 
 ## 5. Recommended retrieval parameters for Phase 1
 
-Everything here comes from the **synthetic** set (38 items, 7 `out_of_corpus`) on the synthetic
+### Real corpus and real model (eval set v1, Oct 18, 2026)
+
+**What ran.** Eval set v1 (`packages/eval/sets/v1.jsonl`, 60 items written by the research team) on the Phase 0 Instance against **59 of the 60 corpus documents** (the 376-page PDF on manifest line 15 was not ingested in time; no v1 item names it). **58 items ran**: `hc-v1-029` and `hc-v1-049` were excluded with `--exclude-label pending-source`, because they name a 2022 report of which the corpus holds only the 2023 edition (owner to confirm). 28 items name register UUIDs instead of canonical URLs because their files share a landing-page URL with other files (`packages/eval/README.md`). Answers, query rewrite and judge: Scaleway `deepseek-v4.1-flash` with reasoning off (M2); the judge grades its own model (D6). RAGFlow v0.27.2, bge-m3, `top_k` 10, vector weight 0.3, context cap 6,000 tokens. Answer cache flushed before each run; no cached answers. Same code (`9f20637` to `11fba99`, harness and API unchanged between runs) and config apart from `[chat] similarity_threshold`, for the API and the harness alike.
+
+| Threshold | Run | hit@5 / hit@10 | Citation precision (factual / synthesis) | Faithfulness | Abstention correctness (out_of_corpus) | Cited-answer rate | Pipeline tokens in / out |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.20 | `20261018T234144Z-9f20637f0c6f` | 100.0 / 100.0 | 79.2 (91.4 / 60.6) | 79.0 | 30.0 (3/10) | 100.0 | 309,844 / 17,497 |
+| 0.25 | `20261018T234701Z-a981e7bd8911` | 100.0 / 100.0 | 83.5 (94.0 / 68.0) | 80.9 | 10.0 (1/10) | 100.0 | 303,285 / 17,535 |
+| 0.30 | `20261018T235229Z-11fba9927728` | 85.4 / 85.4 | 89.2 (92.5 / 81.1) | 77.9 | 30.0 (3/10) | 85.4 | 152,557 / 10,644 |
+
+`compare` from 0.20: to 0.25, one flagged regression (abstention −20, explained below); to 0.30, hit@5, hit@10 and cited-answer rate −14.6 each. In the 0.25 run one item (`hc-v1-024`) failed with HTTP 404 (C5); it counts as an error, not an answer.
+
+What drives it, from each item's best retrieval score (hybrid score, vector weight 0.3, identical across runs):
+
+| Items | Best score |
+| --- | --- |
+| factual and synthesis (48) | 0.286 to 0.53, median 0.351; 7 below 0.30 |
+| out_of_corpus (10, mostly near misses) | 0.274 to 0.370; 3 below 0.30 |
+
+- **Retrieval is strong on this corpus.** The first expected source is at rank 1 for 40 of 48 items and in the top 2 for 46; hit@5 = hit@10 = 100 at 0.20.
+- **No threshold separates near misses.** Out-of-corpus best scores overlap in-corpus ones. At 0.20 and 0.25 no out-of-corpus question abstained without a model call.
+- **The model rarely declines.** At 0.20 it answered 7 of 10 out-of-corpus questions with citations instead of saying the corpus cannot answer (prompt rule 3). This is the main quality problem v1 found.
+- **0.25 vs 0.20:** no item loses its best chunk. Low-ranked chunks between 0.20 and 0.25 drop out of the context, trimming about 2 % of input tokens and plausibly lifting citation precision by 4 points. The abstention drop (3 → 1) is model nondeterminism, not retrieval: for 9 of the 10 out-of-corpus items the retrieved chunks were identical across the two runs, and `hc-v1-052` still went from declining to answering with 7 citations. With 10 items one flip is 10 points, so abstention needs more items before it can gate releases.
+- **0.30** stops 3 out-of-corpus questions but abstains on 7 answerable ones (14.6 points of cited-answer rate). It also halves input tokens and raises citation precision to 89, because weak chunks leave the context. A threshold of about 0.28 (just under the weakest in-corpus best score) would keep that context effect without losing answers on this set; untested.
+- **Synthesis citation precision (61 to 81) trails factual (91 to 94):** the model cites passages from sources the team did not list. Some may be legitimate, so the team should review whether `expected_source_ids` lists every source that answers each synthesis item (README rule of thumb).
+
+**Recommendation: `similarity_threshold = 0.25`.** By the rule set before the run ("adopt 0.25 only if v1's cited-answer rate does not drop more than 3 points against 0.20"), 0.25 qualifies: the cited-answer rate is 100 at both. It costs nothing on this corpus and still stops clearly off-topic questions (the synthetic "Sistine Chapel" question scored 0.218). Changed in `config/models.toml` in a separate commit. Do not raise it further for abstention: fix abstention in the prompt (a `corpus_only/v2` that tells the model to compare the question's entity, year and region against the passages before answering, with an eval run) and with more out-of-corpus items in v2 of the set.
+
+### Cost and latency (step 9)
+
+From the 0.20 run (58 questions, no cached answers), end-to-end latency measured by the harness through the API's SSE stream: **median 2.05 s, p95 6.4 s, maximum 10.4 s** (0.25: 1.99 / 5.6 / 8.4 s; 0.30: 1.56 / 3.2 / 4.9 s, fewer passages). Tokens for one full run: pipeline (rewrite + answer) 309,844 in and 17,497 out, that is **5,342 in and 302 out per question**; judge 145,097 in and 9,296 out.
+
+Architecture §10 assumes about 6,000 in and 500 out per answer call and 2 calls per query: measured input is in line, output is 40 % lower. At Scaleway's price for `deepseek-v4.1-flash` as listed by a third-party tracker (about $0.67 per million input and $2.01 per million output tokens, Oct 2026; **check against Scaleway's own price list**), a question costs about $0.004, so §10's 3,000 queries a day (about 90,000 a month) come to roughly **$380 a month**, inside §10's €400 to 600 for Mistral Large. One full eval run costs about $0.36 (judge included).
+
+### Synthetic corpus, mocked Mistral (Oct 18, 2026, kept for comparison)
+
+Everything in this subsection comes from the **synthetic** set (38 items, 7 `out_of_corpus`) on the synthetic
 corpus, with Mistral **mocked** (`tests.dev_fake_mistral` for the API, `--mock-mistral` for the
-judge). RAGFlow, bge-m3, retrieval, the orchestrator and Postgres are real. Treat it as a
-demonstration of the method and a provisional setting. **Every recommendation must be re-run on
-eval set v1 with the real corpus and Mistral before `config/models.toml` changes**; this group
-changed no configuration. Faithfulness from the mocked judge is a lexical stand-in, and its
+judge). RAGFlow, bge-m3, retrieval, the orchestrator and Postgres are real. It was a
+demonstration of the method and a provisional setting; the real-corpus runs above supersede it.
+Faithfulness from the mocked judge is a lexical stand-in, and its
 movement between runs reflects which items reach the model, not answer quality.
 
-### Similarity threshold
+#### Similarity threshold (synthetic)
 
 Three runs, same code, corpus and set. Only `[chat] similarity_threshold` differs, for the API
 and the harness alike, and the answer cache was flushed before each run (D7). Results are in
@@ -259,11 +286,11 @@ Otherwise keep 0.20 and rely on the prompt.
 
 | Parameter | Now | Recommendation | Basis | Needs |
 | --- | --- | --- | --- | --- |
-| `top_k` (RAGFlow `page_size`) | 10 | Keep 10 (architecture: 8 to 12) | Synthetic hit@5 = hit@10, so no signal. Duplicates across tags use up slots (assumption 2) | Real corpus: if v1 hit@5 ≈ hit@10, try 8 to cut context tokens |
+| `top_k` (RAGFlow `page_size`) | 10 | Try 8 in the next eval run (architecture: 8 to 12) | v1: hit@5 = hit@10 = 100 and the first expected source is at rank 1 or 2 for 46 of 48 items; fewer weak passages raised citation precision at 0.30 (section 5). Duplicates across tags and identical text across sources use up slots (assumption 2, section 4) | One v1 run at `top_k` 8 |
 | `knn_top_k` | 1024 | Keep | RAGFlow default candidate pool (section 2) | — |
 | `vector_similarity_weight` | 0.3, hard-coded in `app.retrieval.ragflow` | Move to `[chat]` config (and the cache key, D7), then evaluate 0.3, 0.5 and 0.7 on v1 | Scratch probe on the synthetic set: the gap between the best off-topic score and the weakest in-corpus score grows from 0.002 (0.3) to 0.028 (0.5) to 0.054 (0.7). Scores shift upward with the weight, so the threshold must be re-tuned with it (weakest in-corpus item: 0.269 / 0.417 / 0.565) | Real corpus |
 | `max_context_tokens` | 6000 | Keep | Matches §10.2's ~6,000 input tokens. The synthetic corpus never reaches it | Real corpus: check how often the cap drops chunks |
-| Chunk size | RAGFlow default (~512 tokens) | Keep the default; tune only if v1 misses its hit-rate target | R2: chunks are ~512 tokens | Real corpus |
+| Chunk size | RAGFlow default (~512 tokens) | Keep the default | v1 meets the proposed hit-rate targets (section 3, assumption 4) | — |
 | Chunking method | `paper` (PDF), `presentation` (PPTX), `naive` (DOCX, web) | Keep. Decide whether reports are also tagged into `sample-analysis` (section 6: they would be parsed `naive` there) | Section 4, section 6 | Content editor (P0-11) |
 | PPTX speaker notes | Not ingested | If our decks keep content in notes, export notes into the slide text or a companion DOCX before ingestion. `syn-018` checks for it | Section 4 | Real decks |
 

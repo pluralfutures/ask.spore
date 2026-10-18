@@ -2,9 +2,9 @@
 
 Living log of the coding session on the Phase 0 Instance (branch `phase-0/instance-run`), Oct 18, 2026. Updated at every milestone and at least hourly; the last pushed version is the state of record if the Instance powers off mid-work. No secrets, corpus content or real query text here.
 
-**Last update:** 2026-10-18 22:00 UTC: run 6 at 35 of 58 rows (33 ingested, 2 duplicate, 0 failed); about 300 PDF pages left, expected done about 23:45; then the threshold runs. Findings R17 drafted (uncommitted until the eval). Line 15 deferred.
+**Last update:** 2026-10-18 23:00 UTC: run 6 at 51 of 58 rows (0 failed), done about 23:40; then the threshold runs. Power-off moved to 03:50 UTC by the owner (session cut-off 03:30). origin/main merged into this branch (`4648ede`).
 
-**Deadline:** the owner set a power-off at 03:00 UTC on Oct 19 (`shutdown -h 03:00` is scheduled on the Instance; cancel with `shutdown -c`). Note: a power-off from inside the OS may leave a Scaleway Instance allocated (and billed for some resources) until it is stopped from the console or API; check the console.
+**Deadline:** the owner set a power-off at 03:50 UTC on Oct 19 (first 03:00, extended; `shutdown -h 03:50` is scheduled on the Instance; cancel with `shutdown -c`). Before power-off this branch is merged into `main` (owner instruction). Note: a power-off from inside the OS may leave a Scaleway Instance allocated (and billed for some resources) until it is stopped from the console or API; check the console.
 
 ## (a) Done and committed
 
@@ -17,6 +17,8 @@ Living log of the coding session on the Phase 0 Instance (branch `phase-0/instan
 | `54816cc` | `mistral-medium-2604` pinned (superseded by the Scaleway switch; `[mistral]` kept, inactive) |
 | `883dead` | `eval run --exclude-label` |
 | `9f55383`, `537198e` | RAGFlow parse tuning for CPU: `MAX_CONCURRENT_TASKS=2`, `EMBEDDING_BATCH_SIZE` (repo default 8), host-specific `cpus: ${RAGFLOW_CPUS:-0}` |
+| `eb43015` | Phase 1a design addendum (CLAUDE.md, architecture §14, compliance addendum, Phase 1a spec, backlog). **Not authored by this session**: it appeared on the branch at 22:16 from another session; kept as the coordinator instructed, not reviewed here |
+| `4648ede` | Merge of origin/main (Scaleway design updates, backlog item); conflicts in Stack Decision, compliance guide and backlog kept both sides |
 | `02828f7`, `8233dfc`, `bd73c8a` | Scaleway Generative APIs client (`deepseek-v4.1-flash`), `[llm] provider` switch, token-bucket throttle, findings M2 |
 
 Checks on this Instance: API ruff, format and mypy clean, 380 tests pass (database tests against a throwaway `postgres:16.15` container on `127.0.0.1:55432`, not the app database); eval package 65 pass.

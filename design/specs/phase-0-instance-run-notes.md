@@ -2,7 +2,7 @@
 
 Living log of the coding session on the Phase 0 Instance (branch `phase-0/instance-run`), Oct 18, 2026. Updated at every milestone and at least hourly; the last pushed version is the state of record if the Instance powers off mid-work. No secrets, corpus content or real query text here.
 
-**Last update:** 2026-10-18 19:30 UTC: line 4 adopted (1,128 chunks, 0 errors, 6,063 s); ingestion run 6 in progress; line 15 deferred; threshold runs not started.
+**Last update:** 2026-10-18 20:30 UTC: run 6 at 23 of 58 rows (21 ingested, 2 duplicate, 0 failed), expected to finish about 22:50; then the threshold runs. Line 15 deferred.
 
 **Deadline:** the owner set a power-off at 03:00 UTC on Oct 19 (`shutdown -h 03:00` is scheduled on the Instance; cancel with `shutdown -c`). Note: a power-off from inside the OS may leave a Scaleway Instance allocated (and billed for some resources) until it is stopped from the console or API; check the console.
 
@@ -41,6 +41,14 @@ Each stop: the in-flight RAGFlow document was deleted by ID and its `sources` ro
 Line 4 (316 pages): run 5's CLI was stopped without clean-up, so RAGFlow keeps parsing it server-side (RAGFlow document `befe2cd2cb1b11f1a1f78528d7c1a5dd`, register row `9bb9f89f…`). **Adopted at 19:27 UTC:** RAGFlow finished it `DONE` with 1,128 chunks, 15 page ranges and no errors, and the row was set to `ingested` with that chunk count and document ID. When it finishes, the row is set as ingest would set it (`ingested`, chunk count, document IDs) or, on failure, the document is deleted and the row marked `failed`. Only eval item `hc-v1-013` depends on it.
 
 Line 15 (376 pages, about 2.8 h): deferred; ingest after the evals only if time remains. No eval item names it.
+
+Memory (sampled every 10 s, 16:18 to 19:55 UTC, covering the 316-page PDF under full OCR load): `ragflow` 6.0 GiB peak, TEI 6.0 GiB, Elasticsearch 4.6 GiB, all containers together 17.7 GiB, host 18.0 of 31 GiB. CPU, not memory, is the limit.
+
+Spot-check findings so far (metrics over every ingested document, plus excerpts reviewed in the terminal only):
+
+- Many PDFs are web pages printed to PDF. Their chunks are dominated by site navigation, footers, phone numbers and chat-widget text; one 12-page print (`ef598a9c`) yielded only navigation chrome, no article text. Remedy: crawl such pages with `ask-spore crawl` (readability pass) instead of printing them.
+- Two different files on the same canonical URL (manifest lines 5 and 6) parse to identical chunks. The orchestrator de-duplicates only within a source, so identical text from two sources takes two context slots and two citations.
+- OCR misreads in navigation text ("YourIndustrv").
 
 Parse spot checks (first PDFs): HTML tables kept with header rows; words glued in display headings and table labels (7 to 11 per document); multi-column and infographic pages come out as short fragmented lines; recurring section labels repeat across chunks. Full results go in findings section 4.
 

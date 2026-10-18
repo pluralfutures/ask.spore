@@ -2,7 +2,7 @@
 
 Living log of the coding session on the Phase 0 Instance (branch `phase-0/instance-run`), Oct 18, 2026. Updated at every milestone and at least hourly; the last pushed version is the state of record if the Instance powers off mid-work. No secrets, corpus content or real query text here.
 
-**Last update:** 2026-10-18 18:00 UTC: ingestion run 5 in progress (started 17:45, on the 316-page PDF); eval chain dry-run on Scaleway passed (2 items, results not kept); threshold runs not started.
+**Last update:** 2026-10-18 18:35 UTC: ingestion run 6 in progress; the 316-page PDF (manifest line 4) is parsing in RAGFlow and will be adopted; the 376-page PDF (line 15) is deferred; threshold runs not started.
 
 **Deadline:** the owner set a power-off at 03:00 UTC on Oct 19 (`shutdown -h 03:00` is scheduled on the Instance; cancel with `shutdown -c`). Note: a power-off from inside the OS may leave a Scaleway Instance allocated (and billed for some resources) until it is stopped from the console or API; check the console.
 
@@ -34,7 +34,13 @@ Runs (logs in the session scratchpad, not kept):
 | 4 | Embedding fixed (`EMBEDDING_BATCH_SIZE=1`, `RAGFLOW_CPUS=5`), but the 316-page PDF hit the CLI's default 1,800 s `--parse-timeout`; recorded failed and removed by the ingest code |
 | 5 | In progress, `--parse-timeout 7200`. At 17:55 the session's own container restarted; the Instance did not reboot, the ingestion container kept running, and the 03:00 power-off is still scheduled |
 
-Each stop: the in-flight RAGFlow document was deleted by ID and its `sources` row set to `failed` with the reason. Failed rows stay as history; re-running the manifest creates a new row for the file. Expected end of run 5: about 22:00 UTC (about 12 s per PDF page).
+Each stop: the in-flight RAGFlow document was deleted by ID and its `sources` row set to `failed` with the reason. Failed rows stay as history; re-running the manifest creates a new row for the file. Measured rate in run 5: about 27 s per PDF page (88 pages in 40 min, two tasks in parallel), so the whole corpus (about 8.5 h left at 18:26) no longer fit before the deadline, and line 4 would have hit even the 7,200 s timeout.
+
+| 6 | Started 18:27 UTC from a derived manifest, `/srv/ingest-out/manifest-run6.csv`: the owner's rows minus lines 4 and 15, paths prefixed `Corpus/` (mapping of run-6 lines to manifest lines in `manifest-run6-lines.csv`). Container `askspore-ingest6` (not auto-removed; read its logs with `docker logs askspore-ingest6`). Mounts: `-v /srv/ingest-out:/work -v /srv/corpus/Corpus:/work/Corpus:ro` |
+
+Line 4 (316 pages): run 5's CLI was stopped without clean-up, so RAGFlow keeps parsing it server-side (RAGFlow document `befe2cd2cb1b11f1a1f78528d7c1a5dd`, register row `9bb9f89f…`, status `ingesting` until adopted). When it finishes, the row is set as ingest would set it (`ingested`, chunk count, document IDs) or, on failure, the document is deleted and the row marked `failed`. Only eval item `hc-v1-013` depends on it.
+
+Line 15 (376 pages, about 2.8 h): deferred; ingest after the evals only if time remains. No eval item names it.
 
 Parse spot checks (first PDFs): HTML tables kept with header rows; words glued in display headings and table labels (7 to 11 per document); multi-column and infographic pages come out as short fragmented lines; recurring section labels repeat across chunks. Full results go in findings section 4.
 

@@ -68,6 +68,23 @@ jobs:
           uv run python -m eval validate sets/synthetic-v0.jsonl --min-items 30 --min-out-of-corpus 6
           if [ -f sets/v1.jsonl ]; then uv run python -m eval validate sets/v1.jsonl; fi
 
+  workflows:
+    # Every workflow, eval.yml included, must be valid without any secret defined.
+    name: Workflows (actionlint)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: actionlint
+        env:
+          VERSION: 1.7.12
+          SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/actionlint.tgz" \
+            "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz"
+          echo "$SHA256  $RUNNER_TEMP/actionlint.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tgz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+
   web:
     name: Web (eslint, prettier, tsc, vitest)
     runs-on: ubuntu-24.04

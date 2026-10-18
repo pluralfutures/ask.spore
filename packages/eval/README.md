@@ -62,6 +62,21 @@ Results go to `results/<UTC timestamp>-<git sha>/`. They hold answers and judged
 chunk text. Answers served from the API's answer cache are counted and flagged: the cache key
 does not include retrieval parameters (findings), so flush the cache after changing them.
 
+### In GitHub Actions (P0-19)
+
+`.github/workflows/eval.yml` is triggered by hand (Actions → Eval → Run workflow). Inputs: the
+API URL, the RAGFlow URL for the retrieval step, the eval set, the runner label, an optional item
+limit, and an optional baseline folder under `results/` to `compare` against (the job fails on a
+regression). Secrets, read only when it runs: `MISTRAL_API_KEY`, `RAGFLOW_API_KEY`,
+`EVAL_DATABASE_URL`, `PHASE0_BEARER_TOKEN`, `EVAL_USER_EMAIL`, and `EVAL_API_URL` /
+`EVAL_RAGFLOW_URL` if the inputs are left empty. A missing secret fails the first step by name.
+
+The runner must reach the target's API, RAGFlow and Postgres. RAGFlow and Postgres have no public
+listener (CLAUDE.md), so against the Phase 0 Instance use a self-hosted runner on the Instance's
+private network and pass its label; a GitHub-hosted runner can reach only a target that is public.
+The results folder is uploaded as the artifact `eval-results-<run id>`; to keep a run, download it
+and commit it under `results/`.
+
 ### Without a Mistral key (dev only)
 
 Run the API with Mistral mocked at the HTTP layer and give the harness `--mock-mistral`, which

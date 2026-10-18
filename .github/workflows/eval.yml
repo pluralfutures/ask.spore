@@ -1,0 +1,116 @@
+# Eval harness on demand (P0-19): runs packages/eval against a target API and RAGFlow and
+# uploads the results folder as an artifact. Manual only; automatic gating comes in
+# Phase 1 with staging.
+#
+# The runner must reach the API, RAGFlow and Postgres of the target. RAGFlow and Postgres
+# have no public listener, so for the Phase 0 Instance use a self-hosted runner on (or
+# next to) the Instance and pass its label as `runner`. See packages/eval/README.md.
+#
+# Secrets (repository or environment), read only at run time: MISTRAL_API_KEY,
+# RAGFLOW_API_KEY, EVAL_DATABASE_URL (read access to the target's database),
+# PHASE0_BEARER_TOKEN, EVAL_USER_EMAIL (a seeded internal user), and optionally
+# EVAL_API_URL / EVAL_RAGFLOW_URL when the inputs are left empty. None is needed for this
+# file to be valid; a missing one fails the run at the first step, by name.
+
+name: Eval
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "API under test, e.g. http://10.0.0.5:8000 (empty: secret EVAL_API_URL)"
+        required: false
+        default: ""
+      ragflow_url:
+        description: "RAGFlow base URL for the retrieval step, private address (empty: secret EVAL_RAGFLOW_URL, else ragflow.base_url)"
+        required: false
+        default: ""
+      eval_set:
+        description: "Eval set, relative to packages/eval"
+        required: true
+        default: sets/v1.jsonl
+      runner:
+        description: "Runner label; a self-hosted runner that can reach the target"
+        required: true
+        default: ubuntu-24.04
+      limit:
+        description: "Run only the first N items (empty: all)"
+        required: false
+        default: ""
+      baseline:
+        description: "Results folder under packages/eval/results to compare against (empty: no comparison)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval
+  cancel-in-progress: false
+
+jobs:
+  eval:
+    name: Eval harness
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: packages/eval
+    env:
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      RAGFLOW_API_KEY: ${{ secrets.RAGFLOW_API_KEY }}
+      DATABASE_URL: ${{ secrets.EVAL_DATABASE_URL }}
+      PHASE0_BEARER_TOKEN: ${{ secrets.PHASE0_BEARER_TOKEN }}
+      EVAL_USER_EMAIL: ${{ secrets.EVAL_USER_EMAIL }}
+      EVAL_API_URL: ${{ inputs.api_url || secrets.EVAL_API_URL }}
+      EVAL_RAGFLOW_URL: ${{ inputs.ragflow_url || secrets.EVAL_RAGFLOW_URL }}
+      EVAL_SET: ${{ inputs.eval_set }}
+      EVAL_LIMIT: ${{ inputs.limit }}
+      EVAL_BASELINE: ${{ inputs.baseline }}
+    steps:
+      - name: Check secrets and inputs are set
+        run: |
+          missing=""
+          for name in MISTRAL_API_KEY RAGFLOW_API_KEY DATABASE_URL PHASE0_BEARER_TOKEN EVAL_USER_EMAIL EVAL_API_URL; do
+            eval "value=\${$name:-}"
+            [ -n "$value" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Not set:$missing (DATABASE_URL comes from secret EVAL_DATABASE_URL; EVAL_API_URL from input api_url or secret EVAL_API_URL)"
+            exit 1
+          fi
+        working-directory: .
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.11.32"
+      - run: uv sync --locked
+      - name: Validate the eval set
+        run: uv run python -m eval validate "$EVAL_SET" --min-items 1 --min-out-of-corpus 0
+      - name: Run the harness
+        id: run
+        run: |
+          set -- --set "$EVAL_SET" --note "Workflow run ${GITHUB_RUN_ID} on ${GITHUB_REF_NAME}"
+          if [ -n "$EVAL_LIMIT" ]; then set -- "$@" --limit "$EVAL_LIMIT"; fi
+          uv run python -m eval run --config ../../config/models.toml "$@"
+      - name: Upload results
+        if: always() && steps.run.outputs.results_dir != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: eval-results-${{ github.run_id }}
+          path: ${{ steps.run.outputs.results_dir }}
+          if-no-files-found: error
+          retention-days: 30
+      - name: Compare with the baseline
+        if: inputs.baseline != ''
+        env:
+          RESULTS_DIR: ${{ steps.run.outputs.results_dir }}
+        run: uv run python -m eval compare "results/$EVAL_BASELINE" "$RESULTS_DIR" --output "$RUNNER_TEMP/compare.md"
+      - name: Job summary
+        if: always() && steps.run.outputs.results_dir != ''
+        env:
+          RESULTS_DIR: ${{ steps.run.outputs.results_dir }}
+        run: |
+          cat "$RESULTS_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "$RUNNER_TEMP/compare.md" ]; then cat "$RUNNER_TEMP/compare.md" >> "$GITHUB_STEP_SUMMARY"; fi

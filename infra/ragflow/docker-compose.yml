@@ -167,6 +167,11 @@ services:
       # profiles; the variable is set for that check alone (findings R7).
       - COMPOSE_PROFILES=tei-cpu
       - REGISTER_ENABLED=${REGISTER_ENABLED:-0}
+      # CPU host: fewer parallel parse tasks and smaller embedding batches, so DeepDoc
+      # OCR does not starve TEI past RAGFlow's hard-coded 30 s embedding timeout
+      # (findings R17). Upstream defaults: 5 and 16.
+      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-2}
+      - EMBEDDING_BATCH_SIZE=${EMBEDDING_BATCH_SIZE:-8}
     volumes:
       - ragflow_logs:/ragflow/logs
     healthcheck:

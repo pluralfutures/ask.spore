@@ -93,6 +93,8 @@ docker compose -f infra/compose.dev.yml run --rm -v /srv/corpus/Corpus:/corpus:r
   api ask-spore ingest-manifest /corpus/manifest.csv --summary /out/summary.csv --parse-timeout 7200
 ```
 
+**First thing next time: ingest manifest line 15** (376 pages, about 2.8 h at this Instance's rate). Make a one-row manifest the same way as `manifest-run6.csv` (header plus line 15, path prefixed `Corpus/`) and run it with `--parse-timeout 14400`; or simply re-run the full manifest with `--parse-timeout 14400` (everything else reports `duplicate`). Then re-run the eval: no v1 item names line 15, but its chunks change what retrieval returns for other items.
+
 Then the eval set and runs (commands in `packages/eval/README.md`; set `[chat] similarity_threshold`, restart the API and flush Redis before each run).
 
 ## (g) Next steps and owner decisions

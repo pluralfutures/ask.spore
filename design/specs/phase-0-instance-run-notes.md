@@ -2,7 +2,7 @@
 
 Living log of the coding session on the Phase 0 Instance (branch `phase-0/instance-run`), Oct 18, 2026. Updated at every milestone and at least hourly; the last pushed version is the state of record if the Instance powers off mid-work. No secrets, corpus content or real query text here.
 
-**Last update:** 2026-10-18 17:50 UTC: ingestion run 5 in progress; eval not started.
+**Last update:** 2026-10-18 18:00 UTC: ingestion run 5 in progress (started 17:45, on the 316-page PDF); eval chain dry-run on Scaleway passed (2 items, results not kept); threshold runs not started.
 
 **Deadline:** the owner set a power-off at 03:00 UTC on Oct 19 (`shutdown -h 03:00` is scheduled on the Instance; cancel with `shutdown -c`). Note: a power-off from inside the OS may leave a Scaleway Instance allocated (and billed for some resources) until it is stopped from the console or API; check the console.
 
@@ -32,7 +32,7 @@ Runs (logs in the session scratchpad, not kept):
 | 1 | 2 PDFs ingested; the 316-page PDF looped on TEI timeouts (R17); stopped, document deleted, row marked failed |
 | 2, 3 | Same loop with lower concurrency; stopped and cleaned the same way |
 | 4 | Embedding fixed (`EMBEDDING_BATCH_SIZE=1`, `RAGFLOW_CPUS=5`), but the 316-page PDF hit the CLI's default 1,800 s `--parse-timeout`; recorded failed and removed by the ingest code |
-| 5 | In progress, `--parse-timeout 7200` |
+| 5 | In progress, `--parse-timeout 7200`. At 17:55 the session's own container restarted; the Instance did not reboot, the ingestion container kept running, and the 03:00 power-off is still scheduled |
 
 Each stop: the in-flight RAGFlow document was deleted by ID and its `sources` row set to `failed` with the reason. Failed rows stay as history; re-running the manifest creates a new row for the file. Expected end of run 5: about 22:00 UTC (about 12 s per PDF page).
 
@@ -60,6 +60,8 @@ Parse spot checks (first PDFs): HTML tables kept with header rows; words glued i
 | Corpus deviations from the build spec | No crawled sites (spec: 2); no own DOCX/PPTX analysis (spec: 10); all files third-party under one tag |
 | GitHub push from the Instance | Fixed by the owner (credential helper) |
 | pnpm, Node not installed | Not needed for this task; web checks not run here |
+| Harness recorded `[mistral]` model names whatever the provider | Fixed in `73c2606` before any real run |
+| Security: the session ran `docker compose config`, which printed the resolved environment; the value of `MISTRAL_API_KEY` appeared in the session's tool output (not in any file, log or commit) | **Owner: revoke that Mistral key.** Only specific fields are inspected since |
 
 ## (e) State of the Instance
 
@@ -94,4 +96,5 @@ Then the eval set and runs (commands in `packages/eval/README.md`; set `[chat] s
 3. Owner: Brookdale 2022 vs 2023 (`hc-v1-029`, `hc-v1-049`).
 4. Owner: distinct document URLs for the 21 shared-URL rows.
 5. Owner: Scaleway DPA, ZDR, region and prompt-caching confirmation before any real user query.
+7. Owner: revoke the exposed `MISTRAL_API_KEY`.
 6. Owner: resize or move embedding before Phase 1 (section 3 item 5).

@@ -2,7 +2,7 @@
 
 Living log of the coding session on the Phase 0 Instance (branch `phase-0/instance-run`), Oct 18, 2026. Updated at every milestone and at least hourly; the last pushed version is the state of record if the Instance powers off mid-work. No secrets, corpus content or real query text here.
 
-**Last update:** 2026-10-18 20:30 UTC: run 6 at 23 of 58 rows (21 ingested, 2 duplicate, 0 failed), expected to finish about 22:50; then the threshold runs. Line 15 deferred.
+**Last update:** 2026-10-18 22:00 UTC: run 6 at 35 of 58 rows (33 ingested, 2 duplicate, 0 failed); about 300 PDF pages left, expected done about 23:45; then the threshold runs. Findings R17 drafted (uncommitted until the eval). Line 15 deferred.
 
 **Deadline:** the owner set a power-off at 03:00 UTC on Oct 19 (`shutdown -h 03:00` is scheduled on the Instance; cancel with `shutdown -c`). Note: a power-off from inside the OS may leave a Scaleway Instance allocated (and billed for some resources) until it is stopped from the console or API; check the console.
 

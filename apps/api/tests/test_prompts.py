@@ -71,3 +71,13 @@ def test_prompts_carry_no_template_placeholders() -> None:
     for name in ("corpus_only", "rewrite"):
         text = load_prompt(DEFAULT_CONFIG_DIR, name, "v1").text
         assert "{" not in text and "$" not in text
+
+
+def test_repository_judge_v1_defines_the_verdicts_and_json_reply() -> None:
+    text = load_prompt(DEFAULT_CONFIG_DIR, "judge", "v1").text
+    for verdict in ("`supported`", "`unsupported`", "`no_claim`"):
+        assert verdict in text
+    assert "cites no passage" in text  # uncited claims are unsupported
+    assert "Do not use outside knowledge" in text
+    assert 'trust="untrusted"' in text
+    assert '{"verdicts": [{"n": 1, "verdict": "supported"}' in text

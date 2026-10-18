@@ -1,0 +1,160 @@
+"""The full pipeline through the API under test (P0-18).
+
+Each question is asked as the first message of a new conversation, exactly as the
+web app does (``POST /api/v1/conversations``, then the SSE stream of
+``POST /api/v1/conversations/{id}/messages``); the conversation is hard-deleted
+afterwards. Phase 0 authentication: the shared bearer token plus ``X-User-Email``
+of a seeded internal user.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
+from typing import Any
+
+import httpx
+
+from eval.records import Outcome
+
+STREAM_TIMEOUT_SECONDS = 180.0
+
+
+@dataclass(frozen=True)
+class Citation:
+    """A citation from the ``citations`` event. ``excerpt`` is kept in memory only."""
+
+    marker: int
+    chunk_id: str
+    source_id: str
+    canonical_url: str | None
+    publisher: str
+    title: str
+    published_on: str | None
+    page_or_slide: int | None
+    type: str
+    excerpt: str
+
+
+@dataclass
+class PipelineAnswer:
+    outcome: Outcome = "error"
+    error_code: str | None = None
+    answer: str = ""
+    citations: list[Citation] = field(default_factory=list)
+    cached: bool = False
+    tokens_in: int = 0
+    tokens_out: int = 0
+    latency_ms: int = 0
+
+
+async def parse_sse(lines: AsyncIterator[str]) -> AsyncIterator[tuple[str, dict[str, Any]]]:
+    """``(event, data)`` pairs from a Server-Sent Events line stream."""
+    event = "message"
+    data: list[str] = []
+    async for line in lines:
+        if line == "":
+            if data:
+                yield event, json.loads("\n".join(data))
+            event, data = "message", []
+        elif line.startswith("event:"):
+            event = line[len("event:") :].strip()
+        elif line.startswith("data:"):
+            data.append(line[len("data:") :].strip())
+    if data:
+        yield event, json.loads("\n".join(data))
+
+
+def _citation(raw: dict[str, Any]) -> Citation:
+    return Citation(
+        marker=int(raw["marker"]),
+        chunk_id=str(raw["chunk_id"]),
+        source_id=str(raw["source_id"]),
+        canonical_url=raw.get("canonical_url"),
+        publisher=str(raw.get("publisher", "")),
+        title=str(raw.get("title", "")),
+        published_on=raw.get("published_on"),
+        page_or_slide=raw.get("page_or_slide"),
+        type=str(raw.get("type", "")),
+        excerpt=str(raw.get("excerpt", "")),
+    )
+
+
+async def read_stream(events: AsyncIterator[tuple[str, dict[str, Any]]]) -> PipelineAnswer:
+    result = PipelineAnswer()
+    parts: list[str] = []
+    finished = False
+    async for name, data in events:
+        if name == "token":
+            parts.append(str(data["text"]))
+        elif name == "citations":
+            result.citations = [_citation(c) for c in data["citations"]]
+        elif name == "done":
+            finished = True
+            if data.get("abstained"):
+                result.outcome = "abstained"
+            elif data.get("unsupported"):
+                result.outcome = "unsupported"
+            else:
+                result.outcome = "answered"
+            result.cached = bool(data.get("cached"))
+            result.tokens_in = int(data.get("tokens_in") or 0)
+            result.tokens_out = int(data.get("tokens_out") or 0)
+        elif name == "error":
+            result.error_code = str(data.get("error_code") or "stream_error")
+            return result
+    result.answer = "".join(parts)
+    if not finished:
+        result.outcome, result.error_code = "error", "stream_incomplete"
+    return result
+
+
+class ApiPipeline:
+    def __init__(
+        self,
+        base_url: str,
+        bearer_token: str,
+        user_email: str,
+        *,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
+        self._http = httpx.AsyncClient(
+            base_url=base_url.rstrip("/"),
+            headers={"Authorization": f"Bearer {bearer_token}", "X-User-Email": user_email},
+            timeout=httpx.Timeout(30.0, read=STREAM_TIMEOUT_SECONDS),
+            transport=transport,
+            follow_redirects=False,
+        )
+
+    async def aclose(self) -> None:
+        await self._http.aclose()
+
+    async def check(self) -> None:
+        """Fail early, before any item, if the API is unreachable or rejects us."""
+        response = await self._http.get("/api/v1/healthz")
+        response.raise_for_status()
+
+    async def ask(self, question: str) -> PipelineAnswer:
+        started = time.perf_counter()
+        try:
+            created = await self._http.post("/api/v1/conversations")
+            created.raise_for_status()
+            conversation_id = created.json()["id"]
+            try:
+                async with self._http.stream(
+                    "POST",
+                    f"/api/v1/conversations/{conversation_id}/messages",
+                    json={"question": question},
+                ) as response:
+                    response.raise_for_status()
+                    result = await read_stream(parse_sse(response.aiter_lines()))
+            finally:
+                await self._http.delete(f"/api/v1/conversations/{conversation_id}")
+        except httpx.HTTPStatusError as exc:
+            result = PipelineAnswer(error_code=f"http_{exc.response.status_code}")
+        except httpx.HTTPError:
+            result = PipelineAnswer(error_code="api_unreachable")
+        result.latency_ms = int((time.perf_counter() - started) * 1000)
+        return result

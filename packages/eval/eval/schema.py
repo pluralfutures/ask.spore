@@ -18,9 +18,8 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
-
 from app.api.schemas import MAX_QUESTION_CHARS
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 ItemType = Literal["factual", "synthesis", "out_of_corpus"]
 ITEM_TYPES: tuple[ItemType, ...] = ("factual", "synthesis", "out_of_corpus")

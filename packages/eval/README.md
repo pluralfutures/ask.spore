@@ -8,7 +8,8 @@ Evaluation set and harness (P0-17, P0-18).
 | `sets/synthetic-v0.jsonl` | **Synthetic** set (38 invented items) against the synthetic corpus, used to prove the harness end to end. Not eval set v1. |
 | `schema/eval-item.schema.json` | JSON Schema of one item, generated from `eval/schema.py` (`python -m eval schema --write`). |
 | `fixtures/corpus/` | Synthetic corpus (invented organisations and figures) and `ingest.sh`, which ingests it with the canonical URLs the synthetic set expects. |
-| `results/` | Harness output, one folder per run. |
+| `results/` | Harness output, one folder per run: `results.json` and `summary.md`. |
+| `eval/` | Schema and validator (`schema.py`), harness (`runner.py`, `retrieval.py`, `pipeline.py`, `judge.py`, `metrics.py`), `compare`. |
 
 Commands, from the repository root:
 
@@ -20,6 +21,58 @@ uv run --directory packages/eval python -m eval validate sets/synthetic-v0.jsonl
 `validate` checks every line and lists every problem with its line number. By default it also
 requires the spec's minimums for eval set v1: at least 60 items, at least 10 of them
 `out_of_corpus`.
+
+## Running the harness (P0-18)
+
+```
+uv run --directory packages/eval python -m eval run --config ../../config/models.toml \
+    --set sets/v1.jsonl --api-url http://<api-host>:8000
+uv run --directory packages/eval python -m eval compare results/<base> results/<new>
+```
+
+For every item, `run`:
+
+1. **Retrieval step.** Runs the orchestrator's retrieval step on its own, with the same building
+   blocks and `[chat]` parameters (`app.chat.package`, `app.retrieval.ragflow`,
+   `app.chat.context.select_context`): records the ranked chunks' sources and scores, hit@5 and
+   hit@10, and whether the orchestrator would abstain (nothing left after threshold,
+   de-duplication and the token cap).
+2. **Full pipeline.** Asks the question through the API under test as the first message of a new
+   conversation (`POST /api/v1/conversations/{id}/messages`, the SSE stream), then deletes the
+   conversation. Records the outcome (answered, unsupported, abstained, error), the answer, the
+   citations and citation precision.
+3. **Judge.** For an answer the model produced, splits it into sentences and asks the judge
+   (Mistral Large on the EU endpoint, through `app.llm.mistral.MistralClient.judge`, prompt
+   `config/prompts/judge/v1.md`) whether each sentence is supported by the passages it cites.
+
+Metrics, all in points where higher is better: retrieval hit@5 and hit@10, citation precision,
+faithfulness, abstention correctness (out_of_corpus items answered without any citation), and the
+cited-answer rate on factual and synthesis items (the cost side of abstention). Definitions are in
+`eval/metrics.py`. `compare` exits 1 when any of them drops by more than `--threshold` points
+(default 3).
+
+Environment: `MISTRAL_API_KEY` (judge), `RAGFLOW_API_KEY` and `DATABASE_URL` (retrieval step;
+the database is only read), `PHASE0_BEARER_TOKEN` and `EVAL_USER_EMAIL` (a seeded internal user,
+for the API). `--ragflow-url` (or `EVAL_RAGFLOW_URL`) points the retrieval step at RAGFlow when
+`ragflow.base_url` does not resolve where the harness runs; it must be a private or loopback
+address. The harness and the API under test must run the same `config/` (the harness records its
+own configuration in the results; the API does not report its own).
+
+Results go to `results/<UTC timestamp>-<git sha>/`. They hold answers and judged sentences but no
+chunk text. Answers served from the API's answer cache are counted and flagged: the cache key
+does not include retrieval parameters (findings), so flush the cache after changing them.
+
+### Without a Mistral key (dev only)
+
+Run the API with Mistral mocked at the HTTP layer and give the harness `--mock-mistral`, which
+replaces the judge's transport with a lexical stand-in (`eval/mock.py`). The run is labelled
+**MOCKED** in its summary and in `compare`.
+
+```
+uv run --directory apps/api python -m tests.dev_fake_mistral --port 8001
+uv run --directory packages/eval python -m eval run --set sets/synthetic-v0.jsonl \
+    --api-url http://127.0.0.1:8001 --mock-mistral --note "API: tests.dev_fake_mistral"
+```
 
 ## Writing eval set v1 (research team)
 

@@ -10,7 +10,14 @@ from typing import Any
 import httpx
 import pytest
 
-from app.llm.mistral import LLMError, MistralClient, PromptChunk, Turn, render_context
+from app.llm.mistral import (
+    LLMError,
+    MistralClient,
+    PromptChunk,
+    Statement,
+    Turn,
+    render_context,
+)
 from tests.fakes import API_KEY, Recorder, completion, delta, error, sse
 
 
@@ -124,10 +131,60 @@ async def test_serialised_requests_contain_no_tenant_user_or_package_identifiers
     assert 'publisher="Synthetic Institute"' in answer_body["messages"][-1]["content"]
 
 
+async def test_judge_request_contains_only_prompt_passages_and_statements(
+    surrounding_call: dict[str, Any],
+) -> None:
+    """P0-18: the eval judge goes through this client with the same minimisation."""
+    recorder = Recorder(completion('{"verdicts": [{"n": 1, "verdict": "supported"}]}'))
+    client = recorder.client()
+    chunks, _ = _prompt_inputs(surrounding_call)
+    statements = [
+        Statement(text="Capacity grew by 12 percent in 2025.", cites=(1,)),
+        Statement(text="Costs <fell>.", cites=()),
+    ]
+
+    result = await client.judge("Judge prompt.", chunks, statements)
+
+    assert result.text == '{"verdicts": [{"n": 1, "verdict": "supported"}]}'
+    assert result.usage is not None and result.usage.tokens_in == 40
+    (request,) = recorder.requests
+    wire = _serialised(request)
+    for name, value in surrounding_call["ids"].items():
+        assert value not in wire, f"{name} leaked into the judge request"
+    assert (request.url.host, request.url.path) == ("api.mistral.ai", "/v1/chat/completions")
+    body = json.loads(request.content)
+    assert set(body) <= {
+        "model",
+        "messages",
+        "temperature",
+        "max_tokens",
+        "stream",
+        "response_format",
+        "traceparent",
+    }, sorted(body)
+    assert body["model"] == "mistral-large-2512"
+    assert body["temperature"] == 0
+    assert body["response_format"] == {"type": "json_object"}
+    assert [m["role"] for m in body["messages"]] == ["system", "user"]
+    assert body["messages"][0]["content"] == "Judge prompt."
+    user = body["messages"][1]["content"]
+    assert 'publisher="Synthetic Institute"' in user
+    assert '<statement n="1" cites="1">Capacity grew by 12 percent in 2025.</statement>' in user
+    assert '<statement n="2" cites="none">Costs &lt;fell&gt;.</statement>' in user
+
+
+async def test_judge_retries_once_on_5xx() -> None:
+    recorder = Recorder(error(503), completion('{"verdicts": []}'))
+    result = await recorder.client().judge("Judge.", [], [])
+    assert result.text == '{"verdicts": []}'
+    assert len(recorder.requests) == 2
+
+
 def test_prompt_chunk_has_no_identifier_fields() -> None:
     fields = set(PromptChunk.__dataclass_fields__)
     assert fields == {"publisher", "title", "published_on", "page_or_slide", "text", "untrusted"}
     assert set(Turn.__dataclass_fields__) == {"role", "content"}
+    assert set(Statement.__dataclass_fields__) == {"text", "cites"}
 
 
 # --- endpoint, models, streaming ----------------------------------------------------------

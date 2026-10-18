@@ -23,6 +23,7 @@ embedding_model = "BAAI/bge-m3@Builtin"
 [prompts]
 corpus_only = "v1"
 rewrite = "v1"
+judge = "v1"
 
 [chat]
 history_messages = 6
@@ -45,7 +46,7 @@ ENV = {
 def write_config(tmp_path: Path, text: str = VALID_TOML, *, prompts: bool = True) -> Path:
     (tmp_path / "models.toml").write_text(text, encoding="utf-8")
     if prompts:
-        for name in ("corpus_only", "rewrite"):
+        for name in ("corpus_only", "rewrite", "judge"):
             (tmp_path / "prompts" / name).mkdir(parents=True, exist_ok=True)
             (tmp_path / "prompts" / name / "v1.md").write_text("Synthetic prompt.\n")
     return tmp_path

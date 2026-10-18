@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Literal
 if TYPE_CHECKING:
     from app.core.config import Settings
 
-PromptName = Literal["corpus_only", "rewrite"]
+PromptName = Literal["corpus_only", "rewrite", "judge"]
 
 
 class PromptError(RuntimeError):

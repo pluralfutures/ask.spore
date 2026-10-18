@@ -104,3 +104,11 @@ def test_excluded_labels_drop_items_before_the_limit() -> None:
     assert ([i.id for i in kept], excluded) == (["b"], ["a", "c"])
     kept, excluded = select_items(items, [], limit=None)
     assert ([i.id for i in kept], excluded) == (["a", "b", "c", "d"], [])
+
+
+def test_config_meta_names_the_active_providers_models() -> None:
+    from eval.runner import _config_meta
+
+    meta = _config_meta(settings())
+    assert meta["llm_provider"] == "scaleway"  # repository config (findings M2)
+    assert meta["chat_model"] == meta["judge_model"] == "deepseek-v4.1-flash"

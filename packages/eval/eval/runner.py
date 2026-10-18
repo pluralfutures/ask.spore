@@ -164,10 +164,23 @@ def _config_meta(settings: Settings) -> dict[str, Any]:
         ragflow_version = RAGFLOW_VERSION_FILE.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
         ragflow_version = "unknown"
+    if models.llm.provider == "scaleway" and models.scaleway is not None:
+        chat, rewrite, judge = (
+            models.scaleway.chat_model,
+            models.scaleway.rewrite_model,
+            models.scaleway.judge_model,
+        )
+    else:
+        chat, rewrite, judge = (
+            models.mistral.chat_model,
+            models.mistral.rewrite_model,
+            models.mistral.chat_model,
+        )
     return {
-        "chat_model": models.mistral.chat_model,
-        "rewrite_model": models.mistral.rewrite_model,
-        "judge_model": models.mistral.chat_model,
+        "llm_provider": models.llm.provider,
+        "chat_model": chat,
+        "rewrite_model": rewrite,
+        "judge_model": judge,
         "prompts": prompts,
         "top_k": models.chat.top_k,
         "similarity_threshold": models.chat.similarity_threshold,

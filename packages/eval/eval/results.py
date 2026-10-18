@@ -79,7 +79,8 @@ def summary_markdown(data: dict[str, Any]) -> str:
         f"- Retrieval: top_k {config['top_k']}, similarity threshold "
         f"{config['similarity_threshold']}, max context tokens {config['max_context_tokens']}, "
         f"embedding `{config['embedding_model']}`, RAGFlow {config['ragflow_version']}",
-        f"- Models: answer `{config['chat_model']}`, rewrite `{config['rewrite_model']}`, "
+        f"- Models ({config.get('llm_provider', 'mistral')}): answer `{config['chat_model']}`, "
+        f"rewrite `{config['rewrite_model']}`, "
         f"judge `{config['judge_model']}`; prompts {', '.join(config['prompts'])}",
         f"- Corpus version `{meta['corpus_version']}`, {meta['package_datasets']} datasets",
         "",

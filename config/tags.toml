@@ -10,8 +10,10 @@
 # per source type (pdf, docx, pptx, html, markdown) and is applied at ingestion.
 
 [tags.sample-reports]
-# Third-party PDF reports.
+# Third-party reports: PDF with "paper". The Phase 0 corpus also has third-party
+# DOCX and PPTX files under this tag; they get the methods sample-analysis uses.
 chunk_method = "paper"
+chunk_method_by_type = { docx = "naive", pptx = "presentation" }
 
 [tags.sample-analysis]
 # Own analysis: DOCX with "naive", PPTX with "presentation".

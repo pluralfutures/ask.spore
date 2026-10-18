@@ -38,7 +38,7 @@ Recorded as found, per `CLAUDE.md` ("follow the real API and record the differen
 | C1 | P0-14 | Persist "message, citations, usage"; `done` carries `{message_id, unsupported, tokens_in, tokens_out}` | Migration `0002` adds `messages.outcome` (`answered`, `unsupported`, `abstained`) so a reloaded conversation shows the same badge and "nothing relevant found" state as the live stream. `done` also carries `abstained` and `cached`, which the web app needs. |
 | C2 | P0-14 | "Cache by tenant + normalised question + corpus version" | Keyed on the normalised *standalone* (rewritten) query, plus dataset IDs, prompt version and model. Keying on the literal question would serve one conversation's answer to "and in Germany?" in another. The corpus version is a hash over the package's source rows (no trigger needed). |
 | C3 | P0-15 | `GET /healthz` among the `/api/v1` routes, "all routes behind P0-06" | The authenticated route is `/api/v1/healthz`. The root `/healthz` stays unauthenticated for the Compose probe (P0-02). |
-| C4 | P0-08 / P0-14 | Chunking method per tag: `paper` for reports, `presentation` for PPTX, `naive` for DOCX and web | `sample-analysis` holds both DOCX and PPTX, which would need two methods in one dataset. For Group B (P0-08) to settle; the orchestrator does not depend on it. |
+| C4 | P0-08 / P0-14 | Chunking method per tag: `paper` for reports, `presentation` for PPTX, `naive` for DOCX and web | `sample-analysis` holds both DOCX and PPTX, which would need two methods in one dataset. For Group B (P0-08) to settle; the orchestrator does not depend on it. Settled by Group B: `config/tags.toml` `chunk_method_by_type` sets `presentation` per PPTX document (section 6). |
 
 ## 2. RAGFlow endpoints and parameters used
 
@@ -85,3 +85,33 @@ Observed so far on the **synthetic** files in `packages/eval/fixtures/corpus/` (
 ## 5. Recommended retrieval parameters for Phase 1
 
 To be filled by P0-20.
+
+## 6. Integration (Group B + Group C)
+
+Branch `phase-0/integration`: Group C (P0-12 to P0-16) and Group B (P0-07 to P0-11) merged onto `main`, then the fixes below. Checked against the Compose stack on Oct 18, 2026 (RAGFlow v0.27.2, bge-m3 on TEI, Postgres 16).
+
+**Changes made to join the two groups**
+
+- Migration `0003` revises `0002`: chain `0001 → 0002 → 0003`, verified with `upgrade head`, `downgrade base`, `upgrade head`.
+- `app.retrieval.ragflow.RagflowRetriever` implements the orchestrator's `Retriever` protocol over Group B's `retrieve()`; `app.main` passes it to `create_app`. `protocol.py` and `types.py` are unchanged.
+- R14: `ContextChunk.page_or_slide` is `None` unless the source type is `pdf` or `pptx`, so neither the prompt passage nor the citation carries RAGFlow's pseudo page 1.
+- R15: no code change. Group C already de-duplicates by source (via the provenance join) plus normalised-text containment, not by chunk ID. A source under two tags has a different RAGFlow document ID per dataset, so `document_id` would not catch it; the source ID does. Tests added for both notes.
+- Test-only: the ingest fixture clears `citations` before `sources` (`ON DELETE RESTRICT`), which failed once both suites shared a database.
+
+**End-to-end pass.** `ask-spore datasets sync` (created, then ok), the five synthetic files ingested (the PDF under `sample-reports` and `sample-analysis`), API run with real RAGFlow and Mistral mocked at the HTTP layer (`apps/api/tests/dev_fake_mistral.py`). One question through `POST /conversations/{id}/messages`:
+
+| Step | Observed |
+| --- | --- |
+| Retrieval | 8 chunks above 0.2 from all three datasets in 0.8 s |
+| De-duplication (R15, live) | The PDF was chunked differently per dataset (`naive` in `sample-analysis`: one 871-character chunk; `paper` in `sample-reports`: smaller chunks). Two `paper` chunks contained in the `naive` chunk and one identical table chunk (different chunk and document IDs) were dropped: 8 → 5 passages |
+| Prompt | 5 passages; no UUID- or 32-hex-shaped string anywhere in the request (checked by the fake) |
+| Provenance and citations | Both cited passages joined to the PDF's register row (publisher, title, date, canonical URL); dangling marker dropped; `answered` |
+| Persistence | Both messages, two citations with RAGFlow chunk IDs, `chat.query` audit event (8 retrieved, 5 in context, cited chunk IDs), title from the question, `expires_at` 30 days |
+| Follow-up | Rewrite call made; Markdown source cited with `page_or_slide = null`, PDF with page 1, in the stream and after reload |
+
+**Open points, not fixed here**
+
+- **Threshold 0.2 does not abstain on clearly off-topic questions.** "Who painted the ceiling of the Sistine Chapel?" retrieved one unrelated chunk above 0.2, so the model was called instead of abstaining without a call. Relevant chunks scored 0.25–0.36. Tune with eval set v1 (P0-20); a threshold change needs an eval run.
+- **A PDF under `sample-analysis` is parsed with `naive`**, because that tag's `chunk_method_by_type` covers only `pptx`. If reports are meant to be tagged into the analysis dataset too, add `pdf = "paper"` there (P0-08 owner's call).
+- Every PDF chunk retrieved here reported page 1. A chunk spanning a page break reports its first page (section 2, "Pages and slides"), so check page accuracy on the real corpus (P0-11).
+- Sandbox-only workarounds, nothing committed: a Docker Hub mirror (rate limit), the classic overlay2 storage driver (disk), the proxy CA injected when building the API and web images, and a Compose override lowering Elasticsearch's `memlock` and RAGFlow's `nofile`/`nproc` limits, which this container cannot raise. Elasticsearch runs with `bootstrap.memory_lock=false`, so the memlock limit is unused.

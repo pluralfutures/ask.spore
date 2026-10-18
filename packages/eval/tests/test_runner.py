@@ -8,7 +8,13 @@ import pytest
 from app.core.config import DEFAULT_CONFIG_DIR
 
 from eval.pipeline import Citation, PipelineAnswer
-from eval.runner import HarnessError, load_harness_settings, pipeline_record, with_ragflow_url
+from eval.runner import (
+    HarnessError,
+    load_harness_settings,
+    pipeline_record,
+    select_items,
+    with_ragflow_url,
+)
 from eval.schema import EvalItem
 
 ENV = {
@@ -73,3 +79,27 @@ def test_pipeline_record_marks_expected_citations_and_precision() -> None:
     record = pipeline_record(item, answer)
     assert [c.expected for c in record.citations] == [True, True, False]
     assert record.citation_precision == 0.5  # two distinct sources, one expected
+
+
+def test_excluded_labels_drop_items_before_the_limit() -> None:
+    rows = [
+        {"id": "a", "labels": ["pending-source"]},
+        {"id": "b", "labels": []},
+        {"id": "c", "labels": ["x", "pending-source"]},
+        {"id": "d", "labels": ["x"]},
+    ]
+    items = [
+        EvalItem(
+            id=r["id"],
+            question="Q?",
+            type="out_of_corpus",
+            expected_source_ids=[],
+            expected_answer_notes="n",
+            labels=r["labels"],
+        )
+        for r in rows
+    ]
+    kept, excluded = select_items(items, ["pending-source"], limit=1)
+    assert ([i.id for i in kept], excluded) == (["b"], ["a", "c"])
+    kept, excluded = select_items(items, [], limit=None)
+    assert ([i.id for i in kept], excluded) == (["a", "b", "c", "d"], [])

@@ -17,7 +17,7 @@ import socket
 import subprocess
 import sys
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -61,6 +61,16 @@ class RunOptions:
     mock_mistral: bool = False
     notes: list[str] = field(default_factory=list)
     limit: int | None = None
+    exclude_labels: list[str] = field(default_factory=list)
+
+
+def select_items(
+    items: Sequence[EvalItem], exclude_labels: Sequence[str], limit: int | None
+) -> tuple[list[EvalItem], list[str]]:
+    """Items to run (without excluded labels, then the first ``limit``) and excluded ids."""
+    excluded = [i.id for i in items if set(i.labels) & set(exclude_labels)]
+    kept = [i for i in items if i.id not in set(excluded)]
+    return (kept[:limit] if limit else kept), excluded
 
 
 def load_harness_settings(config: Path, environ: Mapping[str, str]) -> Settings:
@@ -170,7 +180,7 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
     report = load_set(options.set_path)
     if not report.ok:
         raise HarnessError("eval set is invalid:\n" + "\n".join(report.errors))
-    items = report.items[: options.limit] if options.limit else report.items
+    items, excluded = select_items(report.items, options.exclude_labels, options.limit)
 
     settings = load_harness_settings(options.config, env)
     if options.ragflow_url:
@@ -268,6 +278,8 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
             "sha256": set_sha256(options.set_path),
             "items_run": len(items),
             "items_in_set": len(report.items),
+            "excluded_labels": options.exclude_labels,
+            "excluded_items": excluded,
         },
         "config": _config_meta(settings),
         "corpus_version": step.package.corpus_version,

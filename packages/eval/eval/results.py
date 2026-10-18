@@ -66,6 +66,14 @@ def summary_markdown(data: dict[str, Any]) -> str:
         f"- Set: `{meta['set']['path']}` ({counts['items']} items: {counts['factual']} factual, "
         f"{counts['synthesis']} synthesis, {counts['out_of_corpus']} out_of_corpus), "
         f"sha256 `{meta['set']['sha256'][:12]}`",
+        *(
+            [
+                f"- Excluded by label {', '.join(meta['set']['excluded_labels'])}: "
+                + ", ".join(f"`{i}`" for i in meta["set"]["excluded_items"])
+            ]
+            if meta["set"].get("excluded_items")
+            else []
+        ),
         f"- Code: `{meta['git_sha']}`{' (uncommitted changes)' if meta['git_dirty'] else ''}; "
         f"started {meta['started_at']}, {meta['duration_s']} s",
         f"- Retrieval: top_k {config['top_k']}, similarity threshold "

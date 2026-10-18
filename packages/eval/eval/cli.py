@@ -121,6 +121,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         mock_mistral=args.mock_mistral,
         notes=list(args.note),
         limit=args.limit,
+        exclude_labels=list(args.exclude_label),
     )
     try:
         directory = asyncio.run(run(options))
@@ -208,6 +209,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_cmd.add_argument("--results-dir", default=str(DEFAULT_RESULTS))
     run_cmd.add_argument("--limit", type=int, help="run only the first N items")
+    run_cmd.add_argument(
+        "--exclude-label",
+        action="append",
+        default=[],
+        help="skip items carrying this label (recorded in the results); repeatable",
+    )
     run_cmd.add_argument(
         "--note", action="append", default=[], help="line for the summary; repeatable"
     )

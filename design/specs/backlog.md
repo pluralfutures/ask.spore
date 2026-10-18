@@ -13,3 +13,7 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 - Phase 1: an approval step between registering a source and ingesting it (architecture §6.2, "reviewer approves"); P0-09 ingests on the editor's command. Raised in P0-09.
 - Phase 1: crawler policy items beyond P0-10 (architecture §6.4): skip special-category pages at crawl time, store raw HTML and fetch date per page, keep a per-site allow decision and scope rules in the register, per-path TDMRep rules (P0-10 treats any reservation in tdmrep.json as blocking the whole site), and site terms review. Raised in P0-10.
 - Phase 1: publication dates for crawled pages from explicit page metadata only; P0-10 leaves `published_on` empty because readability libraries guess dates from body text. Raised in P0-10.
+- Phase 1: add `top_k`, `similarity_threshold`, `max_context_tokens` and the vector weight to the answer cache key, so a retrieval change never serves answers retrieved under old settings (findings D7). Raised in P0-18.
+- Phase 1: move RAGFlow's `vector_similarity_weight` (hard-coded 0.3) into `[chat]` config and tune it with the threshold on eval set v1 (findings section 5). Raised in P0-20.
+- Phase 1: a separate pinned `judge_model` for the eval harness, so the judge does not grade its own model's answers (findings D6). Raised in P0-18.
+- Phase 1: eval gate in CI against staging (spec P0-19 "automatic gating"); run `compare` against the last committed baseline and block on regression. Raised in P0-19.

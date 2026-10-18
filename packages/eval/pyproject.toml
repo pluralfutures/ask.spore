@@ -3,7 +3,52 @@ name = "ask-spore-eval"
 version = "0.0.0"
 description = "ask.spore evaluation set and harness (P0-17, P0-18)"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+# The harness reuses the API's own configuration loading, retrieval building blocks
+# and Mistral client (app.*), so it measures exactly what the API runs.
+dependencies = [
+    "ask-spore-api",
+]
+
+[dependency-groups]
+dev = [
+    "mypy~=2.4.0",
+    "pytest~=9.1.1",
+    "pytest-asyncio~=1.4.0",
+    "ruff~=0.17.1",
+]
 
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+ask-spore-api = { path = "../../apps/api", editable = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Fixture generators run with their own throwaway dependencies (see their docstrings).
+extend-exclude = ["fixtures"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["eval"]
+# The API package, installed as a dependency.
+known-third-party = ["app"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["eval"]
+mypy_path = "../../apps/api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["error"]

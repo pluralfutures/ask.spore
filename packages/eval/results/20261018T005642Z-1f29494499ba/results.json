@@ -1,0 +1,2685 @@
+{
+  "format_version": 1,
+  "meta": {
+    "run_id": "20261018T005642Z-1f29494499ba",
+    "started_at": "2026-10-18T00:56:42+00:00",
+    "duration_s": 24.5,
+    "git_sha": "1f29494499ba",
+    "git_dirty": false,
+    "mocked": true,
+    "synthetic_set": true,
+    "notes": [
+      "Mocked: the API ran with tests.dev_fake_mistral (Mistral mocked at the HTTP layer); RAGFlow v0.27.2 with bge-m3, Postgres and the orchestrator are real.",
+      "Threshold experiment (P0-20): repository config with similarity_threshold 0.3 for both the API and the harness; answer cache flushed before the run."
+    ],
+    "set": {
+      "path": "synthetic-v0.jsonl",
+      "sha256": "466e049dc6a96c88ea14fb56ccd4a4defab1b057fcf46b1f5386f09edcc7e87d",
+      "items_run": 38,
+      "items_in_set": 38
+    },
+    "config": {
+      "chat_model": "mistral-large-2512",
+      "rewrite_model": "mistral-small-2603",
+      "judge_model": "mistral-large-2512",
+      "prompts": [
+        "corpus_only/v1",
+        "rewrite/v1",
+        "judge/v1"
+      ],
+      "top_k": 10,
+      "similarity_threshold": 0.3,
+      "max_context_tokens": 6000,
+      "embedding_model": "BAAI/bge-m3@Builtin",
+      "ragflow_version": "v0.27.2"
+    },
+    "corpus_version": "1995ab7326f93cd4",
+    "package_datasets": 3,
+    "warnings": []
+  },
+  "metrics": {
+    "hit_at_5": 90.3,
+    "hit_at_10": 90.3,
+    "citation_precision": 100.0,
+    "faithfulness": 41.4,
+    "abstention_correctness": 57.1,
+    "in_corpus_answer_rate": 90.3
+  },
+  "diagnostics": {
+    "out_of_corpus_abstained_without_llm": 57.1,
+    "out_of_corpus_retrieval_would_abstain": 57.1,
+    "in_corpus_retrieval_would_abstain": 9.7,
+    "statements_supported": 29,
+    "statements_unsupported": 31,
+    "statements_no_claim": 5
+  },
+  "counts": {
+    "items": 38,
+    "factual": 25,
+    "synthesis": 6,
+    "out_of_corpus": 7,
+    "pipeline_errors": 0,
+    "retrieval_errors": 0,
+    "judge_errors": 0,
+    "cached_answers": 0,
+    "excerpt_fallbacks": 0,
+    "answered": 31,
+    "unsupported": 0,
+    "abstained": 7,
+    "pipeline_tokens_in": 0,
+    "pipeline_tokens_out": 0,
+    "judge_tokens_in": 0,
+    "judge_tokens_out": 0
+  },
+  "items": [
+    {
+      "id": "syn-001",
+      "type": "factual",
+      "labels": [
+        "pdf"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.4858,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "cc2b8b89ab60ec75",
+            "score": 0.3184,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 2,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "1. [1] &lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          },
+          {
+            "marker": 2,
+            "chunk_id": "cc2b8b89ab60ec75",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 668
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "markers": [
+              1,
+              2
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-002",
+      "type": "factual",
+      "labels": [
+        "pdf"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.4163,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "1. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 459
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "An unsupported aside.",
+            "markers": [
+              1
+            ],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.0,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-003",
+      "type": "factual",
+      "labels": [
+        "pdf"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.3536,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "1. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 424
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "An unsupported aside.",
+            "markers": [
+              1
+            ],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.0,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-004",
+      "type": "factual",
+      "labels": [
+        "pdf",
+        "table"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "cc2b8b89ab60ec75",
+            "score": 0.3949,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.312,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 2,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [1] 1. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "cc2b8b89ab60ec75",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          },
+          {
+            "marker": 2,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 428
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "1.",
+            "markers": [
+              2
+            ],
+            "verdict": "no_claim"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-005",
+      "type": "factual",
+      "labels": [
+        "pdf",
+        "table"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "cc2b8b89ab60ec75",
+            "score": 0.4282,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.3111,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 2,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [1] 1. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "cc2b8b89ab60ec75",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          },
+          {
+            "marker": 2,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 375
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "1.",
+            "markers": [
+              2
+            ],
+            "verdict": "no_claim"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-006",
+      "type": "factual",
+      "labels": [
+        "pdf"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "88b5a903e8228007",
+            "score": 0.3422,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.3072,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 2,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "2. [1] 1. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "88b5a903e8228007",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          },
+          {
+            "marker": 2,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 516
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "1.",
+            "markers": [
+              1,
+              2
+            ],
+            "verdict": "no_claim"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.0,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-007",
+      "type": "factual",
+      "labels": [
+        "pdf"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.3109,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "1. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 403
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "An unsupported aside.",
+            "markers": [
+              1
+            ],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.0,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-008",
+      "type": "factual",
+      "labels": [
+        "pdf"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.3354,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "b86d2056268f95ba",
+            "score": 0.3272,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 2,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "1. [1] 4. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          },
+          {
+            "marker": 2,
+            "chunk_id": "b86d2056268f95ba",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 2,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 458
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "4.",
+            "markers": [
+              1,
+              2
+            ],
+            "verdict": "no_claim"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.0,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-009",
+      "type": "factual",
+      "labels": [
+        "pdf"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.305,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "1. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 414
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "An unsupported aside.",
+            "markers": [
+              1
+            ],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.0,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-010",
+      "type": "factual",
+      "labels": [
+        "pdf"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026"
+      ],
+      "retrieval": {
+        "chunks": [],
+        "context_count": 0,
+        "would_abstain": true,
+        "hit_at_5": false,
+        "hit_at_10": false,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "abstained",
+        "error_code": null,
+        "answer": "Nothing relevant was found in your research package for this question.",
+        "citations": [],
+        "citation_precision": null,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 443
+      },
+      "judge": null
+    },
+    {
+      "id": "syn-011",
+      "type": "factual",
+      "labels": [
+        "docx"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/brightwater-heat-pumps-note"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "0a6a1170b49b4708",
+            "score": 0.4655,
+            "source_id": "59b22e7a-a81d-4bd9-aa53-0895af84e4f0",
+            "canonical_url": "https://example.org/synthetic/brightwater-heat-pumps-note"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "0a6a1170b49b4708",
+            "source_id": "59b22e7a-a81d-4bd9-aa53-0895af84e4f0",
+            "canonical_url": "https://example.org/synthetic/brightwater-heat-pumps-note",
+            "title": "Analysis note: heat pump adoption in Brightwater",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 433
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-012",
+      "type": "factual",
+      "labels": [
+        "docx"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/brightwater-heat-pumps-note"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "0a6a1170b49b4708",
+            "score": 0.3822,
+            "source_id": "59b22e7a-a81d-4bd9-aa53-0895af84e4f0",
+            "canonical_url": "https://example.org/synthetic/brightwater-heat-pumps-note"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "0a6a1170b49b4708",
+            "source_id": "59b22e7a-a81d-4bd9-aa53-0895af84e4f0",
+            "canonical_url": "https://example.org/synthetic/brightwater-heat-pumps-note",
+            "title": "Analysis note: heat pump adoption in Brightwater",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 391
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-013",
+      "type": "factual",
+      "labels": [
+        "docx"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/brightwater-heat-pumps-note"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "0a6a1170b49b4708",
+            "score": 0.4003,
+            "source_id": "59b22e7a-a81d-4bd9-aa53-0895af84e4f0",
+            "canonical_url": "https://example.org/synthetic/brightwater-heat-pumps-note"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "0a6a1170b49b4708",
+            "source_id": "59b22e7a-a81d-4bd9-aa53-0895af84e4f0",
+            "canonical_url": "https://example.org/synthetic/brightwater-heat-pumps-note",
+            "title": "Analysis note: heat pump adoption in Brightwater",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 319
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-014",
+      "type": "factual",
+      "labels": [
+        "docx"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/brightwater-heat-pumps-note"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "0a6a1170b49b4708",
+            "score": 0.4097,
+            "source_id": "59b22e7a-a81d-4bd9-aa53-0895af84e4f0",
+            "canonical_url": "https://example.org/synthetic/brightwater-heat-pumps-note"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "0a6a1170b49b4708",
+            "source_id": "59b22e7a-a81d-4bd9-aa53-0895af84e4f0",
+            "canonical_url": "https://example.org/synthetic/brightwater-heat-pumps-note",
+            "title": "Analysis note: heat pump adoption in Brightwater",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 395
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-015",
+      "type": "factual",
+      "labels": [
+        "pptx"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/kestrel-valley-storage-briefing"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "1ab6b217d707364b",
+            "score": 0.5286,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "d860d2f08f73cbaf",
+            "score": 0.3466,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 3,
+            "chunk_id": "f9f6f1d5d56f541a",
+            "score": 0.3448,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 4,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.3172,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          },
+          {
+            "rank": 5,
+            "chunk_id": "cc2b8b89ab60ec75",
+            "score": 0.3015,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 5,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025. [1] Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "1ab6b217d707364b",
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing",
+            "title": "Battery storage in Kestrel Valley",
+            "page_or_slide": 2,
+            "expected": true
+          },
+          {
+            "marker": 2,
+            "chunk_id": "d860d2f08f73cbaf",
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing",
+            "title": "Battery storage in Kestrel Valley",
+            "page_or_slide": 4,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 371
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029.",
+            "markers": [
+              2
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.6666666666666666,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-016",
+      "type": "factual",
+      "labels": [
+        "pptx"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/kestrel-valley-storage-briefing"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "53674a5b3c54cacc",
+            "score": 0.3571,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "1ab6b217d707364b",
+            "score": 0.3061,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 3,
+            "chunk_id": "f9f6f1d5d56f541a",
+            "score": 0.3011,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          }
+        ],
+        "context_count": 3,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Revenue stack Frequency response provides 55 percent of revenue; arbitrage 30 percent. [1] Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "53674a5b3c54cacc",
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing",
+            "title": "Battery storage in Kestrel Valley",
+            "page_or_slide": 3,
+            "expected": true
+          },
+          {
+            "marker": 2,
+            "chunk_id": "1ab6b217d707364b",
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing",
+            "title": "Battery storage in Kestrel Valley",
+            "page_or_slide": 2,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 344
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Revenue stack Frequency response provides 55 percent of revenue; arbitrage 30 percent.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025.",
+            "markers": [
+              2
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.6666666666666666,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-017",
+      "type": "factual",
+      "labels": [
+        "pptx"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/kestrel-valley-storage-briefing"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "d860d2f08f73cbaf",
+            "score": 0.5115,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "1ab6b217d707364b",
+            "score": 0.3633,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 3,
+            "chunk_id": "f9f6f1d5d56f541a",
+            "score": 0.3513,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 4,
+            "chunk_id": "53674a5b3c54cacc",
+            "score": 0.3046,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          }
+        ],
+        "context_count": 4,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029. [1] Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "d860d2f08f73cbaf",
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing",
+            "title": "Battery storage in Kestrel Valley",
+            "page_or_slide": 4,
+            "expected": true
+          },
+          {
+            "marker": 2,
+            "chunk_id": "1ab6b217d707364b",
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing",
+            "title": "Battery storage in Kestrel Valley",
+            "page_or_slide": 2,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 326
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025.",
+            "markers": [
+              2
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.6666666666666666,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-018",
+      "type": "factual",
+      "labels": [
+        "pptx",
+        "speaker-notes"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/kestrel-valley-storage-briefing"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "1ab6b217d707364b",
+            "score": 0.3552,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "d860d2f08f73cbaf",
+            "score": 0.3191,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 3,
+            "chunk_id": "f9f6f1d5d56f541a",
+            "score": 0.3127,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          }
+        ],
+        "context_count": 3,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025. [1] Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "1ab6b217d707364b",
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing",
+            "title": "Battery storage in Kestrel Valley",
+            "page_or_slide": 2,
+            "expected": true
+          },
+          {
+            "marker": 2,
+            "chunk_id": "d860d2f08f73cbaf",
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing",
+            "title": "Battery storage in Kestrel Valley",
+            "page_or_slide": 4,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 361
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029.",
+            "markers": [
+              2
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.6666666666666666,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-019",
+      "type": "factual",
+      "labels": [
+        "html"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/ferrow-hydrogen-pilot"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "49285f116b251c7b",
+            "score": 0.4132,
+            "source_id": "b65420a5-c31c-44ca-ad66-a56582d8e6c6",
+            "canonical_url": "https://example.org/synthetic/ferrow-hydrogen-pilot"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Home | News # Ferrow hydrogen pilot results Synthetic page. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "49285f116b251c7b",
+            "source_id": "b65420a5-c31c-44ca-ad66-a56582d8e6c6",
+            "canonical_url": "https://example.org/synthetic/ferrow-hydrogen-pilot",
+            "title": "Ferrow hydrogen pilot results",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 330
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Home | News # Ferrow hydrogen pilot results Synthetic page.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-020",
+      "type": "factual",
+      "labels": [
+        "html"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/ferrow-hydrogen-pilot"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "49285f116b251c7b",
+            "score": 0.3674,
+            "source_id": "b65420a5-c31c-44ca-ad66-a56582d8e6c6",
+            "canonical_url": "https://example.org/synthetic/ferrow-hydrogen-pilot"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Home | News # Ferrow hydrogen pilot results Synthetic page. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "49285f116b251c7b",
+            "source_id": "b65420a5-c31c-44ca-ad66-a56582d8e6c6",
+            "canonical_url": "https://example.org/synthetic/ferrow-hydrogen-pilot",
+            "title": "Ferrow hydrogen pilot results",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 357
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Home | News # Ferrow hydrogen pilot results Synthetic page.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-021",
+      "type": "factual",
+      "labels": [
+        "html"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/ferrow-hydrogen-pilot"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "49285f116b251c7b",
+            "score": 0.3578,
+            "source_id": "b65420a5-c31c-44ca-ad66-a56582d8e6c6",
+            "canonical_url": "https://example.org/synthetic/ferrow-hydrogen-pilot"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Home | News # Ferrow hydrogen pilot results Synthetic page. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "49285f116b251c7b",
+            "source_id": "b65420a5-c31c-44ca-ad66-a56582d8e6c6",
+            "canonical_url": "https://example.org/synthetic/ferrow-hydrogen-pilot",
+            "title": "Ferrow hydrogen pilot results",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 342
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Home | News # Ferrow hydrogen pilot results Synthetic page.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-022",
+      "type": "factual",
+      "labels": [
+        "markdown"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/hollin-grid-tariffs"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "901d0c2a251db499",
+            "score": 0.3344,
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "901d0c2a251db499",
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs",
+            "title": "Grid tariff reform in Hollin",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 415
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-023",
+      "type": "factual",
+      "labels": [
+        "markdown"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/hollin-grid-tariffs"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "901d0c2a251db499",
+            "score": 0.3514,
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "901d0c2a251db499",
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs",
+            "title": "Grid tariff reform in Hollin",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 327
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-024",
+      "type": "factual",
+      "labels": [
+        "markdown"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/hollin-grid-tariffs"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "901d0c2a251db499",
+            "score": 0.4009,
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "901d0c2a251db499",
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs",
+            "title": "Grid tariff reform in Hollin",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 325
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-025",
+      "type": "factual",
+      "labels": [
+        "markdown"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/hollin-grid-tariffs"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "901d0c2a251db499",
+            "score": 0.3459,
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "901d0c2a251db499",
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs",
+            "title": "Grid tariff reform in Hollin",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 424
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-026",
+      "type": "synthesis",
+      "labels": [
+        "cross-source"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026",
+        "https://example.org/synthetic/brightwater-heat-pumps-note",
+        "https://example.org/synthetic/ferrow-hydrogen-pilot"
+      ],
+      "retrieval": {
+        "chunks": [],
+        "context_count": 0,
+        "would_abstain": true,
+        "hit_at_5": false,
+        "hit_at_10": false,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "abstained",
+        "error_code": null,
+        "answer": "Nothing relevant was found in your research package for this question.",
+        "citations": [],
+        "citation_precision": null,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 443
+      },
+      "judge": null
+    },
+    {
+      "id": "syn-027",
+      "type": "synthesis",
+      "labels": [
+        "cross-source"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026",
+        "https://example.org/synthetic/hollin-grid-tariffs"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "901d0c2a251db499",
+            "score": 0.3252,
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "901d0c2a251db499",
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs",
+            "title": "Grid tariff reform in Hollin",
+            "page_or_slide": null,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 382
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-028",
+      "type": "synthesis",
+      "labels": [
+        "cross-source"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026",
+        "https://example.org/synthetic/kestrel-valley-storage-briefing"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "cc2b8b89ab60ec75",
+            "score": 0.3147,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.3067,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 2,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [1] 1. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "cc2b8b89ab60ec75",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          },
+          {
+            "marker": 2,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 440
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "1.",
+            "markers": [
+              2
+            ],
+            "verdict": "no_claim"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-029",
+      "type": "synthesis",
+      "labels": [
+        "cross-source"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/brightwater-heat-pumps-note",
+        "https://example.org/synthetic/hollin-grid-tariffs"
+      ],
+      "retrieval": {
+        "chunks": [],
+        "context_count": 0,
+        "would_abstain": true,
+        "hit_at_5": false,
+        "hit_at_10": false,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "abstained",
+        "error_code": null,
+        "answer": "Nothing relevant was found in your research package for this question.",
+        "citations": [],
+        "citation_precision": null,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 407
+      },
+      "judge": null
+    },
+    {
+      "id": "syn-030",
+      "type": "synthesis",
+      "labels": [
+        "single-source"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/tidewater-offshore-wind-2026"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.3325,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "1. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 502
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "An unsupported aside.",
+            "markers": [
+              1
+            ],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.0,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-031",
+      "type": "synthesis",
+      "labels": [
+        "single-source"
+      ],
+      "expected_source_ids": [
+        "https://example.org/synthetic/kestrel-valley-storage-briefing"
+      ],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "1ab6b217d707364b",
+            "score": 0.3503,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "d860d2f08f73cbaf",
+            "score": 0.3295,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          },
+          {
+            "rank": 3,
+            "chunk_id": "f9f6f1d5d56f541a",
+            "score": 0.3134,
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing"
+          }
+        ],
+        "context_count": 3,
+        "would_abstain": false,
+        "hit_at_5": true,
+        "hit_at_10": true,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025. [1] Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "1ab6b217d707364b",
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing",
+            "title": "Battery storage in Kestrel Valley",
+            "page_or_slide": 2,
+            "expected": true
+          },
+          {
+            "marker": 2,
+            "chunk_id": "d860d2f08f73cbaf",
+            "source_id": "1cc52695-60f8-4dd2-abf0-07d8a226dabd",
+            "canonical_url": "https://example.org/synthetic/kestrel-valley-storage-briefing",
+            "title": "Battery storage in Kestrel Valley",
+            "page_or_slide": 4,
+            "expected": true
+          }
+        ],
+        "citation_precision": 1.0,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 421
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029.",
+            "markers": [
+              2
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.6666666666666666,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-032",
+      "type": "out_of_corpus",
+      "labels": [
+        "off-topic"
+      ],
+      "expected_source_ids": [],
+      "retrieval": {
+        "chunks": [],
+        "context_count": 0,
+        "would_abstain": true,
+        "hit_at_5": null,
+        "hit_at_10": null,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "abstained",
+        "error_code": null,
+        "answer": "Nothing relevant was found in your research package for this question.",
+        "citations": [],
+        "citation_precision": null,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 293
+      },
+      "judge": null
+    },
+    {
+      "id": "syn-033",
+      "type": "out_of_corpus",
+      "labels": [
+        "off-topic"
+      ],
+      "expected_source_ids": [],
+      "retrieval": {
+        "chunks": [],
+        "context_count": 0,
+        "would_abstain": true,
+        "hit_at_5": null,
+        "hit_at_10": null,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "abstained",
+        "error_code": null,
+        "answer": "Nothing relevant was found in your research package for this question.",
+        "citations": [],
+        "citation_precision": null,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 401
+      },
+      "judge": null
+    },
+    {
+      "id": "syn-034",
+      "type": "out_of_corpus",
+      "labels": [
+        "off-topic"
+      ],
+      "expected_source_ids": [],
+      "retrieval": {
+        "chunks": [],
+        "context_count": 0,
+        "would_abstain": true,
+        "hit_at_5": null,
+        "hit_at_10": null,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "abstained",
+        "error_code": null,
+        "answer": "Nothing relevant was found in your research package for this question.",
+        "citations": [],
+        "citation_precision": null,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 291
+      },
+      "judge": null
+    },
+    {
+      "id": "syn-035",
+      "type": "out_of_corpus",
+      "labels": [
+        "off-topic"
+      ],
+      "expected_source_ids": [],
+      "retrieval": {
+        "chunks": [],
+        "context_count": 0,
+        "would_abstain": true,
+        "hit_at_5": null,
+        "hit_at_10": null,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "abstained",
+        "error_code": null,
+        "answer": "Nothing relevant was found in your research package for this question.",
+        "citations": [],
+        "citation_precision": null,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 252
+      },
+      "judge": null
+    },
+    {
+      "id": "syn-036",
+      "type": "out_of_corpus",
+      "labels": [
+        "near-miss"
+      ],
+      "expected_source_ids": [],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "score": 0.4157,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          },
+          {
+            "rank": 2,
+            "chunk_id": "cc2b8b89ab60ec75",
+            "score": 0.3426,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          },
+          {
+            "rank": 3,
+            "chunk_id": "0a6a1170b49b4708",
+            "score": 0.3152,
+            "source_id": "59b22e7a-a81d-4bd9-aa53-0895af84e4f0",
+            "canonical_url": "https://example.org/synthetic/brightwater-heat-pumps-note"
+          },
+          {
+            "rank": 4,
+            "chunk_id": "88b5a903e8228007",
+            "score": 0.301,
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026"
+          }
+        ],
+        "context_count": 4,
+        "would_abstain": false,
+        "hit_at_5": null,
+        "hit_at_10": null,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "1. [1] &lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [2] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "add4132f102c4fcf",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": null
+          },
+          {
+            "marker": 2,
+            "chunk_id": "cc2b8b89ab60ec75",
+            "source_id": "6c2b5484-612e-4d37-ad6f-0443ad4e83a3",
+            "canonical_url": "https://example.org/synthetic/tidewater-offshore-wind-2026",
+            "title": "Tidewater Offshore Wind Outlook 2026",
+            "page_or_slide": 1,
+            "expected": null
+          }
+        ],
+        "citation_precision": null,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 405
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "markers": [
+              1,
+              2
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-037",
+      "type": "out_of_corpus",
+      "labels": [
+        "near-miss"
+      ],
+      "expected_source_ids": [],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "0a6a1170b49b4708",
+            "score": 0.384,
+            "source_id": "59b22e7a-a81d-4bd9-aa53-0895af84e4f0",
+            "canonical_url": "https://example.org/synthetic/brightwater-heat-pumps-note"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": null,
+        "hit_at_10": null,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "0a6a1170b49b4708",
+            "source_id": "59b22e7a-a81d-4bd9-aa53-0895af84e4f0",
+            "canonical_url": "https://example.org/synthetic/brightwater-heat-pumps-note",
+            "title": "Analysis note: heat pump adoption in Brightwater",
+            "page_or_slide": null,
+            "expected": null
+          }
+        ],
+        "citation_precision": null,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 397
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    },
+    {
+      "id": "syn-038",
+      "type": "out_of_corpus",
+      "labels": [
+        "near-miss"
+      ],
+      "expected_source_ids": [],
+      "retrieval": {
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "901d0c2a251db499",
+            "score": 0.318,
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs"
+          }
+        ],
+        "context_count": 1,
+        "would_abstain": false,
+        "hit_at_5": null,
+        "hit_at_10": null,
+        "error": null
+      },
+      "pipeline": {
+        "outcome": "answered",
+        "error_code": null,
+        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] An unsupported aside .",
+        "citations": [
+          {
+            "marker": 1,
+            "chunk_id": "901d0c2a251db499",
+            "source_id": "c35f0b2f-0b05-48fb-8fb0-eb8eee35f3fe",
+            "canonical_url": "https://example.org/synthetic/hollin-grid-tariffs",
+            "title": "Grid tariff reform in Hollin",
+            "page_or_slide": null,
+            "expected": null
+          }
+        ],
+        "citation_precision": null,
+        "cached": false,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "latency_ms": 396
+      },
+      "judge": {
+        "statements": [
+          {
+            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "markers": [
+              1
+            ],
+            "verdict": "supported"
+          },
+          {
+            "text": "An unsupported aside.",
+            "markers": [],
+            "verdict": "unsupported"
+          }
+        ],
+        "faithfulness": 0.5,
+        "excerpt_fallbacks": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "error": null
+      }
+    }
+  ]
+}

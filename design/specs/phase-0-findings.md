@@ -1,6 +1,8 @@
 # Phase 0 Findings
 
-Status: in progress. Filled in as Phase 0 work items land; P0-20 completes it.
+Status: complete for what the build environment can establish (P0-20, Oct 18, 2026). Open
+items are marked **Needs the real corpus**, **Needs the Instance** or **Needs the Mistral
+account**; section 4 waits on the content editor's spot checks (P0-11).
 
 ## 1. Where RAGFlow differs from what the spec assumes
 
@@ -23,6 +25,7 @@ Recorded as found, per `CLAUDE.md` ("follow the real API and record the differen
 | R13 | P0-09 | A file RAGFlow cannot parse ends in `run = FAIL` | A corrupt PDF ends `run = DONE`, `progress = 1`, with 0 chunks. Infrastructure errors (R12) do end in `FAIL`. | Ingestion treats `DONE` with 0 chunks as failed (`no_chunks`). Any failed source has its RAGFlow documents deleted, so nothing of it can be retrieved or cited. |
 | R14 | P0-11 | Chunks from formats without pages carry no page | DOCX, HTML and Markdown chunks come back with `positions = [[1, 0, 0, 0, 0]]`; PPTX slides look the same (`[[n, 0, 0, 0, 0]]`). The retrieval response cannot tell them apart. | `page_or_slide` is documented as meaningful only for `pdf` and `pptx` sources. The orchestrator, which joins the source type by `document_id`, must drop it for other types; flagged for the Group C merge. |
 | R15 | P0-11 | n/a | A source ingested under two tags is two RAGFlow documents with different chunk IDs; retrieving across both datasets returns the same text twice. | The orchestrator's de-duplication (P0-14) must compare text or source, not chunk ID. |
+| R16 | P0-20 | Retrieval is hybrid: vector similarity can find a chunk that shares no word with the question | A question sharing no term with any chunk returns **no chunks at all**, even with `similarity_threshold = 0` and `vector_similarity_weight = 1.0` ("What is the capital of Australia?", "recipe for a classic French omelette" against the synthetic corpus). With the Elasticsearch backend, the full-text match appears to gate the vector search. | Two consequences. Off-topic questions with no shared term abstain inside RAGFlow, before the threshold matters. And a question phrased entirely differently from the source, or in another language, may retrieve nothing even though bge-m3 is multilingual: test cross-language and paraphrased questions in eval set v1 (section 3, assumption 4). |
 
 ## 1b. Where Mistral differs from what the spec assumes
 
@@ -39,6 +42,19 @@ Recorded as found, per `CLAUDE.md` ("follow the real API and record the differen
 | C2 | P0-14 | "Cache by tenant + normalised question + corpus version" | Keyed on the normalised *standalone* (rewritten) query, plus dataset IDs, prompt version and model. Keying on the literal question would serve one conversation's answer to "and in Germany?" in another. The corpus version is a hash over the package's source rows (no trigger needed). |
 | C3 | P0-15 | `GET /healthz` among the `/api/v1` routes, "all routes behind P0-06" | The authenticated route is `/api/v1/healthz`. The root `/healthz` stays unauthenticated for the Compose probe (P0-02). |
 | C4 | P0-08 / P0-14 | Chunking method per tag: `paper` for reports, `presentation` for PPTX, `naive` for DOCX and web | `sample-analysis` holds both DOCX and PPTX, which would need two methods in one dataset. For Group B (P0-08) to settle; the orchestrator does not depend on it. Settled by Group B: `config/tags.toml` `chunk_method_by_type` sets `presentation` per PPTX document (section 6). |
+
+## 1d. Where the Group D build differs from the spec
+
+| # | Found in | Spec says | What we did and why |
+| --- | --- | --- | --- |
+| D1 | P0-17 | `expected_source_ids` "(one or more)" for every item | `out_of_corpus` items must have an empty list; `factual` and `synthesis` need at least one. |
+| D2 | P0-17 | `expected_source_ids` are source IDs | Register UUIDs differ per installation and change on re-ingestion, and the research team does not see them. An entry is either the source's `canonical_url` or its register UUID; the harness matches either and warns about entries matching no source. |
+| D3 | P0-17 | Eval set items have four fields | Also `id` (stable, unique: `compare` and reviewers need it), optional `labels` and `synthetic`. Schema in `packages/eval/schema/`. |
+| D4 | P0-18 | "Calls the orchestrator's retrieval step" | The orchestrator has no separate retrieval entry point (and this group does not change it). The harness runs the same steps with the same building blocks and parameters (`resolve_package`, `RagflowClient.retrieve_chunks`, `provenance_by_document`, `select_context`). It therefore needs read access to Postgres and RAGFlow; exposing retrieval through the API was not an option (CLAUDE.md). |
+| D5 | P0-18 | The judge scores sentences against "their cited chunks" | Citations in the API stream carry a 1,200-character excerpt, not the chunk. The harness takes the full chunk text from its own retrieval step (same query, same parameters) by chunk ID and falls back to the excerpt, counting fallbacks (none in the committed runs). |
+| D6 | P0-18 | Judge model "Mistral Large" | The judge uses the pinned `chat_model`, so it grades its own model's answers. Self-preference bias is a known risk; consider a separate pinned `judge_model` before results gate releases (Phase 1). `models.toml` `[prompts]` gains `judge = "v1"` (eval only). |
+| D7 | P0-18 | Eval runs reflect the configuration under test | The answer cache key (C2) has no retrieval parameters: after a threshold, `top_k` or context-cap change the API serves answers retrieved under the old settings for up to `cache_ttl_seconds`. The harness counts and flags cached answers; the committed runs flushed the cache first. **Proposed orchestrator change (not made here):** add `top_k`, `similarity_threshold`, `max_context_tokens` and the vector weight to the cache key. |
+| D8 | P0-19 | The workflow "runs the harness against the Phase 0 Instance" | GitHub-hosted runners cannot reach RAGFlow or Postgres, which have no public listener. The workflow takes the runner label as an input; use a self-hosted runner on the Instance's private network. It has not been run on GitHub: a `workflow_dispatch` workflow can be triggered only once the file is on the default branch. |
 
 ## 2. RAGFlow endpoints and parameters used
 
@@ -65,7 +81,78 @@ Notes:
 
 ## 3. Phase 0 assumptions (§13 of the architecture document)
 
-To be answered by P0-20.
+| # | Assumption | Status |
+| --- | --- | --- |
+| 1 | Mistral web-search tool: available on the EU endpoint for the pinned Large model, covered by the zero-retention letter, priced per call | **Open. Needs the Mistral account.** |
+| 2 | RAGFlow: metadata filters across datasets in one call; a file in several datasets does not double-count | **Half answered.** Double-counting answered; metadata filters not tested |
+| 3 | Authentik email-link stage: browser binding, single use, per-tenant brands can hide it | **Open.** Desk check not done |
+| 4 | Self-hosted multilingual embedding meets the eval set's hit-rate target | **Open. Needs the real corpus** (eval set v1). The harness to measure it is ready |
+| 5 | Host sizing: parse throughput and memory on 8 vCPU / 32 GB | **Memory answered on a smaller host; throughput needs the Instance** |
+
+**1. Mistral web-search tool.** Nothing could be confirmed from the build environment. No Mistral
+key exists, and Mistral's documentation was not reachable (M1). Still to check, all on the team's
+account and contract: (a) the tool is offered on `api.mistral.ai` for the pinned
+`mistral-large-2512`; (b) calls that use the tool are covered by the zero-retention letter,
+including the search query the tool sends to its search backend; (c) price per tool call, on top
+of tokens. Together with M1 (the EU endpoint itself) and M2 (dated model IDs). Web search is
+Phase 2, so this does not block Phase 1. It does block pulling web search into Phase 1 (§11).
+
+**2. RAGFlow multi-dataset retrieval.**
+
+- *Several datasets in one call:* works. One `POST /retrieval` with the package's dataset IDs
+  returned chunks from all three datasets (section 6).
+- *Same file in several datasets:* RAGFlow **does** double-count. Each copy is a separate
+  document with its own chunk IDs, and it can be chunked differently per dataset (R15, section 6).
+  Our orchestrator removes the duplicates: it compares source plus contained text, and live this
+  cut 8 chunks to 5 (section 6). So the assumption fails for RAGFlow but holds for the platform.
+  Side effect: duplicates use up `top_k` slots before de-duplication. Keep tag overlap low, or
+  raise `top_k` when packages overlap heavily.
+- *Document-level metadata filters across datasets:* **not tested.** Phase 0 builds no source
+  filters. RAGFlow's automatic metadata filters (`auto`, `semi_auto`) send the question to an LLM
+  configured inside RAGFlow, which we do not allow (R11). Recommendation for Phase 1: apply
+  publisher, date, type and tag filters after retrieval from the source register (architecture
+  §5.2 allows either). Raise `top_k` while a filter is active. Only if that proves too lossy,
+  test RAGFlow's manual metadata filter on the Instance.
+- New: questions with no word in common with the corpus return nothing, whatever the
+  threshold or vector weight (R16).
+
+**3. Authentik email-link stage.** Not checked in Phase 0. It needs neither the Instance nor the
+corpus, but nobody has done it yet. It is a desk check against the documentation for the pinned
+Authentik version, before the Phase 1 spec fixes the login flow. Check: (a) whether a link opened
+in a different browser from the one that asked for it is refused, or can be made to be;
+(b) whether a link works only once and expires; (c) whether a per-tenant brand or flow can leave
+out the email-link option where the operator turned it off; (d) SMTP delivery through Scaleway
+Transactional Email.
+
+**4. Embedding quality.** No evidence yet. On the synthetic set, hit@5 and hit@10 are 100 at
+thresholds 0.2 and 0.25 (section 5). But that corpus has 5 documents and 12 chunks, so the result
+says nothing about bge-m3. To be measured with eval set v1 on the Instance, **needs the real
+corpus**. Three points for that run:
+
+- *There is no hit-rate target.* §13 refers to "the eval set's retrieval hit-rate target", but no
+  document sets one. Proposal for the team to adopt before the v1 run: hit@10 ≥ 90 and hit@5 ≥ 80
+  on `factual` items.
+- *The embedding counts for only 30 percent of the score.* RAGFlow's score is
+  `0.3 × vector + 0.7 × keyword` with the hard-coded `vector_similarity_weight = 0.3`, and keyword
+  matching gates retrieval altogether (R16). A miss is therefore as likely to come from the
+  keyword side as from bge-m3. Tune the weight (section 5) before switching to `mistral-embed`.
+  Switching would send all corpus text to Mistral at ingestion, a change to the compliance
+  guide's data flow even under the same DPA.
+- *v1 should include* paraphrased questions and questions in the other languages clients will use
+  (R16).
+
+**5. Host sizing.** Memory (R2, measured on a 4 vCPU / 16 GB build host): TEI with bge-m3 at
+`--max-batch-tokens 4096` keeps about 4.1 GiB resident, and the `ragflow` container peaked at
+4.6 GiB under ingestion. A snapshot from this group's run, idle after ingestion and with
+Elasticsearch capped at 3 GiB for the sandbox, showed: TEI 4.2 GiB, RAGFlow 4.2 GiB,
+Elasticsearch 2.1 GiB, MySQL 0.5 GiB, everything else under 0.2 GiB. With Elasticsearch at its
+8 GB limit, the stack needs about 18 GB, which fits the 32 GB Instance with headroom. Disk: the
+images alone are about 24 GB, and Elasticsearch stops accepting writes below 3 GB free (R12). The
+§10.3 figure of 200 GB block storage is ample; do not go below 100 GB. Throughput: after the first
+synthetic file, the next four (7 chunks in all) finished within 22 s on 4 vCPU. That does not
+predict 30+ real PDFs through DeepDoc. **Needs the Instance:** time the P0-11 ingestion per file type and record
+`docker stats` peaks during it, then resize before Phase 1 if parsing 40 documents takes longer
+than an afternoon or memory peaks above about 26 GB.
 
 ## 4. Parsing problems (P0-11)
 
@@ -84,7 +171,67 @@ Observed so far on the **synthetic** files in `packages/eval/fixtures/corpus/` (
 
 ## 5. Recommended retrieval parameters for Phase 1
 
-To be filled by P0-20.
+Everything here comes from the **synthetic** set (38 items, 7 `out_of_corpus`) on the synthetic
+corpus, with Mistral **mocked** (`tests.dev_fake_mistral` for the API, `--mock-mistral` for the
+judge). RAGFlow, bge-m3, retrieval, the orchestrator and Postgres are real. Treat it as a
+demonstration of the method and a provisional setting. **Every recommendation must be re-run on
+eval set v1 with the real corpus and Mistral before `config/models.toml` changes**; this group
+changed no configuration. Faithfulness from the mocked judge is a lexical stand-in, and its
+movement between runs reflects which items reach the model, not answer quality.
+
+### Similarity threshold
+
+Three runs, same code, corpus and set. Only `[chat] similarity_threshold` differs, for the API
+and the harness alike, and the answer cache was flushed before each run (D7). Results are in
+`packages/eval/results/`.
+
+| Threshold | Run | Abstention correctness | out_of_corpus abstained without LLM | Cited-answer rate (factual + synthesis) | hit@5 / hit@10 | Citation precision |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 0.20 (current) | `20261018T005234Z-857b3ccd0a36` | 28.6 (2/7) | 28.6 | 100.0 (31/31) | 100.0 / 100.0 | 88.7 |
+| 0.25 | `20261018T005524Z-1f29494499ba` | 42.9 (3/7) | 42.9 | 100.0 (31/31) | 100.0 / 100.0 | 98.4 |
+| 0.30 | `20261018T005642Z-1f29494499ba` | 57.1 (4/7) | 57.1 | 90.3 (28/31) | 90.3 / 90.3 | 100.0 |
+
+`compare` from 0.20: to 0.25, no regression; to 0.30, regressions in hit@5, hit@10 and
+cited-answer rate (−9.7 points each) and in the mocked faithfulness.
+
+What drives it, from each item's best retrieval score (hybrid score, vector weight 0.3):
+
+| Items | Best score |
+| --- | --- |
+| factual and synthesis (31) | 0.269 to 0.529, median 0.355 |
+| off-topic: "Sistine Chapel" | 0.218 |
+| off-topic: "price of Bitcoin today" | 0.267 |
+| off-topic: "capital of Australia", "French omelette" | no chunk at all (R16) |
+| near-miss (onshore wind, 2019 heat pumps, gas tariffs) | 0.318 to 0.416 |
+
+- **0.20** lets the "Sistine Chapel" question through to the model, matching the integration
+  finding (section 6).
+- **0.25** stops it and loses no in-corpus answer. The margin is thin, though: the weakest
+  in-corpus item scores 0.269 (`syn-026`, a three-source synthesis question).
+- **0.30** also stops "Bitcoin" but abstains on three in-corpus items. Two of them are synthesis
+  questions (`syn-026`, `syn-029`) and one is factual (`syn-010`).
+- **No threshold catches the near misses.** They score like real questions, so the corpus-only
+  prompt's rule 3 ("say so plainly and stop") is the real abstention mechanism. The threshold is a
+  cheap first filter. The v1 run with real Mistral will show whether rule 3 holds; abstention
+  correctness counts a model that declines (no citations) as correct.
+
+**Recommendation: 0.25, provisionally.** Losing an answer the corpus holds costs more than one
+avoidable model call, since the prompt still tells the model to decline. 0.25 is the highest of
+the three that kept every in-corpus answer. **Re-run on v1** at 0.20, 0.25 and 0.30, at least.
+Adopt 0.25 only if v1's cited-answer rate does not drop more than 3 points against 0.20.
+Otherwise keep 0.20 and rely on the prompt.
+
+### Other parameters
+
+| Parameter | Now | Recommendation | Basis | Needs |
+| --- | --- | --- | --- | --- |
+| `top_k` (RAGFlow `page_size`) | 10 | Keep 10 (architecture: 8 to 12) | Synthetic hit@5 = hit@10, so no signal. Duplicates across tags use up slots (assumption 2) | Real corpus: if v1 hit@5 ≈ hit@10, try 8 to cut context tokens |
+| `knn_top_k` | 1024 | Keep | RAGFlow default candidate pool (section 2) | — |
+| `vector_similarity_weight` | 0.3, hard-coded in `app.retrieval.ragflow` | Move to `[chat]` config (and the cache key, D7), then evaluate 0.3, 0.5 and 0.7 on v1 | Scratch probe on the synthetic set: the gap between the best off-topic score and the weakest in-corpus score grows from 0.002 (0.3) to 0.028 (0.5) to 0.054 (0.7). Scores shift upward with the weight, so the threshold must be re-tuned with it (weakest in-corpus item: 0.269 / 0.417 / 0.565) | Real corpus |
+| `max_context_tokens` | 6000 | Keep | Matches §10.2's ~6,000 input tokens. The synthetic corpus never reaches it | Real corpus: check how often the cap drops chunks |
+| Chunk size | RAGFlow default (~512 tokens) | Keep the default; tune only if v1 misses its hit-rate target | R2: chunks are ~512 tokens | Real corpus |
+| Chunking method | `paper` (PDF), `presentation` (PPTX), `naive` (DOCX, web) | Keep. Decide whether reports are also tagged into `sample-analysis` (section 6: they would be parsed `naive` there) | Section 4, section 6 | Content editor (P0-11) |
+| PPTX speaker notes | Not ingested | If our decks keep content in notes, export notes into the slide text or a companion DOCX before ingestion. `syn-018` checks for it | Section 4 | Real decks |
 
 ## 6. Integration (Group B + Group C)
 

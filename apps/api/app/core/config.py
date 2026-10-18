@@ -81,6 +81,8 @@ class PromptsConfig(_Strict):
 
     corpus_only: str = Field(pattern=r"^v[1-9][0-9]*$")
     rewrite: str = Field(pattern=r"^v[1-9][0-9]*$")
+    # Faithfulness judge of the eval harness (P0-18); not used by the API itself.
+    judge: str = Field(pattern=r"^v[1-9][0-9]*$")
 
 
 class ChatConfig(_Strict):

@@ -8,6 +8,9 @@ this module accepts can only carry what a prompt may contain — the system prom
 retrieved passages with provenance (publisher, title, date, page), conversation
 turns and the question. There is no parameter through which a tenant, user,
 conversation or package identifier could reach the request, and no tools are sent.
+The eval harness's faithfulness judge (P0-18) also calls through here: its request
+holds the judge prompt, the cited passages with provenance and the answer's
+statements, nothing else.
 
 Errors are reported as ``LLMError`` with a short code; the SDK's own error
 message embeds the response body and must never be logged.
@@ -36,6 +39,8 @@ ANSWER_MAX_TOKENS = 1500
 REWRITE_TEMPERATURE = 0.0
 REWRITE_MAX_TOKENS = 128
 MAX_REWRITE_LENGTH = 500
+JUDGE_TEMPERATURE = 0.0
+JUDGE_MAX_TOKENS = 2000
 RETRIES_ON_5XX = 1
 
 
@@ -75,6 +80,25 @@ class Usage:
 @dataclass(frozen=True)
 class RewriteResult:
     query: str
+    usage: Usage | None
+
+
+@dataclass(frozen=True)
+class Statement:
+    """One answer sentence for the faithfulness judge, without its ``[n]`` markers.
+
+    ``cites`` are the numbers of the passages it cites in the judge's own context block.
+    """
+
+    text: str
+    cites: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class JudgeResult:
+    """The judge's raw reply (JSON requested; parsed by the caller) and usage."""
+
+    text: str
     usage: Usage | None
 
 
@@ -124,6 +148,19 @@ def rewrite_messages(system: str, query: str, history: Sequence[Turn]) -> list[d
         *({"role": turn.role, "content": turn.content} for turn in history),
         {"role": "user", "content": query},
     ]
+
+
+def judge_messages(
+    system: str, passages: Sequence[PromptChunk], statements: Sequence[Statement]
+) -> list[dict[str, str]]:
+    """System prompt, then the cited passages and the numbered answer statements."""
+    lines = []
+    for n, statement in enumerate(statements, start=1):
+        cites = " ".join(str(c) for c in statement.cites) or "none"
+        text = html.escape(statement.text, quote=False)
+        lines.append(f'<statement n="{n}" cites="{cites}">{text}</statement>')
+    final = f"{render_context(passages)}\n\n<answer>\n" + "\n".join(lines) + "\n</answer>"
+    return [{"role": "system", "content": system}, {"role": "user", "content": final}]
 
 
 def _clean_query(raw: str, fallback: str) -> str:
@@ -245,6 +282,33 @@ class MistralClient:
         message = response.choices[0].message if response.choices else None
         raw = _text(message.content) if message is not None else ""
         return RewriteResult(query=_clean_query(raw, query), usage=_usage(response.usage))
+
+    async def judge(
+        self, system: str, passages: Sequence[PromptChunk], statements: Sequence[Statement]
+    ) -> JudgeResult:
+        """Faithfulness verdicts for ``statements`` (eval harness, P0-18), as JSON text.
+
+        Uses the pinned chat model (Mistral Large) at temperature 0.
+        """
+        messages = judge_messages(system, passages, statements)
+        for attempt in range(RETRIES_ON_5XX + 1):
+            try:
+                response = await self._sdk.chat.complete_async(
+                    model=self._config.chat_model,
+                    messages=messages,  # type: ignore[arg-type]
+                    temperature=JUDGE_TEMPERATURE,
+                    max_tokens=JUDGE_MAX_TOKENS,
+                    response_format={"type": "json_object"},
+                    stream=False,
+                )
+                break
+            except (MistralError, httpx.HTTPError) as exc:
+                if _is_5xx(exc) and attempt < RETRIES_ON_5XX:
+                    continue
+                raise _error(exc) from None
+        message = response.choices[0].message if response.choices else None
+        raw = _text(message.content) if message is not None else ""
+        return JudgeResult(text=raw, usage=_usage(response.usage))
 
     async def answer(
         self,

@@ -33,6 +33,8 @@ embedding_model = "BAAI/bge-m3@Builtin"
 # new version file and an eval run (CLAUDE.md); never edit a released version.
 corpus_only = "v1"
 rewrite = "v1"
+# Faithfulness judge of the eval harness (packages/eval, P0-18); the API does not use it.
+judge = "v1"
 
 [chat]
 # Orchestrator parameters (P0-14). Token figures are estimates (~4 characters per token).

@@ -419,7 +419,7 @@ Web-search mode is placed in Phase 2 because it needs a DPA clause and new UI la
 | Mode control | Only the platform operator enables modes, per tenant; tenant admins choose the default among enabled modes |
 | Own-analysis access | Original DOCX/PPTX downloadable from the platform by entitled users |
 | Sign-in links | Enabled for every tenant by default; operator can switch off per tenant |
-| Model | Mistral Large class by default, version pinned |
+| Model | Mistral Large class by default, version pinned (target). Phase 0 runs on Scaleway Generative APIs with `deepseek-v4.1-flash` after the Mistral workspace proved to have no API quota and no Large tier; see findings M2. Return to Mistral Large when the contract and tier are in place |
 
 ---
 

@@ -6,16 +6,24 @@ manifest (``design/specs/corpus-manifest.md``) links the two: each row's file na
 (the last part of ``path``) and its ``canonical_url``. Entries that already are a
 URL or source UUID pass through. Nothing is guessed: a name the manifest does not
 contain is a problem unless an explicit alias maps it to a manifest file name.
+
+Several files can share one canonical URL (a publisher's landing page). An expected
+URL then matches every one of them, which inflates hit@k and citation precision.
+For those files the set should name the source register UUID instead, looked up by
+file hash after ingestion (``register_ids``); such entries must be re-mapped if the
+source is ingested again, since its UUID changes.
 """
 
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from eval.schema import is_source_ref
@@ -26,6 +34,8 @@ class Mapped:
     lines: list[str] = field(default_factory=list)  # JSON lines of the mapped set
     problems: list[str] = field(default_factory=list)
     aliased: int = 0  # entries resolved through an alias
+    shared_url: int = 0  # entries for a file whose canonical URL other files share
+    by_uuid: dict[str, list[str]] = field(default_factory=dict)  # item id -> file names
 
 
 def manifest_urls(manifest_text: str) -> dict[str, str]:
@@ -37,6 +47,44 @@ def manifest_urls(manifest_text: str) -> dict[str, str]:
         if path and url:
             urls[PurePosixPath(path).name] = url
     return urls
+
+
+def shared_url_paths(manifest_text: str) -> dict[str, str]:
+    """File name -> manifest path, for files whose canonical URL another row also has."""
+    rows = [
+        ((row.get("path") or "").strip(), (row.get("canonical_url") or "").strip())
+        for row in csv.DictReader(io.StringIO(manifest_text, newline=""))
+    ]
+    counts = Counter(url for _, url in rows if url)
+    return {PurePosixPath(p).name: p for p, url in rows if p and url and counts[url] > 1}
+
+
+def file_hashes(base: Path, paths: Mapping[str, str]) -> dict[str, str]:
+    """File name -> sha256 of the file at ``base / path`` (what ingestion records)."""
+    return {
+        name: hashlib.sha256((base / path).read_bytes()).hexdigest() for name, path in paths.items()
+    }
+
+
+async def register_ids(database_url: str, hashes: Sequence[str]) -> dict[str, str]:
+    """sha256 -> source register UUID for ingested sources (read-only query)."""
+    from app.content.models import Source  # imports the API stack
+    from app.core.db import create_engine, session_factory
+    from sqlalchemy import select
+
+    engine = create_engine(database_url)
+    try:
+        async with session_factory(engine)() as session:
+            rows = await session.execute(
+                select(Source.file_sha256, Source.id).where(
+                    Source.file_sha256.in_(list(hashes)), Source.status == "ingested"
+                )
+            )
+            found = {sha: str(source_id) for sha, source_id in rows if sha is not None}
+            await session.rollback()
+    finally:
+        await engine.dispose()
+    return found
 
 
 def parse_aliases(pairs: Sequence[str]) -> dict[str, str]:
@@ -51,8 +99,14 @@ def parse_aliases(pairs: Sequence[str]) -> dict[str, str]:
 
 
 def map_sources(
-    set_text: str, urls: Mapping[str, str], aliases: Mapping[str, str] | None = None
+    set_text: str,
+    urls: Mapping[str, str],
+    aliases: Mapping[str, str] | None = None,
+    *,
+    shared: frozenset[str] = frozenset(),
+    uuid_by_name: Mapping[str, str] | None = None,
 ) -> Mapped:
+    """``shared`` names files whose URL is shared; with ``uuid_by_name`` they map to UUIDs."""
     aliases = aliases or {}
     out = Mapped()
     unused = set(aliases)
@@ -84,6 +138,17 @@ def map_sources(
                     )
                     continue
                 url = urls[name]
+                if name in shared:
+                    out.shared_url += 1
+                    if uuid_by_name is not None:
+                        if name not in uuid_by_name:
+                            out.problems.append(
+                                f"line {number} ({item.get('id', '?')}): {ref!r} shares its "
+                                "canonical URL and has no ingested source in the register"
+                            )
+                            continue
+                        url = uuid_by_name[name]
+                        out.by_uuid.setdefault(str(item.get("id", "?")), []).append(name)
             if url not in mapped:  # two files may share one canonical URL
                 mapped.append(url)
         item["expected_source_ids"] = mapped

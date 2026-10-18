@@ -47,14 +47,27 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 
 def cmd_map_sources(args: argparse.Namespace) -> int:
+    manifest = Path(args.manifest)
     try:
         aliases = sources.parse_aliases(args.alias)
         set_text = Path(args.file).read_text(encoding="utf-8")
-        urls = sources.manifest_urls(Path(args.manifest).read_text(encoding="utf-8-sig"))
+        manifest_text = manifest.read_text(encoding="utf-8-sig")
+        urls = sources.manifest_urls(manifest_text)
+        shared = sources.shared_url_paths(manifest_text)
+        uuid_by_name: dict[str, str] | None = None
+        if args.uuid_for_shared_urls:
+            database_url = os.environ.get("DATABASE_URL", "")
+            if not database_url:
+                raise ValueError("--uuid-for-shared-urls needs DATABASE_URL")
+            hashes = sources.file_hashes(manifest.parent, shared)
+            ids = asyncio.run(sources.register_ids(database_url, sorted(set(hashes.values()))))
+            uuid_by_name = {name: ids[sha] for name, sha in hashes.items() if sha in ids}
     except (OSError, ValueError) as exc:
         _err(f"python -m eval map-sources: {exc}")
         return 2
-    mapped = sources.map_sources(set_text, urls, aliases)
+    mapped = sources.map_sources(
+        set_text, urls, aliases, shared=frozenset(shared), uuid_by_name=uuid_by_name
+    )
     for problem in mapped.problems:
         _err(f"{args.file}: {problem}")
     if mapped.problems:
@@ -62,6 +75,15 @@ def cmd_map_sources(args: argparse.Namespace) -> int:
         return 1
     Path(args.output).write_text("\n".join(mapped.lines) + "\n", encoding="utf-8")
     _out(f"wrote {args.output}: {len(mapped.lines)} items, {mapped.aliased} entries via aliases")
+    if uuid_by_name is not None:
+        _out(f"register UUIDs for shared-URL files in {len(mapped.by_uuid)} items:")
+        for item_id, names in mapped.by_uuid.items():
+            _out(f"  {item_id}: {len(names)} entr{'y' if len(names) == 1 else 'ies'}")
+    elif mapped.shared_url:
+        _out(
+            f"warning: {mapped.shared_url} entries name files whose canonical URL other files "
+            "share; any of them counts as a hit (use --uuid-for-shared-urls after ingestion)"
+        )
     return 0
 
 
@@ -157,6 +179,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         help="'name in the set=file name in the manifest'; repeatable",
+    )
+    map_cmd.add_argument(
+        "--uuid-for-shared-urls",
+        action="store_true",
+        help="after ingestion: for files whose canonical URL other files share, use the "
+        "source register UUID (looked up by file hash; needs DATABASE_URL, read-only)",
     )
     map_cmd.set_defaults(func=cmd_map_sources)
     schema = commands.add_parser("schema", help="print the JSON Schema of one eval item")

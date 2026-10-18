@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
 import pytest
 
+from eval import sources
 from eval.cli import main
-from eval.sources import manifest_urls, map_sources, parse_aliases
+from eval.sources import manifest_urls, map_sources, parse_aliases, shared_url_paths
 
 MANIFEST = (
     "path,url,type,tags,title,publisher,published_on,canonical_url,licence_basis,"
@@ -97,3 +99,70 @@ def test_cli_writes_only_when_every_name_maps(tmp_path: Path) -> None:
     assert main([*argv, "--alias", "[A] Tidewater 2025.pdf=[A] Tidewater 2026.pdf"]) == 0
     [line] = output.read_text(encoding="utf-8").splitlines()
     assert json.loads(line)["expected_source_ids"] == ["https://ex.org/t"]
+
+
+def test_shared_url_paths_lists_files_whose_link_is_shared() -> None:
+    assert shared_url_paths(MANIFEST) == {
+        "Kestrel, deck.pptx": "reports/b/Kestrel, deck.pptx",
+        "Kestrel copy.pdf": "reports/Kestrel copy.pdf",
+    }
+
+
+def test_shared_url_files_map_to_register_uuids() -> None:
+    text = "\n".join(
+        [item("a", "[A] Tidewater 2026.pdf", "Kestrel copy.pdf"), item("b", "Kestrel, deck.pptx")]
+    )
+    shared = frozenset(shared_url_paths(MANIFEST))
+    other = "1d2c3b4a-5e6f-4a7b-8c9d-0e1f2a3b4c5d"
+    uuids = {"Kestrel copy.pdf": UUID, "Kestrel, deck.pptx": other}
+    out = map_sources(text, manifest_urls(MANIFEST), shared=shared, uuid_by_name=uuids)
+    refs = [json.loads(line)["expected_source_ids"] for line in out.lines]
+    assert refs == [["https://ex.org/t", UUID], [other]]  # unshared URL kept
+    assert out.by_uuid == {"a": ["Kestrel copy.pdf"], "b": ["Kestrel, deck.pptx"]}
+    assert out.shared_url == 2
+
+
+def test_shared_url_file_missing_from_the_register_is_a_problem() -> None:
+    shared = frozenset(shared_url_paths(MANIFEST))
+    out = map_sources(
+        item("a", "Kestrel copy.pdf"), manifest_urls(MANIFEST), shared=shared, uuid_by_name={}
+    )
+    assert out.problems == [
+        "line 1 (a): 'Kestrel copy.pdf' shares its canonical URL and has no ingested source "
+        "in the register"
+    ]
+
+
+def test_without_register_shared_urls_are_kept_and_counted() -> None:
+    shared = frozenset(shared_url_paths(MANIFEST))
+    out = map_sources(item("a", "Kestrel copy.pdf"), manifest_urls(MANIFEST), shared=shared)
+    assert json.loads(out.lines[0])["expected_source_ids"] == ["https://ex.org/k"]
+    assert (out.shared_url, out.by_uuid) == (1, {})
+
+
+def test_cli_looks_up_shared_files_by_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text(MANIFEST, encoding="utf-8-sig")
+    (tmp_path / "reports" / "b").mkdir(parents=True)
+    (tmp_path / "reports" / "Kestrel copy.pdf").write_bytes(b"copy")
+    (tmp_path / "reports" / "b" / "Kestrel, deck.pptx").write_bytes(b"deck")
+    source = tmp_path / "set.jsonl"
+    source.write_text(item("a", "Kestrel copy.pdf") + "\n", encoding="utf-8")
+    output = tmp_path / "v1.jsonl"
+    asked: list[list[str]] = []
+
+    async def fake_register(url: str, hashes: list[str]) -> dict[str, str]:
+        assert url == "postgresql://ro@db/x"
+        asked.append(hashes)
+        return {hashlib.sha256(b"copy").hexdigest(): UUID}
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://ro@db/x")
+    monkeypatch.setattr(sources, "register_ids", fake_register)
+    argv = ["map-sources", str(source), "--manifest", str(manifest), "-o", str(output)]
+    assert main([*argv, "--uuid-for-shared-urls"]) == 0
+
+    assert sorted(asked[0]) == sorted(hashlib.sha256(b).hexdigest() for b in (b"copy", b"deck"))
+    assert json.loads(output.read_text(encoding="utf-8"))["expected_source_ids"] == [UUID]
+    assert "a: 1 entry" in capsys.readouterr().out

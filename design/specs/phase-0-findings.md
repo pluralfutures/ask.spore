@@ -142,24 +142,57 @@ corpus**. Three points for that run:
 - *v1 should include* paraphrased questions and questions in the other languages clients will use
   (R16).
 
-**5. Host sizing.** Memory (R2, measured on a 4 vCPU / 16 GB build host): TEI with bge-m3 at
-`--max-batch-tokens 4096` keeps about 4.1 GiB resident, and the `ragflow` container peaked at
-4.6 GiB under ingestion. A snapshot from this group's run, idle after ingestion and with
-Elasticsearch capped at 3 GiB for the sandbox, showed: TEI 4.2 GiB, RAGFlow 4.2 GiB,
-Elasticsearch 2.1 GiB, MySQL 0.5 GiB, everything else under 0.2 GiB. With Elasticsearch at its
-8 GB limit, the stack needs about 18 GB, which fits the 32 GB Instance with headroom. Disk: the
-images alone are about 24 GB, and Elasticsearch stops accepting writes below 3 GB free (R12). The
-§10.3 figure of 200 GB block storage is ample; do not go below 100 GB. Throughput: after the first
-synthetic file, the next four (7 chunks in all) finished within 22 s on 4 vCPU. That does not
-predict 30+ real PDFs through DeepDoc. **Needs the Instance:** time the P0-11 ingestion per file type and record
-`docker stats` peaks during it, then resize before Phase 1 if parsing 40 documents takes longer
-than an afternoon or memory peaks above about 26 GB.
+**5. Host sizing.** **Answered on the Phase 0 Instance (Oct 18, 2026): memory is ample, CPU is not.**
+
+*Instance:* Scaleway `GP1-S`, fr-par-1, AMD EPYC 7401P (Zen 1, 2017), 8 vCPU, 31 GiB RAM, 90 GB disk, AVX2 only (no AVX-512).
+
+*Memory* (sampled every 10 s from 16:18 to 19:55 UTC, covering the 316-page PDF under full OCR load): `ragflow` 6.0 GiB peak, TEI (bge-m3, `--max-batch-tokens 4096`) 6.0 GiB, Elasticsearch 4.6 GiB, MySQL 0.5 GiB, everything else under 0.5 GiB; all containers together 17.7 GiB, host 18.0 of 31 GiB. Well under the 26 GB resize trigger. *Disk:* 33 GB used before ingestion, 35 GB after.
+
+*Throughput* (RAGFlow's own task times, which exclude queueing; settings of R17):
+
+| Type | Documents | Chunks | Median wall time per document | Parse rate |
+| --- | ---: | ---: | ---: | --- |
+| PDF (`paper`) | 48 | 2,454 | 170 s | 26.6 s of task time per page (888 pages), two tasks in parallel, so about 13 s per page of wall time; 316 pages took 6,063 s |
+| DOCX (`naive`) | 8 | 21 | 9 s | — |
+| PPTX (`presentation`) | 3 | 105 | 61 s | — |
+
+The 59 documents took about 7 h of wall time, including the R17 restarts; without them, the whole 60-document corpus (1,264 PDF pages) is about 4.5 to 5 h. That is over the spec's "longer than an afternoon for 40 documents" trigger, so **resize, or move parsing off this host, before Phase 1**.
+
+*Where the time goes:* DeepDoc OCR and layout analysis, not embedding. Embedding was 3,434 s of the 23,616 s of PDF task time (15 %), at 1.4 s per chunk; TEI on this CPU manages about 65 to 100 tokens/s.
+
+*Options* (prices from Scaleway's public pages, Oct 2026; speed-ups are estimates, not measured):
+
+| Option | Cost | Expected effect |
+| --- | --- | --- |
+| Newer CPU, more cores: `POP2-HC-16C-32G` (AMD EPYC Milan, 16 vCPU) | about €0.43/h | DeepDoc and TEI scale with cores and per-core speed: roughly 2.5 to 3× faster (2× cores, about 1.3 to 1.5× per core). Also lets `MAX_CONCURRENT_TASKS` and `EMBEDDING_BATCH_SIZE` go back up |
+| GPU: `L4-1-24G` (NVIDIA L4) with RAGFlow's GPU image and TEI's GPU image | about €0.75/h | Embedding by an order of magnitude or more; OCR and layout several times faster. Largest gain, but a second image set to maintain |
+| Ingest on a temporary large Instance only | a few euros per full ingestion | Ingestion is a batch job: run it on a POP2-HC or L4 Instance, keep the small Instance for serving. Needs the volumes (or a RAGFlow export) moved between them |
+
+*Hosted embedding instead of TEI* (Scaleway Generative APIs, `bge-multilingual-gemma2` or `qwen3-embedding-8b`, €0.10 per million tokens, billed per started million): the corpus is about 313,000 tokens by RAGFlow's count, so a full re-embedding costs €0.10 and takes minutes, not hours. But it removes only the 15 % of parse time that embedding takes; OCR stays the bottleneck. It also changes the data flow (corpus text sent to an external API, though EU and public documents) and the embedding model, which means re-embedding everything and re-running the eval. **Recommendation:** keep self-hosted bge-m3 for Phase 1 and fix the CPU (POP2-HC, or a temporary ingestion Instance). Reconsider hosted embedding only if serving-time memory becomes the constraint; it is the owner's call either way, and this session changed no embedding setting.
 
 ## 4. Parsing problems (P0-11)
 
-The real sample corpus has not been ingested yet: it needs the content and the Phase 0 Instance. The content editor fills this section from the spot checks in `design/specs/phase-0-corpus-checklist.md`.
+**Real corpus, Oct 18, 2026** (Phase 0 Instance, RAGFlow v0.27.2). 59 of the manifest's 60 documents were ingested: 48 PDF (`paper`), 8 DOCX (`naive`), 3 PPTX (`presentation`); 2,580 chunks. The 376-page PDF on manifest line 15 was not ingested before the session deadline (no eval v1 item names it). Checked for every ingested document by script (chunk sizes, HTML tables, glued words, replacement characters, lines repeated across chunks, page coverage, read from RAGFlow's chunk listing) plus excerpts read by the coding session; the per-document numbers are not committed because they would identify documents. **Still needed: the content editor's side-by-side review in the RAGFlow UI** (checklist section 3), which a script cannot replace for reading order and chart data.
 
-Observed so far on the **synthetic** files in `packages/eval/fixtures/corpus/` (RAGFlow v0.27.2, Compose stack). They come from the real parsers, but synthetic files are simpler than real reports, so treat them only as things to look for:
+**Corpus deviations from the build spec:** no crawled sites (spec: 2), no own DOCX/PPTX analysis (spec: 10; all 11 DOCX/PPTX files are third-party), every file tagged `sample-reports` (DOCX and PPTX get their own methods there, `f2549cf`).
+
+| Type, method | What we saw | How much it matters |
+| --- | --- | --- |
+| PDF, `paper` | **Most PDFs are web pages printed to PDF** (45 of 49 have a web page, not a PDF, as their canonical URL). Their chunks are dominated by site navigation, cookie and chat-widget text, footers and phone numbers; one 12-page print yielded only navigation, no article text at all | High: retrieval returns boilerplate, citations quote it, and the article content can be missing. Ingest such pages with `ask-spore crawl` (readability pass, P0-10) or a cleaned export, not a browser print |
+| PDF, `paper` | Words glued together in 43 of 48 PDFs (2,151 runs of 26+ letters, e.g. "Minimizefoodwasteinoperations"), mostly display headings, infographic labels and table row labels; another 1,919 camel-case joins | Medium: keyword half of the hybrid score misses those terms; cited excerpts read badly |
+| PDF, `paper` | Tables come out as HTML tables with header rows (16 of 48 PDFs have at least one) | Good |
+| PDF, `paper` | Very short chunks (2 to 10 characters: logo text, button labels, slide numbers) in design-heavy PDFs; 4 PDFs have a median chunk under 100 characters | Low to medium: wastes `top_k` slots only if retrieved; score threshold usually drops them |
+| PDF, `paper` | Recurring section labels and running heads repeat across chunks in 14 of 48 PDFs | Low |
+| PDF, `paper` | OCR misreads in navigation text ("YourIndustrv"); no U+FFFD replacement characters anywhere | Low |
+| PDF, `paper` | Two different files on the same canonical URL (manifest lines 5 and 6) parse to identical chunks | Medium: the orchestrator de-duplicates only within a source (`select_context`), so the same text fills two context slots and is cited twice. Phase 1: de-duplicate normalised text across sources too |
+| DOCX, `naive` | Paragraphs and headings run together without a separator ("…SpotlightElior North America Releases…"), as in the synthetic note; the title repeats in the first chunk | Medium for readability and keyword matching; small DOCX give 1 to 4 chunks each |
+| PPTX, `presentation` | One chunk per slide with the slide number; slide headers and survey footnotes repeat on every slide; bullets come out as a leading "." | Good overall; speaker notes are not ingested (synthetic finding), not checked against the real decks |
+
+**Good enough for Phase 1?** PPTX: yes. DOCX: yes, with a pre-conversion step that keeps paragraph breaks if excerpts matter. PDF: yes for publisher reports; **no for printed web pages**, which should be crawled instead; that is a content-workflow change, not a parser setting.
+
+The synthetic observations below came first and remain valid as things to look for.
+
+Observed earlier on the **synthetic** files in `packages/eval/fixtures/corpus/` (RAGFlow v0.27.2, Compose stack). They come from the real parsers, but synthetic files are simpler than real reports, so treat them only as things to look for:
 
 | Type, method | What we saw | Why it matters |
 | --- | --- | --- |

@@ -1,0 +1,288 @@
+"""Corpus manifest (``manifest.csv``) for batch ingestion (P0-11).
+
+Format: ``design/specs/corpus-manifest.md``. ``load_manifest`` validates every row
+against ``config/tags.toml`` and the file tree and reports all problems at once;
+``run_manifest`` ingests the rows only when there are none. Re-running is safe:
+``ingest`` reports a file whose content hash is already ingested as ``duplicate``.
+
+Problems name a manifest line and column, never a row's content beyond its path.
+"""
+
+from __future__ import annotations
+
+import csv
+import io
+import re
+import time
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+from urllib.parse import urlsplit
+from uuid import UUID
+
+from app.content.ingest import SUFFIX_BY_TYPE, TYPE_BY_SUFFIX, IngestResult, SourceMetadata
+from app.content.tags import TagConfig
+
+COLUMNS = (
+    "path",
+    "url",
+    "type",
+    "tags",
+    "title",
+    "publisher",
+    "published_on",
+    "canonical_url",
+    "licence_basis",
+    "language",
+    "max_pages",
+    "notes",
+)
+FILE_TYPES = tuple(SUFFIX_BY_TYPE)
+SITE = "site"
+# Proposed vocabulary (corpus-manifest.md); the research lead may amend it.
+LICENCE_BASES = ("public", "open-licence", "publisher-terms", "own-work")
+OWN_WORK = "own-work"
+DEFAULT_MAX_PAGES = 50
+_YEAR = re.compile(r"^\d{4}$")
+_LANGUAGE = re.compile(r"^[a-z]{2}$")
+
+
+class ManifestError(ValueError):
+    """The manifest is invalid; ``problems`` lists every one, by line."""
+
+    def __init__(self, problems: Sequence[str]) -> None:
+        self.problems = tuple(problems)
+        super().__init__("manifest is invalid:\n" + "\n".join(f"  - {p}" for p in problems))
+
+
+@dataclass(frozen=True)
+class ManifestRow:
+    line: int  # line number in manifest.csv (header is line 1)
+    type: str  # a source type, or "site"
+    metadata: SourceMetadata
+    path: Path | None = None  # absolute, for files
+    url: str | None = None  # for sites
+    max_pages: int = DEFAULT_MAX_PAGES
+
+
+@dataclass(frozen=True)
+class RowOutcome:
+    line: int
+    type: str
+    status: str  # ingested, duplicate, failed; for sites ok or failed
+    chunk_count: int
+    seconds: float
+    source_ids: tuple[UUID, ...] = ()
+    error_code: str | None = None
+
+
+def _http_url(value: str) -> bool:
+    parts = urlsplit(value)
+    return parts.scheme in ("http", "https") and bool(parts.hostname)
+
+
+def _published_on(value: str) -> date:
+    if _YEAR.fullmatch(value):
+        return date(int(value), 1, 1)
+    return date.fromisoformat(value)  # ValueError when not YYYY-MM-DD
+
+
+def _row(
+    line: int, raw: Mapping[str, str], base: Path, tags_config: Mapping[str, TagConfig]
+) -> tuple[ManifestRow | None, list[str]]:
+    field = {name: (raw.get(name) or "").strip() for name in COLUMNS}
+    problems: list[str] = []
+
+    def bad(column: str, message: str) -> None:
+        problems.append(f"line {line}, {column}: {message}")
+
+    kind = field["type"]
+    if kind not in (*FILE_TYPES, SITE):
+        bad("type", f"must be one of {', '.join((*FILE_TYPES, SITE))}")
+
+    tags = tuple(dict.fromkeys(t.strip() for t in field["tags"].split(";") if t.strip()))
+    if not tags:
+        bad("tags", "at least one tag is required")
+    unknown = [tag for tag in tags if tag not in tags_config]
+    if unknown:
+        bad("tags", f"not in config/tags.toml: {', '.join(unknown)}")
+
+    for column in ("title", "publisher"):
+        if not field[column]:
+            bad(column, "required")
+
+    published_on: date | None = None
+    if not field["published_on"]:
+        bad("published_on", "required")
+    else:
+        try:
+            published_on = _published_on(field["published_on"])
+        except ValueError:
+            bad("published_on", "must be YYYY-MM-DD or YYYY")
+
+    licence = field["licence_basis"]
+    if licence not in LICENCE_BASES:
+        bad("licence_basis", f"must be one of {', '.join(LICENCE_BASES)}")
+
+    canonical_url = field["canonical_url"] or None
+    if canonical_url is None and licence != OWN_WORK:
+        bad("canonical_url", "required unless licence_basis is own-work")
+    elif canonical_url is not None and not _http_url(canonical_url):
+        bad("canonical_url", "must be an http(s) URL")
+
+    if field["language"] and not _LANGUAGE.fullmatch(field["language"]):
+        bad("language", "must be an ISO 639-1 code such as en")
+
+    path: Path | None = None
+    url: str | None = None
+    max_pages = DEFAULT_MAX_PAGES
+    if kind == SITE:
+        if field["path"]:
+            bad("path", "must be empty for a site")
+        if not _http_url(field["url"]):
+            bad("url", "a site needs an http(s) URL")
+        url = field["url"]
+        if field["max_pages"]:
+            try:
+                max_pages = int(field["max_pages"])
+            except ValueError:
+                max_pages = 0
+            if max_pages < 1:
+                bad("max_pages", "must be a whole number of at least 1")
+    elif kind in FILE_TYPES:
+        if field["url"]:
+            bad("url", "must be empty for a file; use canonical_url for its link")
+        if field["max_pages"]:
+            bad("max_pages", "only for sites")
+        relative = Path(field["path"])
+        if not field["path"]:
+            bad("path", "required for a file")
+        elif relative.is_absolute() or ".." in relative.parts:
+            bad("path", "must be relative to the manifest's folder")
+        else:
+            path = base / relative
+            if TYPE_BY_SUFFIX.get(path.suffix.lower()) != kind:
+                bad("path", f"file extension does not match type {kind}")
+            if not path.is_file():
+                bad("path", f"no such file: {field['path']}")
+
+    if problems:
+        return None, problems
+    metadata = SourceMetadata(
+        tags=tags,
+        title=field["title"],
+        publisher=field["publisher"],
+        licence_basis=licence,
+        published_on=published_on,
+        canonical_url=canonical_url,
+    )
+    return ManifestRow(line, kind, metadata, path, url, max_pages), []
+
+
+def load_manifest(manifest: Path, tags_config: Mapping[str, TagConfig]) -> list[ManifestRow]:
+    """Parse and validate the whole manifest; raise ManifestError listing every problem."""
+    try:
+        text = manifest.read_text(encoding="utf-8-sig")
+    except OSError as exc:
+        raise ManifestError([f"cannot read {manifest}: {exc.strerror}"]) from None
+    except UnicodeDecodeError:
+        raise ManifestError([f"{manifest} is not UTF-8"]) from None
+    reader = csv.DictReader(io.StringIO(text, newline=""))
+    header = tuple(name.strip() for name in reader.fieldnames or ())
+    if header != COLUMNS:
+        raise ManifestError([f"line 1: header must be exactly: {','.join(COLUMNS)}"])
+
+    base = manifest.parent
+    rows: list[ManifestRow] = []
+    problems: list[str] = []
+    seen_names: dict[str, int] = {}
+    seen_urls: dict[str, int] = {}
+    for raw in reader:
+        line = reader.line_num
+        if None in raw:
+            problems.append(f"line {line}: more fields than the header")
+            continue
+        if not any((value or "").strip() for value in raw.values()):
+            continue  # blank line
+        row, row_problems = _row(line, raw, base, tags_config)
+        problems += row_problems
+        if row is None:
+            continue
+        if row.path is not None:
+            first = seen_names.setdefault(row.path.name.lower(), line)
+            if first != line:
+                problems.append(f"line {line}, path: file name already used on line {first}")
+        if row.url is not None:
+            first = seen_urls.setdefault(row.url.rstrip("/"), line)
+            if first != line:
+                problems.append(f"line {line}, url: site already listed on line {first}")
+        rows.append(row)
+    if problems:
+        raise ManifestError(problems)
+    if not rows:
+        raise ManifestError([f"{manifest} has no rows"])
+    return rows
+
+
+IngestFile = Callable[[ManifestRow], Awaitable[IngestResult]]
+CrawlSite = Callable[[ManifestRow], Awaitable[tuple[str, list[IngestResult]]]]
+
+
+async def run_manifest(
+    rows: Sequence[ManifestRow],
+    ingest_file: IngestFile,
+    crawl_site: CrawlSite,
+    *,
+    clock: Callable[[], float] = time.monotonic,
+) -> list[RowOutcome]:
+    """Ingest each validated row in order; one row failing does not stop the others."""
+    outcomes: list[RowOutcome] = []
+    for row in rows:
+        started = clock()
+        if row.type == SITE:
+            status, results = await crawl_site(row)
+            failed = [r for r in results if r.status == "failed"]
+            outcome = RowOutcome(
+                line=row.line,
+                type=row.type,
+                status="failed" if status != "ok" or failed else "ok",
+                chunk_count=sum(r.chunk_count for r in results),
+                seconds=clock() - started,
+                source_ids=tuple(r.source_id for r in results),
+                error_code=status if status != "ok" else (failed[0].error_code if failed else None),
+            )
+        else:
+            result = await ingest_file(row)
+            outcome = RowOutcome(
+                line=row.line,
+                type=row.type,
+                status=result.status,
+                chunk_count=result.chunk_count,
+                seconds=clock() - started,
+                source_ids=(result.source_id,),
+                error_code=result.error_code,
+            )
+        outcomes.append(outcome)
+    return outcomes
+
+
+def write_summary(outcomes: Sequence[RowOutcome], path: Path) -> None:
+    """The summary table as CSV: one row per manifest line, no titles or content."""
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(
+            ["line", "type", "status", "chunk_count", "seconds", "source_ids", "error_code"]
+        )
+        for o in outcomes:
+            writer.writerow(
+                [
+                    o.line,
+                    o.type,
+                    o.status,
+                    o.chunk_count,
+                    f"{o.seconds:.1f}",
+                    ";".join(str(s) for s in o.source_ids),
+                    o.error_code or "",
+                ]
+            )

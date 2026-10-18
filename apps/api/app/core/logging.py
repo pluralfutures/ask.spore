@@ -38,6 +38,9 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "tag",
         "dataset_id",
         "document_id",
+        # Batch ingestion summary (P0-11): manifest line number and a row count.
+        "manifest_line",
+        "count",
     }
 )
 

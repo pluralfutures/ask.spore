@@ -36,6 +36,8 @@ def test_allow_list_matches_spec() -> None:
         "tag",
         "dataset_id",
         "document_id",
+        "manifest_line",
+        "count",
     }
 
 

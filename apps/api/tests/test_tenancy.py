@@ -22,7 +22,8 @@ from app.core.db import session_factory
 from app.tenancy.context import resolve_user
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.chat_fixtures import TAGS, World, chunks_for
-from tests.fakes import FakeRedis, FakeRetriever, Recorder
+from tests.fakes import FakeRedis, FakeRetriever, router
+from tests.fakes import OpenAIRecorder as Recorder
 
 pytestmark = pytest.mark.usefixtures("database")
 
@@ -274,7 +275,7 @@ async def test_client_tenant_retrieves_nothing_before_it_has_workspaces(
         settings=settings,
         db_factory=session_factory(engine),
         retriever=retriever,
-        llm=recorder.client(),
+        llm=router(settings, recorder),
         package_tags=TAGS,
     )
     events = await orchestrator.answer(

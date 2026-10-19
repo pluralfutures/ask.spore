@@ -23,6 +23,7 @@ RefusalCode = Literal[
     "model_not_enabled",
     "external_not_entitled",
     "reasoning_unsupported",
+    "spend_cap_reached",
 ]
 
 

@@ -52,9 +52,10 @@ from app.core import cache
 from app.core.config import Settings
 from app.core.db import tenant_session
 from app.core.logging import log
-from app.llm.factory import LLMClient
+from app.llm.factory import LLMRouter
 from app.llm.mistral import LLMError, Turn, Usage
 from app.retrieval.protocol import Retriever
+from app.usage.ledger import record_usage
 
 MODE = "corpus_only"
 Outcome = Literal["answered", "unsupported", "abstained"]
@@ -156,14 +157,17 @@ class _Run:
     model: str | None = None
     tokens_in: int = 0
     tokens_out: int = 0
+    # P1a-10: per model, for the usage ledger (rewrite and answer may differ).
+    usage: list[tuple[str, Usage]] = field(default_factory=list)
     cache_hit: bool = False
     retrieved: int = 0
     context: int = 0
 
-    def add_usage(self, usage: Usage | None) -> None:
+    def add_usage(self, usage: Usage | None, model: str) -> None:
         if usage is not None:
             self.tokens_in += usage.tokens_in
             self.tokens_out += usage.tokens_out
+            self.usage.append((model, usage))
 
     def latency_ms(self) -> int:
         return int((time.perf_counter() - self.started) * 1000)
@@ -176,7 +180,7 @@ class Orchestrator:
         settings: Settings,
         db_factory: async_sessionmaker[AsyncSession],
         retriever: Retriever,
-        llm: LLMClient,
+        llm: LLMRouter,
         package_tags: tuple[str, ...],
     ) -> None:
         self._settings = settings
@@ -251,7 +255,10 @@ class Orchestrator:
                 ",".join(run.package.dataset_ids),
                 run.package.corpus_version,
                 prompt_ref,
-                self._llm.chat_model,
+                # P1a-10, P1a-11: the conversation's model choice (P1a-05 owns the key).
+                f"{run.auth.choice.model}:{int(run.auth.choice.reasoning)}"
+                if run.auth.choice
+                else self._llm.chat_model,
             ]
         )
         return f"answer:{MODE}:{hashlib.sha256(material.encode('utf-8')).hexdigest()}"
@@ -259,9 +266,12 @@ class Orchestrator:
     async def _run(self, run: _Run) -> AsyncIterator[ChatEvent]:
         system = active_prompt(self._settings, "corpus_only")
 
-        # 1b. Model entitlement (P1a-09): refused before any outbound call.
-        if run.auth.refusal is not None:
-            async for event in self._fail(run, run.auth.refusal):
+        # 1b. Model entitlement and spend cap (P1a-09, P1a-10): before any outbound call.
+        refusal = run.auth.refusal
+        if refusal is None and run.auth.model and not self._llm.serves(run.auth.model):
+            refusal = "model_unavailable"  # e.g. external, without OPENROUTER_API_KEY
+        if refusal is not None:
+            async for event in self._fail(run, refusal):
                 yield event
             return
 
@@ -271,7 +281,7 @@ class Orchestrator:
             try:
                 rewritten = await self._llm.rewrite(run.question, run.history)
                 run.query = rewritten.query
-                run.add_usage(rewritten.usage)
+                run.add_usage(rewritten.usage, self._llm.rewrite_model)
             except LLMError as exc:
                 # Degrade to the literal question rather than fail the turn.
                 log("chat.rewrite_failed", level="warning", error_code=exc.error_code)
@@ -333,7 +343,11 @@ class Orchestrator:
         parts: list[str] = []
         try:
             stream = await self._llm.answer(
-                system.text, [c.for_prompt() for c in context], run.history, run.question
+                system.text,
+                [c.for_prompt() for c in context],
+                run.history,
+                run.question,
+                run.auth.choice,
             )
             run.model = stream.model
             async for delta in stream:
@@ -345,7 +359,7 @@ class Orchestrator:
             if tail:
                 parts.append(tail)
                 yield TokenEvent(tail)
-            run.add_usage(stream.usage)
+            run.add_usage(stream.usage, stream.model)
         except LLMError as exc:
             async for event in self._fail(run, exc.error_code):
                 yield event
@@ -472,6 +486,7 @@ class Orchestrator:
                 title=func.coalesce(Conversation.title, run.question[:TITLE_MAX_CHARS]),
             )
         )
+        await record_usage(session, self._settings, tenant_id, run.usage, run.auth.entitlement)
         await record(
             session,
             tenant_id=tenant_id,

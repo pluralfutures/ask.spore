@@ -20,7 +20,8 @@ from app.core.config import Settings
 from app.core.db import session_factory, set_tenant
 from scripts.export_openapi import OPENAPI_PATH, render
 from tests.chat_fixtures import TAGS, World, chunks_for
-from tests.fakes import FakeRedis, FakeRetriever, Recorder, completion, delta, sse
+from tests.fakes import FakeRedis, FakeRetriever, completion, delta, router, sse
+from tests.fakes import OpenAIRecorder as Recorder
 from tests.test_phase0_auth import TOKEN
 
 ANALYST = "analyst@example.org"
@@ -40,7 +41,7 @@ class Harness:
             settings=settings,
             db_factory=self.app.state.db_factory,
             retriever=self.retriever,
-            llm=self.recorder.client(),
+            llm=router(settings, self.recorder),
             package_tags=TAGS,
         )
 
@@ -61,9 +62,9 @@ class Harness:
     ) -> list[tuple[str, Any]]:
         """Ask; ``rewrite`` is the mocked rewrite reply, needed for follow-up questions."""
         if rewrite is not None:
-            self.recorder.replies.append(completion(rewrite))
+            self.recorder.add(completion(rewrite))
         if reply:
-            self.recorder.replies.append(sse(*(delta(r) for r in reply)))
+            self.recorder.add(sse(*(delta(r) for r in reply)))
         response = await self.request(
             "POST", f"/conversations/{conversation_id}/messages", json={"question": question}
         )
@@ -325,7 +326,7 @@ async def test_writes_are_committed_before_the_response(api: Harness) -> None:
 async def test_answer_is_committed_before_done_is_sent(api: Harness) -> None:
     """C5: when the client reads ``done`` the message row is already committed."""
     conversation = await api.conversation()
-    api.recorder.replies.append(sse(delta("Grew [1].")))
+    api.recorder.add(sse(delta("Grew [1].")))
     headers = {"Authorization": f"Bearer {TOKEN}", "X-User-Email": ANALYST}
     seen_at_done = None
     async with api.http.stream(

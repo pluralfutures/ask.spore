@@ -34,10 +34,18 @@ def _migration() -> ModuleType:
 
 
 # Tenant-scoped tables created after schema v1, each with RLS from its first migration.
-LATER_TENANT_TABLES = ("tenant_entitlements", "sign_in_links", "operators", "operator_notices")
+LATER_TENANT_TABLES = (
+    "tenant_entitlements",
+    "sign_in_links",
+    "operators",
+    "operator_notices",
+    "usage_ledger",
+    "spend_notices",
+)
 # Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
 SET_ROLES = {"askspore_auth", "askspore_operator"}
-# Tenant tables the application role has no privileges on at all (only a SET role does).
+# Tenant tables the application role cannot read (only a SET role does). It may insert
+# operator notices (revision 0007, P1a-10) but never read them back.
 NO_APP_ACCESS = {"sign_in_links", "operators", "operator_notices"}
 TENANT_TABLES: tuple[str, ...] = (*_migration().TENANT_TABLES, *LATER_TENANT_TABLES)
 ALL_SCOPED = (*TENANT_TABLES, "tenants")
@@ -92,7 +100,18 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
         INTERNAL_TENANT_ID,
         user,
     )
+    await admin_conn.execute(
+        "INSERT INTO usage_ledger (tenant_id, month, model, tokens_in, tokens_out, cost_cents) "
+        "VALUES ($1, '1999-01-01', 'deepseek-v4.1-flash', 10, 2, 0.5)",
+        INTERNAL_TENANT_ID,
+    )
+    await admin_conn.execute(
+        "INSERT INTO spend_notices (tenant_id, month, threshold) VALUES ($1, '1999-01-01', 80)",
+        INTERNAL_TENANT_ID,
+    )
     yield {"other": other, "user": user, "conversation": conversation, "message": message}
+    await admin_conn.execute("DELETE FROM usage_ledger WHERE month = '1999-01-01'")
+    await admin_conn.execute("DELETE FROM spend_notices WHERE month = '1999-01-01'")
     # Cleanup bypasses the append-only trigger only by dropping nothing: audit rows stay,
     # and the other tenant stays referenced by nothing. Chat rows are removed.
     await admin_conn.execute("DELETE FROM conversations WHERE id = $1", conversation)

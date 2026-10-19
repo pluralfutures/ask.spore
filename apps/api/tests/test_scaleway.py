@@ -36,27 +36,7 @@ API_KEY = "test-scaleway-key"
 PROJECT = "0b8c5d3e-1f2a-4b6c-9d7e-8f9a0b1c2d3e"
 
 
-def _convert(reply: httpx.Response | Exception) -> httpx2.Response | Exception:
-    if isinstance(reply, httpx.ReadTimeout):
-        return httpx2.ReadTimeout("synthetic")
-    if isinstance(reply, Exception):
-        return reply
-    return httpx2.Response(reply.status_code, headers=dict(reply.headers), content=reply.content)
-
-
-class Recorder:
-    def __init__(self, *replies: httpx.Response | Exception) -> None:
-        self.replies = [_convert(r) for r in replies]
-        self.requests: list[httpx2.Request] = []
-
-    def __call__(self, request: httpx2.Request) -> httpx2.Response:
-        request.read()
-        self.requests.append(request)
-        reply = self.replies.pop(0)
-        if isinstance(reply, Exception):
-            raise reply
-        return reply
-
+class Recorder(fakes.OpenAIRecorder):
     def client(
         self,
         rewrite_system: str = "Rewrite prompt.",
@@ -72,9 +52,6 @@ class Recorder:
             http_client=http,
             bucket=bucket,
         )
-
-    def bodies(self) -> list[dict[str, Any]]:
-        return [json.loads(r.content) for r in self.requests]
 
 
 async def collect(client: ScalewayClient, **kwargs: Any) -> tuple[str, Any]:

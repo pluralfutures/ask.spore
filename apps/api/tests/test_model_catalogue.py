@@ -32,7 +32,8 @@ from app.tenancy.entitlements import (
 )
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.chat_fixtures import TAGS, World, chunks_for
-from tests.fakes import FakeRedis, FakeRetriever, Recorder
+from tests.fakes import FakeRedis, FakeRetriever, router
+from tests.fakes import OpenAIRecorder as Recorder
 from tests.test_api import Harness, api
 from tests.test_config import ENV, SCALEWAY_TOML, problems_for, write_config
 
@@ -320,7 +321,7 @@ async def _refused(
         settings=settings,
         db_factory=session_factory(engine),
         retriever=retriever,
-        llm=recorder.client(rewrite_system="Rewrite."),
+        llm=router(settings, recorder),
         package_tags=TAGS,
     )
     # A follow-up: without the check, the rewrite call would go out first.

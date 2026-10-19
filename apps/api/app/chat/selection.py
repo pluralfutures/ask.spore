@@ -1,14 +1,22 @@
-"""Which model answers a conversation, and whether the tenant may use it (P1a-09).
+"""Which model answers a conversation, and whether the tenant may use it (P1a-09,
+P1a-10).
 
 The orchestrator calls ``authorize`` inside its tenant-scoped transaction, before any
 outbound call (query rewrite, retrieval or generation): a refusal ends the turn with an
-error event (audited) and nothing leaves the API.
+error event (audited) and nothing leaves the API. An external model whose tenant has
+reached its monthly spend cap is refused there too (hard stop).
+
+``choose_for_new_conversation`` is what creating a conversation calls: it checks the
+requested choice and, when the external spend cap is reached, falls back to the default
+model with a user-facing notice and an audit event.
 
 Integration with P1a-04 (Group B): conversations gain ``model`` and ``reasoning``
 columns, fixed at creation. Until that migration exists, ``conversation_choice``
 falls back to the tenant default (``app.tenancy.entitlements.tenant_default_choice``,
 the stand-in for the workspace default, findings C1); once the ORM model has the
-columns it reads them, and a conversation without a model also falls back.
+columns it reads them, and a conversation without a model also falls back. P1a-04's
+create route stores ``choose_for_new_conversation(...).choice`` in those columns and
+returns the notice.
 """
 
 from __future__ import annotations
@@ -20,8 +28,10 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.writer import record
 from app.chat.models import Conversation
 from app.core.config import CatalogueEntry, Settings
+from app.llm import catalogue
 from app.llm.catalogue import ModelChoice
 from app.tenancy.entitlements import (
     ModelEntitlement,
@@ -31,6 +41,14 @@ from app.tenancy.entitlements import (
     tenant_default_choice,
 )
 from app.tenancy.models import TenantEntitlements
+from app.usage.ledger import cap_reached
+
+# User-facing notice when a new conversation falls back from an external model (P1a-10).
+SPEND_CAP_NOTICE = "external_spend_cap_reached"
+SPEND_CAP_TEXT = (
+    "This month's budget for models served outside the EU has been used up. "
+    "This conversation uses {model} instead."
+)
 
 
 async def load_entitlement(session: AsyncSession, tenant_id: uuid.UUID) -> ModelEntitlement:
@@ -63,6 +81,7 @@ class Authorization:
     choice: ModelChoice | None
     model: CatalogueEntry | None
     refusal: RefusalCode | None
+    entitlement: ModelEntitlement | None = None
 
 
 async def authorize(
@@ -79,6 +98,61 @@ async def authorize(
     try:
         if choice is None:
             raise ModelRefused("model_not_enabled")
-        return Authorization(choice, check_choice(settings, ent, choice), None)
+        model = check_choice(settings, ent, choice)
+        if model.external and await cap_reached(session, settings, tenant_id, ent):
+            raise ModelRefused("spend_cap_reached")
+        return Authorization(choice, model, None, ent)
     except ModelRefused as exc:
-        return Authorization(choice, None, exc.code)
+        return Authorization(choice, None, exc.code, ent)
+
+
+@dataclass(frozen=True)
+class Selection:
+    """The model choice a new conversation is created with, and any notice to show."""
+
+    choice: ModelChoice
+    notice: str | None = None  # SPEND_CAP_NOTICE
+    notice_text: str | None = None
+
+
+async def choose_for_new_conversation(
+    session: AsyncSession,
+    settings: Settings,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    requested: ModelChoice | None,
+) -> Selection:
+    """Check the user's choice (or take the default) for a new conversation.
+
+    Raises ``ModelRefused`` for a model the tenant may not use. An external model whose
+    tenant has reached the monthly spend cap falls back to the default model, keeping
+    reasoning on only where that model has a switch; the fallback is audited
+    (``model.fallback``) and the selection carries the user-facing notice.
+    """
+    ent = await load_entitlement(session, tenant_id)
+    default = tenant_default_choice(settings, ent)
+    choice = requested or default
+    if choice is None:
+        raise ModelRefused("model_not_enabled")
+    model = check_choice(settings, ent, choice)
+    if not (model.external and await cap_reached(session, settings, tenant_id, ent)):
+        return Selection(choice)
+    fallback_model = catalogue.entry(settings, default.model) if default else None
+    if default is None or fallback_model is None:
+        raise ModelRefused("spend_cap_reached")
+    fallback = ModelChoice(default.model, choice.reasoning and fallback_model.reasoning != "none")
+    await record(
+        session,
+        tenant_id=tenant_id,
+        actor_user_id=user_id,
+        event="model.fallback",
+        metadata={
+            "model": fallback.model,
+            "reasoning": fallback.reasoning,
+            "requested_model": choice.model,
+            "error_code": "spend_cap_reached",
+        },
+    )
+    return Selection(
+        fallback, SPEND_CAP_NOTICE, SPEND_CAP_TEXT.format(model=fallback_model.display_name)
+    )

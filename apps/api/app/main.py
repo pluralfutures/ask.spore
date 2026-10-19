@@ -18,7 +18,7 @@ from app.core import cache
 from app.core.config import get_settings
 from app.core.db import create_engine, session_factory
 from app.core.logging import log
-from app.llm.factory import create_llm_client
+from app.llm.factory import create_llm_router
 from app.retrieval.protocol import Retriever
 from app.retrieval.ragflow import RagflowRetriever
 
@@ -35,7 +35,8 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
         app.state.db_factory = session_factory(engine)
         app.state.package_tags = phase0_package_tags(settings.config_dir)
         cache.connect(settings.secrets.redis_url.get_secret_value())
-        llm = create_llm_client(settings, active_prompt(settings, "rewrite").text)
+        # P1a-10: answers follow the conversation's model choice; rewrites stay default.
+        llm = create_llm_router(settings, active_prompt(settings, "rewrite").text)
         auth_http = httpx.AsyncClient(timeout=10)
         if settings.models.auth.mode == "oidc":
             # P1a-02: Authentik on the Compose network; its secrets are checked at startup.

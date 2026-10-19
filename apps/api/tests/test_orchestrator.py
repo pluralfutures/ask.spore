@@ -26,7 +26,8 @@ from app.core.db import session_factory
 from app.retrieval.types import RetrievedChunk
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.chat_fixtures import DATASETS, TAGS, USAGE, World, chunks_for
-from tests.fakes import FakeRedis, FakeRetriever, Recorder, completion, delta, error, sse
+from tests.fakes import FakeRedis, FakeRetriever, completion, delta, error, router, sse
+from tests.fakes import OpenAIRecorder as Recorder
 
 
 def orchestrator(
@@ -36,7 +37,7 @@ def orchestrator(
         settings=settings,
         db_factory=session_factory(engine),
         retriever=retriever,
-        llm=recorder.client(rewrite_system="Rewrite."),
+        llm=router(settings, recorder),
         package_tags=TAGS,
     )
 
@@ -100,7 +101,7 @@ async def test_answer_streams_maps_citations_and_persists(
     assert [(r["role"], r["outcome"]) for r in rows] == [("user", None), ("assistant", "answered")]
     assert rows[0]["content"] == "How did capacity change?"
     assert rows[1]["content"] == "Capacity grew [1] while a slowdown [2]."
-    assert rows[1]["model"] == "mistral-large-2512"
+    assert rows[1]["model"] == "deepseek-v4.1-flash"
     stored = await world.admin.fetch(
         "SELECT marker, source_id, ragflow_chunk_id, page_or_slide FROM citations "
         "WHERE message_id = $1 ORDER BY marker",
@@ -145,7 +146,7 @@ async def test_follow_up_is_rewritten_with_history(
     await run(orch, world, "And in Germany?")
     assert retriever.calls[1]["query"] == "synthetic capacity growth Germany 2025"
     rewrite_body, answer_body = (json.loads(r.content) for r in recorder.requests[1:])
-    assert rewrite_body["model"] == "mistral-small-2603"
+    assert rewrite_body["model"] == "deepseek-v4.1-flash"
     roles = [m["role"] for m in answer_body["messages"]]
     assert roles == ["system", "user", "assistant", "user"]
     # Earlier answers go back without their stale [n] markers.

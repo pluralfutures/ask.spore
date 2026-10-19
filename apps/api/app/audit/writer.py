@@ -45,6 +45,10 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "after",
         "acceptance_reference",
         "acceptance_date",
+        # Model choice (P1a-10, P1a-11): the reasoning switch, and the model a new
+        # conversation asked for before the external spend cap made it fall back.
+        "reasoning",
+        "requested_model",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.

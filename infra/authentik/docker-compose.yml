@@ -57,8 +57,9 @@ services:
       AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
       AUTHENTIK_DISABLE_STARTUP_ANALYTICS: "true"
-      # Sign-in links go out through Scaleway Transactional Email (Paris), over SMTP.
-      AUTHENTIK_EMAIL__HOST: smtp.tem.scaleway.com
+      # Sign-in links go out through Mailgun's EU region, over SMTP (Authentik's email
+      # stage has no HTTP sender). The same Mailgun domain serves the API's own mail.
+      AUTHENTIK_EMAIL__HOST: smtp.eu.mailgun.org
       AUTHENTIK_EMAIL__PORT: "587"
       AUTHENTIK_EMAIL__USE_TLS: "true"
       AUTHENTIK_EMAIL__USE_SSL: "false"

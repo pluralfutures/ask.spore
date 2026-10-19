@@ -20,6 +20,8 @@ SCHEMA_FILE = PACKAGE_DIR / "schema" / "eval-item.schema.json"
 DEFAULT_CONFIG = PACKAGE_DIR.parents[1] / "config" / "models.toml"
 DEFAULT_SET = PACKAGE_DIR / "sets" / "v1.jsonl"
 DEFAULT_RESULTS = PACKAGE_DIR / "results"
+ADVERSARIAL = PACKAGE_DIR / "fixtures" / "adversarial_prompts"
+SYNTHETIC_SET = PACKAGE_DIR / "sets" / "synthetic-v0.jsonl"
 
 
 def _out(text: str) -> None:
@@ -140,6 +142,31 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 1 if counts["pipeline_errors"] or counts["retrieval_errors"] else 0
 
 
+def cmd_guardrails(args: argparse.Namespace) -> int:
+    from eval import guardrails  # imports the API stack
+
+    modes = tuple(m for m in guardrails.MODES if m in set(args.mode or guardrails.MODES))
+    options = guardrails.GuardrailOptions(
+        config=Path(args.config),
+        blocks=Path(args.blocks),
+        contexts=Path(args.contexts),
+        eval_set=Path(args.set),
+        results_root=Path(args.results_dir),
+        modes=modes,
+        threshold=args.threshold,
+        mock=args.mock,
+        notes=list(args.note),
+    )
+    try:
+        directory, data = asyncio.run(guardrails.run(options))
+    except (guardrails.GuardrailError, ConfigError) as exc:
+        _err(f"python -m eval guardrails: {exc}")
+        return 2
+    _out(guardrails.summary_markdown(data))
+    _out(f"results: {directory}")
+    return 1 if data["regressions"] else 0
+
+
 def cmd_compare(args: argparse.Namespace) -> int:
     base, new = results.load(Path(args.base)), results.load(Path(args.new))
     outcome = compare.compare(base, new, args.threshold)
@@ -230,6 +257,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="DEV ONLY: lexical stand-in for the judge (eval/mock.py); the run is labelled mocked",
     )
     run_cmd.set_defaults(func=cmd_run)
+
+    guard = commands.add_parser(
+        "guardrails",
+        help="prompt-guardrail eval: eval items under every hostile workspace-instructions block",
+        description="Renders the active answer prompts with each block of "
+        "fixtures/adversarial_prompts/blocks/ in the workspace slot and with none, asks every "
+        "item of fixtures/adversarial_prompts/contexts.jsonl, and exits 1 when a block makes "
+        "abstention, cited-answer rate, citation validity or secrecy drop by more than the "
+        "threshold. Needs the active provider's key, or --mock.",
+    )
+    guard.add_argument("--config", default=str(DEFAULT_CONFIG), help="path to models.toml")
+    guard.add_argument("--blocks", default=str(ADVERSARIAL / "blocks"))
+    guard.add_argument("--contexts", default=str(ADVERSARIAL / "contexts.jsonl"))
+    guard.add_argument("--set", default=str(SYNTHETIC_SET), help="set the items come from")
+    guard.add_argument("--results-dir", default=str(DEFAULT_RESULTS))
+    guard.add_argument(
+        "--mode",
+        action="append",
+        choices=["corpus_only", "general_knowledge"],
+        help="answer mode to test; repeatable (default: both)",
+    )
+    guard.add_argument(
+        "--threshold",
+        type=float,
+        default=compare.DEFAULT_THRESHOLD,
+        help=f"points (default {compare.DEFAULT_THRESHOLD:g}, as compare)",
+    )
+    guard.add_argument(
+        "--mock",
+        action="store_true",
+        help="CI: lexical stand-in model (eval.mock.GuardrailModel); the run is labelled mocked",
+    )
+    guard.add_argument("--note", action="append", default=[], help="line for the summary")
+    guard.set_defaults(func=cmd_guardrails)
 
     compare_cmd = commands.add_parser(
         "compare",

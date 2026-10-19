@@ -275,7 +275,7 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 ### 7.2 Tenant admin features (MVP)
 
 - Invite, deactivate and role-assign users; see last login and login method.
-- Shorten chat-history retention from the 30-day maximum (down to 0); the maximum cannot be raised.
+- Shorten chat-history retention from the 30-day maximum, to 1 day in Phase 1a (expiry is applied at read time, so 0 would hide a conversation before its first answer); a true "no history" setting of 0 comes with the Phase 1b purge job. The maximum cannot be raised.
 - Set the default answer mode among those the operator enabled (cannot enable or disable modes).
 - Usage dashboard: queries per day by mode, active users, top sources (no query text).
 - Download tenant audit log (auth and admin events).
@@ -323,7 +323,7 @@ This section states how the compliance guide's controls are realised; it does no
 | Data minimisation at the model boundary | One prompt-builder module per mode; templates under version control; unit test asserts no tenant/user identifiers appear in the serialised request |
 | Web-search boundary | The web-search tool is attached to the generation request only for tenants with the mode enabled; the tool query is the rewritten query only; the tool is pinned to Mistral's EU endpoint under the existing DPA and ZDR letter; every web-mode request audited |
 | Own-analysis downloads | Served only to users whose package contains the document's tag; signed, short-lived download URLs; each download audited; per-user daily download cap to deter bulk export |
-| Region and ZDR pin | Provider base URLs and model names in configuration with an allow-list; startup check refuses non-EU endpoints; ZDR letter references stored next to the configuration |
+| Region and ZDR pin | Provider base URLs and model names in configuration with an allow-list; startup check refuses any host not on the allow-list, which separates EU hosts from the external hosts reachable only for tenants with the external-models entitlement (§14, Oct 19, 2026); ZDR letter references stored next to the configuration |
 | Encryption | TLS 1.2+ at the proxy; Scaleway Private Network between hosts, WireGuard if a host ever sits outside it; encrypted volumes; backups encrypted with a key held in Scaleway Secret Manager |
 | Metadata-only logs | Structured logging with an explicit allow-list of fields; request and response bodies never logged; linter rule and code-review checklist item |
 | Rate limits and extraction detection | Redis token buckets per user and tenant (defaults sized well above 15 queries per user per day); anomaly rules (queries per minute, verbatim overlap of outputs with a single source, sequential pagination-like queries) raise alerts and apply temporary throttling |
@@ -476,5 +476,5 @@ Phase 1 is split. **Phase 1a** (the first test client) ships multi-tenancy with 
 | Reasoning | On/off per conversation, text hidden, badge shown; default per workspace |
 | Workspace prompts | Tenant admin edits in Phase 1a; any tenant user in Phase 2 with versioning and admin revert |
 | Tenant names in prompts | Permitted; matches flagged to the operator console and audit log, not to the user |
-| Downloads | PDF, DOCX and PPTX in the workspace corpus, third-party included; signed URLs, audited, capped |
+| Downloads (superseded Oct 19, 2026, see the row above) | PDF, DOCX and PPTX in the workspace corpus; single-use 60-second links, audited, capped; only sources flagged `downloadable` |
 | Eval | Default model only (`deepseek-v4.1-flash`) |

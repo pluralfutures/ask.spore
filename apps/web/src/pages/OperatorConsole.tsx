@@ -26,6 +26,7 @@ export function OperatorConsole() {
           <TenantPanel key={tenant.id} tenant={tenant} options={options.data} />
         ) : null,
       )}
+      <Sources />
       <section>
         <h2 className="mb-2 font-semibold">Notices</h2>
         {notices.data?.length ? (
@@ -41,6 +42,43 @@ export function OperatorConsole() {
         )}
       </section>
     </main>
+  );
+}
+
+// P1a-14: the licence gate per source. Set from the licence basis: our own analyses, and
+// third-party files only where the licence permits redistribution. Audited.
+function Sources() {
+  const queryClient = useQueryClient();
+  const sources = useQuery({ queryKey: ["operator", "sources"], queryFn: operatorApi.sources });
+  const toggle = useMutation({
+    mutationFn: ({ id, downloadable }: { id: string; downloadable: boolean }) =>
+      operatorApi.setDownloadable(id, downloadable),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["operator", "sources"] }),
+  });
+  const files = sources.data?.filter((s) => ["pdf", "docx", "pptx"].includes(s.type)) ?? [];
+  return (
+    <section className="rounded bg-white p-3 text-sm">
+      <h2 className="mb-2 font-semibold">Downloadable files</h2>
+      {errorText(toggle.error) ? <p className="text-red-700">{errorText(toggle.error)}</p> : null}
+      {files.length === 0 ? <p className="text-slate-600">No files in the register.</p> : null}
+      <ul className="flex flex-col gap-1">
+        {files.map((source) => (
+          <li key={source.id}>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={source.downloadable}
+                disabled={!source.stored || toggle.isPending}
+                onChange={(e) => toggle.mutate({ id: source.id, downloadable: e.target.checked })}
+              />
+              {source.title} · {source.publisher} · {source.licence_basis} ·{" "}
+              {source.tags.join(", ")}
+              {source.stored ? null : <span className="text-slate-600">(no stored copy)</span>}
+            </label>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

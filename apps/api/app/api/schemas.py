@@ -392,3 +392,62 @@ class TenantSettingsOut(BaseModel):
     retention_days: int
     max_retention_days: int
     answer_modes: list[str]  # what the operator enabled; workspace defaults pick among them
+
+
+# --- workspace file list and downloads (P1a-14) ----------------------------------------
+
+
+class WorkspaceFileOut(BaseModel):
+    """A PDF, DOCX or PPTX file of the workspace, from the source register.
+
+    ``id`` is our register's UUID; no RAGFlow dataset or document ID is ever returned.
+    ``downloadable``: a download action is offered; otherwise show ``canonical_url``.
+    """
+
+    id: UUID
+    type: str
+    title: str
+    publisher: str
+    published_on: date | None
+    canonical_url: str | None
+    ingested_on: date
+    downloadable: bool
+
+
+class WorkspaceSiteOut(BaseModel):
+    """A crawled site of the workspace, once, with its number of pages."""
+
+    site: str
+    publisher: str
+    page_count: int
+    last_ingested_on: date
+
+
+class WorkspaceFilesOut(BaseModel):
+    files: list[WorkspaceFileOut]
+    sites: list[WorkspaceSiteOut]
+
+
+class DownloadLinkOut(BaseModel):
+    """A single-use link to the file, valid until ``expires_at`` (60 seconds)."""
+
+    url: str
+    expires_at: datetime
+
+
+class OperatorSourceOut(BaseModel):
+    """A source register row for the operator's download switch (P1a-14)."""
+
+    id: UUID
+    type: str
+    title: str
+    publisher: str
+    tags: list[str]
+    status: str
+    licence_basis: str
+    downloadable: bool
+    stored: bool  # our own copy exists, so a download can be served
+
+
+class SourceDownloadableIn(_In):
+    downloadable: bool

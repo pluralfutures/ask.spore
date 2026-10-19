@@ -57,6 +57,8 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "requested_model",
         # Tenant admin (P1a-13): how many conversations a shorter retention expired.
         "count",
+        # Downloads (P1a-14): which register source was downloaded or toggled.
+        "source_id",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.
@@ -84,6 +86,9 @@ CHANGE_FIELDS: Final[frozenset[str]] = frozenset(
         "default_reasoning",
         # Tenant admin pages (P1a-13): chat-history retention.
         "retention_days",
+        # Operator console (P1a-14): a source's download switch.
+        "source_id",
+        "downloadable",
     }
 )
 CHANGE_KEYS: Final = frozenset({"before", "after"})

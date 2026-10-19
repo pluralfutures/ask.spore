@@ -9,6 +9,7 @@ export function ConversationList() {
   const queryClient = useQueryClient();
   const conversations = useQuery({ queryKey: ["conversations"], queryFn: api.listConversations });
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
+  const workspaces = useQuery({ queryKey: ["workspaces"], queryFn: api.workspaces });
   const remove = useMutation({
     mutationFn: api.deleteConversation,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["conversations"] }),
@@ -51,6 +52,20 @@ export function ConversationList() {
           </li>
         ))}
       </ul>
+      {workspaces.data?.length ? (
+        <section className="mt-6 text-sm">
+          <h2 className="mb-1 font-semibold">Files behind each workspace</h2>
+          <ul className="flex flex-wrap gap-3">
+            {workspaces.data.map((w) => (
+              <li key={w.id}>
+                <Link to={`/w/${w.id}/files`} className="underline">
+                  {w.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </main>
   );
 }

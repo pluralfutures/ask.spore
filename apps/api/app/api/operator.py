@@ -18,7 +18,7 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,7 +30,9 @@ from app.api.schemas import (
     NoticeOut,
     OperatorMeOut,
     OperatorOptionsOut,
+    OperatorSourceOut,
     OperatorWorkspaceOut,
+    SourceDownloadableIn,
     TenantCreateIn,
     TenantOut,
     WorkspaceCreateIn,
@@ -39,12 +41,14 @@ from app.api.schemas import (
 from app.audit.writer import AuditValue, Change, record
 from app.auth.links import normalise_email
 from app.auth.provider import ProviderError, SignInLinkProvider
+from app.content.models import Source
+from app.content.store import STORABLE_TYPES
 from app.content.tags import load_tags
 from app.core.logging import log
 from app.operator.deps import OperatorContext, operator_session, require_operator
 from app.operator.models import OperatorNotice
 from app.tenancy.entitlements import available_answer_modes, available_models, default_model
-from app.tenancy.models import Tenant, TenantEntitlements, User
+from app.tenancy.models import INTERNAL_TENANT_ID, Tenant, TenantEntitlements, User
 from app.tenancy.workspaces import Workspace
 
 router = APIRouter(prefix="/api/v1/operator", dependencies=[Depends(require_operator)])
@@ -439,3 +443,86 @@ async def set_workspace_tags(
         )
         log("operator.workspace_tags_changed", tenant_id=str(tenant_id), status="changed")
     return workspace
+
+
+# --- source register: the download switch (P1a-14) ---------------------------------------
+
+
+@router.get("/sources", response_model=list[OperatorSourceOut])
+async def list_sources(
+    session: AsyncSession = Depends(operator_session),
+) -> list[OperatorSourceOut]:
+    """Every register row with its download switch. The operator role reads only these
+    columns (revision 0012), never the RAGFlow document IDs."""
+    rows = await session.execute(
+        select(
+            Source.id,
+            Source.type,
+            Source.title,
+            Source.publisher,
+            Source.tags,
+            Source.status,
+            Source.licence_basis,
+            Source.downloadable,
+            Source.stored_path,
+        ).order_by(Source.publisher, Source.title, Source.id)
+    )
+    return [
+        OperatorSourceOut(
+            id=r.id,
+            type=r.type,
+            title=r.title,
+            publisher=r.publisher,
+            tags=list(r.tags),
+            status=r.status,
+            licence_basis=r.licence_basis,
+            downloadable=r.downloadable,
+            stored=r.stored_path is not None,
+        )
+        for r in rows
+    ]
+
+
+@router.put("/sources/{source_id}/downloadable", response_model=OperatorSourceOut)
+async def set_source_downloadable(
+    source_id: UUID,
+    body: SourceDownloadableIn,
+    operator: OperatorContext = Depends(require_operator),
+    session: AsyncSession = Depends(operator_session),
+) -> OperatorSourceOut:
+    """Open or close the licence gate of one source, from its licence basis. Audited
+    under the platform tenant (sources are shared corpus, not a tenant's)."""
+    row = (
+        await session.execute(
+            select(Source.id, Source.type, Source.downloadable, Source.stored_path)
+            .where(Source.id == source_id)
+            .with_for_update()
+        )
+    ).one_or_none()
+    if row is None:
+        raise NOT_FOUND
+    if body.downloadable and row.type not in STORABLE_TYPES:
+        raise _unprocessable("not_a_file")
+    if body.downloadable and row.stored_path is None:
+        raise _unprocessable("not_stored")
+    if body.downloadable != row.downloadable:
+        await session.execute(
+            update(Source)
+            .where(Source.id == source_id)
+            .values(downloadable=body.downloadable, updated_at=func.now())
+        )
+        await record(
+            session,
+            tenant_id=INTERNAL_TENANT_ID,
+            actor_user_id=None,
+            event="operator.source_downloadable_changed",
+            metadata={
+                "operator_id": str(operator.user_id),
+                "source_id": str(source_id),
+                "before": {"downloadable": row.downloadable},
+                "after": {"downloadable": body.downloadable},
+            },
+        )
+        log("operator.source_downloadable_changed", source_id=str(source_id), status="changed")
+    (out,) = [s for s in await list_sources(session) if s.id == source_id]
+    return out

@@ -20,6 +20,7 @@ import { FinishSignIn } from "./pages/FinishSignIn";
 import { NewConversation } from "./pages/NewConversation";
 import { OperatorConsole } from "./pages/OperatorConsole";
 import { TenantAdmin } from "./pages/TenantAdmin";
+import { WorkspaceFiles } from "./pages/WorkspaceFiles";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -40,6 +41,7 @@ function Signed({ children }: { children: React.ReactNode }) {
           <Route path="/" element={<ConversationList />} />
           <Route path="/new" element={<NewConversation />} />
           <Route path="/c/:id" element={<Chat />} />
+          <Route path="/w/:id/files" element={<WorkspaceFiles />} />
           <Route path="/admin" element={<TenantAdmin />} />
           <Route path="/operator" element={<OperatorConsole />} />
         </Routes>

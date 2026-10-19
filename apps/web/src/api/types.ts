@@ -40,3 +40,8 @@ export type ChatStreamEvent =
   | { event: "citations"; data: CitationsData }
   | { event: "done"; data: DoneData }
   | { event: "error"; data: ErrorData };
+export type WorkspaceFiles = Schemas["WorkspaceFilesOut"];
+export type WorkspaceFile = Schemas["WorkspaceFileOut"];
+export type WorkspaceSite = Schemas["WorkspaceSiteOut"];
+export type DownloadLink = Schemas["DownloadLinkOut"];
+export type OperatorSource = Schemas["OperatorSourceOut"];

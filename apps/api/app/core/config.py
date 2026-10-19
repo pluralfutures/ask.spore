@@ -215,6 +215,14 @@ class ChatConfig(_Strict):
     cache_ttl_seconds: int = Field(gt=0, le=30 * 24 * 3600)
 
 
+class FilesConfig(_Strict):
+    """Workspace file list and downloads (P1a-14)."""
+
+    content_root: Path = Path("/srv/ask-spore/content")
+    download_url_ttl_seconds: int = Field(default=60, ge=10, le=300)
+    downloads_per_user_per_day: int = Field(default=50, ge=1, le=1000)
+
+
 class AuthentikConfig(_Strict):
     """Authentik (P1a-02), reached by the API on the Compose network only."""
 
@@ -252,6 +260,7 @@ class ModelsConfig(_Strict):
     ragflow: RagflowConfig
     prompts: PromptsConfig
     chat: ChatConfig
+    files: FilesConfig = FilesConfig()
 
 
 @dataclass(frozen=True)

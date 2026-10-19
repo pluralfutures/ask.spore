@@ -542,3 +542,74 @@ async def test_grant_creates_and_provisions_an_internal_user(console: Console) -
     assert await revoke_operator(console.owner, email=email) == "not_operator"
     # Leave the seeded internal tenant as other tests expect it.
     await console.auth.admin.execute("DELETE FROM users WHERE email = $1", email)
+
+
+# --- the download switch per source (P1a-14) ------------------------------------------------
+
+
+async def _register(admin: asyncpg.Connection, kind: str, *, stored: bool) -> uuid.UUID:
+    sha = uuid.uuid4().hex * 2
+    source_id: uuid.UUID = await admin.fetchval(
+        "INSERT INTO sources (type, title, publisher, licence_basis, tags, status, file_sha256, "
+        "stored_path) VALUES ($1, 'Synthetic', 'Synthetic Publisher', 'own-work', "
+        "ARRAY['sample-reports'], 'ingested', $2, $3) RETURNING id",
+        kind,
+        sha,
+        f"{sha[:2]}/{sha}.{kind}" if stored else None,
+    )
+    return source_id
+
+
+async def test_operator_toggles_downloadable_audited(console: Console) -> None:
+    op = await console.operator()
+    source = await _register(console.auth.admin, "pdf", stored=True)
+    listed = {s["id"]: s for s in (await op.get("/api/v1/operator/sources")).json()}
+    assert listed[str(source)]["downloadable"] is False
+    assert listed[str(source)]["stored"] is True
+    assert "ragflow_document_ids" not in listed[str(source)]
+
+    path = f"/api/v1/operator/sources/{source}/downloadable"
+    response = await op.put(path, json={"downloadable": True})
+    assert response.status_code == 200 and response.json()["downloadable"] is True
+    assert (await op.put(path, json={"downloadable": True})).status_code == 200  # no change
+    await op.put(path, json={"downloadable": False})
+    events = await console.events("operator.source_downloadable_changed", INTERNAL_TENANT_ID)
+    mine = [e for e in events if e["source_id"] == str(source)]
+    assert [(e["before"], e["after"]) for e in mine] == [
+        ({"downloadable": False}, {"downloadable": True}),
+        ({"downloadable": True}, {"downloadable": False}),
+    ]
+    assert mine[0]["operator_id"] == str(await console.operator_id())
+    await console.auth.admin.execute("DELETE FROM sources WHERE id = $1", source)
+
+
+async def test_operator_cannot_open_the_gate_without_a_stored_file(console: Console) -> None:
+    op = await console.operator()
+    page = await _register(console.auth.admin, "markdown", stored=False)
+    unstored = await _register(console.auth.admin, "docx", stored=False)
+    for source, code in ((page, "not_a_file"), (unstored, "not_stored")):
+        response = await op.put(
+            f"/api/v1/operator/sources/{source}/downloadable", json={"downloadable": True}
+        )
+        assert (response.status_code, response.json()["detail"]) == (422, code)
+        await console.auth.admin.execute("DELETE FROM sources WHERE id = $1", source)
+
+
+async def test_tenant_admin_cannot_toggle_downloadable(console: Console) -> None:
+    admin: Tenant = await console.auth.tenant(role="tenant_admin")
+    browser = console.as_user(admin.email, admin.id)
+    response = await browser.put(
+        f"/api/v1/operator/sources/{uuid.uuid4()}/downloadable", json={"downloadable": True}
+    )
+    assert response.status_code == 403
+    assert (await browser.get("/api/v1/operator/sources")).status_code == 403
+
+
+async def test_operator_role_reads_register_columns_but_not_ragflow_ids(
+    operator_role: asyncpg.Connection,
+) -> None:
+    await operator_role.fetch("SELECT id, title, licence_basis, downloadable FROM sources")
+    with pytest.raises(asyncpg.InsufficientPrivilegeError):
+        await operator_role.fetch("SELECT ragflow_document_ids FROM sources")
+    with pytest.raises(asyncpg.InsufficientPrivilegeError):
+        await operator_role.execute("UPDATE sources SET tags = ARRAY['sample-web']")

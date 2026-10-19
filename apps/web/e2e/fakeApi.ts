@@ -36,7 +36,20 @@ interface Conversation {
   messages: unknown[];
 }
 
+export interface FakeFile {
+  id: string;
+  type: string;
+  title: string;
+  publisher: string;
+  published_on: string | null;
+  canonical_url: string | null;
+  ingested_on: string;
+  downloadable: boolean;
+}
+
 export interface FakeOptions {
+  // Files per workspace ID (P1a-14).
+  files?: Record<string, FakeFile[]>;
   workspaces: FakeWorkspace[];
   models: FakeModel[];
   // External models fall back to this model, with the notice, as at the spend cap.
@@ -79,6 +92,8 @@ export class FakeApi {
   // Tenant admin routes (P1a-13): saved prompt versions per workspace, and the calls.
   readonly prompts = new Map<string, { version: number; text: string; created_at: string }[]>();
   readonly adminCalls: { method: string; path: string; body: unknown }[] = [];
+  readonly downloads: string[] = []; // source IDs whose bytes were served
+  private readonly links = new Map<string, string>(); // token -> source ID
   readonly asked: { conversation: string; body: unknown }[] = [];
   private readonly conversations = new Map<string, Conversation>();
   private next = 1;
@@ -259,6 +274,51 @@ export class FakeApi {
       return this.admin(route, method, path);
     }
     if (path === "/models") return route.fulfill({ json: this.options.models });
+    const files = path.match(/^\/workspaces\/([^/]+)\/files$/);
+    if (files) {
+      return route.fulfill({
+        json: {
+          files: this.options.files?.[files[1]] ?? [],
+          sites: [
+            {
+              site: "site.example",
+              publisher: "Synthetic Site",
+              page_count: 7,
+              last_ingested_on: "2026-10-18",
+            },
+          ],
+        },
+      });
+    }
+    const link = path.match(/^\/workspaces\/([^/]+)\/files\/([^/]+)\/download$/);
+    if (link && method === "POST") {
+      const file = this.options.files?.[link[1]]?.find((f) => f.id === link[2]);
+      if (!file) return route.fulfill({ status: 404, json: { detail: "not_found" } });
+      if (!file.downloadable) {
+        return route.fulfill({ status: 403, json: { detail: "not_downloadable" } });
+      }
+      const token = `synthetic-token-${this.next++}-abcdefghijklmnop`;
+      this.links.set(token, file.id);
+      return route.fulfill({
+        status: 201,
+        json: { url: `/api/v1/files/${token}`, expires_at: NOW },
+      });
+    }
+    const served = path.match(/^\/files\/([^/]+)$/);
+    if (served) {
+      const sourceId = this.links.get(served[1]);
+      this.links.delete(served[1]); // single use
+      if (!sourceId) return route.fulfill({ status: 404, json: { detail: "not_found" } });
+      this.downloads.push(sourceId);
+      return route.fulfill({
+        status: 200,
+        headers: {
+          "content-type": "application/pdf",
+          "content-disposition": 'attachment; filename="Synthetic-Outlook-2026.pdf"',
+        },
+        body: "%PDF-1.4 synthetic",
+      });
+    }
     if (path === "/conversations" && method === "POST") {
       const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
       this.created.push(body);

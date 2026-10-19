@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.content.fetch import Fetched, tdm_reserved
 from app.content.models import Dataset, Source
+from app.content.store import STORABLE_TYPES, store
 from app.content.tags import TagConfig
 from app.retrieval.ragflow import RUN_DONE, RagflowClient, RagflowDocument, RagflowError
 
@@ -89,6 +90,8 @@ class SourceMetadata:
     licence_basis: str
     published_on: date | None = None
     canonical_url: str | None = None
+    # P1a-14: the licence gate for downloads; set per source, false unless stated.
+    downloadable: bool = False
 
 
 @dataclass(frozen=True)
@@ -186,8 +189,16 @@ async def ingest(
     parse_timeout: float = PARSE_TIMEOUT_SECONDS,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     clock: Callable[[], float] = time.monotonic,
+    content_root: Path | None = None,
 ) -> IngestResult:
-    """Ingest one source. Raises IngestError, before recording anything, on bad input."""
+    """Ingest one source. Raises IngestError, before recording anything, on bad input.
+
+    With ``content_root`` (P1a-14), a PDF, DOCX or PPTX file is also stored there by
+    hash (``app.content.store``) and the row records ``stored_path``, so it can be
+    downloaded without asking RAGFlow; a duplicate of a source ingested before that
+    gets its stored copy now. ``metadata.downloadable`` is recorded on a new row only:
+    an existing source's flag changes in the operator console, audited.
+    """
     tags = tuple(dict.fromkeys(metadata.tags))
     if not tags:
         raise IngestError("no_tag", "at least one --tag is required")
@@ -202,6 +213,17 @@ async def ingest(
         if not value.strip():
             raise IngestError("missing_metadata", f"--{name} must not be empty")
 
+    if metadata.downloadable and source.type not in STORABLE_TYPES:
+        raise IngestError("not_downloadable", "only PDF, DOCX and PPTX files can be downloadable")
+    stored_path: str | None = None
+    if content_root is not None:
+        try:
+            stored_path = store(content_root, source.sha256, source.type, source.content)
+        except OSError as exc:
+            raise IngestError("store_failed", f"cannot store the file: {exc.strerror}") from None
+    if metadata.downloadable and stored_path is None:
+        raise IngestError("not_stored", "a downloadable file needs [files] content_root")
+
     async with factory() as session, session.begin():
         datasets = await _datasets_for(session, tags)
         missing = [tag for tag in tags if tag not in datasets]
@@ -210,13 +232,19 @@ async def ingest(
                 "no_dataset",
                 f"no dataset for {', '.join(missing)}; run `ask-spore datasets sync` first",
             )
-        duplicate = await session.scalar(
-            select(Source.id).where(
-                Source.file_sha256 == source.sha256, Source.status == "ingested"
+        duplicate = (
+            await session.execute(
+                select(Source.id, Source.stored_path).where(
+                    Source.file_sha256 == source.sha256, Source.status == "ingested"
+                )
             )
-        )
+        ).first()
         if duplicate is not None:
-            return IngestResult(source_id=duplicate, status="duplicate")
+            if duplicate.stored_path is None and stored_path is not None:
+                await session.execute(
+                    update(Source).where(Source.id == duplicate.id).values(stored_path=stored_path)
+                )
+            return IngestResult(source_id=duplicate.id, status="duplicate")
         row = Source(
             type=source.type,
             title=metadata.title.strip(),
@@ -227,6 +255,8 @@ async def ingest(
             tags=list(tags),
             status="ingesting",
             file_sha256=source.sha256,
+            stored_path=stored_path,
+            downloadable=metadata.downloadable,
         )
         session.add(row)
         await session.flush()

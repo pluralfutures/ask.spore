@@ -246,6 +246,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/files/{token}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Download File
+     * @description Serve our stored copy of the file behind a single-use link of this user.
+     */
+    get: operations["download_file_api_v1_files__token__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/healthz": {
     parameters: {
       query?: never;
@@ -370,6 +390,48 @@ export interface paths {
     /** Operator Options */
     get: operations["operator_options_api_v1_operator_options_get"];
     put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/sources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Sources
+     * @description Every register row with its download switch. The operator role reads only these
+     *     columns (revision 0012), never the RAGFlow document IDs.
+     */
+    get: operations["list_sources_api_v1_operator_sources_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/sources/{source_id}/downloadable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Source Downloadable
+     * @description Open or close the licence gate of one source, from its licence basis. Audited
+     *     under the platform tenant (sources are shared corpus, not a tenant's).
+     */
+    put: operations["set_source_downloadable_api_v1_operator_sources__source_id__downloadable_put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -509,6 +571,44 @@ export interface paths {
     get: operations["list_workspaces_api_v1_workspaces_get"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/workspaces/{workspace_id}/files": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Workspace Files
+     * @description The workspace's PDF, DOCX and PPTX files and its crawled sites. No search or
+     *     filters (Phase 1a).
+     */
+    get: operations["list_workspace_files_api_v1_workspaces__workspace_id__files_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/workspaces/{workspace_id}/files/{source_id}/download": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Request Download */
+    post: operations["request_download_api_v1_workspaces__workspace_id__files__source_id__download_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -823,6 +923,19 @@ export interface components {
       /** Unsupported */
       unsupported: boolean;
     };
+    /**
+     * DownloadLinkOut
+     * @description A single-use link to the file, valid until ``expires_at`` (60 seconds).
+     */
+    DownloadLinkOut: {
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /** Url */
+      url: string;
+    };
     /** EntitlementsIn */
     EntitlementsIn: {
       /** Answer Modes */
@@ -1026,6 +1139,33 @@ export interface components {
       /** Tags */
       tags: string[];
     };
+    /**
+     * OperatorSourceOut
+     * @description A source register row for the operator's download switch (P1a-14).
+     */
+    OperatorSourceOut: {
+      /** Downloadable */
+      downloadable: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Licence Basis */
+      licence_basis: string;
+      /** Publisher */
+      publisher: string;
+      /** Status */
+      status: string;
+      /** Stored */
+      stored: boolean;
+      /** Tags */
+      tags: string[];
+      /** Title */
+      title: string;
+      /** Type */
+      type: string;
+    };
     /** OperatorWorkspaceOut */
     OperatorWorkspaceOut: {
       /**
@@ -1060,6 +1200,11 @@ export interface components {
     RetentionIn: {
       /** Retention Days */
       retention_days: number;
+    };
+    /** SourceDownloadableIn */
+    SourceDownloadableIn: {
+      /** Downloadable */
+      downloadable: boolean;
     };
     /** SourceOut */
     SourceOut: {
@@ -1201,6 +1346,44 @@ export interface components {
       /** Default Reasoning */
       default_reasoning: boolean;
     };
+    /**
+     * WorkspaceFileOut
+     * @description A PDF, DOCX or PPTX file of the workspace, from the source register.
+     *
+     *     ``id`` is our register's UUID; no RAGFlow dataset or document ID is ever returned.
+     *     ``downloadable``: a download action is offered; otherwise show ``canonical_url``.
+     */
+    WorkspaceFileOut: {
+      /** Canonical Url */
+      canonical_url: string | null;
+      /** Downloadable */
+      downloadable: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Ingested On
+       * Format: date
+       */
+      ingested_on: string;
+      /** Published On */
+      published_on: string | null;
+      /** Publisher */
+      publisher: string;
+      /** Title */
+      title: string;
+      /** Type */
+      type: string;
+    };
+    /** WorkspaceFilesOut */
+    WorkspaceFilesOut: {
+      /** Files */
+      files: components["schemas"]["WorkspaceFileOut"][];
+      /** Sites */
+      sites: components["schemas"]["WorkspaceSiteOut"][];
+    };
     /** WorkspaceOut */
     WorkspaceOut: {
       /** Default Mode */
@@ -1243,6 +1426,23 @@ export interface components {
        * Format: uuid
        */
       workspace_id: string;
+    };
+    /**
+     * WorkspaceSiteOut
+     * @description A crawled site of the workspace, once, with its number of pages.
+     */
+    WorkspaceSiteOut: {
+      /**
+       * Last Ingested On
+       * Format: date
+       */
+      last_ingested_on: string;
+      /** Page Count */
+      page_count: number;
+      /** Publisher */
+      publisher: string;
+      /** Site */
+      site: string;
     };
     /** WorkspaceTagsIn */
     WorkspaceTagsIn: {
@@ -1691,6 +1891,48 @@ export interface operations {
       };
     };
   };
+  download_file_api_v1_files__token__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        token: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The file */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/pdf": unknown;
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation": unknown;
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
+          "application/xhtml+xml": unknown;
+          "text/markdown": unknown;
+        };
+      };
+      /** @description Unknown, expired or already used link */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   healthz_api_v1_healthz_get: {
     parameters: {
       query?: never;
@@ -1842,6 +2084,61 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["OperatorOptionsOut"];
+        };
+      };
+    };
+  };
+  list_sources_api_v1_operator_sources_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatorSourceOut"][];
+        };
+      };
+    };
+  };
+  set_source_downloadable_api_v1_operator_sources__source_id__downloadable_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SourceDownloadableIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatorSourceOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
@@ -2119,6 +2416,90 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["WorkspaceOut"][];
         };
+      };
+    };
+  };
+  list_workspace_files_api_v1_workspaces__workspace_id__files_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceFilesOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  request_download_api_v1_workspaces__workspace_id__files__source_id__download_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DownloadLinkOut"];
+        };
+      };
+      /** @description The file is listed but not downloadable */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not a file of this workspace */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description The daily download cap is reached */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

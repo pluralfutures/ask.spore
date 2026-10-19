@@ -51,6 +51,7 @@ LATER_TENANT_TABLES = (
     "spend_notices",
     "revoked_sessions",
     "tenant_settings",
+    "downloads",
 )
 # Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
 SET_ROLES = {"askspore_auth", "askspore_operator"}
@@ -133,6 +134,14 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
     )
     workspace = await admin_conn.fetchval(
         "SELECT id FROM workspaces WHERE tenant_id = $1 AND slug = 'research'", INTERNAL_TENANT_ID
+    )
+    await admin_conn.execute(
+        "INSERT INTO downloads (tenant_id, user_id, workspace_id, source_id, token_sha256, "
+        "expires_at) VALUES ($1, $2, $3, $4, repeat('1', 64), now())",
+        INTERNAL_TENANT_ID,
+        user,
+        workspace,
+        source,
     )
     prompt = await admin_conn.fetchval(
         "INSERT INTO workspace_prompts (tenant_id, workspace_id, version, text, author_user_id) "

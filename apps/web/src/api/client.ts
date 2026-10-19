@@ -9,6 +9,7 @@ import type {
   ConversationCreateIn,
   ConversationDetail,
   ConversationSummary,
+  DownloadLink,
   FeedbackIn,
   FeedbackOut,
   EntitlementsIn,
@@ -17,6 +18,7 @@ import type {
   ModelOption,
   NoticeOut,
   OperatorOptions,
+  OperatorSource,
   OperatorWorkspace,
   TenantCreateIn,
   TenantOut,
@@ -26,6 +28,7 @@ import type {
   Workspace,
   WorkspaceCreateIn,
   WorkspaceDefaultsIn,
+  WorkspaceFiles,
   WorkspacePrompt,
 } from "./types";
 
@@ -173,6 +176,20 @@ export const api = {
   deleteConversation: async (id: string) => {
     await send("DELETE", `/conversations/${id}`);
   },
+  // Workspace file list and downloads (P1a-14).
+  workspaceFiles: (workspaceId: string) =>
+    json<WorkspaceFiles>("GET", `/workspaces/${workspaceId}/files`),
+  async download(workspaceId: string, sourceId: string): Promise<{ blob: Blob; name: string }> {
+    const link = await json<DownloadLink>(
+      "POST",
+      `/workspaces/${workspaceId}/files/${sourceId}/download`,
+    );
+    // The single-use link, fetched at once with the same credentials.
+    const response = await send("GET", link.url.replace(/^\/api\/v1/, ""));
+    const disposition = response.headers.get("content-disposition") ?? "";
+    const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "download";
+    return { blob: await response.blob(), name };
+  },
   sendFeedback: (messageId: string, feedback: FeedbackIn) =>
     json<FeedbackOut>("POST", `/messages/${messageId}/feedback`, feedback),
   async *ask(id: string, question: string, signal?: AbortSignal): AsyncGenerator<ChatStreamEvent> {
@@ -217,6 +234,10 @@ export const operatorApi = {
     json<OperatorWorkspace[]>("GET", `/operator/tenants/${tenantId}/workspaces`),
   createWorkspace: (tenantId: string, body: WorkspaceCreateIn) =>
     json<OperatorWorkspace>("POST", `/operator/tenants/${tenantId}/workspaces`, body),
+  // The download switch per source (P1a-14).
+  sources: () => json<OperatorSource[]>("GET", "/operator/sources"),
+  setDownloadable: (sourceId: string, downloadable: boolean) =>
+    json<OperatorSource>("PUT", `/operator/sources/${sourceId}/downloadable`, { downloadable }),
   setWorkspaceTags: (tenantId: string, workspaceId: string, tagIds: string[]) =>
     json<OperatorWorkspace>("PUT", `/operator/tenants/${tenantId}/workspaces/${workspaceId}/tags`, {
       tag_ids: tagIds,

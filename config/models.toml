@@ -166,6 +166,14 @@ rewrite = "v1"
 # Faithfulness judge of the eval harness (packages/eval, P0-18); the API does not use it.
 judge = "v1"
 
+[files]
+# Workspace file list and downloads (P1a-14). content_root holds our own copies of the
+# ingested PDF, DOCX and PPTX files, named by content hash (never the original file name),
+# written by the ingestion CLI and read by the API; downloads never go through RAGFlow.
+content_root = "/srv/ask-spore/content"
+download_url_ttl_seconds = 60     # a download link is single-use and expires after this
+downloads_per_user_per_day = 50   # owner, Oct 19, 2026; per UTC calendar day
+
 [chat]
 # Orchestrator parameters (P0-14). Token figures are estimates (~4 characters per token).
 history_messages = 6        # last N messages of the conversation sent as context

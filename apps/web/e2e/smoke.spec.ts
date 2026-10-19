@@ -90,6 +90,9 @@ test("asks a question, streams the answer and opens its citation", async ({ page
     await route.fulfill({ json: { ...conversation, messages } });
   });
   await page.route("**/api/v1/conversations", (route: Route) => route.fulfill({ json: [] }));
+  await page.route("**/api/v1/auth/mode", (route: Route) =>
+    route.fulfill({ json: { mode: "phase0" } }),
+  );
 
   await page.goto(`/c/${CONVERSATION_ID}`);
   await expect(page.getByRole("note")).toHaveText("AI-generated, verify against cited sources.");
@@ -112,4 +115,30 @@ test("asks a question, streams the answer and opens its citation", async ({ page
     "href",
     "https://example.org/synthetic-outlook",
   );
+});
+
+test("sign-in link landing page submits the token only from its button", async ({ page }) => {
+  const calls: { method: string; path: string; body: unknown }[] = [];
+  await page.route("**/api/v1/**", async (route: Route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    calls.push({ method: request.method(), path, body: request.postDataJSON() });
+    if (path === "/api/v1/auth/mode") return route.fulfill({ json: { mode: "oidc" } });
+    if (path === "/api/v1/auth/link/complete") return route.fulfill({ status: 204 });
+    if (path === "/api/v1/me") return route.fulfill({ status: 401, json: {} });
+    return route.fulfill({ status: 404, json: {} });
+  });
+
+  await page.goto("/auth/finish#token=synthetic-link-token");
+  const button = page.getByRole("button", { name: "Click to finish logging in" });
+  await expect(button).toBeVisible();
+  // Opening the link sent nothing, and the token left the address bar.
+  expect(calls.filter((c) => c.path === "/api/v1/auth/link/complete")).toEqual([]);
+  expect(page.url()).not.toContain("synthetic-link-token");
+
+  await button.click();
+  await page.waitForURL("http://127.0.0.1:4173/");
+  expect(calls.filter((c) => c.path === "/api/v1/auth/link/complete")).toEqual([
+    { method: "POST", path: "/api/v1/auth/link/complete", body: { token: "synthetic-link-token" } },
+  ]);
 });

@@ -33,7 +33,11 @@ def _migration() -> ModuleType:
 
 
 # Tenant-scoped tables created after schema v1, each with RLS from its first migration.
-LATER_TENANT_TABLES = ("tenant_entitlements",)
+LATER_TENANT_TABLES = ("tenant_entitlements", "sign_in_links")
+# Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
+SET_ROLES = {"askspore_auth", "askspore_operator"}
+# Tenant tables the application role has no privileges on at all (only a SET role does).
+NO_APP_ACCESS = {"sign_in_links"}
 TENANT_TABLES: tuple[str, ...] = (*_migration().TENANT_TABLES, *LATER_TENANT_TABLES)
 ALL_SCOPED = (*TENANT_TABLES, "tenants")
 
@@ -112,11 +116,17 @@ async def test_table_has_forced_rls_policy_and_tenant_first_index(
     assert rls is not None and rls["relrowsecurity"] and rls["relforcerowsecurity"]
 
     policies = await admin_conn.fetch(
-        "SELECT qual, with_check FROM pg_policies WHERE tablename = $1", table
+        "SELECT policyname, roles, qual, with_check FROM pg_policies WHERE tablename = $1", table
     )
-    assert len(policies) == 1
-    assert "current_setting('app.tenant_id'" in policies[0]["qual"]
-    assert policies[0]["qual"] == policies[0]["with_check"]
+    isolation = [p for p in policies if p["policyname"] == "tenant_isolation"]
+    assert len(isolation) == 1
+    assert isolation[0]["roles"] == ["public"]
+    assert "current_setting('app.tenant_id'" in isolation[0]["qual"]
+    assert isolation[0]["qual"] == isolation[0]["with_check"]
+    # Any other policy applies only to a role the app can assume but does not inherit.
+    for other in policies:
+        if other["policyname"] != "tenant_isolation":
+            assert set(other["roles"]) <= SET_ROLES, other
 
     first_columns = await admin_conn.fetch(
         "SELECT a.attname FROM pg_index i "
@@ -134,6 +144,10 @@ async def test_other_tenant_sees_zero_rows(
     app_conn: asyncpg.Connection, populated: dict[str, uuid.UUID], table: str
 ) -> None:
     await _scope(app_conn, INTERNAL_TENANT_ID)
+    if table in NO_APP_ACCESS:
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await app_conn.fetchval(f"SELECT count(*) FROM {table}")
+        return
     assert await app_conn.fetchval(f"SELECT count(*) FROM {table}") > 0  # positive control
 
     await _scope(app_conn, populated["other"])
@@ -149,6 +163,8 @@ async def test_other_tenant_sees_zero_rows(
 async def test_no_tenant_set_sees_zero_rows(
     app_conn: asyncpg.Connection, populated: dict[str, uuid.UUID], table: str
 ) -> None:
+    if table in NO_APP_ACCESS:
+        return  # no privileges at all: test_other_tenant_sees_zero_rows
     assert await app_conn.fetchval(f"SELECT count(*) FROM {table}") == 0
     await _scope(app_conn, None)  # empty string, as after RESET
     assert await app_conn.fetchval(f"SELECT count(*) FROM {table}") == 0

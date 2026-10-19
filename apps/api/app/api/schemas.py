@@ -129,3 +129,31 @@ class ChatStreamEvents(BaseModel):
     citations: CitationsData
     done: DoneData
     error: ErrorData
+
+
+# --- authentication (P1a-02) -----------------------------------------------------------
+
+
+class AuthModeOut(BaseModel):
+    mode: Literal["phase0", "oidc"]
+
+
+class LinkRequestIn(_In):
+    email: str = Field(min_length=3, max_length=320)
+
+
+class LinkRequestOut(BaseModel):
+    """Identical for every address (no enumeration)."""
+
+    status: Literal["sent_if_known"]
+
+
+class LinkCompleteIn(_In):
+    token: str = Field(min_length=1, max_length=512)
+
+
+class MeOut(BaseModel):
+    email: str
+    display_name: str
+    role: Literal["user", "tenant_admin"]
+    tenant_display_name: str

@@ -4,6 +4,74 @@
  */
 
 export interface paths {
+  "/api/v1/auth/link": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Request Sign In Link */
+    post: operations["request_sign_in_link_api_v1_auth_link_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/link/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Complete Sign In Link */
+    post: operations["complete_sign_in_link_api_v1_auth_link_complete_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/logout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Logout */
+    post: operations["logout_api_v1_auth_logout_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/mode": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Auth Mode */
+    get: operations["auth_mode_api_v1_auth_mode_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/conversations": {
     parameters: {
       query?: never;
@@ -77,6 +145,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Me
+     * @description The signed-in user, from the request context (P1a-02).
+     */
+    get: operations["me_api_v1_me_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/messages/{message_id}/feedback": {
     parameters: {
       query?: never;
@@ -125,6 +213,14 @@ export interface components {
     AskIn: {
       /** Question */
       question: string;
+    };
+    /** AuthModeOut */
+    AuthModeOut: {
+      /**
+       * Mode
+       * @enum {string}
+       */
+      mode: "phase0" | "oidc";
     };
     /**
      * ChatStreamEvents
@@ -300,6 +396,41 @@ export interface components {
        */
       status: "ok";
     };
+    /** LinkCompleteIn */
+    LinkCompleteIn: {
+      /** Token */
+      token: string;
+    };
+    /** LinkRequestIn */
+    LinkRequestIn: {
+      /** Email */
+      email: string;
+    };
+    /**
+     * LinkRequestOut
+     * @description Identical for every address (no enumeration).
+     */
+    LinkRequestOut: {
+      /**
+       * Status
+       * @constant
+       */
+      status: "sent_if_known";
+    };
+    /** MeOut */
+    MeOut: {
+      /** Display Name */
+      display_name: string;
+      /** Email */
+      email: string;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "user" | "tenant_admin";
+      /** Tenant Display Name */
+      tenant_display_name: string;
+    };
     /** MessageOut */
     MessageOut: {
       /** Abstained */
@@ -375,6 +506,108 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  request_sign_in_link_api_v1_auth_link_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LinkRequestIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LinkRequestOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  complete_sign_in_link_api_v1_auth_link_complete_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LinkCompleteIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  logout_api_v1_auth_logout_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  auth_mode_api_v1_auth_mode_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuthModeOut"];
+        };
+      };
+    };
+  };
   list_conversations_api_v1_conversations_get: {
     parameters: {
       query?: never;
@@ -533,6 +766,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Health"];
+        };
+      };
+    };
+  };
+  me_api_v1_me_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MeOut"];
         };
       };
     };

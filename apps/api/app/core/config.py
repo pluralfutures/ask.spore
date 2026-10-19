@@ -2,11 +2,12 @@
 
 Startup checks (design/Stack Decision.md, Conventions):
 
-- every outbound host (provider and RAGFlow base URLs) must be in the allow-list;
+- every outbound host (provider, RAGFlow and Authentik URLs) must be in the allow-list;
 - public providers must be reached over HTTPS;
 - model names must be dated versions, never "-latest" aliases (Scaleway names are not
   dated: they must only be fixed names, never containing "latest"; findings M2);
-- every required secret must be present in the environment;
+- every required secret must be present in the environment, including those of the
+  authentication mode (``[auth] mode``: the Phase 0 bearer token, or Authentik's);
 - every active prompt version must exist under ``prompts/`` in the config directory.
 
 Any failure raises ConfigError listing every problem; the API does not start.
@@ -31,14 +32,19 @@ CONFIG_DIR_ENV = "ASK_SPORE_CONFIG_DIR"
 DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[4] / "config"
 
 # Environment variables that must be set and non-empty, plus the active LLM provider's
-# key (PROVIDER_SECRETS).
+# key (PROVIDER_SECRETS) and the authentication mode's (AUTH_SECRETS).
 REQUIRED_SECRETS: tuple[str, ...] = (
     "RAGFLOW_API_KEY",
     "DATABASE_URL",
     "REDIS_URL",
-    "PHASE0_BEARER_TOKEN",  # Phase 0 only (P0-06); removed with Authentik in Phase 1
 )
 PROVIDER_SECRETS: dict[str, str] = {"mistral": "MISTRAL_API_KEY", "scaleway": "SCALEWAY_API_KEY"}
+AUTH_SECRETS: dict[str, tuple[str, ...]] = {
+    # Phase 0 shared token (P0-06), kept for the eval harness until Authentik replaces it.
+    "phase0": ("PHASE0_BEARER_TOKEN",),
+    # P1a-02: the API's confidential OIDC client, and an API token to provision users.
+    "oidc": ("AUTHENTIK_CLIENT_SECRET", "AUTHENTIK_API_TOKEN"),
+}
 MIN_BEARER_TOKEN_LENGTH = 32
 # Optional: Scaleway project to bill; it becomes part of the base URL path.
 SCALEWAY_PROJECT_ENV = "SCALEWAY_PROJECT_ID"
@@ -126,8 +132,34 @@ class ChatConfig(_Strict):
     cache_ttl_seconds: int = Field(gt=0, le=30 * 24 * 3600)
 
 
+class AuthentikConfig(_Strict):
+    """Authentik (P1a-02), reached by the API on the Compose network only."""
+
+    base_url: str
+    # The tokens' "iss": Authentik derives it from the host the API calls it on.
+    issuer: str
+    client_id: str = Field(min_length=1)
+    # Registered on the provider for the authorization-code exchange. The API reads the
+    # code from Authentik's redirect itself; no browser is ever sent there.
+    redirect_uri: str
+    sign_in_flow: str = Field(pattern=r"^[a-z0-9][a-z0-9-]*$")
+    timeout_seconds: float = Field(gt=0)
+
+
+class AuthConfig(_Strict):
+    """``phase0``: shared bearer token + X-User-Email (eval harness). ``oidc``: Authentik."""
+
+    mode: Literal["phase0", "oidc"] = "phase0"
+    # Sign-in links: single use, at most 15 minutes (architecture §4.3, §8).
+    link_ttl_seconds: int = Field(default=900, ge=60, le=900)
+    # At most this many links per user per link lifetime; further requests send nothing.
+    links_per_window: int = Field(default=5, ge=1, le=20)
+    authentik: AuthentikConfig | None = None
+
+
 class ModelsConfig(_Strict):
     allow_list: AllowList
+    auth: AuthConfig = AuthConfig()
     llm: LlmConfig = LlmConfig()
     mistral: MistralConfig
     scaleway: ScalewayConfig | None = None
@@ -142,9 +174,11 @@ class Secrets:
     ragflow_api_key: SecretStr
     database_url: SecretStr
     redis_url: SecretStr
-    phase0_bearer_token: SecretStr
+    phase0_bearer_token: SecretStr | None  # set in auth mode "phase0"
     scaleway_api_key: SecretStr | None = None  # set when the provider is scaleway
     scaleway_project_id: str | None = None
+    authentik_client_secret: SecretStr | None = None  # set in auth mode "oidc"
+    authentik_api_token: SecretStr | None = None  # set in auth mode "oidc"
 
 
 @dataclass(frozen=True)
@@ -198,6 +232,18 @@ def _check_models(models: ModelsConfig) -> list[str]:
                 f"{name} '{model}' must be a dated version such as 'mistral-large-2512', "
                 "not an alias like '-latest'"
             )
+    if models.auth.authentik is not None:
+        for name, url in {
+            "auth.authentik.base_url": models.auth.authentik.base_url,
+            "auth.authentik.issuer": models.auth.authentik.issuer,
+        }.items():
+            host = _host(url)
+            if host is None:
+                problems.append(f"{name} is not a valid URL")
+            elif host.lower() not in allowed:
+                problems.append(f"{name} host '{host}' is not in allow_list.hosts")
+    elif models.auth.mode == "oidc":
+        problems.append("auth.mode is 'oidc' but there is no [auth.authentik] section")
     if "latest" in models.ragflow.embedding_model.lower():
         problems.append("ragflow.embedding_model must name a fixed model, not a '-latest' alias")
     return problems
@@ -243,7 +289,12 @@ def load_settings(
         problems += _check_prompts(models.prompts, directory)
 
     provider = models.llm.provider if models is not None else None
-    required = [*REQUIRED_SECRETS, *([PROVIDER_SECRETS[provider]] if provider else [])]
+    auth_mode = models.auth.mode if models is not None else None
+    required = [
+        *REQUIRED_SECRETS,
+        *([PROVIDER_SECRETS[provider]] if provider else []),
+        *(AUTH_SECRETS[auth_mode] if auth_mode else ()),
+    ]
     missing = [name for name in required if not env.get(name, "").strip()]
     if missing:
         problems.append("missing required secrets in the environment: " + ", ".join(missing))
@@ -269,9 +320,11 @@ def load_settings(
         ragflow_api_key=SecretStr(env["RAGFLOW_API_KEY"]),
         database_url=SecretStr(env["DATABASE_URL"]),
         redis_url=SecretStr(env["REDIS_URL"]),
-        phase0_bearer_token=SecretStr(token),
+        phase0_bearer_token=SecretStr(token) if auth_mode == "phase0" else None,
         scaleway_api_key=optional("SCALEWAY_API_KEY"),
         scaleway_project_id=project,
+        authentik_client_secret=optional("AUTHENTIK_CLIENT_SECRET"),
+        authentik_api_token=optional("AUTHENTIK_API_TOKEN"),
     )
     return Settings(models=models, secrets=secrets, config_dir=directory)
 

@@ -1,8 +1,11 @@
-# Local development stack: Postgres, Redis, API, web dev server and the pinned
-# RAGFlow tier from infra/ragflow/.
+# Local development stack: Postgres, Redis, API, web dev server, the pinned
+# RAGFlow tier from infra/ragflow/ and, with the `auth` profile, Authentik from
+# infra/authentik/ (P1a-02).
 #
 #   cp infra/ragflow/.env.example infra/ragflow/.env   # set passwords
 #   docker compose -f infra/compose.dev.yml up -d
+#   # sign-in links: cp infra/authentik/.env.example infra/authentik/.env, then
+#   docker compose -f infra/compose.dev.yml --profile auth up -d
 #
 # Host ports bind to 127.0.0.1 only. RAGFlow publishes only its web UI; the API
 # reaches RAGFlow's HTTP API over the `ragflow` network.
@@ -12,6 +15,7 @@ name: ask-spore-dev
 include:
   - path: ./ragflow/docker-compose.yml
     env_file: ./ragflow/.env
+  - path: ./authentik/docker-compose.yml
 
 services:
   postgres:
@@ -78,8 +82,10 @@ services:
       redis:
         condition: service_healthy
     env_file:
-      # The LLM provider's key (MISTRAL_API_KEY or SCALEWAY_API_KEY), RAGFLOW_API_KEY. If absent, the API exits at startup and names
-      # the missing variables (app.core.config).
+      # The LLM provider's key (MISTRAL_API_KEY or SCALEWAY_API_KEY), RAGFLOW_API_KEY, and
+      # the auth mode's secrets (PHASE0_BEARER_TOKEN, or AUTHENTIK_CLIENT_SECRET and
+      # AUTHENTIK_API_TOKEN). If absent, the API exits at startup and names the missing
+      # variables (app.core.config).
       - path: ../.env
         required: false
     environment:
@@ -93,6 +99,7 @@ services:
     networks:
       - app
       - ragflow
+      - authentik  # http://authentik-server:9000, on this network only
     restart: unless-stopped
 
   web:

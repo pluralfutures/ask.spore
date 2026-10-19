@@ -12,7 +12,27 @@ hosts = [
     "api.mistral.ai", # Mistral la Plateforme, EU-hosted (see design/specs/phase-0-findings.md M1)
     "api.scaleway.ai", # Scaleway Generative APIs, Paris (findings M2; DPA/ZDR confirmation open)
     "ragflow",        # RAGFlow on the private Compose network; never public
+    "authentik-server", # Authentik (P1a-02) on the private Compose network; ours, Paris host
 ]
+
+[auth]
+# "phase0": the shared bearer token plus X-User-Email (P0-06), kept so the eval harness
+# keeps working; needs PHASE0_BEARER_TOKEN. "oidc": Authentik sign-in links (P1a-02);
+# needs AUTHENTIK_CLIENT_SECRET and AUTHENTIK_API_TOKEN. The Instance runs one or the other.
+mode = "phase0"
+link_ttl_seconds = 900     # single-use sign-in links expire after 15 minutes at most
+links_per_window = 5       # per user per link lifetime; further requests send nothing
+
+[auth.authentik]
+# Reached by the API only, on the Compose network (infra/authentik/README.md). Tokens
+# are issued for the host the API calls, so the issuer is on that host too.
+base_url = "http://authentik-server:9000"
+issuer = "http://authentik-server:9000/application/o/ask-spore/"
+client_id = "ask-spore"
+# Registered on the Authentik provider; the API reads the code from the redirect itself.
+redirect_uri = "https://ask-spore.invalid/auth/callback"
+sign_in_flow = "ask-spore-sign-in-link"
+timeout_seconds = 10
 
 [llm]
 # Provider the API and the eval harness call: "mistral" or "scaleway".

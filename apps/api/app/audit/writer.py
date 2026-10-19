@@ -33,6 +33,8 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "tokens_out",
         "latency_ms",
         "rating",
+        # Sign-in (P1a-02): how the user authenticated.
+        "method",
     }
 )
 MAX_VALUE_LENGTH: Final = 128

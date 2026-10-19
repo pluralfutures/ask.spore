@@ -16,7 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.api.deps import db_session
-from app.core.config import Secrets
+from app.core.config import AuthConfig, Secrets
 from app.core.db import session_factory
 from app.core.phase0_auth import token_matches
 from app.main import create_app
@@ -28,8 +28,13 @@ ANALYST = "analyst@example.org"
 UNAUTHORIZED = {"detail": "unauthorized"}
 
 
+class _Models:
+    auth = AuthConfig()  # mode "phase0"
+
+
 class _Settings:
     def __init__(self) -> None:
+        self.models = _Models()
         self.secrets = Secrets(
             mistral_api_key=SecretStr("unused"),
             ragflow_api_key=SecretStr("unused"),

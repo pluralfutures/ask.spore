@@ -18,6 +18,8 @@ dependencies = [
     # Scaleway Generative APIs through its OpenAI-compatible endpoint (Stack Decision).
     "openai~=3.24.0",
     "uvicorn[standard]~=0.54.0",
+    # OIDC token validation (P1a-02): signature, issuer, audience and expiry against JWKS.
+    "pyjwt[crypto]~=2.15.1",
 ]
 
 [project.scripts]

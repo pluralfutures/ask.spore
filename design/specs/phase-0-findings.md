@@ -89,7 +89,7 @@ Notes:
 | --- | --- | --- |
 | 1 | Mistral web-search tool: available on the EU endpoint for the pinned Large model, covered by the zero-retention letter, priced per call | **Open. Needs the Mistral account.** |
 | 2 | RAGFlow: metadata filters across datasets in one call; a file in several datasets does not double-count | **Half answered.** Double-counting answered; metadata filters not tested |
-| 3 | Authentik email-link stage: browser binding, single use, per-tenant brands can hide it | **Open.** Desk check not done |
+| 3 | Authentik email-link stage: browser binding, single use, per-tenant brands can hide it | **Desk-checked in P1a-02** against authentik `2026.8` source: no browser binding (enforced by the API), single use and expiry yes, per-tenant switch-off done by the API. Not yet run live. See `infra/authentik/README.md` and Phase 1a findings A7 |
 | 4 | Self-hosted multilingual embedding meets the eval set's hit-rate target | **Answered for English on this corpus:** factual hit@10 and hit@5 are 100 against the proposed 90 / 80 targets. Cross-language not tested (v1 is all English) |
 | 5 | Host sizing: parse throughput and memory on 8 vCPU / 32 GB | **Answered:** memory fits (18 GiB peak); CPU parsing is too slow (about 13 s per PDF page); resize before Phase 1 (item 5) |
 

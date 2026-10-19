@@ -17,6 +17,23 @@
         "title": "AskIn",
         "type": "object"
       },
+      "AuthModeOut": {
+        "properties": {
+          "mode": {
+            "enum": [
+              "phase0",
+              "oidc"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "AuthModeOut",
+        "type": "object"
+      },
       "ChatStreamEvents": {
         "description": "Documentation-only: the data payload of each SSE event name.",
         "properties": {
@@ -417,6 +434,85 @@
         "title": "Health",
         "type": "object"
       },
+      "LinkCompleteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "LinkCompleteIn",
+        "type": "object"
+      },
+      "LinkRequestIn": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "LinkRequestIn",
+        "type": "object"
+      },
+      "LinkRequestOut": {
+        "description": "Identical for every address (no enumeration).",
+        "properties": {
+          "status": {
+            "const": "sent_if_known",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "LinkRequestOut",
+        "type": "object"
+      },
+      "MeOut": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "tenant_admin"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "tenant_display_name": {
+            "title": "Tenant Display Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "display_name",
+          "role",
+          "tenant_display_name"
+        ],
+        "title": "MeOut",
+        "type": "object"
+      },
       "MessageOut": {
         "properties": {
           "abstained": {
@@ -594,6 +690,104 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/auth/link": {
+      "post": {
+        "operationId": "request_sign_in_link_api_v1_auth_link_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkRequestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Sign In Link"
+      }
+    },
+    "/api/v1/auth/link/complete": {
+      "post": {
+        "operationId": "complete_sign_in_link_api_v1_auth_link_complete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkCompleteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Sign In Link"
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout"
+      }
+    },
+    "/api/v1/auth/mode": {
+      "get": {
+        "operationId": "auth_mode_api_v1_auth_mode_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthModeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auth Mode"
+      }
+    },
     "/api/v1/conversations": {
       "get": {
         "operationId": "list_conversations_api_v1_conversations_get",
@@ -774,6 +968,25 @@
           }
         },
         "summary": "Healthz"
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "description": "The signed-in user, from the request context (P1a-02).",
+        "operationId": "me_api_v1_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Me"
       }
     },
     "/api/v1/messages/{message_id}/feedback": {

@@ -1,13 +1,14 @@
-"""Chat orchestrator (P0-14): the Phase 0 subset of architecture §5.2, corpus-only mode.
+"""Chat orchestrator (P0-14): the Phase 0 subset of architecture §5.2.
 
 ``Orchestrator.answer(ctx, conversation_id, question)`` checks the conversation and
-returns an async iterator of events:
+returns an async iterator of events. The conversation fixes the workspace, mode,
+model and reasoning (P1a-04); the workspace fixes the package (P1a-05):
 
 1. load the last N turns of the conversation (bounded by tokens);
 2. rewrite a follow-up into a standalone query (skipped for a first question);
-3. answer-cache lookup keyed by tenant + mode + normalised query + package + corpus
-   version (+ prompt version and model);
-4. retrieve from every dataset of the tenant's package (``top_k``, threshold);
+3. answer-cache lookup keyed by tenant + workspace + mode + model + reasoning +
+   prompt version + normalised query + corpus version + retrieval settings;
+4. retrieve from every dataset of the conversation's workspace (``top_k``, threshold);
 5. abstain, without any LLM call, when nothing passes the threshold;
 6. de-duplicate and cap context tokens; assemble the prompt;
 7. stream the answer, dropping dangling ``[n]`` markers as it streams;
@@ -40,24 +41,22 @@ from app.audit.writer import record
 from app.chat.citations import MarkerFilter, strip_markers
 from app.chat.context import ContextChunk, estimate_tokens, select_context
 from app.chat.models import Citation, Conversation, Message
-from app.chat.package import (
-    Package,
-    provenance_by_document,
-    resolve_package,
-    tenant_package_tags,
-)
-from app.chat.prompts import active_prompt
+from app.chat.package import Package, Provenance, provenance_by_document, workspace_package
+from app.chat.prompts import AnswerPrompt, active_prompt, render_system
 from app.chat.selection import Authorization, authorize, message_choice_fields
 from app.core import cache
 from app.core.config import Settings
 from app.core.db import tenant_session
 from app.core.logging import log
+from app.llm.catalogue import ModelChoice
 from app.llm.factory import LLMRouter
 from app.llm.mistral import LLMError, Turn, Usage
 from app.retrieval.protocol import Retriever
+from app.retrieval.ragflow import VECTOR_SIMILARITY_WEIGHT
+from app.retrieval.types import RetrievedChunk
+from app.tenancy.workspaces import NO_INSTRUCTIONS, WorkspaceInstructions, active_instructions
 from app.usage.ledger import record_usage
 
-MODE = "corpus_only"
 Outcome = Literal["answered", "unsupported", "abstained"]
 
 # User-facing text, not prompt text: shown when nothing in the package is relevant.
@@ -145,6 +144,21 @@ def _citation(marker: int, item: ContextChunk) -> CitationOut:
     )
 
 
+@dataclass(frozen=True)
+class ConversationSettings:
+    """Fixed when the conversation was created (P1a-04)."""
+
+    workspace_id: uuid.UUID
+    mode: str
+    model: str
+    reasoning: bool
+
+    @property
+    def choice(self) -> ModelChoice:
+        """The model choice the router and the entitlement check take (P1a-09)."""
+        return ModelChoice(self.model, self.reasoning)
+
+
 @dataclass
 class _Run:
     ctx: ChatContext
@@ -154,6 +168,9 @@ class _Run:
     package: Package
     started_at: datetime
     started: float
+    conversation: ConversationSettings
+    instructions: WorkspaceInstructions = NO_INSTRUCTIONS
+    prompt: str = ""  # template ref, e.g. corpus_only/v2
     query: str = ""
     # P1a-09: the conversation's model choice, or why the tenant may not use it.
     auth: Authorization = field(default_factory=lambda: Authorization(None, None, None))
@@ -184,14 +201,12 @@ class Orchestrator:
         db_factory: async_sessionmaker[AsyncSession],
         retriever: Retriever,
         llm: LLMRouter,
-        package_tags: tuple[str, ...],
     ) -> None:
         self._settings = settings
         self._chat = settings.models.chat
         self._db = db_factory
         self._retriever = retriever
         self._llm = llm
-        self._tags = package_tags
 
     async def answer(
         self, ctx: ChatContext, conversation_id: uuid.UUID, question: str
@@ -209,21 +224,38 @@ class Orchestrator:
             package=Package((), (), ""),
             started_at=datetime.now(UTC),
             started=time.perf_counter(),
+            conversation=ConversationSettings(uuid.UUID(int=0), "corpus_only", "", False),
         )
         async with tenant_session(self._db, ctx.tenant_id) as session:
-            found = await session.scalar(
-                select(Conversation.id).where(
-                    Conversation.id == conversation_id,
-                    Conversation.user_id == ctx.user_id,
-                    Conversation.expires_at > func.now(),
+            found = (
+                await session.execute(
+                    select(
+                        Conversation.workspace_id,
+                        Conversation.mode,
+                        Conversation.model,
+                        Conversation.reasoning,
+                    ).where(
+                        Conversation.id == conversation_id,
+                        Conversation.user_id == ctx.user_id,
+                        Conversation.expires_at > func.now(),
+                    )
                 )
-            )
+            ).one_or_none()
             if found is None:
                 raise ConversationNotFound(str(conversation_id))
-            run.history = await self._history(session, conversation_id)
-            run.package = await resolve_package(
-                session, tenant_package_tags(ctx.tenant_id, self._tags)
+            run.conversation = ConversationSettings(
+                workspace_id=found.workspace_id,
+                mode=found.mode,
+                model=found.model,
+                reasoning=found.reasoning,
             )
+            run.history = await self._history(session, conversation_id)
+            run.instructions = await active_instructions(session, found.workspace_id)
+            # The conversation's workspace, fixed at creation, decides the datasets
+            # (architecture §8 package enforcement, per workspace).
+            run.package = await workspace_package(session, found.workspace_id)
+            # P1a-09, P1a-10: the conversation's model checked against the entitlement
+            # and the spend cap, before any outbound call.
             run.auth = await authorize(session, self._settings, ctx.tenant_id, conversation_id)
         return self._run(run)
 
@@ -252,22 +284,40 @@ class Orchestrator:
         return turns
 
     def _cache_key(self, run: _Run, prompt_ref: str) -> str:
+        """Tenant-prefixed by ``app.core.cache``; everything that shapes the answer here.
+
+        The retrieval settings are part of it (findings D7), so a threshold, ``top_k``,
+        context cap or vector weight change never serves answers retrieved under the
+        old settings. ``prompt_ref`` names the template version and the workspace's
+        instructions version, so either change misses.
+        """
+        conversation = run.conversation
         material = "\x00".join(
             [
+                str(conversation.workspace_id),
+                conversation.mode,
+                conversation.model,  # the model that answers (P1a-09 routes by it)
+                "reasoning" if conversation.reasoning else "no-reasoning",
+                prompt_ref,
                 normalise_query(run.query),
                 ",".join(run.package.dataset_ids),
                 run.package.corpus_version,
-                prompt_ref,
-                # P1a-10, P1a-11: the conversation's model choice (P1a-05 owns the key).
-                f"{run.auth.choice.model}:{int(run.auth.choice.reasoning)}"
-                if run.auth.choice
-                else self._llm.chat_model,
+                f"top_k={self._chat.top_k}",
+                f"threshold={self._chat.similarity_threshold!r}",
+                f"max_context={self._chat.max_context_tokens}",
+                f"vector_weight={VECTOR_SIMILARITY_WEIGHT!r}",
             ]
         )
-        return f"answer:{MODE}:{hashlib.sha256(material.encode('utf-8')).hexdigest()}"
+        digest = hashlib.sha256(material.encode("utf-8")).hexdigest()
+        return f"answer:{conversation.mode}:{digest}"
 
     async def _run(self, run: _Run) -> AsyncIterator[ChatEvent]:
-        system = active_prompt(self._settings, "corpus_only")
+        # P1a-06: the mode's prompt with the workspace's tenant-authored block in its slot.
+        general = run.conversation.mode == "general_knowledge"
+        name: AnswerPrompt = "general_knowledge" if general else "corpus_only"
+        template = active_prompt(self._settings, name)
+        system = render_system(template, run.instructions.text)
+        run.prompt = template.ref
 
         # 1b. Model entitlement and spend cap (P1a-09, P1a-10): before any outbound call.
         refusal = run.auth.refusal
@@ -289,13 +339,14 @@ class Orchestrator:
                 # Degrade to the literal question rather than fail the turn.
                 log("chat.rewrite_failed", level="warning", error_code=exc.error_code)
 
-        if not run.package.dataset_ids:
+        # Corpus-only abstains without a package; general knowledge answers without one.
+        if not run.package.dataset_ids and not general:
             async for event in self._abstain(run):
                 yield event
             return
 
         # 3. Answer cache.
-        key = self._cache_key(run, system.ref)
+        key = self._cache_key(run, f"{template.ref}+instructions/{run.instructions.version}")
         cached = await self._cache_get(run.ctx.tenant_id, key)
         if cached is not None:
             run.cache_hit = True
@@ -308,13 +359,15 @@ class Orchestrator:
             return
 
         # 4. Retrieval from every dataset in the package; IDs never from the request.
+        chunks: list[RetrievedChunk] = []
         try:
-            chunks = await self._retriever.retrieve(
-                dataset_ids=list(run.package.dataset_ids),
-                query=run.query,
-                top_k=self._chat.top_k,
-                similarity_threshold=self._chat.similarity_threshold,
-            )
+            if run.package.dataset_ids:
+                chunks = await self._retriever.retrieve(
+                    dataset_ids=list(run.package.dataset_ids),
+                    query=run.query,
+                    top_k=self._chat.top_k,
+                    similarity_threshold=self._chat.similarity_threshold,
+                )
         except Exception:  # any retrieval failure is reported as one code, without detail
             async for event in self._fail(run, "retrieval_unavailable"):
                 yield event
@@ -322,10 +375,12 @@ class Orchestrator:
         run.retrieved = len(chunks)
 
         # 6. Chunk selection with provenance.
-        async with tenant_session(self._db, run.ctx.tenant_id) as session:
-            provenance = await provenance_by_document(
-                session, sorted({c.document_id for c in chunks})
-            )
+        provenance: dict[str, Provenance] = {}
+        if chunks:
+            async with tenant_session(self._db, run.ctx.tenant_id) as session:
+                provenance = await provenance_by_document(
+                    session, sorted({c.document_id for c in chunks})
+                )
         context = select_context(
             chunks,
             provenance,
@@ -335,8 +390,8 @@ class Orchestrator:
         )
         run.context = len(context)
 
-        # 5. Abstain without an LLM call when nothing relevant remains.
-        if not context:
+        # 5. Abstain without an LLM call when nothing relevant remains (corpus-only).
+        if not context and not general:
             async for event in self._abstain(run):
                 yield event
             return
@@ -346,7 +401,7 @@ class Orchestrator:
         parts: list[str] = []
         try:
             stream = await self._llm.answer(
-                system.text,
+                system,
                 [c.for_prompt() for c in context],
                 run.history,
                 run.question,
@@ -371,7 +426,8 @@ class Orchestrator:
         # 8. Citation mapping.
         answer = "".join(parts)
         citations = [_citation(n, context[n - 1]) for n in markers.cited]
-        outcome: Outcome = "answered" if citations else "unsupported"
+        # An uncited general-knowledge answer is expected, not unsupported (architecture §5.1).
+        outcome: Outcome = "answered" if citations or general else "unsupported"
         yield CitationsEvent(citations)
 
         # 9. Cache, then persist and audit (cached first: the client may leave after done).
@@ -428,8 +484,8 @@ class Orchestrator:
             cached=run.cache_hit,
             tokens_in=run.tokens_in,
             tokens_out=run.tokens_out,
-            model=run.model or (run.auth.choice.model if run.auth.choice else None),
-            reasoning=bool(run.auth.choice and run.auth.choice.reasoning),
+            model=run.model or run.conversation.model,
+            reasoning=run.conversation.reasoning,
         )
 
     async def _persist(
@@ -450,7 +506,7 @@ class Orchestrator:
                 conversation_id=run.conversation_id,
                 role="user",
                 content=run.question,
-                mode=MODE,
+                mode=run.conversation.mode,
                 created_at=run.started_at,
             )
         )
@@ -461,14 +517,14 @@ class Orchestrator:
                 conversation_id=run.conversation_id,
                 role="assistant",
                 content=answer,
-                mode=MODE,
+                mode=run.conversation.mode,
                 model=run.model,
                 tokens_in=run.tokens_in,
                 tokens_out=run.tokens_out,
                 latency_ms=latency,
                 outcome=outcome,
                 created_at=datetime.now(UTC),
-                **message_choice_fields(run.auth.choice),
+                **message_choice_fields(run.conversation.choice),
             )
         )
         await session.flush()
@@ -513,13 +569,16 @@ class Orchestrator:
         return {
             "conversation_id": str(run.conversation_id),
             "message_id": str(message_id) if message_id else None,
-            "mode": MODE,
+            "workspace_id": str(run.conversation.workspace_id),
+            "mode": run.conversation.mode,
+            "reasoning": run.conversation.reasoning,
             "outcome": outcome,
             "status": status,
             "error_code": error_code,
-            "model": run.model or (run.auth.choice.model if run.auth.choice else None),
-            "reasoning": bool(run.auth.choice and run.auth.choice.reasoning),
-            "prompt": active_prompt(self._settings, "corpus_only").ref,
+            # The model that answered, or the conversation's model when none was called.
+            "model": run.model or run.conversation.model,
+            "prompt": run.prompt,
+            "instructions_version": run.instructions.version,
             "cache_hit": run.cache_hit,
             "retrieved_chunk_count": run.retrieved,
             "context_chunk_count": run.context,

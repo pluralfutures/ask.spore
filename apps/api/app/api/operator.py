@@ -30,17 +30,22 @@ from app.api.schemas import (
     NoticeOut,
     OperatorMeOut,
     OperatorOptionsOut,
+    OperatorWorkspaceOut,
     TenantCreateIn,
     TenantOut,
+    WorkspaceCreateIn,
+    WorkspaceTagsIn,
 )
 from app.audit.writer import AuditValue, Change, record
 from app.auth.links import normalise_email
 from app.auth.provider import ProviderError, SignInLinkProvider
+from app.content.tags import load_tags
 from app.core.logging import log
 from app.operator.deps import OperatorContext, operator_session, require_operator
 from app.operator.models import OperatorNotice
 from app.tenancy.entitlements import available_answer_modes, available_models, default_model
 from app.tenancy.models import Tenant, TenantEntitlements, User
+from app.tenancy.workspaces import Workspace
 
 router = APIRouter(prefix="/api/v1/operator", dependencies=[Depends(require_operator)])
 
@@ -112,9 +117,11 @@ async def operator_me(
 
 @router.get("/options", response_model=OperatorOptionsOut)
 async def operator_options(request: Request) -> OperatorOptionsOut:
+    settings = request.app.state.settings
     return OperatorOptionsOut(
         answer_modes=list(available_answer_modes()),
-        models=list(available_models(request.app.state.settings)),
+        models=list(available_models(settings)),
+        tags=sorted(load_tags(settings.config_dir)),
     )
 
 
@@ -314,3 +321,121 @@ async def list_notices(session: AsyncSession = Depends(operator_session)) -> lis
         )
         for notice, slug in rows
     ]
+
+
+# --- package builder: workspaces and their tags (P1a-04) ---------------------------------
+
+
+def _workspace_values(workspace: Workspace) -> Change:
+    return {
+        "workspace_id": str(workspace.id),
+        "slug": workspace.slug,
+        "name": workspace.name,
+        "tag_ids": list(workspace.tag_ids),
+        "default_mode": workspace.default_mode,
+        "default_model": workspace.default_model,
+        "default_reasoning": workspace.default_reasoning,
+    }
+
+
+def _check_tags(request: Request, tag_ids: list[str]) -> list[str]:
+    """Tags must exist in config/tags.toml; tags may repeat across workspaces."""
+    if set(tag_ids) - set(load_tags(request.app.state.settings.config_dir)):
+        raise _unprocessable("unknown_tag")
+    return sorted(set(tag_ids))
+
+
+@router.get("/tenants/{tenant_id}/workspaces", response_model=list[OperatorWorkspaceOut])
+async def list_workspaces(
+    tenant_id: UUID, session: AsyncSession = Depends(operator_session)
+) -> list[Workspace]:
+    rows = await session.scalars(
+        select(Workspace).where(Workspace.tenant_id == tenant_id).order_by(Workspace.slug)
+    )
+    return list(rows)
+
+
+@router.post(
+    "/tenants/{tenant_id}/workspaces",
+    status_code=status.HTTP_201_CREATED,
+    response_model=OperatorWorkspaceOut,
+)
+async def create_workspace(
+    tenant_id: UUID,
+    body: WorkspaceCreateIn,
+    request: Request,
+    operator: OperatorContext = Depends(require_operator),
+    session: AsyncSession = Depends(operator_session),
+) -> Workspace:
+    entitlements = await session.get(TenantEntitlements, tenant_id)
+    if entitlements is None:
+        raise NOT_FOUND
+    if body.default_mode not in entitlements.answer_modes:
+        raise _unprocessable("mode_not_enabled")
+    if body.default_model not in entitlements.enabled_models:
+        raise _unprocessable("model_not_enabled")
+    if await session.scalar(
+        select(Workspace.id).where(Workspace.tenant_id == tenant_id, Workspace.slug == body.slug)
+    ):
+        raise _conflict("slug_taken")
+    workspace = Workspace(
+        id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        slug=body.slug,
+        name=body.name.strip(),
+        tag_ids=_check_tags(request, body.tag_ids),
+        default_mode=body.default_mode,
+        default_model=body.default_model,
+        default_reasoning=body.default_reasoning,
+    )
+    session.add(workspace)
+    await session.flush()
+    await session.refresh(workspace)
+    await record(
+        session,
+        tenant_id=tenant_id,
+        actor_user_id=None,
+        event="operator.workspace_created",
+        metadata={
+            "operator_id": str(operator.user_id),
+            "before": {},
+            "after": _workspace_values(workspace),
+        },
+    )
+    log("operator.workspace_created", tenant_id=str(tenant_id), user_id=str(operator.user_id))
+    return workspace
+
+
+@router.put(
+    "/tenants/{tenant_id}/workspaces/{workspace_id}/tags", response_model=OperatorWorkspaceOut
+)
+async def set_workspace_tags(
+    tenant_id: UUID,
+    workspace_id: UUID,
+    body: WorkspaceTagsIn,
+    request: Request,
+    operator: OperatorContext = Depends(require_operator),
+    session: AsyncSession = Depends(operator_session),
+) -> Workspace:
+    """Assign the workspace's tags (its corpus). Audited with before and after."""
+    workspace = await session.scalar(
+        select(Workspace)
+        .where(Workspace.tenant_id == tenant_id, Workspace.id == workspace_id)
+        .with_for_update()
+    )
+    if workspace is None:
+        raise NOT_FOUND
+    before = _workspace_values(workspace)
+    workspace.tag_ids = _check_tags(request, body.tag_ids)
+    await session.flush()
+    after = _workspace_values(workspace)
+    if after != before:
+        await record(
+            session,
+            tenant_id=tenant_id,
+            actor_user_id=None,
+            event="operator.workspace_tags_changed",
+            metadata={"operator_id": str(operator.user_id), "before": before, "after": after},
+        )
+        log("operator.workspace_tags_changed", tenant_id=str(tenant_id), status="changed")
+    return workspace

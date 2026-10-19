@@ -20,12 +20,14 @@ from app.llm.catalogue import ModelChoice
 from app.tenancy.entitlements import ModelRefused
 from app.tenancy.models import INTERNAL_TENANT_ID
 from app.usage.ledger import month_of
-from tests.chat_fixtures import DATASETS, TAGS, USAGE, World, chunks_for
+from tests.chat_fixtures import DATASETS, USAGE, World, chunks_for
 from tests.fakes import FakeRedis, FakeRetriever, OpenAIRecorder, completion, delta, router, sse
 from tests.test_model_catalogue import CLAUDE, DEEPSEEK, fixed_choice, internal_entitlement
 
 __all__ = ["internal_entitlement"]  # fixture reused from the catalogue tests
 
+# The internal tenant's seeded workspace (revision 0007): DeepSeek, reasoning off.
+WORKSPACE_DEFAULT = ModelChoice(DEEPSEEK, False)
 MONTH = month_of()
 LAST_MONTH = (MONTH - timedelta(days=1)).replace(day=1)
 # USAGE (900 in, 40 out) on Claude at the repository's catalogue prices, in cents.
@@ -73,7 +75,6 @@ def orchestrator(
         db_factory=session_factory(engine),
         retriever=FakeRetriever(chunks_for(world)),
         llm=router(settings, scaleway, openrouter),
-        package_tags=TAGS,
     )
 
 
@@ -128,10 +129,9 @@ async def test_external_answer_goes_through_openrouter_and_is_priced(
     redis: FakeRedis,
     ledger: Any,
     internal_entitlement: Any,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await internal_entitlement([DEEPSEEK, CLAUDE], external=True, cap=10_000)
-    fixed_choice(monkeypatch, ModelChoice(CLAUDE, False))
+    await fixed_choice(world, ModelChoice(CLAUDE, False))
     scaleway, openrouter = OpenAIRecorder(), OpenAIRecorder(sse(delta("Grew [1].", USAGE)))
     events = await ask(orchestrator(settings, engine, world, scaleway, openrouter), world)
 
@@ -170,10 +170,9 @@ async def test_80_percent_notice_is_written_once_per_month(
     redis: FakeRedis,
     ledger: Any,
     internal_entitlement: Any,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await internal_entitlement([DEEPSEEK, CLAUDE], external=True, cap=100)
-    fixed_choice(monkeypatch, ModelChoice(CLAUDE, False))
+    await fixed_choice(world, ModelChoice(CLAUDE, False))
     await ledger(CLAUDE, "79.6")  # one answer (0.55 cents) crosses 80 percent
     await ledger(CLAUDE, "500", LAST_MONTH)  # last month never counts
 
@@ -211,10 +210,9 @@ async def test_crossing_100_percent_writes_its_own_notice_once(
     redis: FakeRedis,
     ledger: Any,
     internal_entitlement: Any,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await internal_entitlement([DEEPSEEK, CLAUDE], external=True, cap=100)
-    fixed_choice(monkeypatch, ModelChoice(CLAUDE, False))
+    await fixed_choice(world, ModelChoice(CLAUDE, False))
     await ledger(CLAUDE, "99.9")
     openrouter = OpenAIRecorder(sse(delta("Grew [1].", USAGE)))
     await ask(orchestrator(settings, engine, world, OpenAIRecorder(), openrouter), world)
@@ -233,7 +231,13 @@ async def test_eu_usage_does_not_count_towards_the_cap(
     await ledger(DEEPSEEK, "5000")
     async with tenant_session(session_factory(engine), INTERNAL_TENANT_ID) as session:
         selection = await choose_for_new_conversation(
-            session, settings, INTERNAL_TENANT_ID, world.user_id, ModelChoice(CLAUDE, True)
+            session,
+            settings,
+            INTERNAL_TENANT_ID,
+            world.user_id,
+            workspace_default=WORKSPACE_DEFAULT,
+            model=CLAUDE,
+            reasoning=True,
         )
     assert selection.choice == ModelChoice(CLAUDE, True) and selection.notice is None
 
@@ -253,7 +257,13 @@ async def test_cap_reached_new_conversation_falls_back_and_audits(
     started = datetime.now(UTC)
     async with tenant_session(session_factory(engine), INTERNAL_TENANT_ID) as session:
         selection = await choose_for_new_conversation(
-            session, settings, INTERNAL_TENANT_ID, world.user_id, ModelChoice(CLAUDE, True)
+            session,
+            settings,
+            INTERNAL_TENANT_ID,
+            world.user_id,
+            workspace_default=WORKSPACE_DEFAULT,
+            model=CLAUDE,
+            reasoning=True,
         )
 
     # The default model, keeping reasoning on (DeepSeek has a thinking switch).
@@ -283,10 +293,20 @@ async def test_below_cap_new_conversation_keeps_its_choice(
     await ledger(CLAUDE, "1000", LAST_MONTH)
     async with tenant_session(session_factory(engine), INTERNAL_TENANT_ID) as session:
         selection = await choose_for_new_conversation(
-            session, settings, INTERNAL_TENANT_ID, world.user_id, ModelChoice(CLAUDE, False)
+            session,
+            settings,
+            INTERNAL_TENANT_ID,
+            world.user_id,
+            workspace_default=WORKSPACE_DEFAULT,
+            model=CLAUDE,
+            reasoning=False,
         )
         default = await choose_for_new_conversation(
-            session, settings, INTERNAL_TENANT_ID, world.user_id, None
+            session,
+            settings,
+            INTERNAL_TENANT_ID,
+            world.user_id,
+            workspace_default=WORKSPACE_DEFAULT,
         )
     assert selection.choice == ModelChoice(CLAUDE, False) and selection.notice is None
     assert default.choice == ModelChoice(DEEPSEEK, False)
@@ -299,7 +319,13 @@ async def test_new_conversation_refuses_what_the_tenant_may_not_use(
     async with tenant_session(session_factory(engine), INTERNAL_TENANT_ID) as session:
         with pytest.raises(ModelRefused) as excinfo:
             await choose_for_new_conversation(
-                session, settings, INTERNAL_TENANT_ID, world.user_id, ModelChoice(CLAUDE, False)
+                session,
+                settings,
+                INTERNAL_TENANT_ID,
+                world.user_id,
+                workspace_default=WORKSPACE_DEFAULT,
+                model=CLAUDE,
+                reasoning=False,
             )
     assert excinfo.value.code == "external_not_entitled"
 
@@ -311,11 +337,10 @@ async def test_cap_reached_refuses_an_existing_external_conversation(
     redis: FakeRedis,
     ledger: Any,
     internal_entitlement: Any,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await internal_entitlement([DEEPSEEK, CLAUDE], external=True, cap=100)
     await ledger(CLAUDE, "100")
-    fixed_choice(monkeypatch, ModelChoice(CLAUDE, False))
+    await fixed_choice(world, ModelChoice(CLAUDE, False))
     scaleway, openrouter = OpenAIRecorder(), OpenAIRecorder()
     events = await ask(orchestrator(settings, engine, world, scaleway, openrouter), world)
     assert events == [ErrorEvent("spend_cap_reached")]
@@ -329,10 +354,9 @@ async def test_external_model_without_openrouter_key_fails_closed(
     redis: FakeRedis,
     ledger: Any,
     internal_entitlement: Any,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await internal_entitlement([DEEPSEEK, CLAUDE], external=True, cap=100)
-    fixed_choice(monkeypatch, ModelChoice(CLAUDE, False))
+    await fixed_choice(world, ModelChoice(CLAUDE, False))
     scaleway = OpenAIRecorder()
     events = await ask(orchestrator(settings, engine, world, scaleway, None), world)
     assert events == [ErrorEvent("model_unavailable")]

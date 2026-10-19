@@ -14,8 +14,10 @@ import type {
   Me,
   NoticeOut,
   OperatorOptions,
+  OperatorWorkspace,
   TenantCreateIn,
   TenantOut,
+  WorkspaceCreateIn,
 } from "./types";
 
 const BASE = "/api/v1";
@@ -167,4 +169,13 @@ export const operatorApi = {
   setEntitlements: (tenantId: string, body: EntitlementsIn) =>
     json<EntitlementsOut>("PUT", `/operator/tenants/${tenantId}/entitlements`, body),
   notices: () => json<NoticeOut[]>("GET", "/operator/notices"),
+  // Package builder (P1a-04): a tenant's workspaces and their tags.
+  workspaces: (tenantId: string) =>
+    json<OperatorWorkspace[]>("GET", `/operator/tenants/${tenantId}/workspaces`),
+  createWorkspace: (tenantId: string, body: WorkspaceCreateIn) =>
+    json<OperatorWorkspace>("POST", `/operator/tenants/${tenantId}/workspaces`, body),
+  setWorkspaceTags: (tenantId: string, workspaceId: string, tagIds: string[]) =>
+    json<OperatorWorkspace>("PUT", `/operator/tenants/${tenantId}/workspaces/${workspaceId}/tags`, {
+      tag_ids: tagIds,
+    }),
 };

@@ -1,8 +1,8 @@
 """Conversations, messages, citations and feedback. Tenant-scoped with RLS.
 
 Child rows reference parents through composite (tenant_id, id) foreign keys, so a
-row can never point at another tenant's row. Mirrors alembic revisions 0001-0002; the
-migrations are authoritative.
+row can never point at another tenant's row. Mirrors alembic revisions 0001, 0002 and
+0007; the migrations are authoritative.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -29,6 +30,7 @@ from app.core.db import Base
 
 GEN_UUID = text("gen_random_uuid()")
 RETENTION = "interval '30 days'"  # CLAUDE.md: chat history retention is 30 days maximum
+MODES = "('corpus_only', 'general_knowledge')"  # answer modes of Phase 1a (P1a-06)
 
 
 def _id() -> Mapped[uuid.UUID]:
@@ -50,9 +52,14 @@ class Conversation(Base):
         ForeignKeyConstraint(
             ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], ondelete="CASCADE"
         ),
+        ForeignKeyConstraint(
+            ["tenant_id", "workspace_id"], ["workspaces.tenant_id", "workspaces.id"]
+        ),
         CheckConstraint(f"expires_at <= created_at + {RETENTION}", name="retention_cap"),
+        CheckConstraint(f"mode IN {MODES}", name="mode_valid"),
         Index(None, "tenant_id", "user_id", "updated_at"),
         Index(None, "tenant_id", "expires_at"),
+        Index(None, "tenant_id", "workspace_id"),
     )
 
     id: Mapped[uuid.UUID] = _id()
@@ -64,6 +71,12 @@ class Conversation(Base):
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text(f"now() + {RETENTION}")
     )
+    # P1a-04: chosen when the conversation is created and fixed for its lifetime (the
+    # application role cannot UPDATE these columns).
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    mode: Mapped[str] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(Text)
+    reasoning: Mapped[bool] = mapped_column(Boolean)
 
 
 class Message(Base):
@@ -76,7 +89,7 @@ class Message(Base):
             ondelete="CASCADE",
         ),
         CheckConstraint("role IN ('user', 'assistant')", name="role_valid"),
-        CheckConstraint("mode IN ('corpus_only')", name="mode_valid"),
+        CheckConstraint(f"mode IN {MODES}", name="mode_valid"),
         CheckConstraint(
             "(role = 'user' AND outcome IS NULL) OR "
             "(role = 'assistant' AND outcome IN ('answered', 'unsupported', 'abstained'))",
@@ -92,6 +105,8 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text)
     mode: Mapped[str] = mapped_column(Text, server_default=text("'corpus_only'"))
     model: Mapped[str | None] = mapped_column(Text)
+    # Assistant messages (P1a-04): the conversation's reasoning setting.
+    reasoning: Mapped[bool | None] = mapped_column(Boolean)
     tokens_in: Mapped[int | None] = mapped_column(Integer)
     tokens_out: Mapped[int | None] = mapped_column(Integer)
     latency_ms: Mapped[int | None] = mapped_column(Integer)

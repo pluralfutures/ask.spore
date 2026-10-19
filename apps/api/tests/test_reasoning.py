@@ -10,14 +10,13 @@ from typing import Any
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.chat.models import Message
 from app.chat.orchestrator import DoneEvent, Orchestrator, TokenEvent
 from app.core.config import Settings, load_settings
 from app.core.db import session_factory
 from app.llm.catalogue import ModelChoice
 from app.llm.reasoning import ThinkFilter
 from app.tenancy.entitlements import ModelEntitlement, ModelRefused, check_choice
-from tests.chat_fixtures import TAGS, USAGE, World, chunks_for
+from tests.chat_fixtures import USAGE, World, chunks_for
 from tests.fakes import FakeRedis, FakeRetriever, OpenAIRecorder, router, sse
 from tests.test_api import Harness, api
 from tests.test_config import ENV, write_config
@@ -128,17 +127,15 @@ async def test_reasoning_is_never_persisted_cached_audited_or_logged(
     engine: AsyncEngine,
     world: World,
     redis: FakeRedis,
-    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    fixed_choice(monkeypatch, ModelChoice(DEEPSEEK, True))
+    await fixed_choice(world, ModelChoice(DEEPSEEK, True))
     recorder = OpenAIRecorder(SCALEWAY_REASONING_STREAM)
     orch = Orchestrator(
         settings=settings,
         db_factory=session_factory(engine),
         retriever=FakeRetriever(chunks_for(world)),
         llm=router(settings, recorder),
-        package_tags=TAGS,
     )
     capsys.readouterr()
     events = [e async for e in await orch.answer(world.ctx, world.conversation_id, "Capacity?")]
@@ -169,23 +166,15 @@ async def test_reasoning_is_never_persisted_cached_audited_or_logged(
     assert json.loads(audit)["model"] == DEEPSEEK
 
 
-@pytest.mark.skipif(
-    not hasattr(Message, "reasoning"), reason="messages.reasoning arrives with P1a-04"
-)
 async def test_reasoning_is_stored_on_the_message(
-    settings: Settings,
-    engine: AsyncEngine,
-    world: World,
-    redis: FakeRedis,
-    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
 ) -> None:
-    fixed_choice(monkeypatch, ModelChoice(DEEPSEEK, True))
+    await fixed_choice(world, ModelChoice(DEEPSEEK, True))
     orch = Orchestrator(
         settings=settings,
         db_factory=session_factory(engine),
         retriever=FakeRetriever(chunks_for(world)),
         llm=router(settings, OpenAIRecorder(SCALEWAY_REASONING_STREAM)),
-        package_tags=TAGS,
     )
     events = [e async for e in await orch.answer(world.ctx, world.conversation_id, "Capacity?")]
     done = events[-1]
@@ -199,11 +188,11 @@ async def test_reasoning_is_stored_on_the_message(
 # --- badge data in the API response -------------------------------------------------------
 
 
-async def test_badge_data_in_stream_and_conversation(
-    api: Harness, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    fixed_choice(monkeypatch, ModelChoice(DEEPSEEK, True))
-    conversation = await api.conversation()
+async def test_badge_data_in_stream_and_conversation(api: Harness) -> None:
+    created = await api.request("POST", "/conversations", json={"reasoning": True})
+    assert created.status_code == 201
+    assert (created.json()["model"], created.json()["reasoning"]) == (DEEPSEEK, True)
+    conversation = created.json()["id"]
     api.recorder.add(SCALEWAY_REASONING_STREAM)
     response = await api.request(
         "POST", f"/conversations/{conversation}/messages", json={"question": "Capacity?"}
@@ -217,9 +206,7 @@ async def test_badge_data_in_stream_and_conversation(
     assert_no_reasoning(json.dumps(detail))
     user, assistant = detail["messages"]
     assert (user["model"], user["reasoning"]) == (None, None)
-    assert assistant["model"] == DEEPSEEK
-    expected = True if hasattr(Message, "reasoning") else None  # column from P1a-04
-    assert assistant["reasoning"] is expected
+    assert (assistant["model"], assistant["reasoning"]) == (DEEPSEEK, True)
 
 
 # --- a model without a switch ------------------------------------------------------------

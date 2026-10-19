@@ -26,6 +26,14 @@ pytest_plugins = ("tests.chat_fixtures",)
 
 API_DIR = Path(__file__).resolve().parents[1]
 SEED_USERS = "analyst@example.org:Test Analyst,Editor@Example.org:Test Editor"
+# P1a-04: a conversation's workspace, mode, model and reasoning are required. For rows
+# arranged as the owner: the tenant's first workspace ($1 is the tenant ID), corpus-only,
+# the Phase 0 model, reasoning off.
+CONVERSATION_COLUMNS = "workspace_id, mode, model, reasoning"
+CONVERSATION_DEFAULTS = (
+    "(SELECT id FROM workspaces WHERE tenant_id = $1 ORDER BY created_at, slug LIMIT 1), "
+    "'corpus_only', 'deepseek-v4.1-flash', false"
+)
 
 
 @dataclass(frozen=True)

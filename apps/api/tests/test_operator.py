@@ -409,6 +409,7 @@ async def test_options_list_what_can_be_enabled(console: Console) -> None:
         "answer_modes": ["corpus_only", "general_knowledge"],
         # The catalogue (P1a-09), in its order.
         "models": [MODEL, "qwen3.8-27b", "openai/gpt-6.1-sol", "anthropic/claude-opus-5.5"],
+        "tags": ["sample-analysis", "sample-reports", "sample-web"],
     }
     me = (await op.get("/api/v1/operator/me")).json()
     assert me["email"] == OPERATOR_EMAIL

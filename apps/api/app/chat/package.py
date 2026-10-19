@@ -1,36 +1,32 @@
-"""The tenant's package: which datasets it may retrieve from, and their provenance.
+"""A workspace's package: which datasets it may retrieve from, and their provenance.
 
-PHASE 0: one tenant, whose package is every tag in ``config/tags.toml``. Phase 1a
-adds tenants (P1a-01) before workspaces (P1a-04): until P1a-04 assigns tags per
-workspace, only the internal tenant has the Phase 0 package and every other tenant
-has none, so it retrieves nothing (``tenant_package_tags``). P1a-04 replaces both
-functions with the workspace's tags; the rest is unchanged. Dataset IDs come only
-from the ``datasets`` table, never from a request (CLAUDE.md).
+P1a-04: the package is per workspace (architecture §14.1). ``workspace_package``
+reads the workspace's tags under the caller's tenant-scoped transaction (RLS hides
+every other tenant's workspaces) and resolves them to RAGFlow dataset IDs through the
+``datasets`` table. Dataset IDs never come from a request (CLAUDE.md): nothing here
+takes or imports a request, and tests/test_workspaces.py checks that it stays so.
+A workspace with no tags, or tags not yet synced, has no dataset and retrieves nothing.
 """
 
 from __future__ import annotations
 
 import hashlib
-import tomllib
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.content.models import Dataset
-from app.tenancy.models import INTERNAL_TENANT_ID
+from app.tenancy.workspaces import Workspace
 
-TAGS_FILE = "tags.toml"
 # Crawled or rendered web pages: untrusted text in prompts (CLAUDE.md).
 UNTRUSTED_SOURCE_TYPES = frozenset({"html", "markdown"})
 
 
-class PackageError(RuntimeError):
-    """config/tags.toml is missing or malformed."""
+class WorkspaceNotFound(LookupError):
+    """No workspace with this ID in the current tenant."""
 
 
 @dataclass(frozen=True)
@@ -54,28 +50,12 @@ class Provenance:
         return self.type in UNTRUSTED_SOURCE_TYPES
 
 
-def phase0_package_tags(config_dir: Path) -> tuple[str, ...]:
-    """PHASE 0 ONLY: the internal tenant's tags are all tags in config/tags.toml."""
-    path = config_dir / TAGS_FILE
-    try:
-        raw: dict[str, Any] = tomllib.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError as exc:
-        raise PackageError(f"tag file not found: {path}") from exc
-    except tomllib.TOMLDecodeError as exc:
-        raise PackageError(f"{path.name} is not valid TOML: {exc}") from exc
-    tags = raw.get("tags")
-    if not isinstance(tags, dict) or not tags:
-        raise PackageError(f"{path.name} must define at least one [tags.<name>] table")
-    return tuple(sorted(tags))
-
-
-def tenant_package_tags(tenant_id: UUID, phase0_tags: tuple[str, ...]) -> tuple[str, ...]:
-    """STUB until P1a-04: the Phase 0 package for the internal tenant, nothing for others.
-
-    Fails closed: a client tenant created by the operator before its workspaces exist
-    must not inherit the internal tenant's corpus.
-    """
-    return phase0_tags if tenant_id == INTERNAL_TENANT_ID else ()
+async def workspace_package(session: AsyncSession, workspace_id: UUID) -> Package:
+    """The package of one workspace of the session's tenant, from the database only."""
+    tags = await session.scalar(select(Workspace.tag_ids).where(Workspace.id == workspace_id))
+    if tags is None:
+        raise WorkspaceNotFound(str(workspace_id))
+    return await resolve_package(session, tuple(sorted(set(tags))))
 
 
 async def resolve_package(session: AsyncSession, tags: tuple[str, ...]) -> Package:

@@ -139,7 +139,8 @@ embedding_model = "BAAI/bge-m3@Builtin"
 [prompts]
 # Active versions of config/prompts/<name>/<version>.md. Changing a prompt means a
 # new version file and an eval run (CLAUDE.md); never edit a released version.
-corpus_only = "v1"
+corpus_only = "v2"
+general_knowledge = "v1"   # P1a-06: the general-knowledge answer mode
 rewrite = "v1"
 # Faithfulness judge of the eval harness (packages/eval, P0-18); the API does not use it.
 judge = "v1"

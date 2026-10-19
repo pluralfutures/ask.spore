@@ -45,9 +45,15 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "after",
         "acceptance_reference",
         "acceptance_date",
-        # Model choice (P1a-10, P1a-11): the reasoning switch, and the model a new
-        # conversation asked for before the external spend cap made it fall back.
+        # Workspaces (P1a-04 to P1a-07): which workspace and prompt version, the
+        # conversation's reasoning setting, and which kinds of tenant name matched.
+        "workspace_id",
+        "version",
+        "instructions_version",
         "reasoning",
+        "match_kinds",
+        # Model choice (P1a-10): the model a new conversation asked for before the
+        # external spend cap made it fall back.
         "requested_model",
     }
 )
@@ -67,6 +73,13 @@ CHANGE_FIELDS: Final[frozenset[str]] = frozenset(
         "external_acceptance_date",
         "user_id",
         "role",
+        # Workspaces (P1a-04): the package builder's settings.
+        "workspace_id",
+        "name",
+        "tag_ids",
+        "default_mode",
+        "default_model",
+        "default_reasoning",
     }
 )
 CHANGE_KEYS: Final = frozenset({"before", "after"})

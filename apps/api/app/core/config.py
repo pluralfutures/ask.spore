@@ -36,6 +36,8 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
+from app.chat.prompts import check_slot
+
 CONFIG_DIR_ENV = "ASK_SPORE_CONFIG_DIR"
 DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[4] / "config"
 
@@ -173,6 +175,8 @@ class PromptsConfig(_Strict):
     """Active prompt versions: ``prompts/<name>/<version>.md`` (app.chat.prompts)."""
 
     corpus_only: str = Field(pattern=r"^v[1-9][0-9]*$")
+    # The general-knowledge answer mode (P1a-06), for tenants entitled to it.
+    general_knowledge: str = Field(pattern=r"^v[1-9][0-9]*$")
     rewrite: str = Field(pattern=r"^v[1-9][0-9]*$")
     # Faithfulness judge of the eval harness (P0-18); not used by the API itself.
     judge: str = Field(pattern=r"^v[1-9][0-9]*$")
@@ -389,8 +393,11 @@ def _check_prompts(prompts: PromptsConfig, directory: Path) -> list[str]:
         path = directory / "prompts" / name / f"{version}.md"
         if not path.is_file():
             problems.append(f"prompts.{name} = '{version}' but {path} does not exist")
-        elif not path.read_text(encoding="utf-8").strip():
+        elif not (text := path.read_text(encoding="utf-8")).strip():
             problems.append(f"prompts.{name}: {path} is empty")
+        else:
+            # P1a-06: the workspace-instructions slot, when present, must be well formed.
+            problems += [f"prompts.{name}: {path.name} {p}" for p in check_slot(text)]
     return problems
 
 

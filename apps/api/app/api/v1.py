@@ -18,20 +18,22 @@ import json
 from collections.abc import AsyncIterator
 from dataclasses import asdict
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import current_tenant_id, current_user_id, db_session
+from app.api.deps import current_tenant_id, current_user_id, db_session, request_context
 from app.api.schemas import (
     AskIn,
     ChatStreamEvents,
     CitationOut,
     ConversationCreated,
+    ConversationCreateIn,
     ConversationDetail,
     ConversationSummary,
     FeedbackIn,
@@ -41,8 +43,11 @@ from app.api.schemas import (
     MessageOut,
     ModelOptionOut,
     SourceOut,
+    WorkspaceOut,
+    WorkspacePromptIn,
+    WorkspacePromptOut,
 )
-from app.audit.writer import record
+from app.audit.writer import AuditValue, record
 from app.chat.models import Citation, Conversation, Feedback, Message
 from app.chat.orchestrator import (
     ChatContext,
@@ -54,15 +59,26 @@ from app.chat.orchestrator import (
     Orchestrator,
     TokenEvent,
 )
-from app.chat.package import tenant_package_tags
-from app.chat.selection import load_entitlement
+from app.chat.selection import choose_for_new_conversation, load_entitlement
 from app.content.models import Source
-from app.tenancy.entitlements import tenant_default_choice, usable_models
-from app.tenancy.models import Tenant, User
+from app.core.logging import log
+from app.operator.models import OperatorNotice
+from app.tenancy.entitlements import ModelRefused, eu_fallback_choice, usable_models
+from app.tenancy.models import Tenant, TenantEntitlements, User
+from app.tenancy.name_flags import match_kinds, tenant_terms
+from app.tenancy.workspaces import (
+    ChoiceRefused,
+    Workspace,
+    WorkspacePrompt,
+    choose,
+    tenant_tags,
+)
 
 router = APIRouter(prefix="/api/v1")
 
 NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, detail="not_found")
+FORBIDDEN = HTTPException(status.HTTP_403_FORBIDDEN, detail="forbidden")
+NAME_MATCH_NOTICE = "workspace_prompt.tenant_name_match"
 
 
 class EventStreamResponse(StreamingResponse):
@@ -112,10 +128,12 @@ async def list_models(
     request: Request, session: AsyncSession = Depends(db_session)
 ) -> list[ModelOptionOut]:
     """The models the tenant's users may pick (P1a-09): enabled for the tenant, and
-    external ones only with the external-models entitlement."""
+    external ones only with the external-models entitlement. ``default`` marks the
+    tenant-wide EU fallback; the start panel pre-fills from the workspace's defaults
+    (``GET /workspaces``)."""
     settings = request.app.state.settings
     ent = await load_entitlement(session, current_tenant_id(request))
-    default = tenant_default_choice(settings, ent)
+    default = eu_fallback_choice(settings, ent)
     return [
         ModelOptionOut(
             id=e.id,
@@ -128,19 +146,70 @@ async def list_models(
     ]
 
 
+@router.get("/workspaces", response_model=list[WorkspaceOut])
+async def list_workspaces(session: AsyncSession = Depends(db_session)) -> list[Workspace]:
+    """The tenant's workspaces (RLS), for the start panel. No tags or dataset IDs."""
+    rows = await session.scalars(select(Workspace).order_by(Workspace.name, Workspace.slug))
+    return list(rows)
+
+
 @router.post(
     "/conversations", status_code=status.HTTP_201_CREATED, response_model=ConversationCreated
 )
 async def create_conversation(
-    request: Request, session: AsyncSession = Depends(db_session)
+    request: Request,
+    body: ConversationCreateIn | None = None,
+    session: AsyncSession = Depends(db_session),
 ) -> ConversationCreated:
+    """Start a conversation in a workspace with a mode, model and reasoning, all fixed.
+
+    Defaults come from the workspace; the mode is checked against the tenant's
+    ``answer_modes``, the model and reasoning by ``choose_for_new_conversation``
+    (catalogue, ``enabled_models``, external-models entitlement, reasoning switch and
+    the external spend cap, P1a-09 to P1a-11). At the cap an external model falls back
+    to the workspace default and the response carries the notice.
+    """
+    choice = body or ConversationCreateIn()
+    tenant_id, user_id = current_tenant_id(request), current_user_id(request)
+    entitlements = await session.get(TenantEntitlements, tenant_id)
+    if entitlements is None:
+        raise NOT_FOUND
+    try:
+        chosen = await choose(
+            session,
+            workspace_id=choice.workspace_id,
+            mode=choice.mode,
+            answer_modes=entitlements.answer_modes,
+        )
+        selection = await choose_for_new_conversation(
+            session,
+            request.app.state.settings,
+            tenant_id,
+            user_id,
+            workspace_default=chosen.default,
+            model=choice.model,
+            reasoning=choice.reasoning,
+        )
+    except ChoiceRefused as exc:
+        if exc.code == "unknown_workspace":
+            raise NOT_FOUND from None
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=exc.code) from None
+    except ModelRefused as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=exc.code) from None
     conversation = Conversation(
-        tenant_id=current_tenant_id(request), user_id=current_user_id(request)
+        tenant_id=tenant_id,
+        user_id=user_id,
+        workspace_id=chosen.workspace_id,
+        mode=chosen.mode,
+        model=selection.choice.model,
+        reasoning=selection.choice.reasoning,
     )
     session.add(conversation)
     await session.flush()
     await session.refresh(conversation)
-    created = ConversationCreated.model_validate(conversation)
+    created = ConversationCreated.model_validate(conversation).model_copy(
+        update={"notice": selection.notice, "notice_text": selection.notice_text}
+    )
     await session.commit()
     return created
 
@@ -203,6 +272,10 @@ async def get_conversation(
         created_at=conversation.created_at,
         updated_at=conversation.updated_at,
         expires_at=conversation.expires_at,
+        workspace_id=conversation.workspace_id,
+        mode=conversation.mode,
+        model=conversation.model,
+        reasoning=conversation.reasoning,
         messages=[
             MessageOut(
                 id=m.id,
@@ -214,8 +287,7 @@ async def get_conversation(
                 abstained=m.outcome == "abstained",
                 citations=by_message.get(m.id, []),
                 model=m.model if m.role == "assistant" else None,
-                # messages.reasoning arrives with P1a-04 (findings C15).
-                reasoning=getattr(m, "reasoning", None) if m.role == "assistant" else None,
+                reasoning=m.reasoning if m.role == "assistant" else None,
             )
             for m in messages
         ],
@@ -347,8 +419,9 @@ async def give_feedback(
 async def get_source(
     source_id: UUID, request: Request, session: AsyncSession = Depends(db_session)
 ) -> SourceOut:
-    """Provenance of a source in the tenant's package; any other source is not found."""
-    tags = tenant_package_tags(current_tenant_id(request), request.app.state.package_tags)
+    """Provenance of a source in the tenant's package (the union of its workspaces'
+    tags); any other source is not found."""
+    tags = await tenant_tags(session)
     source = await session.scalar(
         select(Source).where(Source.id == source_id, Source.tags.overlap(list(tags)))
     )
@@ -363,3 +436,102 @@ async def get_source(
         type=source.type,
         withdrawn=source.status == "withdrawn",
     )
+
+
+def _require_admin(request: Request) -> None:
+    if not request_context(request).is_tenant_admin:
+        raise FORBIDDEN
+
+
+@router.get("/workspaces/{workspace_id}/prompts", response_model=list[WorkspacePromptOut])
+async def list_workspace_prompts(
+    workspace_id: UUID, request: Request, session: AsyncSession = Depends(db_session)
+) -> list[WorkspacePrompt]:
+    """Tenant admins: every saved version of the additional instructions, newest first."""
+    _require_admin(request)
+    if await session.scalar(select(Workspace.id).where(Workspace.id == workspace_id)) is None:
+        raise NOT_FOUND
+    rows = await session.scalars(
+        select(WorkspacePrompt)
+        .where(WorkspacePrompt.workspace_id == workspace_id)
+        .order_by(WorkspacePrompt.version.desc())
+    )
+    return list(rows)
+
+
+async def _flag_tenant_names(
+    session: AsyncSession, tenant_id: UUID, prompt: WorkspacePrompt
+) -> None:
+    """P1a-07: a prompt naming the tenant or its people is permitted but flagged.
+
+    Writes an operator notice and an audit event naming only the kinds that matched,
+    in the save's transaction. The save succeeds either way and its response is the
+    same: nothing here reaches the tenant user.
+    """
+    kinds = match_kinds(prompt.text, await tenant_terms(session))
+    if not kinds:
+        return
+    metadata: dict[str, AuditValue] = {
+        "workspace_id": str(prompt.workspace_id),
+        "version": prompt.version,
+        "match_kinds": kinds,
+    }
+    # No RETURNING (the ID is ours): the application role may add notices, not read them.
+    await session.execute(
+        insert(OperatorNotice).values(
+            id=uuid4(), tenant_id=tenant_id, kind=NAME_MATCH_NOTICE, metadata_=metadata
+        )
+    )
+    await record(
+        session,
+        tenant_id=tenant_id,
+        actor_user_id=prompt.author_user_id,
+        event="workspace.prompt_tenant_name_match",
+        metadata=metadata,
+    )
+    log("workspace.prompt_tenant_name_match", tenant_id=str(tenant_id), count=len(kinds))
+
+
+@router.put("/workspaces/{workspace_id}/prompt", response_model=WorkspacePromptOut)
+async def save_workspace_prompt(
+    workspace_id: UUID,
+    body: WorkspacePromptIn,
+    request: Request,
+    session: AsyncSession = Depends(db_session),
+) -> WorkspacePromptOut:
+    """Tenant admins: save a new version of the additional instructions (P1a-04)."""
+    _require_admin(request)
+    tenant_id = current_tenant_id(request)
+    if await session.scalar(select(Workspace.id).where(Workspace.id == workspace_id)) is None:
+        raise NOT_FOUND
+    latest = await session.scalar(
+        select(func.max(WorkspacePrompt.version)).where(
+            WorkspacePrompt.workspace_id == workspace_id
+        )
+    )
+    prompt = WorkspacePrompt(
+        tenant_id=tenant_id,
+        workspace_id=workspace_id,
+        version=(latest or 0) + 1,
+        text=body.text.strip(),
+        author_user_id=current_user_id(request),
+    )
+    session.add(prompt)
+    try:
+        await session.flush()
+    except IntegrityError:
+        # A concurrent save took this version number (unique per workspace).
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="concurrent_save") from None
+    await session.refresh(prompt)
+    await record(
+        session,
+        tenant_id=tenant_id,
+        actor_user_id=current_user_id(request),
+        event="workspace.prompt_saved",
+        metadata={"workspace_id": str(workspace_id), "version": prompt.version},
+    )
+    log("workspace.prompt_saved", tenant_id=str(tenant_id), user_id=str(prompt.author_user_id))
+    await _flag_tenant_names(session, tenant_id, prompt)
+    out = WorkspacePromptOut.model_validate(prompt)
+    await session.commit()
+    return out

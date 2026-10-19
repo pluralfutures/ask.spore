@@ -77,13 +77,13 @@ def usable_models(settings: Settings, ent: ModelEntitlement) -> tuple[CatalogueE
     )
 
 
-def tenant_default_choice(settings: Settings, ent: ModelEntitlement) -> ModelChoice | None:
-    """Stand-in for the workspace default model until P1a-04 adds it (findings C1).
+def eu_fallback_choice(settings: Settings, ent: ModelEntitlement) -> ModelChoice | None:
+    """The model choice when the workspace's default cannot be used (findings C1).
 
     The platform default if the tenant has it enabled, else the tenant's first enabled
     EU model in catalogue order, with reasoning off. Never an external model, so it is
-    also the fallback when the external spend cap is reached. None when the tenant has
-    no EU model enabled.
+    also the spend-cap fallback when the workspace default is external. None when the
+    tenant has no EU model enabled.
     """
     eu = [e.id for e in usable_models(settings, ent) if not e.external]
     if not eu:

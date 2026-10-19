@@ -2,11 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 
 import { ApiError, operatorApi } from "../api/client";
-import type { OperatorOptions, TenantOut } from "../api/types";
+import type { OperatorOptions, OperatorWorkspace, TenantOut } from "../api/types";
 import { formatDate } from "../lib/format";
 import { formFrom, toRequest, type EntitlementsForm } from "../lib/entitlements";
 
-// Operator console, minimum (P1a-03): tenants, first admin, entitlements, notices.
+// Operator console, minimum (P1a-03): tenants, first admin, entitlements, notices; and the
+// package builder (P1a-04): each tenant's workspaces and the tags that form their corpus.
 // The API decides who is an operator; anyone else gets 403 and this page says so.
 export function OperatorConsole() {
   const tenants = useQuery({ queryKey: ["operator", "tenants"], queryFn: operatorApi.tenants });
@@ -284,6 +285,119 @@ function TenantPanel({ tenant, options }: { tenant: TenantOut; options: Operator
           <p className="w-full text-red-700">{errorText(invite.error)}</p>
         )}
       </form>
+      <Workspaces tenant={tenant} options={options} />
     </section>
+  );
+}
+
+function Workspaces({ tenant, options }: { tenant: TenantOut; options: OperatorOptions }) {
+  const queryClient = useQueryClient();
+  const key = ["operator", "workspaces", tenant.id];
+  const workspaces = useQuery({ queryKey: key, queryFn: () => operatorApi.workspaces(tenant.id) });
+  const [slug, setSlug] = useState("");
+  const [name, setName] = useState("");
+  const create = useMutation({
+    mutationFn: () =>
+      operatorApi.createWorkspace(tenant.id, {
+        slug: slug.trim(),
+        name: name.trim(),
+        tag_ids: [],
+        default_mode: "corpus_only",
+        default_model: tenant.entitlements.enabled_models[0] ?? "",
+        default_reasoning: false,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="font-semibold">Workspaces</h3>
+      {workspaces.data?.map((workspace) => (
+        <WorkspaceTags
+          key={workspace.id}
+          tenantId={tenant.id}
+          workspace={workspace}
+          tags={options.tags}
+        />
+      ))}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          create.mutate();
+        }}
+        className="flex flex-wrap items-end gap-2"
+      >
+        <label className="flex flex-col">
+          New workspace: slug
+          <input
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            required
+            className="border px-1"
+          />
+        </label>
+        <label className="flex flex-col">
+          Name
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            className="border px-1"
+          />
+        </label>
+        <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+          Add workspace
+        </button>
+        {errorText(create.error) && (
+          <p className="w-full text-red-700">{errorText(create.error)}</p>
+        )}
+      </form>
+    </div>
+  );
+}
+
+function WorkspaceTags({
+  tenantId,
+  workspace,
+  tags,
+}: {
+  tenantId: string;
+  workspace: OperatorWorkspace;
+  tags: string[];
+}) {
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState<string[]>(workspace.tag_ids);
+  const save = useMutation({
+    mutationFn: () => operatorApi.setWorkspaceTags(tenantId, workspace.id, selected),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["operator", "workspaces", tenantId] }),
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate();
+      }}
+      className="flex flex-wrap items-center gap-3"
+    >
+      <span>
+        {workspace.name} <span className="text-slate-500">({workspace.slug})</span>
+      </span>
+      {tags.map((tag) => (
+        <label key={tag}>
+          <input
+            type="checkbox"
+            checked={selected.includes(tag)}
+            onChange={(e) => setSelected(toggle(selected, tag, e.target.checked))}
+          />{" "}
+          {tag}
+        </label>
+      ))}
+      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+        Save tags
+      </button>
+      {errorText(save.error) && <p className="w-full text-red-700">{errorText(save.error)}</p>}
+    </form>
   );
 }

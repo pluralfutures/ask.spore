@@ -1,4 +1,4 @@
-"""Usage ledger and spend notices. Mirrors alembic revision 0007; the migration is
+"""Usage ledger and spend notices. Mirrors alembic revision 0009; the migration is
 authoritative."""
 
 from __future__ import annotations

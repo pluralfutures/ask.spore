@@ -17,7 +17,6 @@ import asyncpg
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.chat import selection
 from app.chat.orchestrator import ErrorEvent, Orchestrator
 from app.core.config import DEFAULT_CONFIG_DIR, ConfigError, Settings, load_settings
 from app.core.db import session_factory
@@ -27,11 +26,11 @@ from app.tenancy.entitlements import (
     ModelEntitlement,
     ModelRefused,
     check_choice,
-    tenant_default_choice,
+    eu_fallback_choice,
     usable_models,
 )
 from app.tenancy.models import INTERNAL_TENANT_ID
-from tests.chat_fixtures import TAGS, World, chunks_for
+from tests.chat_fixtures import World, chunks_for
 from tests.fakes import FakeRedis, FakeRetriever, router
 from tests.fakes import OpenAIRecorder as Recorder
 from tests.test_api import Harness, api
@@ -250,14 +249,14 @@ def test_refusals(
     assert excinfo.value.code == code
 
 
-def test_tenant_default_is_never_external(settings: Settings) -> None:
+def test_eu_fallback_is_never_external(settings: Settings) -> None:
     # Sorted, "anthropic/..." comes first; the default must still be an EU model.
     both = ent(CLAUDE, GPT, QWEN, external=True)
-    assert tenant_default_choice(settings, both) == ModelChoice(QWEN, False)
-    assert tenant_default_choice(settings, ent(CLAUDE, DEEPSEEK, QWEN, external=True)) == (
+    assert eu_fallback_choice(settings, both) == ModelChoice(QWEN, False)
+    assert eu_fallback_choice(settings, ent(CLAUDE, DEEPSEEK, QWEN, external=True)) == (
         ModelChoice(DEEPSEEK, False)
     )
-    assert tenant_default_choice(settings, ent(CLAUDE, external=True)) is None
+    assert eu_fallback_choice(settings, ent(CLAUDE, external=True)) is None
 
 
 def test_usable_models_hide_external_without_entitlement(settings: Settings) -> None:
@@ -304,13 +303,9 @@ async def internal_entitlement(admin_conn: asyncpg.Connection) -> AsyncIterator[
     )
 
 
-def fixed_choice(monkeypatch: pytest.MonkeyPatch, choice: ModelChoice) -> None:
-    """Stand-in for P1a-04's ``conversations.model`` and ``reasoning`` columns."""
-
-    async def _choice(*_: Any) -> ModelChoice:
-        return choice
-
-    monkeypatch.setattr(selection, "conversation_choice", _choice)
+async def fixed_choice(world: World, choice: ModelChoice) -> None:
+    """The conversation's model and reasoning (P1a-04's columns), set as the owner."""
+    await world.fix_choice(choice.model, choice.reasoning)
 
 
 async def _refused(
@@ -322,7 +317,6 @@ async def _refused(
         db_factory=session_factory(engine),
         retriever=retriever,
         llm=router(settings, recorder),
-        package_tags=TAGS,
     )
     # A follow-up: without the check, the rewrite call would go out first.
     await world.admin.execute(
@@ -348,14 +342,13 @@ async def test_refused_model_makes_no_outbound_call(
     world: World,
     redis: FakeRedis,
     internal_entitlement: Any,
-    monkeypatch: pytest.MonkeyPatch,
     models: list[str],
     external: bool,
     choice: ModelChoice,
     code: str,
 ) -> None:
     await internal_entitlement(models, external=external)
-    fixed_choice(monkeypatch, choice)
+    await fixed_choice(world, choice)
     recorder = Recorder()  # no replies: any request would fail the test
     events, retriever = await _refused(settings, engine, world, recorder)
 

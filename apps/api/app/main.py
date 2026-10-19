@@ -12,7 +12,6 @@ from app.api.v1 import router as api_v1
 from app.auth.authentik import oidc_services
 from app.auth.middleware import AuthMiddleware
 from app.chat.orchestrator import Orchestrator
-from app.chat.package import phase0_package_tags
 from app.chat.prompts import active_prompt
 from app.core import cache
 from app.core.config import get_settings
@@ -33,7 +32,6 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
         app.state.settings = settings
         engine = create_engine(settings.secrets.database_url.get_secret_value())
         app.state.db_factory = session_factory(engine)
-        app.state.package_tags = phase0_package_tags(settings.config_dir)
         cache.connect(settings.secrets.redis_url.get_secret_value())
         # P1a-10: answers follow the conversation's model choice; rewrites stay default.
         llm = create_llm_router(settings, active_prompt(settings, "rewrite").text)
@@ -49,7 +47,6 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
                 db_factory=app.state.db_factory,
                 retriever=retriever,
                 llm=llm,
-                package_tags=app.state.package_tags,
             )
         log("api.started", status="ok" if retriever is not None else "no_retriever")
         try:

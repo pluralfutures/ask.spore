@@ -1,0 +1,80 @@
+# Prompt-guardrail eval (P1a-08): eval items under every hostile workspace-instructions
+# block in packages/eval/fixtures/adversarial_prompts/, against the active prompts.
+#
+# On every change to a prompt, the prompt renderer, the model configuration or the
+# fixtures it runs with the mocked model (--mock): no secret, no network beyond the
+# checkout. That proves the slot and its escaping hold (a block that escapes its
+# delimiters fails the run); it cannot show how a real model weighs a block.
+#
+# The live run, with the active provider's model, is manual: Actions -> Guardrails ->
+# Run workflow with live = true. It needs SCALEWAY_API_KEY (or MISTRAL_API_KEY when
+# [llm] provider = "mistral"); none is needed for this file to be valid.
+
+name: Guardrails
+
+on:
+  pull_request:
+    paths:
+      - config/prompts/**
+      - config/models.toml
+      - apps/api/app/chat/prompts.py
+      - apps/api/app/llm/**
+      - packages/eval/**
+      - .github/workflows/guardrails.yml
+  push:
+    branches: [main, "phase-*/**"]
+    paths:
+      - config/prompts/**
+      - config/models.toml
+      - apps/api/app/chat/prompts.py
+      - apps/api/app/llm/**
+      - packages/eval/**
+      - .github/workflows/guardrails.yml
+  workflow_dispatch:
+    inputs:
+      live:
+        description: "Use the active provider's model (needs its API key secret) instead of the mock"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guardrails-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guardrails:
+    name: Guardrail eval (${{ inputs.live && 'live model' || 'mocked model' }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: packages/eval
+    env:
+      LIVE: ${{ inputs.live && 'true' || 'false' }}
+      SCALEWAY_API_KEY: ${{ inputs.live && secrets.SCALEWAY_API_KEY || '' }}
+      MISTRAL_API_KEY: ${{ inputs.live && secrets.MISTRAL_API_KEY || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.11.32"
+      - run: uv sync --locked
+      - name: Guardrail eval
+        run: |
+          if [ "$LIVE" = "true" ]; then
+            uv run python -m eval guardrails --results-dir "$RUNNER_TEMP/guardrails" \
+              --note "GitHub Actions run ${{ github.run_id }}, live model"
+          else
+            uv run python -m eval guardrails --mock --results-dir "$RUNNER_TEMP/guardrails" \
+              --note "GitHub Actions run ${{ github.run_id }}"
+          fi
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: guardrails-${{ github.run_id }}
+          path: ${{ runner.temp }}/guardrails
+          if-no-files-found: ignore

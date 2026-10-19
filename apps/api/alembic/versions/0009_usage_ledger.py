@@ -10,14 +10,17 @@
 - ``spend_notices(tenant_id, month, threshold)``: which external spend thresholds (80
   and 100 percent of ``external_spend_cap_cents``) have already raised an operator
   notice this month, so each is raised once. Tenant-scoped like the ledger.
-- ``operator_notices``: the application role gets INSERT (revision 0006 left it
-  without), to write the spend notices. P1a-07 (Group B) grants the same privilege;
-  GRANT is idempotent in PostgreSQL, so either order works. The downgrade does not
-  revoke it, because P1a-07 also relies on it: whichever revision granted first keeps
-  the grant until its own downgrade.
+- ``operator_notices``: the spend notices need the application role's INSERT, which
+  revision 0008 (P1a-07) already grants. This revision grants it again (GRANT is
+  idempotent in PostgreSQL) so it does not depend on 0008 keeping it, and its
+  downgrade does not revoke it: 0008 owns the grant and revokes it on its own
+  downgrade.
 
-Revision ID: 0007
-Revises: 0006
+Built as revision 0007 in parallel with Group B's 0007 and 0008; renumbered to follow
+0008 at the merge (findings C14).
+
+Revision ID: 0009
+Revises: 0008
 Create Date: 2026-10-19 16:00:00
 """
 
@@ -29,8 +32,8 @@ from alembic import op
 APP_ROLE = "askspore_app"
 CURRENT_TENANT = "NULLIF(current_setting('app.tenant_id', true), '')::uuid"
 
-revision: str = "0007"
-down_revision: str | None = "0006"
+revision: str = "0009"
+down_revision: str | None = "0008"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -105,7 +108,7 @@ def upgrade() -> None:
     _tenant_isolation("spend_notices")
     op.execute(f"GRANT SELECT, INSERT ON spend_notices TO {APP_ROLE}")
 
-    # Idempotent; shared with P1a-07 (see the module docstring).
+    # Idempotent; revision 0008 (P1a-07) owns this grant (see the module docstring).
     op.execute(f"GRANT INSERT ON operator_notices TO {APP_ROLE}")
 
 

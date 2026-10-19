@@ -19,7 +19,7 @@ from app.chat.orchestrator import Orchestrator
 from app.core.config import Settings
 from app.core.db import session_factory, set_tenant
 from scripts.export_openapi import OPENAPI_PATH, render
-from tests.chat_fixtures import TAGS, World, chunks_for
+from tests.chat_fixtures import World, chunks_for
 from tests.fakes import FakeRedis, FakeRetriever, completion, delta, router, sse
 from tests.fakes import OpenAIRecorder as Recorder
 from tests.test_phase0_auth import TOKEN
@@ -42,7 +42,6 @@ class Harness:
             db_factory=self.app.state.db_factory,
             retriever=self.retriever,
             llm=router(settings, self.recorder),
-            package_tags=TAGS,
         )
 
     async def request(
@@ -107,7 +106,6 @@ async def api(
     app = create_app()
     app.state.settings = _Settings(settings)
     app.state.db_factory = session_factory(engine)
-    app.state.package_tags = TAGS
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
         harness = Harness(app, http, world)
@@ -149,7 +147,19 @@ async def test_create_and_list_conversations(api: Harness) -> None:
     response = await api.request("POST", "/conversations")
     assert response.status_code == 201
     body = response.json()
-    assert set(body) == {"id", "title", "created_at", "expires_at"}
+    assert set(body) == {
+        "id",
+        "title",
+        "created_at",
+        "expires_at",
+        "workspace_id",
+        "mode",
+        "model",
+        "reasoning",
+        "notice",
+        "notice_text",
+    }
+    assert (body["notice"], body["notice_text"]) == (None, None)
     created = datetime.fromisoformat(body["created_at"])
     expires = datetime.fromisoformat(body["expires_at"])
     assert timedelta(days=29, hours=23) < expires - created <= timedelta(days=30)

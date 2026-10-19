@@ -7,6 +7,7 @@ from app.content.models import Dataset, Source
 from app.core.db import Base
 from app.operator.models import Operator, OperatorNotice
 from app.tenancy.models import Tenant, TenantEntitlements, User
+from app.tenancy.workspaces import Workspace, WorkspacePrompt
 from app.usage.models import SpendNotice, UsageLedger
 
 __all__ = [
@@ -26,4 +27,6 @@ __all__ = [
     "TenantEntitlements",
     "UsageLedger",
     "User",
+    "Workspace",
+    "WorkspacePrompt",
 ]

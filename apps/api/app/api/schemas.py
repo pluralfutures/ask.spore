@@ -62,6 +62,10 @@ class MessageOut(BaseModel):
     unsupported: bool
     abstained: bool
     citations: list[CitationOut]
+    # Badge data (P1a-11), assistant messages: the model that answered and whether
+    # reasoning was on (null until messages store it, P1a-04).
+    model: str | None = None
+    reasoning: bool | None = None
 
 
 class ConversationDetail(ConversationSummary):
@@ -117,6 +121,9 @@ class DoneData(BaseModel):
     cached: bool
     tokens_in: int
     tokens_out: int
+    # Badge data (P1a-11): the conversation's model and its reasoning switch.
+    model: str | None
+    reasoning: bool
 
 
 class ErrorData(BaseModel):

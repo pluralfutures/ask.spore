@@ -213,6 +213,9 @@ async def get_conversation(
                 unsupported=m.outcome == "unsupported",
                 abstained=m.outcome == "abstained",
                 citations=by_message.get(m.id, []),
+                model=m.model if m.role == "assistant" else None,
+                # messages.reasoning arrives with P1a-04 (findings C15).
+                reasoning=getattr(m, "reasoning", None) if m.role == "assistant" else None,
             )
             for m in messages
         ],

@@ -29,7 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit.writer import record
-from app.chat.models import Conversation
+from app.chat.models import Conversation, Message
 from app.core.config import CatalogueEntry, Settings
 from app.llm import catalogue
 from app.llm.catalogue import ModelChoice
@@ -72,6 +72,17 @@ async def conversation_choice(
     if row is None or row[0] is None:
         return fallback
     return ModelChoice(str(row[0]), bool(row[1]))
+
+
+def message_choice_fields(choice: ModelChoice | None) -> dict[str, Any]:
+    """The reasoning flag for an assistant ``Message``, once P1a-04 adds the column.
+
+    The model is already stored (``messages.model``); ``messages.reasoning`` arrives with
+    Group B's migration, and until then there is nowhere to store it (findings C15).
+    """
+    if choice is None or not hasattr(Message, "reasoning"):
+        return {}
+    return {"reasoning": choice.reasoning}
 
 
 @dataclass(frozen=True)

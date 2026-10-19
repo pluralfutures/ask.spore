@@ -186,7 +186,11 @@ async def test_ask_streams_tokens_then_citations_then_done(api: Harness) -> None
         "cached",
         "tokens_in",
         "tokens_out",
+        "model",
+        "reasoning",
     }
+    # Badge data (P1a-11): the tenant default, reasoning off.
+    assert (done["model"], done["reasoning"]) == ("deepseek-v4.1-flash", False)
     assert done["unsupported"] is False
 
 

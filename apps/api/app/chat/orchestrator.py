@@ -47,7 +47,7 @@ from app.chat.package import (
     tenant_package_tags,
 )
 from app.chat.prompts import active_prompt
-from app.chat.selection import Authorization, authorize
+from app.chat.selection import Authorization, authorize, message_choice_fields
 from app.core import cache
 from app.core.config import Settings
 from app.core.db import tenant_session
@@ -111,6 +111,9 @@ class DoneEvent:
     cached: bool
     tokens_in: int
     tokens_out: int
+    # Badge data (P1a-11): the conversation's model and its reasoning switch.
+    model: str | None = None
+    reasoning: bool = False
 
 
 @dataclass(frozen=True)
@@ -425,6 +428,8 @@ class Orchestrator:
             cached=run.cache_hit,
             tokens_in=run.tokens_in,
             tokens_out=run.tokens_out,
+            model=run.model or (run.auth.choice.model if run.auth.choice else None),
+            reasoning=bool(run.auth.choice and run.auth.choice.reasoning),
         )
 
     async def _persist(
@@ -463,6 +468,7 @@ class Orchestrator:
                 latency_ms=latency,
                 outcome=outcome,
                 created_at=datetime.now(UTC),
+                **message_choice_fields(run.auth.choice),
             )
         )
         await session.flush()
@@ -512,6 +518,7 @@ class Orchestrator:
             "status": status,
             "error_code": error_code,
             "model": run.model or (run.auth.choice.model if run.auth.choice else None),
+            "reasoning": bool(run.auth.choice and run.auth.choice.reasoning),
             "prompt": active_prompt(self._settings, "corpus_only").ref,
             "cache_hit": run.cache_hit,
             "retrieved_chunk_count": run.retrieved,

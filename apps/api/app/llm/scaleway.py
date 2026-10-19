@@ -48,6 +48,7 @@ from app.llm.mistral import (
     rewrite_messages,
 )
 from app.llm.ratelimit import TokenBucket, estimate_tokens
+from app.llm.reasoning import ThinkFilter
 
 silence_library_loggers("openai", "httpx2")
 
@@ -106,6 +107,10 @@ class AnswerStream:
         return self._deltas()
 
     async def _deltas(self) -> AsyncIterator[str]:
+        # Reasoning is never passed on (P1a-11): only ``delta.content`` is read, so
+        # ``reasoning_content`` (Scaleway), ``reasoning`` and ``reasoning_details``
+        # (OpenRouter) are dropped here, and inline ``<think>`` blocks are filtered out.
+        thinking = ThinkFilter()
         try:
             async with self._events as events:
                 async for chunk in events:
@@ -113,8 +118,12 @@ class AnswerStream:
                         self.usage = _usage(chunk.usage)
                     for choice in chunk.choices:
                         delta = choice.delta.content if choice.delta else None
-                        if delta:
-                            yield delta
+                        text = thinking.feed(delta) if delta else ""
+                        if text:
+                            yield text
+            tail = thinking.flush()
+            if tail:
+                yield tail
         except _ERRORS as exc:
             # Mid-stream failure: tokens may already be with the user, so no retry.
             raise _error(exc) from None

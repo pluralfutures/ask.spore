@@ -371,6 +371,21 @@
             "title": "Message Id",
             "type": "string"
           },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "reasoning": {
+            "title": "Reasoning",
+            "type": "boolean"
+          },
           "tokens_in": {
             "title": "Tokens In",
             "type": "integer"
@@ -390,7 +405,9 @@
           "abstained",
           "cached",
           "tokens_in",
-          "tokens_out"
+          "tokens_out",
+          "model",
+          "reasoning"
         ],
         "title": "DoneData",
         "type": "object"
@@ -751,6 +768,28 @@
           "mode": {
             "title": "Mode",
             "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "reasoning": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning"
           },
           "role": {
             "enum": [

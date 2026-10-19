@@ -510,6 +510,10 @@ export interface components {
        * Format: uuid
        */
       message_id: string;
+      /** Model */
+      model: string | null;
+      /** Reasoning */
+      reasoning: boolean;
       /** Tokens In */
       tokens_in: number;
       /** Tokens Out */
@@ -651,6 +655,10 @@ export interface components {
       id: string;
       /** Mode */
       mode: string;
+      /** Model */
+      model?: string | null;
+      /** Reasoning */
+      reasoning?: boolean | null;
       /**
        * Role
        * @enum {string}

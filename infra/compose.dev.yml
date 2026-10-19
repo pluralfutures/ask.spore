@@ -94,6 +94,9 @@ services:
       REDIS_URL: redis://redis:6379/0
     volumes:
       - ../config:/srv/config:ro
+      # Our own copies of ingested PDF, DOCX and PPTX files ([files] content_root, P1a-14):
+      # written by `ask-spore ingest-manifest` (run in this container), served as downloads.
+      - content:/srv/ask-spore/content
     ports:
       - 127.0.0.1:${API_PORT:-8000}:8000
     networks:
@@ -127,6 +130,7 @@ services:
 
 volumes:
   postgres_data:
+  content:
 
 networks:
   app:

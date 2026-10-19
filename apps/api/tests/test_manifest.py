@@ -264,8 +264,9 @@ class _Client:
 def cli_env(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, Any]]:
     calls: list[tuple[Any, Any]] = []
 
-    async def fake_ingest(_f: Any, _c: Any, _t: Any, source: Any, metadata: Any, **_: Any) -> Any:
+    async def fake_ingest(_f: Any, _c: Any, _t: Any, source: Any, metadata: Any, **kw: Any) -> Any:
         calls.append((source, metadata))
+        assert kw["content_root"] == Path("/srv/ask-spore/content")  # [files] content_root
         return IngestResult(source_id=uuid4(), status="ingested", chunk_count=2)
 
     monkeypatch.setattr(cli, "get_settings", lambda: load_settings(environ=ENV))
@@ -338,3 +339,47 @@ def test_write_summary_handles_site_rows(tmp_path: Path) -> None:
     [row] = list(csv.DictReader((tmp_path / "s.csv").read_text(encoding="utf-8").splitlines()))
     assert row["source_ids"] == f"{ids[0]};{ids[1]}"
     assert row["seconds"] == "12.3"
+
+
+# --- P1a-14: the optional downloadable column ----------------------------------------------
+
+
+def test_without_the_downloadable_column_nothing_is_downloadable(corpus: Path) -> None:
+    rows = load_manifest(write(corpus, PDF_ROW, SITE_ROW), TAGS)
+    assert [r.metadata.downloadable for r in rows] == [False, False]
+
+
+def test_downloadable_column_is_read_per_row(corpus: Path) -> None:
+    header = HEADER + ",downloadable"
+    rows = load_manifest(
+        write(
+            corpus,
+            PDF_ROW + ",",
+            DOCX_ROW + ",true",
+            PPTX_ROW + ",No",
+            SITE_ROW + ",",
+            header=header,
+        ),
+        TAGS,
+    )
+    assert [r.metadata.downloadable for r in rows] == [False, True, False, False]
+
+
+def test_downloadable_column_values_are_checked(corpus: Path) -> None:
+    header = HEADER + ",downloadable"
+    found = problems(write(corpus, PDF_ROW + ",maybe", SITE_ROW + ",true", header=header))
+    assert found == (
+        "line 2, downloadable: must be true or false (empty means false)",
+        "line 3, downloadable: only pdf, docx and pptx files can be downloadable",
+    )
+
+
+def test_unknown_extra_column_is_rejected(corpus: Path) -> None:
+    [problem] = problems(write(corpus, PDF_ROW + ",x", header=HEADER + ",extra"))
+    assert problem.startswith("line 1: header must be exactly")
+
+
+def test_cli_passes_the_downloadable_flag(cli_env: list[tuple[Any, Any]], corpus: Path) -> None:
+    manifest = write(corpus, PDF_ROW + ",", DOCX_ROW + ",yes", header=HEADER + ",downloadable")
+    assert cli.main(["ingest-manifest", str(manifest)]) == 0
+    assert [m.downloadable for _, m in cli_env] == [False, True]

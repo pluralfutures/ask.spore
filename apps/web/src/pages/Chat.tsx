@@ -1,12 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api/client";
 import type { Citation, DoneData } from "../api/types";
 import { AssistantMessage } from "../components/AssistantMessage";
 import { CitationPanel } from "../components/CitationPanel";
-import { formatDate } from "../lib/format";
+import { ConversationHeader } from "../components/ConversationHeader";
+import type { StartState } from "./NewConversation";
 
 interface Live {
   question: string;
@@ -24,6 +25,12 @@ interface Selection {
 const ERRORS: Record<string, string> = {
   retrieval_unavailable: "The research library is unavailable. Try again shortly.",
   conversation_gone: "This conversation was deleted.",
+  spend_cap_reached:
+    "This month's budget for models served outside the EU has been used up. " +
+    "Start a new conversation to continue with another model.",
+  model_unavailable: "This conversation's model is not available right now.",
+  model_not_enabled: "This conversation's model is no longer enabled for your organisation.",
+  external_not_entitled: "This conversation's model is no longer enabled for your organisation.",
 };
 
 export function Chat() {
@@ -37,6 +44,11 @@ export function Chat() {
   const [live, setLive] = useState<Live | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const abort = useRef<AbortController | null>(null);
+  // From the start panel (P1a-12): the first question, sent once, and the spend-cap
+  // fallback notice, kept for this visit.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [start] = useState<StartState | null>(() => location.state as StartState | null);
 
   useEffect(() => () => abort.current?.abort(), []);
 
@@ -45,6 +57,10 @@ export function Chat() {
     const text = question.trim();
     if (!text || (live && !live.done && !live.error)) return;
     setQuestion("");
+    await send(text);
+  }
+
+  async function send(text: string) {
     setSelection(null);
     const state: Live = { question: text, text: "", citations: [], done: null, error: null };
     setLive(state);
@@ -63,11 +79,24 @@ export function Chat() {
       return;
     }
     if (state.done) {
-      await queryClient.invalidateQueries({ queryKey: ["conversation", id] });
+      // The live answer stays on screen until the reloaded conversation holds it.
+      await queryClient.refetchQueries({ queryKey: ["conversation", id] });
       await queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      setLive(null);
     }
   }
+
+  useEffect(() => {
+    if (!start?.question) return;
+    // A timer, so StrictMode's mount, unmount and mount sends the question once; the
+    // state is dropped so a reload does not ask it again.
+    const timer = setTimeout(() => {
+      navigate(location.pathname, { replace: true, state: null });
+      void send(start.question);
+    }, 0);
+    return () => clearTimeout(timer);
+    // Once per visit: the start state never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start]);
 
   const messages = conversation.data?.messages ?? [];
   const citationsFor = (key: string): Citation[] =>
@@ -75,6 +104,7 @@ export function Chat() {
       ? (live?.citations ?? [])
       : (messages.find((m) => m.id === key)?.citations ?? []);
   const busy = live !== null && !live.done && !live.error;
+  const persisted = live?.done ? messages.some((m) => m.id === live.done?.message_id) : false;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -86,9 +116,10 @@ export function Chat() {
           <h1 className="text-lg font-semibold">
             {conversation.data?.title ?? "New conversation"}
           </h1>
-          {conversation.data ? (
-            <p className="text-sm text-slate-600">
-              Expires {formatDate(conversation.data.expires_at)}
+          {conversation.data ? <ConversationHeader conversation={conversation.data} /> : null}
+          {start?.notice ? (
+            <p role="status" className="mt-2 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">
+              {start.notice}
             </p>
           ) : null}
         </header>
@@ -112,7 +143,7 @@ export function Chat() {
               </li>
             ),
           )}
-          {live ? (
+          {live && !persisted ? (
             <>
               <li className="self-end rounded bg-slate-200 px-3 py-2">{live.question}</li>
               <li aria-live="polite">

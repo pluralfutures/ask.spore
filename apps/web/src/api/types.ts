@@ -5,6 +5,9 @@ type Schemas = components["schemas"];
 
 export type ConversationSummary = Schemas["ConversationSummary"];
 export type ConversationCreated = Schemas["ConversationCreated"];
+export type ConversationCreateIn = Schemas["ConversationCreateIn"];
+export type Workspace = Schemas["WorkspaceOut"];
+export type ModelOption = Schemas["ModelOptionOut"];
 export type ConversationDetail = Schemas["ConversationDetail"];
 export type Message = Schemas["MessageOut"];
 export type Citation = Schemas["CitationOut"];
@@ -25,9 +28,20 @@ export type TenantCreateIn = Schemas["TenantCreateIn"];
 export type AdminInviteIn = Schemas["AdminInviteIn"];
 export type OperatorWorkspace = Schemas["OperatorWorkspaceOut"];
 export type WorkspaceCreateIn = Schemas["WorkspaceCreateIn"];
+export type AdminUser = Schemas["AdminUserOut"];
+export type UserInviteIn = Schemas["UserInviteIn"];
+export type UserChangeIn = Schemas["UserChangeIn"];
+export type WorkspaceDefaultsIn = Schemas["WorkspaceDefaultsIn"];
+export type WorkspacePrompt = Schemas["WorkspacePromptOut"];
+export type TenantSettings = Schemas["TenantSettingsOut"];
 
 export type ChatStreamEvent =
   | { event: "token"; data: TokenData }
   | { event: "citations"; data: CitationsData }
   | { event: "done"; data: DoneData }
   | { event: "error"; data: ErrorData };
+export type WorkspaceFiles = Schemas["WorkspaceFilesOut"];
+export type WorkspaceFile = Schemas["WorkspaceFileOut"];
+export type WorkspaceSite = Schemas["WorkspaceSiteOut"];
+export type DownloadLink = Schemas["DownloadLinkOut"];
+export type OperatorSource = Schemas["OperatorSourceOut"];

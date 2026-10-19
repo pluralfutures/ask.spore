@@ -27,7 +27,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import current_tenant_id, current_user_id, db_session, request_context
+from app.api.deps import current_tenant_id, current_user_id, db_session, require_tenant_admin
 from app.api.schemas import (
     AskIn,
     ChatStreamEvents,
@@ -62,10 +62,12 @@ from app.chat.orchestrator import (
 from app.chat.selection import choose_for_new_conversation, load_entitlement
 from app.content.models import Source
 from app.core.logging import log
+from app.llm import catalogue
 from app.operator.models import OperatorNotice
 from app.tenancy.entitlements import ModelRefused, eu_fallback_choice, usable_models
 from app.tenancy.models import Tenant, TenantEntitlements, User
 from app.tenancy.name_flags import match_kinds, tenant_terms
+from app.tenancy.retention import expiry, retention_days
 from app.tenancy.workspaces import (
     ChoiceRefused,
     Workspace,
@@ -77,7 +79,6 @@ from app.tenancy.workspaces import (
 router = APIRouter(prefix="/api/v1")
 
 NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, detail="not_found")
-FORBIDDEN = HTTPException(status.HTTP_403_FORBIDDEN, detail="forbidden")
 NAME_MATCH_NOTICE = "workspace_prompt.tenant_name_match"
 
 
@@ -203,6 +204,8 @@ async def create_conversation(
         mode=chosen.mode,
         model=selection.choice.model,
         reasoning=selection.choice.reasoning,
+        # The tenant's retention, 30 days at most (P1a-13).
+        expires_at=expiry(await retention_days(session)),
     )
     session.add(conversation)
     await session.flush()
@@ -266,8 +269,14 @@ async def get_conversation(
                 type=source.type,
             )
         )
+    workspace_name = await session.scalar(
+        select(Workspace.name).where(Workspace.id == conversation.workspace_id)
+    )
+    listed = catalogue.entry(request.app.state.settings, conversation.model)
     return ConversationDetail(
         id=conversation.id,
+        workspace_name=workspace_name or "",
+        model_display_name=listed.display_name if listed else conversation.model,
         title=conversation.title,
         created_at=conversation.created_at,
         updated_at=conversation.updated_at,
@@ -438,17 +447,15 @@ async def get_source(
     )
 
 
-def _require_admin(request: Request) -> None:
-    if not request_context(request).is_tenant_admin:
-        raise FORBIDDEN
-
-
-@router.get("/workspaces/{workspace_id}/prompts", response_model=list[WorkspacePromptOut])
+@router.get(
+    "/workspaces/{workspace_id}/prompts",
+    response_model=list[WorkspacePromptOut],
+    dependencies=[Depends(require_tenant_admin)],
+)
 async def list_workspace_prompts(
     workspace_id: UUID, request: Request, session: AsyncSession = Depends(db_session)
 ) -> list[WorkspacePrompt]:
     """Tenant admins: every saved version of the additional instructions, newest first."""
-    _require_admin(request)
     if await session.scalar(select(Workspace.id).where(Workspace.id == workspace_id)) is None:
         raise NOT_FOUND
     rows = await session.scalars(
@@ -492,7 +499,11 @@ async def _flag_tenant_names(
     log("workspace.prompt_tenant_name_match", tenant_id=str(tenant_id), count=len(kinds))
 
 
-@router.put("/workspaces/{workspace_id}/prompt", response_model=WorkspacePromptOut)
+@router.put(
+    "/workspaces/{workspace_id}/prompt",
+    response_model=WorkspacePromptOut,
+    dependencies=[Depends(require_tenant_admin)],
+)
 async def save_workspace_prompt(
     workspace_id: UUID,
     body: WorkspacePromptIn,
@@ -500,7 +511,6 @@ async def save_workspace_prompt(
     session: AsyncSession = Depends(db_session),
 ) -> WorkspacePromptOut:
     """Tenant admins: save a new version of the additional instructions (P1a-04)."""
-    _require_admin(request)
     tenant_id = current_tenant_id(request)
     if await session.scalar(select(Workspace.id).where(Workspace.id == workspace_id)) is None:
         raise NOT_FOUND

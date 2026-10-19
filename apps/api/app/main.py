@@ -6,7 +6,9 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI
 
+from app.api.admin import router as api_admin
 from app.api.auth import router as api_auth
+from app.api.files import router as api_files
 from app.api.operator import router as api_operator
 from app.api.v1 import router as api_v1
 from app.auth.authentik import oidc_services
@@ -69,6 +71,8 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
     app.include_router(api_auth)
     app.include_router(api_v1)
     app.include_router(api_operator)
+    app.include_router(api_admin)
+    app.include_router(api_files)
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz() -> dict[str, str]:

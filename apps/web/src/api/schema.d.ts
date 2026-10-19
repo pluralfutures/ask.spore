@@ -4,6 +4,111 @@
  */
 
 export interface paths {
+  "/api/v1/admin/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Settings */
+    get: operations["get_settings_api_v1_admin_settings_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/settings/retention": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Retention Days
+     * @description Shorten (or restore up to 30 days) the tenant's chat-history retention.
+     */
+    put: operations["set_retention_days_api_v1_admin_settings_retention_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/users": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Users */
+    get: operations["list_users_api_v1_admin_users_get"];
+    put?: never;
+    /**
+     * Invite User
+     * @description Invite a user of one of the tenant's verified email domains, as ``invited``.
+     *
+     *     They then request a sign-in link from their own browser; the first sign-in makes
+     *     them ``active`` (findings A15). An email that exists in any tenant is refused:
+     *     Authentik's usernames are emails, and an email maps to one tenant (findings A8).
+     */
+    post: operations["invite_user_api_v1_admin_users_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/users/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Change User
+     * @description Change role or status. Deactivated users are refused at sign-in and on every
+     *     request; reactivating returns them to ``active``, or ``invited`` if they never
+     *     signed in.
+     */
+    patch: operations["change_user_api_v1_admin_users__user_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/admin/workspaces/{workspace_id}/defaults": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Workspace Defaults
+     * @description Default mode, model and reasoning of a new conversation in the workspace, among
+     *     the modes and models the operator enabled for the tenant (P1a-03, P1a-09).
+     */
+    put: operations["set_workspace_defaults_api_v1_admin_workspaces__workspace_id__defaults_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/auth/link": {
     parameters: {
       query?: never;
@@ -47,7 +152,11 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Logout */
+    /**
+     * Logout
+     * @description Clear the session cookie and revoke the session server-side (P1a-02): the token
+     *     is listed in ``revoked_sessions``, so a copy of the old cookie is refused.
+     */
     post: operations["logout_api_v1_auth_logout_post"];
     delete?: never;
     options?: never;
@@ -131,6 +240,26 @@ export interface paths {
     put?: never;
     /** Ask */
     post: operations["ask_api_v1_conversations__conversation_id__messages_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/files/{token}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Download File
+     * @description Serve our stored copy of the file behind a single-use link of this user.
+     */
+    get: operations["download_file_api_v1_files__token__get"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -261,6 +390,48 @@ export interface paths {
     /** Operator Options */
     get: operations["operator_options_api_v1_operator_options_get"];
     put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/sources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Sources
+     * @description Every register row with its download switch. The operator role reads only these
+     *     columns (revision 0012), never the RAGFlow document IDs.
+     */
+    get: operations["list_sources_api_v1_operator_sources_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/sources/{source_id}/downloadable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Source Downloadable
+     * @description Open or close the licence gate of one source, from its licence basis. Audited
+     *     under the platform tenant (sources are shared corpus, not a tenant's).
+     */
+    put: operations["set_source_downloadable_api_v1_operator_sources__source_id__downloadable_put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -406,6 +577,44 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/workspaces/{workspace_id}/files": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Workspace Files
+     * @description The workspace's PDF, DOCX and PPTX files and its crawled sites. No search or
+     *     filters (Phase 1a).
+     */
+    get: operations["list_workspace_files_api_v1_workspaces__workspace_id__files_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/workspaces/{workspace_id}/files/{source_id}/download": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Request Download */
+    post: operations["request_download_api_v1_workspaces__workspace_id__files__source_id__download_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/workspaces/{workspace_id}/prompt": {
     parameters: {
       query?: never;
@@ -482,6 +691,31 @@ export interface components {
        * Format: uuid
        */
       user_id: string;
+    };
+    /** AdminUserOut */
+    AdminUserOut: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Display Name */
+      display_name: string;
+      /** Email */
+      email: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Last Login At */
+      last_login_at: string | null;
+      /** Last Login Method */
+      last_login_method: string | null;
+      /** Role */
+      role: string;
+      /** Status */
+      status: string;
     };
     /** AskIn */
     AskIn: {
@@ -612,6 +846,8 @@ export interface components {
       mode: string;
       /** Model */
       model: string;
+      /** Model Display Name */
+      model_display_name: string;
       /** Reasoning */
       reasoning: boolean;
       /** Title */
@@ -626,6 +862,8 @@ export interface components {
        * Format: uuid
        */
       workspace_id: string;
+      /** Workspace Name */
+      workspace_name: string;
     };
     /** ConversationSummary */
     ConversationSummary: {
@@ -684,6 +922,19 @@ export interface components {
       tokens_out: number;
       /** Unsupported */
       unsupported: boolean;
+    };
+    /**
+     * DownloadLinkOut
+     * @description A single-use link to the file, valid until ``expires_at`` (60 seconds).
+     */
+    DownloadLinkOut: {
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /** Url */
+      url: string;
     };
     /** EntitlementsIn */
     EntitlementsIn: {
@@ -888,6 +1139,33 @@ export interface components {
       /** Tags */
       tags: string[];
     };
+    /**
+     * OperatorSourceOut
+     * @description A source register row for the operator's download switch (P1a-14).
+     */
+    OperatorSourceOut: {
+      /** Downloadable */
+      downloadable: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Licence Basis */
+      licence_basis: string;
+      /** Publisher */
+      publisher: string;
+      /** Status */
+      status: string;
+      /** Stored */
+      stored: boolean;
+      /** Tags */
+      tags: string[];
+      /** Title */
+      title: string;
+      /** Type */
+      type: string;
+    };
     /** OperatorWorkspaceOut */
     OperatorWorkspaceOut: {
       /**
@@ -917,6 +1195,16 @@ export interface components {
        * Format: uuid
        */
       tenant_id: string;
+    };
+    /** RetentionIn */
+    RetentionIn: {
+      /** Retention Days */
+      retention_days: number;
+    };
+    /** SourceDownloadableIn */
+    SourceDownloadableIn: {
+      /** Downloadable */
+      downloadable: boolean;
     };
     /** SourceOut */
     SourceOut: {
@@ -971,10 +1259,42 @@ export interface components {
       /** Verified Domains */
       verified_domains: string[];
     };
+    /** TenantSettingsOut */
+    TenantSettingsOut: {
+      /** Answer Modes */
+      answer_modes: string[];
+      /** Max Retention Days */
+      max_retention_days: number;
+      /** Retention Days */
+      retention_days: number;
+    };
     /** TokenData */
     TokenData: {
       /** Text */
       text: string;
+    };
+    /**
+     * UserChangeIn
+     * @description Change a user's role, or deactivate and reactivate them. Users are never deleted.
+     */
+    UserChangeIn: {
+      /** Role */
+      role?: ("user" | "tenant_admin") | null;
+      /** Status */
+      status?: ("active" | "deactivated") | null;
+    };
+    /** UserInviteIn */
+    UserInviteIn: {
+      /** Display Name */
+      display_name: string;
+      /** Email */
+      email: string;
+      /**
+       * Role
+       * @default user
+       * @enum {string}
+       */
+      role: "user" | "tenant_admin";
     };
     /** ValidationError */
     ValidationError: {
@@ -1010,6 +1330,59 @@ export interface components {
       slug: string;
       /** Tag Ids */
       tag_ids?: string[];
+    };
+    /**
+     * WorkspaceDefaultsIn
+     * @description A workspace's defaults, among the tenant's enabled modes and models.
+     */
+    WorkspaceDefaultsIn: {
+      /**
+       * Default Mode
+       * @enum {string}
+       */
+      default_mode: "corpus_only" | "general_knowledge";
+      /** Default Model */
+      default_model: string;
+      /** Default Reasoning */
+      default_reasoning: boolean;
+    };
+    /**
+     * WorkspaceFileOut
+     * @description A PDF, DOCX or PPTX file of the workspace, from the source register.
+     *
+     *     ``id`` is our register's UUID; no RAGFlow dataset or document ID is ever returned.
+     *     ``downloadable``: a download action is offered; otherwise show ``canonical_url``.
+     */
+    WorkspaceFileOut: {
+      /** Canonical Url */
+      canonical_url: string | null;
+      /** Downloadable */
+      downloadable: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Ingested On
+       * Format: date
+       */
+      ingested_on: string;
+      /** Published On */
+      published_on: string | null;
+      /** Publisher */
+      publisher: string;
+      /** Title */
+      title: string;
+      /** Type */
+      type: string;
+    };
+    /** WorkspaceFilesOut */
+    WorkspaceFilesOut: {
+      /** Files */
+      files: components["schemas"]["WorkspaceFileOut"][];
+      /** Sites */
+      sites: components["schemas"]["WorkspaceSiteOut"][];
     };
     /** WorkspaceOut */
     WorkspaceOut: {
@@ -1054,6 +1427,23 @@ export interface components {
        */
       workspace_id: string;
     };
+    /**
+     * WorkspaceSiteOut
+     * @description A crawled site of the workspace, once, with its number of pages.
+     */
+    WorkspaceSiteOut: {
+      /**
+       * Last Ingested On
+       * Format: date
+       */
+      last_ingested_on: string;
+      /** Page Count */
+      page_count: number;
+      /** Publisher */
+      publisher: string;
+      /** Site */
+      site: string;
+    };
     /** WorkspaceTagsIn */
     WorkspaceTagsIn: {
       /** Tag Ids */
@@ -1068,6 +1458,182 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  get_settings_api_v1_admin_settings_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TenantSettingsOut"];
+        };
+      };
+    };
+  };
+  set_retention_days_api_v1_admin_settings_retention_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RetentionIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TenantSettingsOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_users_api_v1_admin_users_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminUserOut"][];
+        };
+      };
+    };
+  };
+  invite_user_api_v1_admin_users_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserInviteIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminUserOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  change_user_api_v1_admin_users__user_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserChangeIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminUserOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_workspace_defaults_api_v1_admin_workspaces__workspace_id__defaults_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkspaceDefaultsIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   request_sign_in_link_api_v1_auth_link_post: {
     parameters: {
       query?: never;
@@ -1325,6 +1891,48 @@ export interface operations {
       };
     };
   };
+  download_file_api_v1_files__token__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        token: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The file */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/pdf": unknown;
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation": unknown;
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
+          "application/xhtml+xml": unknown;
+          "text/markdown": unknown;
+        };
+      };
+      /** @description Unknown, expired or already used link */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   healthz_api_v1_healthz_get: {
     parameters: {
       query?: never;
@@ -1476,6 +2084,61 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["OperatorOptionsOut"];
+        };
+      };
+    };
+  };
+  list_sources_api_v1_operator_sources_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatorSourceOut"][];
+        };
+      };
+    };
+  };
+  set_source_downloadable_api_v1_operator_sources__source_id__downloadable_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SourceDownloadableIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatorSourceOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
@@ -1753,6 +2416,90 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["WorkspaceOut"][];
         };
+      };
+    };
+  };
+  list_workspace_files_api_v1_workspaces__workspace_id__files_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceFilesOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  request_download_api_v1_workspaces__workspace_id__files__source_id__download_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DownloadLinkOut"];
+        };
+      };
+      /** @description The file is listed but not downloadable */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not a file of this workspace */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description The daily download cap is reached */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

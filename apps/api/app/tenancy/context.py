@@ -15,9 +15,10 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.auth.models import RevokedSession
 from app.core.db import tenant_session
 from app.tenancy.models import Tenant, User
 
@@ -50,27 +51,36 @@ async def resolve_user(
     email: str,
     *,
     allow_invited: bool = False,
+    token_sha256: str | None = None,
 ) -> RequestContext | None:
     """The active user ``email`` of the active tenant ``tenant_id``, or None.
 
     Runs in a transaction scoped to ``tenant_id``, so a row of any other tenant is
     invisible even if the email matches. ``allow_invited`` admits a user whose first
     sign-in this is (P1a-02); every other caller needs ``status = 'active'``.
+    ``token_sha256``: the hash of the presented access token; a token revoked by
+    sign-out (``revoked_sessions``) resolves to None (P1a-02).
     """
     statuses = ("active", "invited") if allow_invited else ("active",)
-    async with tenant_session(factory, tenant_id) as session:
-        row = (
-            await session.execute(
-                select(User.id, User.role, User.status)
-                .join(Tenant, Tenant.id == User.tenant_id)
-                .where(
-                    User.tenant_id == tenant_id,
-                    User.email == email.strip().lower(),
-                    User.status.in_(statuses),
-                    Tenant.status == "active",
-                )
+    query = (
+        select(User.id, User.role, User.status)
+        .join(Tenant, Tenant.id == User.tenant_id)
+        .where(
+            User.tenant_id == tenant_id,
+            User.email == email.strip().lower(),
+            User.status.in_(statuses),
+            Tenant.status == "active",
+        )
+    )
+    if token_sha256 is not None:
+        query = query.where(
+            ~exists().where(
+                RevokedSession.tenant_id == tenant_id,
+                RevokedSession.token_sha256 == token_sha256,
             )
-        ).one_or_none()
+        )
+    async with tenant_session(factory, tenant_id) as session:
+        row = (await session.execute(query)).one_or_none()
     if row is None:
         return None
     return RequestContext(tenant_id=tenant_id, user_id=row.id, role=row.role, status=row.status)

@@ -118,6 +118,10 @@ class MessageOut(BaseModel):
 
 
 class ConversationDetail(ConversationSummary):
+    # Header of the conversation (P1a-12): the workspace's label and the model's
+    # catalogue display name (the ID when the catalogue no longer lists it).
+    workspace_name: str
+    model_display_name: str
     messages: list[MessageOut]
 
 
@@ -340,3 +344,110 @@ class OperatorWorkspaceOut(WorkspaceOut):
 class OperatorMeOut(BaseModel):
     email: str
     display_name: str
+
+
+# --- tenant admin pages (P1a-13) -------------------------------------------------------
+
+UserRole = Literal["user", "tenant_admin"]
+
+
+class AdminUserOut(_Out):
+    id: UUID
+    email: str
+    display_name: str
+    role: str
+    status: str
+    last_login_at: datetime | None
+    last_login_method: str | None
+    created_at: datetime
+
+
+class UserInviteIn(_In):
+    email: str = Field(min_length=3, max_length=320)
+    display_name: str = Field(min_length=1, max_length=128)
+    role: UserRole = "user"
+
+
+class UserChangeIn(_In):
+    """Change a user's role, or deactivate and reactivate them. Users are never deleted."""
+
+    role: UserRole | None = None
+    status: Literal["active", "deactivated"] | None = None
+
+
+class WorkspaceDefaultsIn(_In):
+    """A workspace's defaults, among the tenant's enabled modes and models."""
+
+    default_mode: AnswerMode
+    default_model: str = Field(min_length=1, max_length=128)
+    default_reasoning: bool
+
+
+class RetentionIn(_In):
+    # CLAUDE.md: 30 days maximum; a tenant admin may only shorten it.
+    retention_days: int = Field(ge=1, le=30)
+
+
+class TenantSettingsOut(BaseModel):
+    retention_days: int
+    max_retention_days: int
+    answer_modes: list[str]  # what the operator enabled; workspace defaults pick among them
+
+
+# --- workspace file list and downloads (P1a-14) ----------------------------------------
+
+
+class WorkspaceFileOut(BaseModel):
+    """A PDF, DOCX or PPTX file of the workspace, from the source register.
+
+    ``id`` is our register's UUID; no RAGFlow dataset or document ID is ever returned.
+    ``downloadable``: a download action is offered; otherwise show ``canonical_url``.
+    """
+
+    id: UUID
+    type: str
+    title: str
+    publisher: str
+    published_on: date | None
+    canonical_url: str | None
+    ingested_on: date
+    downloadable: bool
+
+
+class WorkspaceSiteOut(BaseModel):
+    """A crawled site of the workspace, once, with its number of pages."""
+
+    site: str
+    publisher: str
+    page_count: int
+    last_ingested_on: date
+
+
+class WorkspaceFilesOut(BaseModel):
+    files: list[WorkspaceFileOut]
+    sites: list[WorkspaceSiteOut]
+
+
+class DownloadLinkOut(BaseModel):
+    """A single-use link to the file, valid until ``expires_at`` (60 seconds)."""
+
+    url: str
+    expires_at: datetime
+
+
+class OperatorSourceOut(BaseModel):
+    """A source register row for the operator's download switch (P1a-14)."""
+
+    id: UUID
+    type: str
+    title: str
+    publisher: str
+    tags: list[str]
+    status: str
+    licence_basis: str
+    downloadable: bool
+    stored: bool  # our own copy exists, so a download can be served
+
+
+class SourceDownloadableIn(_In):
+    downloadable: bool

@@ -77,6 +77,7 @@ class FakeSignInLinks:
     outbox: list[tuple[str, str]] = field(default_factory=list)  # (email, link token)
     links: dict[str, _Link] = field(default_factory=dict)
     redeemed: list[str] = field(default_factory=list)  # every token the API submitted
+    revoked: list[str] = field(default_factory=list)  # access tokens revoked on sign-out
     # Make the next redeem return a token for a different identity (identity check).
     impersonate: tuple[str, uuid.UUID] | None = None
 
@@ -96,10 +97,15 @@ class FakeSignInLinks:
             raise LinkRefused("refused_by_provider")
         link.used = True
         email, tenant_id = self.impersonate or (link.email, self.users[link.email][0])
-        return IssuedTokens(access_token=sign(self.key, email=email, tenant_id=tenant_id))
+        # A distinct token per sign-in, as Authentik issues (two in one second differ).
+        token = sign(self.key, email=email, tenant_id=tenant_id, jti=secrets.token_hex(8))
+        return IssuedTokens(access_token=token)
 
     async def provision_user(self, *, email: str, display_name: str, tenant_id: uuid.UUID) -> None:
         self.users[email] = (tenant_id, display_name)
+
+    async def revoke_token(self, access_token: str) -> None:
+        self.revoked.append(access_token)
 
     async def aclose(self) -> None:
         return None

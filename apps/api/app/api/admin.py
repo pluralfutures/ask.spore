@@ -1,0 +1,277 @@
+"""/api/v1/admin: the tenant admin pages (P1a-13; architecture §7.2).
+
+Every route depends on ``require_tenant_admin`` (``app.api.deps``): a signed-in user
+whose ``users.role`` is ``tenant_admin``; anyone else gets 403 before the route runs.
+Routes act on the admin's own tenant only: every query runs in the request's
+tenant-scoped transaction (RLS), so another tenant's user or workspace is not found,
+and nothing here takes a tenant ID from the request.
+
+- Users: list (with last login and method), invite (as ``invited``; provisioned in
+  Authentik like the operator's first admin, findings A15), change role, deactivate and
+  reactivate. Users are never deleted. An admin cannot change their own role or
+  status, so a tenant cannot lose its last admin through these routes.
+- Workspace defaults: mode, model and reasoning among the tenant's enabled options. The
+  additional instructions keep their routes (``PUT /workspaces/{id}/prompt``, findings
+  B5): each save is a new version, with no revert in Phase 1a.
+- Retention: shorten chat-history retention to between 1 and 30 days
+  (``app.tenancy.retention``); never above 30 (CLAUDE.md).
+
+Every change writes an audit event with the values before and after.
+"""
+
+from __future__ import annotations
+
+import uuid
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import db_session, require_tenant_admin
+from app.api.schemas import (
+    AdminUserOut,
+    RetentionIn,
+    TenantSettingsOut,
+    UserChangeIn,
+    UserInviteIn,
+    WorkspaceDefaultsIn,
+    WorkspaceOut,
+)
+from app.audit.writer import Change, record
+from app.auth.links import normalise_email
+from app.auth.provider import ProviderError, SignInLinkProvider
+from app.chat.selection import load_entitlement
+from app.core.db import AUTH_ROLE, role_session
+from app.core.logging import log
+from app.llm.catalogue import ModelChoice
+from app.tenancy.context import RequestContext
+from app.tenancy.entitlements import ModelRefused, check_choice
+from app.tenancy.models import MAX_RETENTION_DAYS, Tenant, TenantEntitlements, User
+from app.tenancy.retention import retention_days, set_retention
+from app.tenancy.workspaces import Workspace
+
+NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, detail="not_found")
+
+
+router = APIRouter(prefix="/api/v1/admin", dependencies=[Depends(require_tenant_admin)])
+
+
+def _unprocessable(code: str) -> HTTPException:
+    return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=code)
+
+
+def _user_values(user: User) -> Change:
+    return {"user_id": str(user.id), "role": user.role, "status": user.status}
+
+
+# --- users ----------------------------------------------------------------------------
+
+
+@router.get("/users", response_model=list[AdminUserOut])
+async def list_users(session: AsyncSession = Depends(db_session)) -> list[User]:
+    rows = await session.scalars(select(User).order_by(User.display_name, User.email))
+    return list(rows)
+
+
+@router.post("/users", status_code=status.HTTP_201_CREATED, response_model=AdminUserOut)
+async def invite_user(
+    body: UserInviteIn,
+    request: Request,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> AdminUserOut:
+    """Invite a user of one of the tenant's verified email domains, as ``invited``.
+
+    They then request a sign-in link from their own browser; the first sign-in makes
+    them ``active`` (findings A15). An email that exists in any tenant is refused:
+    Authentik's usernames are emails, and an email maps to one tenant (findings A8).
+    """
+    email = normalise_email(body.email)
+    if email is None:
+        raise _unprocessable("invalid_email")
+    tenant = await session.get(Tenant, admin.tenant_id)
+    if tenant is None:
+        raise NOT_FOUND
+    if email.partition("@")[2] not in tenant.verified_domains:
+        raise _unprocessable("domain_not_verified")
+    # Across tenants, as the pre-authentication role (email and status only).
+    async with role_session(request.app.state.db_factory, AUTH_ROLE) as lookup:
+        if await lookup.scalar(select(User.id).where(User.email == email)) is not None:
+            raise HTTPException(status.HTTP_409_CONFLICT, detail="email_taken")
+    provider: SignInLinkProvider | None = getattr(request.app.state, "sign_in_provider", None)
+    if provider is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="no_identity_provider")
+    user = User(
+        id=uuid.uuid4(),
+        tenant_id=admin.tenant_id,
+        email=email,
+        display_name=body.display_name.strip(),
+        role=body.role,
+        status="invited",
+    )
+    session.add(user)
+    await session.flush()
+    try:
+        await provider.provision_user(
+            email=email, display_name=user.display_name, tenant_id=admin.tenant_id
+        )
+    except ProviderError as exc:
+        # The transaction rolls back: no users row without its Authentik user.
+        log("tenant_admin.invite_failed", tenant_id=str(admin.tenant_id), error_code=exc.error_code)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="provisioning_failed") from None
+    await session.refresh(user)
+    await record(
+        session,
+        tenant_id=admin.tenant_id,
+        actor_user_id=admin.user_id,
+        event="tenant_admin.user_invited",
+        metadata={"before": {}, "after": _user_values(user)},
+    )
+    log("tenant_admin.user_invited", tenant_id=str(admin.tenant_id), user_id=str(user.id))
+    out = AdminUserOut.model_validate(user)
+    await session.commit()
+    return out
+
+
+@router.patch("/users/{user_id}", response_model=AdminUserOut)
+async def change_user(
+    user_id: UUID,
+    body: UserChangeIn,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> AdminUserOut:
+    """Change role or status. Deactivated users are refused at sign-in and on every
+    request; reactivating returns them to ``active``, or ``invited`` if they never
+    signed in."""
+    user = await session.scalar(select(User).where(User.id == user_id).with_for_update())
+    if user is None:
+        raise NOT_FOUND
+    if user.id == admin.user_id:
+        raise _unprocessable("cannot_change_self")
+    before = _user_values(user)
+    if body.role is not None:
+        user.role = body.role
+    if body.status == "deactivated":
+        user.status = "deactivated"
+    elif body.status == "active" and user.status == "deactivated":
+        user.status = "active" if user.last_login_at is not None else "invited"
+    await session.flush()
+    after = _user_values(user)
+    if after != before:
+        await record(
+            session,
+            tenant_id=admin.tenant_id,
+            actor_user_id=admin.user_id,
+            event="tenant_admin.user_changed",
+            metadata={"before": before, "after": after},
+        )
+        log("tenant_admin.user_changed", tenant_id=str(admin.tenant_id), user_id=str(user.id))
+    out = AdminUserOut.model_validate(user)
+    await session.commit()
+    return out
+
+
+# --- workspace defaults -----------------------------------------------------------------
+
+
+def _defaults(workspace: Workspace) -> Change:
+    return {
+        "workspace_id": str(workspace.id),
+        "default_mode": workspace.default_mode,
+        "default_model": workspace.default_model,
+        "default_reasoning": workspace.default_reasoning,
+    }
+
+
+@router.put("/workspaces/{workspace_id}/defaults", response_model=WorkspaceOut)
+async def set_workspace_defaults(
+    workspace_id: UUID,
+    body: WorkspaceDefaultsIn,
+    request: Request,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> WorkspaceOut:
+    """Default mode, model and reasoning of a new conversation in the workspace, among
+    the modes and models the operator enabled for the tenant (P1a-03, P1a-09)."""
+    workspace = await session.scalar(
+        select(Workspace).where(Workspace.id == workspace_id).with_for_update()
+    )
+    if workspace is None:
+        raise NOT_FOUND
+    entitlements = await session.get(TenantEntitlements, admin.tenant_id)
+    if entitlements is None or body.default_mode not in entitlements.answer_modes:
+        raise _unprocessable("mode_not_enabled")
+    try:
+        check_choice(
+            request.app.state.settings,
+            await load_entitlement(session, admin.tenant_id),
+            ModelChoice(body.default_model, body.default_reasoning),
+        )
+    except ModelRefused as exc:
+        raise _unprocessable(exc.code) from None
+    before = _defaults(workspace)
+    workspace.default_mode = body.default_mode
+    workspace.default_model = body.default_model
+    workspace.default_reasoning = body.default_reasoning
+    await session.flush()
+    after = _defaults(workspace)
+    if after != before:
+        await record(
+            session,
+            tenant_id=admin.tenant_id,
+            actor_user_id=admin.user_id,
+            event="tenant_admin.workspace_defaults_changed",
+            metadata={"workspace_id": str(workspace.id), "before": before, "after": after},
+        )
+        log("tenant_admin.workspace_defaults_changed", tenant_id=str(admin.tenant_id))
+    out = WorkspaceOut.model_validate(workspace)
+    await session.commit()
+    return out
+
+
+# --- settings: retention --------------------------------------------------------------
+
+
+async def _settings_out(session: AsyncSession, tenant_id: UUID) -> TenantSettingsOut:
+    entitlements = await session.get(TenantEntitlements, tenant_id)
+    return TenantSettingsOut(
+        retention_days=await retention_days(session),
+        max_retention_days=MAX_RETENTION_DAYS,
+        answer_modes=list(entitlements.answer_modes) if entitlements else ["corpus_only"],
+    )
+
+
+@router.get("/settings", response_model=TenantSettingsOut)
+async def get_settings(
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> TenantSettingsOut:
+    return await _settings_out(session, admin.tenant_id)
+
+
+@router.put("/settings/retention", response_model=TenantSettingsOut)
+async def set_retention_days(
+    body: RetentionIn,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> TenantSettingsOut:
+    """Shorten (or restore up to 30 days) the tenant's chat-history retention."""
+    before = await retention_days(session)
+    shortened = await set_retention(session, admin.tenant_id, body.retention_days)
+    if body.retention_days != before:
+        await record(
+            session,
+            tenant_id=admin.tenant_id,
+            actor_user_id=admin.user_id,
+            event="tenant_admin.retention_changed",
+            metadata={
+                "before": {"retention_days": before},
+                "after": {"retention_days": body.retention_days},
+                "count": shortened,
+            },
+        )
+        log("tenant_admin.retention_changed", tenant_id=str(admin.tenant_id), count=shortened)
+    out = await _settings_out(session, admin.tenant_id)
+    await session.commit()
+    return out

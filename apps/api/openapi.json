@@ -67,6 +67,71 @@
         "title": "AdminInvitedOut",
         "type": "object"
       },
+      "AdminUserOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "last_login_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login Method"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "role",
+          "status",
+          "last_login_at",
+          "last_login_method",
+          "created_at"
+        ],
+        "title": "AdminUserOut",
+        "type": "object"
+      },
       "AskIn": {
         "additionalProperties": false,
         "properties": {
@@ -394,6 +459,10 @@
             "title": "Model",
             "type": "string"
           },
+          "model_display_name": {
+            "title": "Model Display Name",
+            "type": "string"
+          },
           "reasoning": {
             "title": "Reasoning",
             "type": "boolean"
@@ -418,6 +487,10 @@
             "format": "uuid",
             "title": "Workspace Id",
             "type": "string"
+          },
+          "workspace_name": {
+            "title": "Workspace Name",
+            "type": "string"
           }
         },
         "required": [
@@ -430,6 +503,8 @@
           "mode",
           "model",
           "reasoning",
+          "workspace_name",
+          "model_display_name",
           "messages"
         ],
         "title": "ConversationDetail",
@@ -554,6 +629,26 @@
           "reasoning"
         ],
         "title": "DoneData",
+        "type": "object"
+      },
+      "DownloadLinkOut": {
+        "description": "A single-use link to the file, valid until ``expires_at`` (60 seconds).",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "title": "DownloadLinkOut",
         "type": "object"
       },
       "EntitlementsIn": {
@@ -1081,6 +1176,64 @@
         "title": "OperatorOptionsOut",
         "type": "object"
       },
+      "OperatorSourceOut": {
+        "description": "A source register row for the operator's download switch (P1a-14).",
+        "properties": {
+          "downloadable": {
+            "title": "Downloadable",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "licence_basis": {
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "stored": {
+            "title": "Stored",
+            "type": "boolean"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "publisher",
+          "tags",
+          "status",
+          "licence_basis",
+          "downloadable",
+          "stored"
+        ],
+        "title": "OperatorSourceOut",
+        "type": "object"
+      },
       "OperatorWorkspaceOut": {
         "properties": {
           "created_at": {
@@ -1138,6 +1291,36 @@
           "created_at"
         ],
         "title": "OperatorWorkspaceOut",
+        "type": "object"
+      },
+      "RetentionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "retention_days": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Retention Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "retention_days"
+        ],
+        "title": "RetentionIn",
+        "type": "object"
+      },
+      "SourceDownloadableIn": {
+        "additionalProperties": false,
+        "properties": {
+          "downloadable": {
+            "title": "Downloadable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "downloadable"
+        ],
+        "title": "SourceDownloadableIn",
         "type": "object"
       },
       "SourceOut": {
@@ -1281,6 +1464,32 @@
         "title": "TenantOut",
         "type": "object"
       },
+      "TenantSettingsOut": {
+        "properties": {
+          "answer_modes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Answer Modes",
+            "type": "array"
+          },
+          "max_retention_days": {
+            "title": "Max Retention Days",
+            "type": "integer"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "retention_days",
+          "max_retention_days",
+          "answer_modes"
+        ],
+        "title": "TenantSettingsOut",
+        "type": "object"
+      },
       "TokenData": {
         "properties": {
           "text": {
@@ -1292,6 +1501,76 @@
           "text"
         ],
         "title": "TokenData",
+        "type": "object"
+      },
+      "UserChangeIn": {
+        "additionalProperties": false,
+        "description": "Change a user's role, or deactivate and reactivate them. Users are never deleted.",
+        "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "user",
+                  "tenant_admin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "active",
+                  "deactivated"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "UserChangeIn",
+        "type": "object"
+      },
+      "UserInviteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          },
+          "role": {
+            "default": "user",
+            "enum": [
+              "user",
+              "tenant_admin"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "display_name"
+        ],
+        "title": "UserInviteIn",
         "type": "object"
       },
       "ValidationError": {
@@ -1387,6 +1666,127 @@
         "title": "WorkspaceCreateIn",
         "type": "object"
       },
+      "WorkspaceDefaultsIn": {
+        "additionalProperties": false,
+        "description": "A workspace's defaults, among the tenant's enabled modes and models.",
+        "properties": {
+          "default_mode": {
+            "enum": [
+              "corpus_only",
+              "general_knowledge"
+            ],
+            "title": "Default Mode",
+            "type": "string"
+          },
+          "default_model": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Default Model",
+            "type": "string"
+          },
+          "default_reasoning": {
+            "title": "Default Reasoning",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "default_mode",
+          "default_model",
+          "default_reasoning"
+        ],
+        "title": "WorkspaceDefaultsIn",
+        "type": "object"
+      },
+      "WorkspaceFileOut": {
+        "description": "A PDF, DOCX or PPTX file of the workspace, from the source register.\n\n``id`` is our register's UUID; no RAGFlow dataset or document ID is ever returned.\n``downloadable``: a download action is offered; otherwise show ``canonical_url``.",
+        "properties": {
+          "canonical_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Url"
+          },
+          "downloadable": {
+            "title": "Downloadable",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "ingested_on": {
+            "format": "date",
+            "title": "Ingested On",
+            "type": "string"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "publisher",
+          "published_on",
+          "canonical_url",
+          "ingested_on",
+          "downloadable"
+        ],
+        "title": "WorkspaceFileOut",
+        "type": "object"
+      },
+      "WorkspaceFilesOut": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceFileOut"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceSiteOut"
+            },
+            "title": "Sites",
+            "type": "array"
+          }
+        },
+        "required": [
+          "files",
+          "sites"
+        ],
+        "title": "WorkspaceFilesOut",
+        "type": "object"
+      },
       "WorkspaceOut": {
         "properties": {
           "default_mode": {
@@ -1472,6 +1872,36 @@
         "title": "WorkspacePromptOut",
         "type": "object"
       },
+      "WorkspaceSiteOut": {
+        "description": "A crawled site of the workspace, once, with its number of pages.",
+        "properties": {
+          "last_ingested_on": {
+            "format": "date",
+            "title": "Last Ingested On",
+            "type": "string"
+          },
+          "page_count": {
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "site": {
+            "title": "Site",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site",
+          "publisher",
+          "page_count",
+          "last_ingested_on"
+        ],
+        "title": "WorkspaceSiteOut",
+        "type": "object"
+      },
       "WorkspaceTagsIn": {
         "additionalProperties": false,
         "properties": {
@@ -1500,6 +1930,224 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/settings": {
+      "get": {
+        "operationId": "get_settings_api_v1_admin_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Settings"
+      }
+    },
+    "/api/v1/admin/settings/retention": {
+      "put": {
+        "description": "Shorten (or restore up to 30 days) the tenant's chat-history retention.",
+        "operationId": "set_retention_days_api_v1_admin_settings_retention_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Retention Days"
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "list_users_api_v1_admin_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminUserOut"
+                  },
+                  "title": "Response List Users Api V1 Admin Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Users"
+      },
+      "post": {
+        "description": "Invite a user of one of the tenant's verified email domains, as ``invited``.\n\nThey then request a sign-in link from their own browser; the first sign-in makes\nthem ``active`` (findings A15). An email that exists in any tenant is refused:\nAuthentik's usernames are emails, and an email maps to one tenant (findings A8).",
+        "operationId": "invite_user_api_v1_admin_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserInviteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invite User"
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "patch": {
+        "description": "Change role or status. Deactivated users are refused at sign-in and on every\nrequest; reactivating returns them to ``active``, or ``invited`` if they never\nsigned in.",
+        "operationId": "change_user_api_v1_admin_users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserChangeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change User"
+      }
+    },
+    "/api/v1/admin/workspaces/{workspace_id}/defaults": {
+      "put": {
+        "description": "Default mode, model and reasoning of a new conversation in the workspace, among\nthe modes and models the operator enabled for the tenant (P1a-03, P1a-09).",
+        "operationId": "set_workspace_defaults_api_v1_admin_workspaces__workspace_id__defaults_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceDefaultsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Workspace Defaults"
+      }
+    },
     "/api/v1/auth/link": {
       "post": {
         "operationId": "request_sign_in_link_api_v1_auth_link_post",
@@ -1571,6 +2219,7 @@
     },
     "/api/v1/auth/logout": {
       "post": {
+        "description": "Clear the session cookie and revoke the session server-side (P1a-02): the token\nis listed in ``revoked_sessions``, so a copy of the old cookie is refused.",
         "operationId": "logout_api_v1_auth_logout_post",
         "responses": {
           "204": {
@@ -1790,6 +2439,49 @@
         "summary": "Ask"
       }
     },
+    "/api/v1/files/{token}": {
+      "get": {
+        "description": "Serve our stored copy of the file behind a single-use link of this user.",
+        "operationId": "download_file_api_v1_files__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/pdf": {},
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation": {},
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {},
+              "application/xhtml+xml": {},
+              "text/markdown": {}
+            },
+            "description": "The file"
+          },
+          "404": {
+            "description": "Unknown, expired or already used link"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download File"
+      }
+    },
     "/api/v1/healthz": {
       "get": {
         "operationId": "healthz_api_v1_healthz_get",
@@ -1957,6 +2649,80 @@
           }
         },
         "summary": "Operator Options"
+      }
+    },
+    "/api/v1/operator/sources": {
+      "get": {
+        "description": "Every register row with its download switch. The operator role reads only these\ncolumns (revision 0012), never the RAGFlow document IDs.",
+        "operationId": "list_sources_api_v1_operator_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OperatorSourceOut"
+                  },
+                  "title": "Response List Sources Api V1 Operator Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sources"
+      }
+    },
+    "/api/v1/operator/sources/{source_id}/downloadable": {
+      "put": {
+        "description": "Open or close the licence gate of one source, from its licence basis. Audited\nunder the platform tenant (sources are shared corpus, not a tenant's).",
+        "operationId": "set_source_downloadable_api_v1_operator_sources__source_id__downloadable_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceDownloadableIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorSourceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Source Downloadable"
       }
     },
     "/api/v1/operator/tenants": {
@@ -2333,6 +3099,106 @@
           }
         },
         "summary": "List Workspaces"
+      }
+    },
+    "/api/v1/workspaces/{workspace_id}/files": {
+      "get": {
+        "description": "The workspace's PDF, DOCX and PPTX files and its crawled sites. No search or\nfilters (Phase 1a).",
+        "operationId": "list_workspace_files_api_v1_workspaces__workspace_id__files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceFilesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Workspace Files"
+      }
+    },
+    "/api/v1/workspaces/{workspace_id}/files/{source_id}/download": {
+      "post": {
+        "operationId": "request_download_api_v1_workspaces__workspace_id__files__source_id__download_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadLinkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "The file is listed but not downloadable"
+          },
+          "404": {
+            "description": "Not a file of this workspace"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "The daily download cap is reached"
+          }
+        },
+        "summary": "Request Download"
       }
     },
     "/api/v1/workspaces/{workspace_id}/prompt": {

@@ -1,6 +1,6 @@
 """Source register and tag-to-dataset mapping. Shared corpus metadata, not tenant-scoped.
 
-Mirrors alembic revisions 0001 and 0003; the migrations are authoritative.
+Mirrors alembic revisions 0001, 0003 and 0012; the migrations are authoritative.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, Date, DateTime, Integer, Text, func, text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Integer, Text, func, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,6 +27,11 @@ class Source(Base):
         CheckConstraint("file_sha256 ~ '^[0-9a-f]{64}$'", name="file_sha256_hex"),
         CheckConstraint("error IS NULL OR status = 'failed'", name="error_only_when_failed"),
         CheckConstraint("chunk_count >= 0", name="chunk_count_non_negative"),
+        CheckConstraint(
+            "stored_path IS NULL OR (type IN ('pdf', 'docx', 'pptx') AND stored_path = "
+            "substr(file_sha256, 1, 2) || '/' || file_sha256 || '.' || type)",
+            name="stored_path_by_hash",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -48,6 +53,10 @@ class Source(Base):
     # Revision 0003 (P0-09): ingestion results.
     chunk_count: Mapped[int | None] = mapped_column(Integer)
     error: Mapped[str | None] = mapped_column(Text)
+    # Revision 0012 (P1a-14): the licence gate for downloads, and our own stored copy
+    # (``app.content.store``), relative to ``[files] content_root``.
+    downloadable: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    stored_path: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

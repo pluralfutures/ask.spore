@@ -38,6 +38,11 @@ COLUMNS = (
     "max_pages",
     "notes",
 )
+# P1a-14: an optional last column; when absent every row is not downloadable.
+OPTIONAL_COLUMNS = ("downloadable",)
+DOWNLOADABLE_FILE_TYPES = ("pdf", "docx", "pptx")
+_TRUE = ("true", "yes", "1")
+_FALSE = ("", "false", "no", "0")
 FILE_TYPES = tuple(SUFFIX_BY_TYPE)
 SITE = "site"
 # Proposed vocabulary (corpus-manifest.md); the research lead may amend it.
@@ -91,7 +96,7 @@ def _published_on(value: str) -> date:
 def _row(
     line: int, raw: Mapping[str, str], base: Path, tags_config: Mapping[str, TagConfig]
 ) -> tuple[ManifestRow | None, list[str]]:
-    field = {name: (raw.get(name) or "").strip() for name in COLUMNS}
+    field = {name: (raw.get(name) or "").strip() for name in (*COLUMNS, *OPTIONAL_COLUMNS)}
     problems: list[str] = []
 
     def bad(column: str, message: str) -> None:
@@ -167,6 +172,12 @@ def _row(
             if not path.is_file():
                 bad("path", f"no such file: {field['path']}")
 
+    downloadable = field["downloadable"].lower()
+    if downloadable not in (*_TRUE, *_FALSE):
+        bad("downloadable", "must be true or false (empty means false)")
+    elif downloadable in _TRUE and kind not in DOWNLOADABLE_FILE_TYPES:
+        bad("downloadable", "only pdf, docx and pptx files can be downloadable")
+
     if problems:
         return None, problems
     metadata = SourceMetadata(
@@ -176,6 +187,7 @@ def _row(
         licence_basis=licence,
         published_on=published_on,
         canonical_url=canonical_url,
+        downloadable=downloadable in _TRUE,
     )
     return ManifestRow(line, kind, metadata, path, url, max_pages), []
 
@@ -190,8 +202,15 @@ def load_manifest(manifest: Path, tags_config: Mapping[str, TagConfig]) -> list[
         raise ManifestError([f"{manifest} is not UTF-8"]) from None
     reader = csv.DictReader(io.StringIO(text, newline=""))
     header = tuple(name.strip() for name in reader.fieldnames or ())
-    if header != COLUMNS:
-        raise ManifestError([f"line 1: header must be exactly: {','.join(COLUMNS)}"])
+    if header not in (COLUMNS, (*COLUMNS, *OPTIONAL_COLUMNS)):
+        raise ManifestError(
+            [
+                f"line 1: header must be exactly: {','.join(COLUMNS)} "
+                f"(optionally followed by ,{','.join(OPTIONAL_COLUMNS)})"
+            ]
+        )
+    if reader.fieldnames is not None:
+        reader.fieldnames = list(header)
 
     base = manifest.parent
     rows: list[ManifestRow] = []

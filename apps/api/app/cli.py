@@ -110,6 +110,7 @@ async def _ingest(args: argparse.Namespace) -> int:
         licence_basis=args.licence,
         published_on=args.published_on,
         canonical_url=args.canonical_url or (args.location if is_url else None),
+        downloadable=args.downloadable,
     )
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     try:
@@ -122,6 +123,7 @@ async def _ingest(args: argparse.Namespace) -> int:
                 source,
                 metadata,
                 parse_timeout=args.parse_timeout,
+                content_root=settings.models.files.content_root,
             )
     except IngestError as exc:
         # Usage problem; nothing recorded. The message names a file, URL or tag only.
@@ -267,6 +269,7 @@ async def _ingest_manifest(args: argparse.Namespace) -> int:
                         load_path(row.path),
                         row.metadata,
                         parse_timeout=args.parse_timeout,
+                        content_root=settings.models.files.content_root,
                     )
                 except IngestError as exc:  # validated, so only no_dataset or I/O
                     raise SystemExit(f"ask-spore ingest-manifest: line {row.line}: {exc}") from None
@@ -380,6 +383,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=1800.0,
         help="seconds to wait for RAGFlow to finish parsing (default 1800)",
     )
+    ingest_cmd.add_argument(
+        "--downloadable",
+        action="store_true",
+        help="users may download the file (PDF, DOCX, PPTX); only where the licence permits",
+    )
 
     crawl_cmd = commands.add_parser(
         "crawl",
@@ -402,7 +410,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="ingest every row of a corpus manifest.csv (design/specs/corpus-manifest.md)",
         description="Validates every row against config/tags.toml and the file tree first and "
         "uploads nothing if any row is invalid. Files already ingested (same content hash) are "
-        "reported as duplicate, so re-running after a failure is safe.",
+        "reported as duplicate, so re-running after a failure is safe. PDF, DOCX and PPTX "
+        "files are also stored under [files] content_root for downloads; the optional "
+        "downloadable column (default false) sets the licence gate of new sources.",
     )
     manifest_cmd.add_argument(
         "manifest", help="path to manifest.csv; file paths are relative to it"

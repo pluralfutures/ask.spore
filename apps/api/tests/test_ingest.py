@@ -274,6 +274,73 @@ async def test_already_ingested_file_is_a_duplicate(env: tuple[Env, Ingest]) -> 
     assert len(e.fake.uploads) == uploads
 
 
+# --- P1a-14: our own stored copy and the download flag -------------------------------------
+
+
+async def test_file_is_stored_by_hash_and_the_flag_recorded(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection, tmp_path: Path
+) -> None:
+    _, run = env
+    downloadable = SourceMetadata(**{**meta("sample-reports").__dict__, "downloadable": True})
+    result = await run(load_path(PDF), downloadable, content_root=tmp_path)
+    row = await source_row(admin_conn, result.source_id)
+    sha = row["file_sha256"]
+    assert row["downloadable"] is True
+    assert row["stored_path"] == f"{sha[:2]}/{sha}.pdf"
+    stored = tmp_path / row["stored_path"]
+    assert stored.read_bytes() == PDF.read_bytes()
+    # Named by hash only: the original file name appears nowhere under the root.
+    assert sorted(p.name for p in tmp_path.rglob("*") if p.is_file()) == [f"{sha}.pdf"]  # noqa: ASYNC240
+
+    plain = await run(load_path(DOCX), meta("sample-reports"), content_root=tmp_path)
+    row = await source_row(admin_conn, plain.source_id)
+    assert row["downloadable"] is False  # the default
+    assert row["stored_path"] is not None  # stored anyway, so the operator can open the gate
+
+
+async def test_without_content_root_nothing_is_stored(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    _, run = env
+    result = await run(load_path(PDF), meta("sample-reports"))
+    row = await source_row(admin_conn, result.source_id)
+    assert (row["stored_path"], row["downloadable"]) == (None, False)
+    with pytest.raises(IngestError) as refused:
+        await run(
+            load_path(PPTX),
+            SourceMetadata(**{**meta("sample-reports").__dict__, "downloadable": True}),
+        )
+    assert refused.value.code == "not_stored"
+
+
+async def test_duplicate_gets_its_stored_copy_but_keeps_its_flag(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection, tmp_path: Path
+) -> None:
+    _, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    again = SourceMetadata(**{**meta("sample-reports").__dict__, "downloadable": True})
+    second = await run(load_path(PDF), again, content_root=tmp_path)
+    assert (second.status, second.source_id) == ("duplicate", first.source_id)
+    row = await source_row(admin_conn, first.source_id)
+    assert row["stored_path"] is not None and (tmp_path / row["stored_path"]).is_file()
+    assert row["downloadable"] is False  # changed only in the operator console, audited
+
+
+async def test_pages_are_not_stored_and_cannot_be_downloadable(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection, tmp_path: Path
+) -> None:
+    _, run = env
+    page = SourceFile("page.md", "markdown", b"# Synthetic page\n\nSynthetic text.")
+    result = await run(page, meta("sample-web"), content_root=tmp_path)
+    assert (await source_row(admin_conn, result.source_id))["stored_path"] is None
+    assert list(tmp_path.iterdir()) == []  # noqa: ASYNC240
+    with pytest.raises(IngestError) as refused:
+        other = SourceFile("other.md", "markdown", b"# Another synthetic page")
+        flagged = SourceMetadata(**{**meta("sample-web").__dict__, "downloadable": True})
+        await run(other, flagged, content_root=tmp_path)
+    assert refused.value.code == "not_downloadable"
+
+
 @pytest.mark.parametrize(
     ("tags", "code"),
     [((), "no_tag"), (("sample-reports", "no-such-tag"), "unknown_tag")],

@@ -1,17 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import { api } from "../api/client";
+import { isTenantAdmin } from "../lib/admin";
 import { formatDate } from "../lib/format";
 
 export function ConversationList() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const conversations = useQuery({ queryKey: ["conversations"], queryFn: api.listConversations });
-  const create = useMutation({
-    mutationFn: api.createConversation,
-    onSuccess: (created) => navigate(`/c/${created.id}`),
-  });
+  const me = useQuery({ queryKey: ["me"], queryFn: api.me });
+  const workspaces = useQuery({ queryKey: ["workspaces"], queryFn: api.workspaces });
   const remove = useMutation({
     mutationFn: api.deleteConversation,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["conversations"] }),
@@ -21,14 +19,14 @@ export function ConversationList() {
     <main className="mx-auto max-w-3xl p-4">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Conversations</h1>
-        <button
-          type="button"
-          onClick={() => create.mutate()}
-          disabled={create.isPending}
-          className="rounded bg-slate-900 px-3 py-1.5 text-white"
-        >
+        {isTenantAdmin(me.data) ? (
+          <Link to="/admin" className="text-sm underline">
+            Administration
+          </Link>
+        ) : null}
+        <Link to="/new" className="rounded bg-slate-900 px-3 py-1.5 text-white">
           New conversation
-        </button>
+        </Link>
       </div>
       {conversations.isPending ? <p>Loading…</p> : null}
       {conversations.isError ? <p className="text-red-700">Could not load conversations.</p> : null}
@@ -54,6 +52,20 @@ export function ConversationList() {
           </li>
         ))}
       </ul>
+      {workspaces.data?.length ? (
+        <section className="mt-6 text-sm">
+          <h2 className="mb-1 font-semibold">Files behind each workspace</h2>
+          <ul className="flex flex-wrap gap-3">
+            {workspaces.data.map((w) => (
+              <li key={w.id}>
+                <Link to={`/w/${w.id}/files`} className="underline">
+                  {w.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </main>
   );
 }

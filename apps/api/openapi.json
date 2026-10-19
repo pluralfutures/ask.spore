@@ -222,6 +222,65 @@
         "title": "CitationsData",
         "type": "object"
       },
+      "ConversationCreateIn": {
+        "additionalProperties": false,
+        "description": "The start panel's choice (P1a-04); each field defaults from the workspace.\n\n``workspace_id`` may be left out when the tenant has one workspace. Dataset and\ndocument IDs are never accepted: the workspace's datasets are resolved server-side.",
+        "properties": {
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "corpus_only",
+                  "general_knowledge"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "reasoning": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning"
+          },
+          "workspace_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Id"
+          }
+        },
+        "title": "ConversationCreateIn",
+        "type": "object"
+      },
       "ConversationCreated": {
         "properties": {
           "created_at": {
@@ -239,6 +298,18 @@
             "title": "Id",
             "type": "string"
           },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "reasoning": {
+            "title": "Reasoning",
+            "type": "boolean"
+          },
           "title": {
             "anyOf": [
               {
@@ -249,13 +320,22 @@
               }
             ],
             "title": "Title"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
           }
         },
         "required": [
           "id",
           "title",
           "created_at",
-          "expires_at"
+          "expires_at",
+          "workspace_id",
+          "mode",
+          "model",
+          "reasoning"
         ],
         "title": "ConversationCreated",
         "type": "object"
@@ -284,6 +364,18 @@
             "title": "Messages",
             "type": "array"
           },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "reasoning": {
+            "title": "Reasoning",
+            "type": "boolean"
+          },
           "title": {
             "anyOf": [
               {
@@ -299,6 +391,11 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
           }
         },
         "required": [
@@ -307,6 +404,10 @@
           "created_at",
           "updated_at",
           "expires_at",
+          "workspace_id",
+          "mode",
+          "model",
+          "reasoning",
           "messages"
         ],
         "title": "ConversationDetail",
@@ -329,6 +430,18 @@
             "title": "Id",
             "type": "string"
           },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "reasoning": {
+            "title": "Reasoning",
+            "type": "boolean"
+          },
           "title": {
             "anyOf": [
               {
@@ -344,6 +457,11 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
           }
         },
         "required": [
@@ -351,7 +469,11 @@
           "title",
           "created_at",
           "updated_at",
-          "expires_at"
+          "expires_at",
+          "workspace_id",
+          "mode",
+          "model",
+          "reasoning"
         ],
         "title": "ConversationSummary",
         "type": "object"
@@ -847,13 +969,80 @@
             },
             "title": "Models",
             "type": "array"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
           }
         },
         "required": [
           "answer_modes",
-          "models"
+          "models",
+          "tags"
         ],
         "title": "OperatorOptionsOut",
+        "type": "object"
+      },
+      "OperatorWorkspaceOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "default_mode": {
+            "title": "Default Mode",
+            "type": "string"
+          },
+          "default_model": {
+            "title": "Default Model",
+            "type": "string"
+          },
+          "default_reasoning": {
+            "title": "Default Reasoning",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "tag_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tag Ids",
+            "type": "array"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "default_mode",
+          "default_model",
+          "default_reasoning",
+          "tenant_id",
+          "tag_ids",
+          "created_at"
+        ],
+        "title": "OperatorWorkspaceOut",
         "type": "object"
       },
       "SourceOut": {
@@ -1049,6 +1238,164 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "WorkspaceCreateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "default_mode": {
+            "default": "corpus_only",
+            "enum": [
+              "corpus_only",
+              "general_knowledge"
+            ],
+            "title": "Default Mode",
+            "type": "string"
+          },
+          "default_model": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Default Model",
+            "type": "string"
+          },
+          "default_reasoning": {
+            "default": false,
+            "title": "Default Reasoning",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+            "title": "Slug",
+            "type": "string"
+          },
+          "tag_ids": {
+            "items": {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Tag Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "default_model"
+        ],
+        "title": "WorkspaceCreateIn",
+        "type": "object"
+      },
+      "WorkspaceOut": {
+        "properties": {
+          "default_mode": {
+            "title": "Default Mode",
+            "type": "string"
+          },
+          "default_model": {
+            "title": "Default Model",
+            "type": "string"
+          },
+          "default_reasoning": {
+            "title": "Default Reasoning",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "default_mode",
+          "default_model",
+          "default_reasoning"
+        ],
+        "title": "WorkspaceOut",
+        "type": "object"
+      },
+      "WorkspacePromptIn": {
+        "additionalProperties": false,
+        "description": "The workspace's additional instructions; an empty text clears them.",
+        "properties": {
+          "text": {
+            "maxLength": 2000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "WorkspacePromptIn",
+        "type": "object"
+      },
+      "WorkspacePromptOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "version",
+          "text",
+          "created_at"
+        ],
+        "title": "WorkspacePromptOut",
+        "type": "object"
+      },
+      "WorkspaceTagsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "tag_ids": {
+            "items": {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Tag Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tag_ids"
+        ],
+        "title": "WorkspaceTagsIn",
+        "type": "object"
       }
     }
   },
@@ -1178,7 +1525,25 @@
         "summary": "List Conversations"
       },
       "post": {
+        "description": "Start a conversation in a workspace with a mode, model and reasoning, all fixed.\n\nDefaults come from the workspace; the choice is checked against the tenant's\nentitlements. The model check is Group A's stub (``available_models``) until the\nmodel catalogue (P1a-09) replaces it.",
         "operationId": "create_conversation_api_v1_conversations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ConversationCreateIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "content": {
@@ -1189,6 +1554,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Create Conversation"
@@ -1625,9 +2000,162 @@
         "summary": "Set Entitlements"
       }
     },
+    "/api/v1/operator/tenants/{tenant_id}/workspaces": {
+      "get": {
+        "operationId": "list_workspaces_api_v1_operator_tenants__tenant_id__workspaces_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OperatorWorkspaceOut"
+                  },
+                  "title": "Response List Workspaces Api V1 Operator Tenants  Tenant Id  Workspaces Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Workspaces"
+      },
+      "post": {
+        "operationId": "create_workspace_api_v1_operator_tenants__tenant_id__workspaces_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorWorkspaceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Workspace"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/workspaces/{workspace_id}/tags": {
+      "put": {
+        "description": "Assign the workspace's tags (its corpus). Audited with before and after.",
+        "operationId": "set_workspace_tags_api_v1_operator_tenants__tenant_id__workspaces__workspace_id__tags_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceTagsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorWorkspaceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Workspace Tags"
+      }
+    },
     "/api/v1/sources/{source_id}": {
       "get": {
-        "description": "Provenance of a source in the tenant's package; any other source is not found.",
+        "description": "Provenance of a source in the tenant's package (the union of its workspaces'\ntags); any other source is not found.",
         "operationId": "get_source_api_v1_sources__source_id__get",
         "parameters": [
           {
@@ -1664,6 +2192,125 @@
           }
         },
         "summary": "Get Source"
+      }
+    },
+    "/api/v1/workspaces": {
+      "get": {
+        "description": "The tenant's workspaces (RLS), for the start panel. No tags or dataset IDs.",
+        "operationId": "list_workspaces_api_v1_workspaces_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceOut"
+                  },
+                  "title": "Response List Workspaces Api V1 Workspaces Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Workspaces"
+      }
+    },
+    "/api/v1/workspaces/{workspace_id}/prompt": {
+      "put": {
+        "description": "Tenant admins: save a new version of the additional instructions (P1a-04).",
+        "operationId": "save_workspace_prompt_api_v1_workspaces__workspace_id__prompt_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspacePromptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspacePromptOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Workspace Prompt"
+      }
+    },
+    "/api/v1/workspaces/{workspace_id}/prompts": {
+      "get": {
+        "description": "Tenant admins: every saved version of the additional instructions, newest first.",
+        "operationId": "list_workspace_prompts_api_v1_workspaces__workspace_id__prompts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspacePromptOut"
+                  },
+                  "title": "Response List Workspace Prompts Api V1 Workspaces  Workspace Id  Prompts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Workspace Prompts"
       }
     }
   }

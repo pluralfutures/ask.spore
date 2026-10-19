@@ -37,7 +37,6 @@ def orchestrator(
         db_factory=session_factory(engine),
         retriever=retriever,
         llm=recorder.client(rewrite_system="Rewrite."),
-        package_tags=TAGS,
     )
 
 
@@ -187,8 +186,8 @@ async def test_abstains_when_package_has_no_synced_dataset(
     retriever = FakeRetriever(chunks_for(world))
     recorder = Recorder()
     orch = orchestrator(settings, engine, retriever, recorder)
-    orch._tags = ("not-yet-synced",)
-    events = await run(orch, world, "Q?")
+    workspace = await world.new_workspace(["not-yet-synced"])
+    events = await run(orch, world, "Q?", await world.new_conversation(workspace_id=workspace))
     assert retriever.calls == [] and recorder.requests == []
     assert done_of(events).abstained
 
@@ -326,7 +325,8 @@ async def test_audit_event_written_with_metadata_only(
     metadata = json.loads(row["metadata"])
     assert metadata["mode"] == "corpus_only"
     assert metadata["outcome"] == "answered"
-    assert metadata["prompt"] == "corpus_only/v1"
+    assert metadata["prompt"] == "corpus_only/v2"
+    assert metadata["instructions_version"] == 0  # the workspace has no instructions
     assert metadata["cited_chunk_ids"] == [citations_of(events).citations[0].chunk_id]
     assert metadata["cited_source_ids"] == [str(next(iter(world.sources.values())))]
     serialised = json.dumps(metadata)

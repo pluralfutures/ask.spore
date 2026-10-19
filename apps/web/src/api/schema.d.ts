@@ -82,7 +82,14 @@ export interface paths {
     /** List Conversations */
     get: operations["list_conversations_api_v1_conversations_get"];
     put?: never;
-    /** Create Conversation */
+    /**
+     * Create Conversation
+     * @description Start a conversation in a workspace with a mode, model and reasoning, all fixed.
+     *
+     *     Defaults come from the workspace; the choice is checked against the tenant's
+     *     entitlements. The model check is Group A's stub (``available_models``) until the
+     *     model catalogue (P1a-09) replaces it.
+     */
     post: operations["create_conversation_api_v1_conversations_post"];
     delete?: never;
     options?: never;
@@ -295,6 +302,44 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/operator/tenants/{tenant_id}/workspaces": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Workspaces */
+    get: operations["list_workspaces_api_v1_operator_tenants__tenant_id__workspaces_get"];
+    put?: never;
+    /** Create Workspace */
+    post: operations["create_workspace_api_v1_operator_tenants__tenant_id__workspaces_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/workspaces/{workspace_id}/tags": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Workspace Tags
+     * @description Assign the workspace's tags (its corpus). Audited with before and after.
+     */
+    put: operations["set_workspace_tags_api_v1_operator_tenants__tenant_id__workspaces__workspace_id__tags_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/sources/{source_id}": {
     parameters: {
       query?: never;
@@ -304,9 +349,70 @@ export interface paths {
     };
     /**
      * Get Source
-     * @description Provenance of a source in the tenant's package; any other source is not found.
+     * @description Provenance of a source in the tenant's package (the union of its workspaces'
+     *     tags); any other source is not found.
      */
     get: operations["get_source_api_v1_sources__source_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/workspaces": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Workspaces
+     * @description The tenant's workspaces (RLS), for the start panel. No tags or dataset IDs.
+     */
+    get: operations["list_workspaces_api_v1_workspaces_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/workspaces/{workspace_id}/prompt": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Save Workspace Prompt
+     * @description Tenant admins: save a new version of the additional instructions (P1a-04).
+     */
+    put: operations["save_workspace_prompt_api_v1_workspaces__workspace_id__prompt_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/workspaces/{workspace_id}/prompts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Workspace Prompts
+     * @description Tenant admins: every saved version of the additional instructions, newest first.
+     */
+    get: operations["list_workspace_prompts_api_v1_workspaces__workspace_id__prompts_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -406,6 +512,23 @@ export interface components {
       /** Citations */
       citations: components["schemas"]["CitationOut"][];
     };
+    /**
+     * ConversationCreateIn
+     * @description The start panel's choice (P1a-04); each field defaults from the workspace.
+     *
+     *     ``workspace_id`` may be left out when the tenant has one workspace. Dataset and
+     *     document IDs are never accepted: the workspace's datasets are resolved server-side.
+     */
+    ConversationCreateIn: {
+      /** Mode */
+      mode?: ("corpus_only" | "general_knowledge") | null;
+      /** Model */
+      model?: string | null;
+      /** Reasoning */
+      reasoning?: boolean | null;
+      /** Workspace Id */
+      workspace_id?: string | null;
+    };
     /** ConversationCreated */
     ConversationCreated: {
       /**
@@ -423,8 +546,19 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      /** Mode */
+      mode: string;
+      /** Model */
+      model: string;
+      /** Reasoning */
+      reasoning: boolean;
       /** Title */
       title: string | null;
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
     };
     /** ConversationDetail */
     ConversationDetail: {
@@ -445,6 +579,12 @@ export interface components {
       id: string;
       /** Messages */
       messages: components["schemas"]["MessageOut"][];
+      /** Mode */
+      mode: string;
+      /** Model */
+      model: string;
+      /** Reasoning */
+      reasoning: boolean;
       /** Title */
       title: string | null;
       /**
@@ -452,6 +592,11 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
     };
     /** ConversationSummary */
     ConversationSummary: {
@@ -470,6 +615,12 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      /** Mode */
+      mode: string;
+      /** Model */
+      model: string;
+      /** Reasoning */
+      reasoning: boolean;
       /** Title */
       title: string | null;
       /**
@@ -477,6 +628,11 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
     };
     /** DoneData */
     DoneData: {
@@ -673,6 +829,38 @@ export interface components {
       answer_modes: string[];
       /** Models */
       models: string[];
+      /** Tags */
+      tags: string[];
+    };
+    /** OperatorWorkspaceOut */
+    OperatorWorkspaceOut: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Default Mode */
+      default_mode: string;
+      /** Default Model */
+      default_model: string;
+      /** Default Reasoning */
+      default_reasoning: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Name */
+      name: string;
+      /** Slug */
+      slug: string;
+      /** Tag Ids */
+      tag_ids: string[];
+      /**
+       * Tenant Id
+       * Format: uuid
+       */
+      tenant_id: string;
     };
     /** SourceOut */
     SourceOut: {
@@ -744,6 +932,76 @@ export interface components {
       msg: string;
       /** Error Type */
       type: string;
+    };
+    /** WorkspaceCreateIn */
+    WorkspaceCreateIn: {
+      /**
+       * Default Mode
+       * @default corpus_only
+       * @enum {string}
+       */
+      default_mode: "corpus_only" | "general_knowledge";
+      /** Default Model */
+      default_model: string;
+      /**
+       * Default Reasoning
+       * @default false
+       */
+      default_reasoning: boolean;
+      /** Name */
+      name: string;
+      /** Slug */
+      slug: string;
+      /** Tag Ids */
+      tag_ids?: string[];
+    };
+    /** WorkspaceOut */
+    WorkspaceOut: {
+      /** Default Mode */
+      default_mode: string;
+      /** Default Model */
+      default_model: string;
+      /** Default Reasoning */
+      default_reasoning: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Name */
+      name: string;
+      /** Slug */
+      slug: string;
+    };
+    /**
+     * WorkspacePromptIn
+     * @description The workspace's additional instructions; an empty text clears them.
+     */
+    WorkspacePromptIn: {
+      /** Text */
+      text: string;
+    };
+    /** WorkspacePromptOut */
+    WorkspacePromptOut: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Text */
+      text: string;
+      /** Version */
+      version: number;
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
+    };
+    /** WorkspaceTagsIn */
+    WorkspaceTagsIn: {
+      /** Tag Ids */
+      tag_ids: string[];
     };
   };
   responses: never;
@@ -883,7 +1141,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["ConversationCreateIn"] | null;
+      };
+    };
     responses: {
       /** @description Successful Response */
       201: {
@@ -892,6 +1154,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ConversationCreated"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
@@ -1256,6 +1527,108 @@ export interface operations {
       };
     };
   };
+  list_workspaces_api_v1_operator_tenants__tenant_id__workspaces_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatorWorkspaceOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_workspace_api_v1_operator_tenants__tenant_id__workspaces_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkspaceCreateIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatorWorkspaceOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_workspace_tags_api_v1_operator_tenants__tenant_id__workspaces__workspace_id__tags_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkspaceTagsIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatorWorkspaceOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   get_source_api_v1_sources__source_id__get: {
     parameters: {
       query?: never;
@@ -1274,6 +1647,92 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SourceOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_workspaces_api_v1_workspaces_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceOut"][];
+        };
+      };
+    };
+  };
+  save_workspace_prompt_api_v1_workspaces__workspace_id__prompt_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkspacePromptIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspacePromptOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_workspace_prompts_api_v1_workspaces__workspace_id__prompts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspacePromptOut"][];
         };
       };
       /** @description Validation Error */

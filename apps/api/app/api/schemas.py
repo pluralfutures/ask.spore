@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_QUESTION_CHARS = 4000
 MAX_COMMENT_CHARS = 2000
+MAX_INSTRUCTIONS_CHARS = 2000  # app.tenancy.workspaces.PROMPT_MAX_CHARS
+AnswerMode = Literal["corpus_only", "general_knowledge"]
 
 
 class _Out(BaseModel):
@@ -31,6 +33,23 @@ class ConversationSummary(_Out):
     created_at: datetime
     updated_at: datetime
     expires_at: datetime
+    workspace_id: UUID
+    mode: str
+    model: str
+    reasoning: bool
+
+
+class ConversationCreateIn(_In):
+    """The start panel's choice (P1a-04); each field defaults from the workspace.
+
+    ``workspace_id`` may be left out when the tenant has one workspace. Dataset and
+    document IDs are never accepted: the workspace's datasets are resolved server-side.
+    """
+
+    workspace_id: UUID | None = None
+    mode: AnswerMode | None = None
+    model: str | None = Field(default=None, min_length=1, max_length=128)
+    reasoning: bool | None = None
 
 
 class ConversationCreated(_Out):
@@ -38,6 +57,32 @@ class ConversationCreated(_Out):
     title: str | None
     created_at: datetime
     expires_at: datetime
+    workspace_id: UUID
+    mode: str
+    model: str
+    reasoning: bool
+
+
+class WorkspaceOut(_Out):
+    id: UUID
+    slug: str
+    name: str
+    default_mode: str
+    default_model: str
+    default_reasoning: bool
+
+
+class WorkspacePromptIn(_In):
+    """The workspace's additional instructions; an empty text clears them."""
+
+    text: str = Field(max_length=MAX_INSTRUCTIONS_CHARS)
+
+
+class WorkspacePromptOut(_Out):
+    workspace_id: UUID
+    version: int
+    text: str
+    created_at: datetime
 
 
 class CitationOut(BaseModel):
@@ -241,6 +286,30 @@ class NoticeOut(BaseModel):
 class OperatorOptionsOut(BaseModel):
     answer_modes: list[str]
     models: list[str]
+    tags: list[str]  # config/tags.toml, assignable to workspaces (P1a-04)
+
+
+TAG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+TagList = list[Annotated[str, Field(pattern=TAG_PATTERN, max_length=64)]]
+
+
+class WorkspaceCreateIn(_In):
+    slug: str = Field(pattern=SLUG_PATTERN)
+    name: str = Field(min_length=1, max_length=128)
+    tag_ids: TagList = Field(default_factory=list, max_length=64)
+    default_mode: AnswerMode = "corpus_only"
+    default_model: str = Field(min_length=1, max_length=128)
+    default_reasoning: bool = False
+
+
+class WorkspaceTagsIn(_In):
+    tag_ids: TagList = Field(max_length=64)
+
+
+class OperatorWorkspaceOut(WorkspaceOut):
+    tenant_id: UUID
+    tag_ids: list[str]
+    created_at: datetime
 
 
 class OperatorMeOut(BaseModel):

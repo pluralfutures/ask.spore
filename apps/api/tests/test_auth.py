@@ -24,6 +24,7 @@ from app.core.config import AuthConfig, AuthentikConfig, Secrets, Settings
 from app.core.db import session_factory
 from app.main import create_app
 from app.tenancy.models import INTERNAL_TENANT_ID
+from tests.conftest import CONVERSATION_COLUMNS, CONVERSATION_DEFAULTS
 from tests.fake_idp import CLIENT_ID, ISSUER, FakeSignInLinks, new_key, sign, validator_for
 from tests.test_tenancy import Tenant, make_tenant
 
@@ -109,7 +110,6 @@ async def auth(
     app = create_app()
     app.state.settings = oidc_settings(settings)
     app.state.db_factory = session_factory(engine)
-    app.state.package_tags = ()
     app.state.sign_in_provider = idp
     app.state.token_validator = validator_for(idp.key)
     harness = Auth(app, idp, admin_conn)
@@ -375,8 +375,8 @@ async def test_sign_in_logs_carry_no_email_or_token(
 
 async def _conversation(admin: asyncpg.Connection, t: Tenant) -> uuid.UUID:
     cid: uuid.UUID = await admin.fetchval(
-        "INSERT INTO conversations (tenant_id, user_id, title) VALUES ($1, $2, 'synthetic') "
-        "RETURNING id",
+        f"INSERT INTO conversations (tenant_id, user_id, title, {CONVERSATION_COLUMNS}) "
+        f"VALUES ($1, $2, 'synthetic', {CONVERSATION_DEFAULTS}) RETURNING id",
         t.id,
         t.user_id,
     )

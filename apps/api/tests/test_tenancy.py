@@ -16,12 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.api.deps import db_session
 from app.chat.orchestrator import ChatContext, DoneEvent, Orchestrator
-from app.chat.package import tenant_package_tags
 from app.core.config import Settings
 from app.core.db import session_factory
 from app.tenancy.context import resolve_user
 from app.tenancy.models import INTERNAL_TENANT_ID
-from tests.chat_fixtures import TAGS, World, chunks_for
+from tests.chat_fixtures import World, chunks_for
+from tests.conftest import CONVERSATION_COLUMNS, CONVERSATION_DEFAULTS
 from tests.fakes import FakeRedis, FakeRetriever, Recorder
 
 pytestmark = pytest.mark.usefixtures("database")
@@ -41,7 +41,8 @@ async def make_tenant(
     user_status: str = "active",
     role: str = "user",
 ) -> Tenant:
-    """A tenant with one user and an entitlements row (arranged as the owner)."""
+    """A tenant with one user, an entitlements row and one workspace without tags
+    (arranged as the owner)."""
     tenant_id = uuid.uuid4()
     email = f"user-{tenant_id.hex[:8]}@client.example"
     await admin.execute(
@@ -63,6 +64,11 @@ async def make_tenant(
         email,
         role,
         user_status,
+    )
+    await admin.execute(
+        "INSERT INTO workspaces (tenant_id, slug, name, default_model) "
+        "VALUES ($1, 'default', 'Default', 'deepseek-v4.1-flash')",
+        tenant_id,
     )
     return Tenant(tenant_id, user_id, email)
 
@@ -247,15 +253,10 @@ async def test_request_without_tenant_context_fails_closed(
     assert opened == []  # refused before any transaction was opened
 
 
-# --- package stub until workspaces (P1a-04) --------------------------------------------
+# --- a client tenant's package is its workspaces' tags (P1a-04 replaced the A5 stub) -----
 
 
-def test_only_the_internal_tenant_has_the_phase0_package() -> None:
-    assert tenant_package_tags(INTERNAL_TENANT_ID, TAGS) == TAGS
-    assert tenant_package_tags(uuid.uuid4(), TAGS) == ()
-
-
-async def test_client_tenant_retrieves_nothing_before_it_has_workspaces(
+async def test_client_tenant_retrieves_nothing_before_its_workspace_has_tags(
     settings: Settings,
     engine: AsyncEngine,
     world: World,
@@ -264,7 +265,8 @@ async def test_client_tenant_retrieves_nothing_before_it_has_workspaces(
 ) -> None:
     client = await make_tenant(admin_conn)
     conversation = await admin_conn.fetchval(
-        "INSERT INTO conversations (tenant_id, user_id) VALUES ($1, $2) RETURNING id",
+        f"INSERT INTO conversations (tenant_id, user_id, {CONVERSATION_COLUMNS}) "
+        f"VALUES ($1, $2, {CONVERSATION_DEFAULTS}) RETURNING id",
         client.id,
         client.user_id,
     )
@@ -275,7 +277,6 @@ async def test_client_tenant_retrieves_nothing_before_it_has_workspaces(
         db_factory=session_factory(engine),
         retriever=retriever,
         llm=recorder.client(),
-        package_tags=TAGS,
     )
     events = await orchestrator.answer(
         ChatContext(tenant_id=client.id, user_id=client.user_id), conversation, "Capacity?"

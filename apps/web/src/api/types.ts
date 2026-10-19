@@ -23,6 +23,8 @@ export type NoticeOut = Schemas["NoticeOut"];
 export type OperatorOptions = Schemas["OperatorOptionsOut"];
 export type TenantCreateIn = Schemas["TenantCreateIn"];
 export type AdminInviteIn = Schemas["AdminInviteIn"];
+export type OperatorWorkspace = Schemas["OperatorWorkspaceOut"];
+export type WorkspaceCreateIn = Schemas["WorkspaceCreateIn"];
 
 export type ChatStreamEvent =
   | { event: "token"; data: TokenData }

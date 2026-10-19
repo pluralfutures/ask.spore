@@ -127,6 +127,8 @@ class ApiPipeline:
             transport=transport,
             follow_redirects=False,
         )
+        # The workspace conversations start in (P1a-04); set from the retrieval step.
+        self.workspace_id: str | None = None
 
     async def aclose(self) -> None:
         await self._http.aclose()
@@ -139,7 +141,8 @@ class ApiPipeline:
     async def ask(self, question: str) -> PipelineAnswer:
         started = time.perf_counter()
         try:
-            created = await self._http.post("/api/v1/conversations")
+            body = {"workspace_id": self.workspace_id} if self.workspace_id else None
+            created = await self._http.post("/api/v1/conversations", json=body)
             created.raise_for_status()
             conversation_id = created.json()["id"]
             try:

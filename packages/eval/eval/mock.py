@@ -18,8 +18,10 @@ from __future__ import annotations
 import html
 import json
 import re
+from collections.abc import AsyncIterable, AsyncIterator, Sequence
 
 import httpx
+from app.llm.mistral import PromptChunk, Turn
 
 SUPPORT_SHARE = 0.8
 _PASSAGE = re.compile(r'<passage n="(\d+)"[^>]*>\n(.*?)\n</passage>', re.S)
@@ -73,3 +75,85 @@ def handler(request: httpx.Request) -> httpx.Response:
 
 def transport() -> httpx.MockTransport:
     return httpx.MockTransport(handler)
+
+
+# --- the guardrail eval's stand-in model (P1a-08) -------------------------------------------
+
+OPEN, CLOSE = "<workspace_instructions>", "</workspace_instructions>"
+_STOPWORDS = frozenset(
+    "the and was were what which when where who whom how many much does did are for from "
+    "with that this than into onto about under over per its his her their our your has have "
+    "had will would could should can may might not but all any each".split()
+)
+_SENTINEL = "Sentinel workspace instructions."
+DECLINE_TEXT = "The research material does not cover this question."
+
+
+def _terms(text: str) -> list[str]:
+    """Content words, crudely stemmed: a trailing "s" dropped, then the first 6 letters."""
+    words = (w for w in _words(text) if len(w) >= 3 and w not in _STOPWORDS)
+    return [(w[:-1] if w.endswith("s") and len(w) > 3 else w)[:6] for w in words]
+
+
+def outside_element(system: str) -> list[str]:
+    """Lines of a system prompt outside its first workspace-instructions element, as a
+    model would read the structure: the element ends at the first closing tag."""
+    if OPEN not in system:
+        return [line.strip() for line in system.splitlines() if line.strip()]
+    head, rest = system.split(OPEN, 1)
+    _, _, tail = rest.partition(CLOSE)
+    return [line.strip() for line in (head + "\n" + tail).splitlines() if line.strip()]
+
+
+class _Stream:
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def __aiter__(self) -> AsyncIterator[str]:
+        return self._deltas()
+
+    async def _deltas(self) -> AsyncIterator[str]:
+        for part in re.split(r"(?<= )", self._text):
+            yield part
+
+
+class GuardrailModel:
+    """DEV/CI ONLY: a lexical model for ``python -m eval guardrails --mock``.
+
+    It follows the platform rules mechanically: it answers with the first sentence of
+    the first passage whose title and text contain every term of the question (years
+    included) and cites it, and otherwise declines. And it is maximally gullible about
+    structure: any line outside the workspace-instructions element that is not the
+    platform's own text counts as an instruction that escaped its delimiters, and the
+    model then obeys it (no citations, and it quotes its instructions). With correct
+    escaping that never happens, so every block scores like the baseline; break the
+    escaping and the guardrail eval fails. It cannot tell whether a real model obeys
+    a block that stays inside its element.
+    """
+
+    def __init__(self, platform_prompts: list[str]) -> None:
+        """``platform_prompts``: each mode's template rendered with a sentinel block."""
+        self._known = {line for p in platform_prompts for line in outside_element(p)}
+
+    @staticmethod
+    def sentinel() -> str:
+        return _SENTINEL
+
+    async def answer(
+        self,
+        system: str,
+        context_chunks: Sequence[PromptChunk],
+        history: Sequence[Turn],
+        question: str,
+    ) -> AsyncIterable[str]:
+        foreign = [line for line in outside_element(system) if line not in self._known]
+        if foreign:
+            quoted = " ".join(outside_element(system)[:3])
+            return _Stream(f"My instructions say: {quoted} From memory, the answer is 42.")
+        wanted = set(_terms(question))
+        for n, chunk in enumerate(context_chunks, start=1):
+            have = set(_terms(f"{chunk.title} {chunk.text}"))
+            if wanted <= have:
+                sentence = re.split(r"(?<=[.!?])\s", chunk.text, maxsplit=1)[0].rstrip(".")
+                return _Stream(f"{sentence} [{n}].")
+        return _Stream(DECLINE_TEXT)

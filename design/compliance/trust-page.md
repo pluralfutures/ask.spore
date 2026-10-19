@@ -1,0 +1,70 @@
+# Trust Page — Draft Text
+
+| | |
+| --- | --- |
+| Status | **DRAFT** |
+| Date | Oct 19, 2026 |
+| Author | Drafted for owner review (spec item P1a-15) |
+| To finalise, the owner must | (1) fill in the contact addresses and legal entity; (2) replace the "External models" location sentence with the outcome of the TIA verification (findings C32); (3) remove the sentence on deletion timing that does not match the build at publication (see the note under "Retention"); (4) link the published sub-processor list; (5) have counsel check it against the DPA and privacy notice. Plain text below the line is the page. |
+
+---
+
+## How we handle your data
+
+[Product name] is a research assistant. It answers questions from a curated library of published reports, public websites and our own analysis, and shows the sources for every answer. You do not upload documents to it.
+
+### Where your data lives
+
+Everything we store is hosted by Scaleway in Paris, France: the application, the database with your conversations, the search index, the files you can download, our logs and our backups.
+
+### Which models answer your questions
+
+By default, questions are answered by models run by Scaleway in Paris (DeepSeek V4.1 Flash and Qwen 3.8 27B). Nothing leaves the EU.
+
+### When data leaves the EU
+
+Only if your organisation has asked for **external models** (Claude Opus 5.5 and GPT-6.1 Sol), signed for them, and we have switched them on for you. Even then, only conversations where a user picks one of those models are affected, and the model picker says that these models are served outside the EU.
+
+For those conversations, the question, the recent turns of the conversation, your workspace's instructions and excerpts from the library are sent through OpenRouter's EU endpoint to the model's provider: Amazon Web Services for Claude, Microsoft Azure for GPT. [*Owner, after verification: "Both run these models in EU data centres." — or, if not verified: "These providers may process the request outside the EU, including in the United States."*] We send no names, email addresses or account identifiers with the request, require zero data retention from every provider on every request, and forbid them to use it for training. The transfer is covered by the EU Standard Contractual Clauses.
+
+Your organisation's monthly spend on external models is capped.
+
+### How long we keep things
+
+- Conversations: 30 days at most. Your administrator can shorten this to as little as one day. No setting keeps them longer.
+- Accounts: while your organisation uses the service.
+- Security and audit records (who signed in, who downloaded what, when a question was asked; never the question or answer text): 12 months.
+- Model providers: nothing, under zero-data-retention terms, except where a provider must keep a request by law or to investigate abuse.
+
+*Owner note: in Phase 1a, conversations past their retention disappear from the service but are deleted from the database only once the clean-up job ships (Phase 1b). Say "disappear from the service after 30 days" until then, not "are deleted".*
+
+### Signing in
+
+You sign in with a link we email to you. The link works once, for 15 minutes, and only after you press the button on the page it opens, so email security scanners that open links cannot use it. [*Owner: add "Administrators also use a second factor." only once it is configured in Authentik; the Phase 1a build does not show it.*] Sign-in emails are sent by Scaleway in Paris.
+
+### Downloads
+
+You can see the list of files behind each workspace. You can download a file only where its licence allows us to share it, which today mostly means our own analyses. For other files we link to the publisher. Each download link works once, for one minute, and the number of downloads per person per day is limited.
+
+### What we never do
+
+- Train or fine-tune any model on your questions or conversations.
+- Write your questions, answers or prompts into our logs. Logs hold technical metadata only.
+- Show one organisation's questions or answers to another.
+- Send names, email addresses or account identifiers to a model.
+- Let the model browse, run tools or change anything. It reads the excerpts we give it and writes an answer.
+- Sell your data.
+
+### Sub-processors
+
+The companies that process your data on our behalf are listed at [link to sub-processor list]. We give customers [30] days' notice before adding one.
+
+### Contact
+
+- Privacy and data protection requests: [privacy contact email]
+- Security reports: [security contact email]
+- Removal of content or personal data from our library (publishers and individuals): [takedown contact email]
+
+[Legal entity name, address]
+
+Last updated: [date]

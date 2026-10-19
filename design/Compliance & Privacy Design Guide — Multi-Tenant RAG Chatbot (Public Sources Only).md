@@ -221,25 +221,33 @@ Criterion references are indicative; confirm with your auditor.
 
 ## Implementation checklist and open decisions
 
+Status as of Oct 19, 2026 (Phase 1a, P1a-15): the paperwork lives in `design/compliance/`. "Drafted" means a draft for owner review exists; nothing below is done until signed or verified. The gate for the external-models entitlement is `design/compliance/paperwork-checklist.md`.
+
 Before first client login:
 
-- [ ] LLM provider DPA signed; ZDR confirmation on file naming models and endpoints
-- [ ] EU region pinned in code for inference, storage, index, logs and backups
+- [ ] LLM provider DPA signed; ZDR confirmation on file naming models and endpoints — *open*: Scaleway DPA and zero-retention letter (findings M2), OpenRouter DPA with SCCs; tracked in `paperwork-checklist.md` items 1 to 3
+- [ ] EU region pinned in code for inference, storage, index, logs and backups — *built for Scaleway hosts; external inference governed by the Oct 18 addendum and `transfer-impact-assessment.md` (drafted)*
 - [ ] Source register populated with licence basis for every ingested document and crawl
 - [ ] Entitlement test and query-isolation test running in CI
 - [ ] Chat history TTL and metadata-only logging verified
 - [ ] SSO, MFA and RBAC live; admin and source-register actions audited
 - [ ] Public privacy notice covering public-source personal data; takedown contact published
-- [ ] Reduced-scope client DPA and ToS approved by counsel
+- [ ] Reduced-scope client DPA and ToS approved by counsel — *DPA drafted* (`client-dpa-draft.md`), *pending the owner's roles decision and counsel; ToS open*
 - [ ] AI transparency notice in the UI
+
+Phase 1a additions (before the external-models entitlement is enabled for any tenant):
+
+- [ ] Transfer impact assessment for OpenRouter and its upstream vendors — *drafted* (`transfer-impact-assessment.md`), *EU-region claim pending verification (Phase 1a findings C32)*
+- [ ] Client's signed acceptance of external models on file, reference entered in the operator console — *open* (`client-dpa-draft.md` Annex 4)
+- [ ] One real call each for `qwen3.8-27b` reasoning and both OpenRouter models — *open* (`paperwork-checklist.md` items 9 to 11)
 
 Before SOC 2 observation window:
 
 - [ ] Policies approved, including content sourcing; compliance automation platform connected
-- [ ] Sub-processor and content-licence inventories complete
+- [ ] Sub-processor and content-licence inventories complete — *sub-processor list drafted* (`sub-processors.md`); *content-licence inventory open*
 - [ ] Vulnerability scanning and pentest scheduled; bulk-extraction alerts tuned
 - [ ] Incident tabletop completed
-- [ ] Trust page published
+- [ ] Trust page published — *text drafted* (`trust-page.md`)
 
 Open decisions:
 
@@ -285,3 +293,5 @@ Owner decisions of Oct 18, 2026, recorded for the Phase 1 build. They change the
 **Tenant-authored prompt instructions.** Each tenant workspace carries an "additional instructions" block written by the tenant admin (Phase 1) and later by any user of the tenant (Phase 2, versioned and revertible). It is appended inside a delimited section of the fixed platform system prompt and cannot relax the grounding, citation or abstention rules; an adversarial eval set proves this. Because the tenant writes it, it may contain the tenant's own name or staff names, which the "no tenant identifiers in prompts" control otherwise forbids. Decision: permitted as a tenant-authored exception. The API matches each saved prompt against the tenant display name, verified email domains and user names and, on a match, raises a notice in the operator console and an audit event; nothing is shown to the tenant user. Record the exception against CC6.7 and Art. 5(1)(c).
 
 **File list and downloads.** Tenant users can see, per workspace, the list of PDF, DOCX and PPTX files in the workspace's corpus (publisher, title, publication date, canonical link, ingestion date), with crawled sites rolled up to the site and a page count. Downloads are **licence-gated** (revised Oct 19, 2026): a file can be downloaded only when its source-register row carries the `downloadable` flag, which the operator sets per source from the licence basis recorded at ingestion. Nothing is downloadable unless its manifest row says so (owner decision Oct 19, 2026: an explicit per-row flag rather than a default, so no file is ever downloadable by accident); in practice our own DOCX and PPTX analyses are flagged and third-party files are not, and are listed with their canonical link instead, so that a user who wants the original goes to the publisher. The owner's confirmation that the test corpus licences permit redistribution is recorded per source, not assumed for the corpus as a whole, because a single wrongly flagged file is a redistribution of someone else's work from our domain. Downloads go through signed, short-lived URLs, are audited and are capped per user per day, extending the bulk-extraction controls of the Oct 17 update (CC6.6, CC7.2). Licence basis stays internal and is not shown.
+
+**Oct 19, 2026: Phase 1a paperwork.** Drafts for owner review are filed under `design/compliance/` (spec item P1a-15): the transfer impact assessment for OpenRouter, Amazon Bedrock and Microsoft Azure, the client DPA draft, the sub-processor list, the trust-page text and the paperwork checklist that gates the external-models entitlement. Three points are pending: the EU-region claim for the provider pins (Phase 1a findings C32), so the assessment carries a non-EU fallback analysis that applies until it is verified; the GDPR roles position the DPA draft assumes (processor for all of the client's user data, including accounts and the audit of its users, which differs from the data map above); and the DPA's deletion wording, since Phase 1a applies the 30-day limit at read time and the purge job is Phase 1b. The draft also records that retention can be shortened to 1 day, not 0 (findings D7).

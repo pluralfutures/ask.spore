@@ -1,7 +1,10 @@
 """Audit event writer. Metadata only: never query, answer, prompt or chunk text.
 
 Metadata keys are allow-listed, as for ``app.core.logging.log``; values are scalars
-or lists of short strings (IDs). The table is append-only (revision 0001).
+or lists of short strings (IDs). Operator changes (P1a-03) also carry ``before`` and
+``after``: one-level mappings whose keys are allow-listed setting names
+(``CHANGE_FIELDS``) and whose values follow the same rules. The table is append-only
+(revision 0001).
 """
 
 from __future__ import annotations
@@ -35,15 +38,55 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "rating",
         # Sign-in (P1a-02): how the user authenticated.
         "method",
+        # Operator console (P1a-03): who acted, what changed, and the client's
+        # acceptance of external models when they are enabled.
+        "operator_id",
+        "before",
+        "after",
+        "acceptance_reference",
+        "acceptance_date",
     }
 )
+# Keys allowed inside "before" and "after": tenant, entitlement and user settings.
+CHANGE_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "slug",
+        "display_name",
+        "verified_domains",
+        "status",
+        "answer_modes",
+        "enabled_models",
+        "external_models_enabled",
+        "external_spend_cap_cents",
+        "sign_in_links_enabled",
+        "external_acceptance_reference",
+        "external_acceptance_date",
+        "user_id",
+        "role",
+    }
+)
+CHANGE_KEYS: Final = frozenset({"before", "after"})
 MAX_VALUE_LENGTH: Final = 128
+MAX_LIST_LENGTH: Final = 64
 
-AuditValue = str | int | float | bool | None | list[str]
+Scalar = str | int | float | bool | None
+Change = dict[str, Scalar | list[str]]
+AuditValue = Scalar | list[str] | Change
 
 
 class ForbiddenAuditField(ValueError):
     """An audit event carried a key or value shape that is not allowed."""
+
+
+def _check_value(key: str, value: object) -> None:
+    values = value if isinstance(value, list) else [value]
+    if len(values) > MAX_LIST_LENGTH:
+        raise ForbiddenAuditField(f"audit metadata '{key}' list is too long")
+    for item in values:
+        if not isinstance(item, str | int | float | bool | None):
+            raise ForbiddenAuditField(f"audit metadata '{key}' must be scalar or list[str]")
+        if isinstance(item, str) and len(item) > MAX_VALUE_LENGTH:
+            raise ForbiddenAuditField(f"audit metadata '{key}' value is too long")
 
 
 def _check(metadata: dict[str, AuditValue]) -> None:
@@ -51,12 +94,20 @@ def _check(metadata: dict[str, AuditValue]) -> None:
     if forbidden:
         raise ForbiddenAuditField(f"audit metadata key(s) not allow-listed: {', '.join(forbidden)}")
     for key, value in metadata.items():
-        values = value if isinstance(value, list) else [value]
-        for item in values:
-            if not isinstance(item, str | int | float | bool | None):
-                raise ForbiddenAuditField(f"audit metadata '{key}' must be scalar or list[str]")
-            if isinstance(item, str) and len(item) > MAX_VALUE_LENGTH:
-                raise ForbiddenAuditField(f"audit metadata '{key}' value is too long")
+        if key in CHANGE_KEYS:
+            if not isinstance(value, dict):
+                raise ForbiddenAuditField(f"audit metadata '{key}' must be a mapping")
+            fields = sorted(set(value) - CHANGE_FIELDS)
+            if fields:
+                raise ForbiddenAuditField(
+                    f"audit metadata '{key}' field(s) not allow-listed: {', '.join(fields)}"
+                )
+            for field, item in value.items():
+                _check_value(f"{key}.{field}", item)
+        elif isinstance(value, dict):
+            raise ForbiddenAuditField(f"audit metadata '{key}' must be scalar or list[str]")
+        else:
+            _check_value(key, value)
 
 
 async def record(

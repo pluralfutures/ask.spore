@@ -1,6 +1,7 @@
 // Typed client for /api/v1. The browser never talks to RAGFlow or the LLM.
 import { readEvents } from "../lib/sse";
 import type {
+  AdminInviteIn,
   AuthMode,
   ChatStreamEvent,
   ConversationCreated,
@@ -8,7 +9,13 @@ import type {
   ConversationSummary,
   FeedbackIn,
   FeedbackOut,
+  EntitlementsIn,
+  EntitlementsOut,
   Me,
+  NoticeOut,
+  OperatorOptions,
+  TenantCreateIn,
+  TenantOut,
 } from "./types";
 
 const BASE = "/api/v1";
@@ -144,4 +151,20 @@ export const api = {
     const response = await send("POST", `/conversations/${id}/messages`, { question }, signal);
     yield* readEvents(response);
   },
+};
+
+// Operator console (P1a-03). The API answers 403 to anyone who is not an operator.
+export const operatorApi = {
+  options: () => json<OperatorOptions>("GET", "/operator/options"),
+  tenants: () => json<TenantOut[]>("GET", "/operator/tenants"),
+  createTenant: (body: TenantCreateIn) => json<TenantOut>("POST", "/operator/tenants", body),
+  inviteAdmin: (tenantId: string, body: AdminInviteIn) =>
+    json<{ user_id: string; status: "invited" }>(
+      "POST",
+      `/operator/tenants/${tenantId}/admins`,
+      body,
+    ),
+  setEntitlements: (tenantId: string, body: EntitlementsIn) =>
+    json<EntitlementsOut>("PUT", `/operator/tenants/${tenantId}/entitlements`, body),
+  notices: () => json<NoticeOut[]>("GET", "/operator/notices"),
 };

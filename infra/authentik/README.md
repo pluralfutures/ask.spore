@@ -63,6 +63,15 @@ a live instance, findings A7). Names must match `[auth.authentik]` in
    the root `.env` as `AUTHENTIK_API_TOKEN`. The operator console provisions users through
    it (`ask_spore_tenant` attribute, path `ask-spore`).
 8. Set `[auth] mode = "oidc"` in `config/models.toml` and restart the API.
+9. Grant the first operator (as the schema owner; it creates the internal-tenant user,
+   provisions it in Authentik and audits the grant):
+   ```
+   docker compose -f infra/compose.dev.yml run --rm \
+     -e MIGRATIONS_DATABASE_URL=postgresql+asyncpg://askspore:<owner password>@postgres:5432/askspore \
+     api ask-spore operators grant --email <operator email> --name "<name>"
+   ```
+   The operator then signs in with a link and opens `/operator`. Require a hardware key
+   for operators in Authentik (an authenticator validation stage bound to them).
 
 ## What Authentik does and does not do for us
 

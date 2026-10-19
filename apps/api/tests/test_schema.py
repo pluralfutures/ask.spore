@@ -33,11 +33,11 @@ def _migration() -> ModuleType:
 
 
 # Tenant-scoped tables created after schema v1, each with RLS from its first migration.
-LATER_TENANT_TABLES = ("tenant_entitlements", "sign_in_links")
+LATER_TENANT_TABLES = ("tenant_entitlements", "sign_in_links", "operators", "operator_notices")
 # Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
 SET_ROLES = {"askspore_auth", "askspore_operator"}
 # Tenant tables the application role has no privileges on at all (only a SET role does).
-NO_APP_ACCESS = {"sign_in_links"}
+NO_APP_ACCESS = {"sign_in_links", "operators", "operator_notices"}
 TENANT_TABLES: tuple[str, ...] = (*_migration().TENANT_TABLES, *LATER_TENANT_TABLES)
 ALL_SCOPED = (*TENANT_TABLES, "tenants")
 

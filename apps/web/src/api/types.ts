@@ -16,6 +16,13 @@ export type DoneData = Schemas["DoneData"];
 export type ErrorData = Schemas["ErrorData"];
 export type AuthMode = Schemas["AuthModeOut"]["mode"];
 export type Me = Schemas["MeOut"];
+export type TenantOut = Schemas["TenantOut"];
+export type EntitlementsIn = Schemas["EntitlementsIn"];
+export type EntitlementsOut = Schemas["EntitlementsOut"];
+export type NoticeOut = Schemas["NoticeOut"];
+export type OperatorOptions = Schemas["OperatorOptionsOut"];
+export type TenantCreateIn = Schemas["TenantCreateIn"];
+export type AdminInviteIn = Schemas["AdminInviteIn"];
 
 export type ChatStreamEvent =
   | { event: "token"; data: TokenData }

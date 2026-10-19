@@ -32,6 +32,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 APP_ROLE = "askspore_app"
 AUTH_ROLE = "askspore_auth"
+OPERATOR_ROLE = "askspore_operator"
 TENANT_SETTING = "app.tenant_id"
 
 NAMING_CONVENTION = {
@@ -44,7 +45,7 @@ NAMING_CONVENTION = {
 
 
 # Roles the API may switch to inside one transaction; never built from input.
-_SET_ROLES = frozenset({AUTH_ROLE})
+_SET_ROLES = frozenset({AUTH_ROLE, OPERATOR_ROLE})
 
 
 class Base(DeclarativeBase):

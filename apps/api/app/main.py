@@ -7,6 +7,7 @@ import httpx
 from fastapi import FastAPI
 
 from app.api.auth import router as api_auth
+from app.api.operator import router as api_operator
 from app.api.v1 import router as api_v1
 from app.auth.authentik import oidc_services
 from app.auth.middleware import AuthMiddleware
@@ -66,6 +67,7 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
     app.add_middleware(AuthMiddleware)
     app.include_router(api_auth)
     app.include_router(api_v1)
+    app.include_router(api_operator)
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz() -> dict[str, str]:

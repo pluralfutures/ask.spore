@@ -1,6 +1,72 @@
 {
   "components": {
     "schemas": {
+      "AcceptanceIn": {
+        "additionalProperties": false,
+        "description": "The client's signed acceptance of external models: the DPA document and date.",
+        "properties": {
+          "accepted_on": {
+            "format": "date",
+            "title": "Accepted On",
+            "type": "string"
+          },
+          "reference": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "accepted_on"
+        ],
+        "title": "AcceptanceIn",
+        "type": "object"
+      },
+      "AdminInviteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "display_name"
+        ],
+        "title": "AdminInviteIn",
+        "type": "object"
+      },
+      "AdminInvitedOut": {
+        "properties": {
+          "status": {
+            "const": "invited",
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "status"
+        ],
+        "title": "AdminInvitedOut",
+        "type": "object"
+      },
       "AskIn": {
         "additionalProperties": false,
         "properties": {
@@ -329,6 +395,148 @@
         "title": "DoneData",
         "type": "object"
       },
+      "EntitlementsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "answer_modes": {
+            "items": {
+              "enum": [
+                "corpus_only",
+                "general_knowledge"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Answer Modes",
+            "type": "array"
+          },
+          "enabled_models": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Enabled Models",
+            "type": "array"
+          },
+          "external_acceptance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AcceptanceIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "external_models_enabled": {
+            "title": "External Models Enabled",
+            "type": "boolean"
+          },
+          "external_spend_cap_cents": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Spend Cap Cents"
+          },
+          "sign_in_links_enabled": {
+            "title": "Sign In Links Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "answer_modes",
+          "enabled_models",
+          "external_models_enabled",
+          "sign_in_links_enabled"
+        ],
+        "title": "EntitlementsIn",
+        "type": "object"
+      },
+      "EntitlementsOut": {
+        "properties": {
+          "answer_modes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Answer Modes",
+            "type": "array"
+          },
+          "enabled_models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled Models",
+            "type": "array"
+          },
+          "external_acceptance_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Acceptance Date"
+          },
+          "external_acceptance_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Acceptance Reference"
+          },
+          "external_models_enabled": {
+            "title": "External Models Enabled",
+            "type": "boolean"
+          },
+          "external_spend_cap_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Spend Cap Cents"
+          },
+          "sign_in_links_enabled": {
+            "title": "Sign In Links Enabled",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "answer_modes",
+          "enabled_models",
+          "external_models_enabled",
+          "external_spend_cap_cents",
+          "sign_in_links_enabled",
+          "external_acceptance_reference",
+          "external_acceptance_date",
+          "updated_at"
+        ],
+        "title": "EntitlementsOut",
+        "type": "object"
+      },
       "ErrorData": {
         "properties": {
           "error_code": {
@@ -570,6 +778,84 @@
         "title": "MessageOut",
         "type": "object"
       },
+      "NoticeOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "tenant_slug": {
+            "title": "Tenant Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "tenant_slug",
+          "kind",
+          "created_at"
+        ],
+        "title": "NoticeOut",
+        "type": "object"
+      },
+      "OperatorMeOut": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "display_name"
+        ],
+        "title": "OperatorMeOut",
+        "type": "object"
+      },
+      "OperatorOptionsOut": {
+        "properties": {
+          "answer_modes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Answer Modes",
+            "type": "array"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answer_modes",
+          "models"
+        ],
+        "title": "OperatorOptionsOut",
+        "type": "object"
+      },
       "SourceOut": {
         "properties": {
           "canonical_url": {
@@ -627,6 +913,88 @@
           "withdrawn"
         ],
         "title": "SourceOut",
+        "type": "object"
+      },
+      "TenantCreateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "slug": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+            "title": "Slug",
+            "type": "string"
+          },
+          "verified_domains": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Verified Domains",
+            "type": "array"
+          }
+        },
+        "required": [
+          "slug",
+          "display_name"
+        ],
+        "title": "TenantCreateIn",
+        "type": "object"
+      },
+      "TenantOut": {
+        "properties": {
+          "admins": {
+            "title": "Admins",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "entitlements": {
+            "$ref": "#/components/schemas/EntitlementsOut"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "verified_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Verified Domains",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "display_name",
+          "verified_domains",
+          "status",
+          "created_at",
+          "admins",
+          "entitlements"
+        ],
+        "title": "TenantOut",
         "type": "object"
       },
       "TokenData": {
@@ -1038,6 +1406,223 @@
           }
         },
         "summary": "Give Feedback"
+      }
+    },
+    "/api/v1/operator/me": {
+      "get": {
+        "operationId": "operator_me_api_v1_operator_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorMeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Operator Me"
+      }
+    },
+    "/api/v1/operator/notices": {
+      "get": {
+        "operationId": "list_notices_api_v1_operator_notices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NoticeOut"
+                  },
+                  "title": "Response List Notices Api V1 Operator Notices Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Notices"
+      }
+    },
+    "/api/v1/operator/options": {
+      "get": {
+        "operationId": "operator_options_api_v1_operator_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorOptionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Operator Options"
+      }
+    },
+    "/api/v1/operator/tenants": {
+      "get": {
+        "operationId": "list_tenants_api_v1_operator_tenants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TenantOut"
+                  },
+                  "title": "Response List Tenants Api V1 Operator Tenants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Tenants"
+      },
+      "post": {
+        "operationId": "create_tenant_api_v1_operator_tenants_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Tenant"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/admins": {
+      "post": {
+        "description": "Create the tenant's admin as ``invited`` and provision them in Authentik.\n\nThey then sign in with a link from their own browser; the first sign-in makes\nthem ``active``. An email already used in any tenant is refused: Authentik's\nusernames are emails, and an email maps to one tenant (findings A8).",
+        "operationId": "invite_admin_api_v1_operator_tenants__tenant_id__admins_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminInviteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminInvitedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invite Admin"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/entitlements": {
+      "put": {
+        "operationId": "set_entitlements_api_v1_operator_tenants__tenant_id__entitlements_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntitlementsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntitlementsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Entitlements"
       }
     },
     "/api/v1/sources/{source_id}": {

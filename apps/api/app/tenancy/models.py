@@ -1,14 +1,15 @@
-"""Tenants, users and entitlements. Mirrors alembic revisions 0001 and 0004; the
+"""Tenants, users and entitlements. Mirrors alembic revisions 0001, 0004 and 0006; the
 migrations are authoritative."""
 
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -93,6 +94,12 @@ class TenantEntitlements(Base):
             name="answer_modes_valid",
         ),
         CheckConstraint("external_spend_cap_cents >= 0", name="spend_cap_non_negative"),
+        # P1a-03: external models only with the client's acceptance on file and a cap.
+        CheckConstraint(
+            "NOT external_models_enabled OR (length(btrim(external_acceptance_reference)) > 0 "
+            "AND external_acceptance_date IS NOT NULL AND external_spend_cap_cents IS NOT NULL)",
+            name="external_needs_acceptance",
+        ),
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -107,4 +114,7 @@ class TenantEntitlements(Base):
     external_models_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     external_spend_cap_cents: Mapped[int | None] = mapped_column(Integer)
     sign_in_links_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    # The client DPA document accepting external models, and its date (P1a-03).
+    external_acceptance_reference: Mapped[str | None] = mapped_column(Text)
+    external_acceptance_date: Mapped[date | None] = mapped_column(Date)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

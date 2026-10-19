@@ -347,12 +347,14 @@ async def run(
     items = load_items(options.contexts, options.eval_set)
     env = dict(os.environ if environ is None else environ)
     # Only the model is called: no database, RAGFlow, cache or API sign-in.
-    for name in ("DATABASE_URL", "RAGFLOW_API_KEY"):
-        env.setdefault(name, "unused")
-    env.setdefault("PHASE0_BEARER_TOKEN", UNUSED_TOKEN)
+    # An empty variable (as a CI step sets for an absent secret) counts as unset.
+    fillers = {"DATABASE_URL": "unused", "RAGFLOW_API_KEY": "unused"}
+    fillers["PHASE0_BEARER_TOKEN"] = UNUSED_TOKEN
     if options.mock:
-        for name in ("SCALEWAY_API_KEY", "MISTRAL_API_KEY"):
-            env.setdefault(name, "mock")
+        fillers |= {"SCALEWAY_API_KEY": "mock", "MISTRAL_API_KEY": "mock"}
+    for name, value in fillers.items():
+        if not env.get(name, "").strip():
+            env[name] = value
     settings = load_harness_settings(options.config, env)
     llm: Answerer
     closer: Any = None

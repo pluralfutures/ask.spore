@@ -103,6 +103,13 @@ def test_block_outside_its_slot_fails_the_guardrail_eval(
     }
 
 
+def test_mock_run_ignores_empty_provider_keys(tmp_path: Path) -> None:
+    """CI sets absent secrets as empty variables; the mocked run must still start."""
+    env = {"SCALEWAY_API_KEY": "", "MISTRAL_API_KEY": "", "DATABASE_URL": ""}
+    _, data = asyncio.run(guardrails.run(_options(tmp_path, modes=("corpus_only",)), env))
+    assert data["regressions"] == []
+
+
 def test_cli_exit_code(tmp_path: Path) -> None:
     code = cli.main(
         ["guardrails", "--mock", "--results-dir", str(tmp_path), "--mode", "corpus_only"]

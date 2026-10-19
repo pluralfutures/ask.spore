@@ -120,7 +120,14 @@ class LLMRouter:
         params = reasoning_params(model.reasoning, choice.reasoning)
         if model.provider == "openrouter" and self._openrouter is not None:
             return await self._openrouter.answer(
-                system, context_chunks, history, question, model=model.id, reasoning=params
+                system,
+                context_chunks,
+                history,
+                question,
+                model=model.id,
+                reasoning=params,
+                provider_order=model.provider_order,
+                provider_only=model.provider_only,
             )
         return await self._default.answer(
             system, context_chunks, history, question, model=model.id, reasoning=params

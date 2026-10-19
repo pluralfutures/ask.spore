@@ -14,6 +14,9 @@ Startup checks (design/Stack Decision.md, Conventions):
   section pins; a model is external exactly when its provider's host is an external
   host; the active provider's chat and rewrite models are in it (they are the platform
   default and are never external);
+- a catalogue entry priced in USD needs ``[pricing] usd_to_eur``; an OpenRouter
+  provider pin (``provider_order``, ``provider_only``) is allowed on OpenRouter entries
+  only, with provider slugs;
 - every required secret must be present in the environment, including those of the
   authentication mode (``[auth] mode``: the Phase 0 bearer token, or Authentik's);
 - every active prompt version must exist under ``prompts/`` in the config directory.
@@ -72,6 +75,8 @@ _FIXED_MODEL = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$")
 # search, ":free" changes the upstream terms) and no "openrouter/..." meta-router, which
 # picks an arbitrary model.
 _OPENROUTER_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*/[a-z0-9]+(?:[.-][a-z0-9]+)*$")
+# OpenRouter provider slugs for a pin, such as "amazon-bedrock" or "azure".
+_PROVIDER_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 class ConfigError(RuntimeError):
@@ -156,15 +161,28 @@ class CatalogueEntry(_Strict):
     # "thinking": DeepSeek and Qwen thinking on or off; "effort": GPT and Claude
     # reasoning effort medium or none; "none": no switch, reasoning is always off.
     reasoning: ReasoningSwitch
-    # Prices in euro cents per million tokens, used for the usage ledger and the
-    # external spend cap (P1a-10).
+    # Prices in cents of ``currency`` per million tokens, used for the usage ledger and
+    # the external spend cap (P1a-10). The ledger prices in euro cents: USD entries are
+    # converted at ``[pricing] usd_to_eur``, which startup requires when one exists.
     price_in_cents_per_mtok: float = Field(ge=0)
     price_out_cents_per_mtok: float = Field(ge=0)
-    # The prices are placeholders still to be replaced from the provider's price list
-    # (P1a-15); the API logs a warning per such entry at startup.
+    currency: Literal["EUR", "USD"]
+    # Marks prices that are still placeholders, to be replaced from the provider's price
+    # list; the API logs a warning per such entry at startup (none is set since Oct 19).
     price_placeholder: bool = False
+    # OpenRouter provider pin (owner, Oct 19, 2026): ``provider_order`` is sent as
+    # ``provider.order`` and ``provider_only`` as ``provider.allow_fallbacks = false``.
+    # Zero-data-retention routing is applied after the pin (app.llm.openrouter).
+    provider_order: tuple[str, ...] = ()
+    provider_only: bool = False
     # Served outside the EU (compliance addendum, Oct 18 and 19, 2026); shown to users.
     external: bool
+
+
+class PricingConfig(_Strict):
+    """Currency conversion for the usage ledger, which prices in euro cents (P1a-10)."""
+
+    usd_to_eur: float | None = Field(default=None, gt=0)
 
 
 class RagflowConfig(_Strict):
@@ -230,6 +248,7 @@ class ModelsConfig(_Strict):
     scaleway: ScalewayConfig | None = None
     openrouter: OpenRouterConfig | None = None
     catalogue: tuple[CatalogueEntry, ...] = Field(min_length=1)
+    pricing: PricingConfig = PricingConfig()
     ragflow: RagflowConfig
     prompts: PromptsConfig
     chat: ChatConfig
@@ -315,6 +334,15 @@ def _check_catalogue(models: ModelsConfig) -> list[str]:
                 f"{where}: reasoning switch '{entry.reasoning}' is not offered by "
                 f"'{entry.provider}'"
             )
+        if entry.currency == "USD" and models.pricing.usd_to_eur is None:
+            problems.append(f"{where}: currency USD needs [pricing] usd_to_eur")
+        if (entry.provider_order or entry.provider_only) and entry.provider != "openrouter":
+            problems.append(f"{where}: provider_order and provider_only are for openrouter")
+        if entry.provider_only and not entry.provider_order:
+            problems.append(f"{where}: provider_only needs a provider_order")
+        for slug in entry.provider_order:
+            if not _PROVIDER_SLUG.fullmatch(slug):
+                problems.append(f"{where}: provider_order '{slug}' is not a provider slug")
     for model in dict.fromkeys(default_models(models)):
         if model not in seen:
             problems.append(f"default model '{model}' is not in the catalogue")

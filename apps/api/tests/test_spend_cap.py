@@ -16,6 +16,7 @@ from app.chat.orchestrator import DoneEvent, ErrorEvent, Orchestrator
 from app.chat.selection import SPEND_CAP_NOTICE, choose_for_new_conversation
 from app.core.config import Settings
 from app.core.db import session_factory, tenant_session
+from app.llm import catalogue
 from app.llm.catalogue import ModelChoice
 from app.tenancy.entitlements import ModelRefused
 from app.tenancy.models import INTERNAL_TENANT_ID
@@ -30,8 +31,21 @@ __all__ = ["internal_entitlement"]  # fixture reused from the catalogue tests
 WORKSPACE_DEFAULT = ModelChoice(DEEPSEEK, False)
 MONTH = month_of()
 LAST_MONTH = (MONTH - timedelta(days=1)).replace(day=1)
-# USAGE (900 in, 40 out) on Claude at the repository's catalogue prices, in cents.
-CLAUDE_ANSWER_CENTS = Decimal(900 * 500 + 40 * 2500) / 1_000_000
+
+
+def expected_cents(settings: Settings, model: str, tokens_in: int, tokens_out: int) -> Decimal:
+    """Euro cents for one call, from the repository catalogue's figures and the rate."""
+    entry = catalogue.entry(settings, model)
+    assert entry is not None
+    cents = (
+        Decimal(str(entry.price_in_cents_per_mtok)) * tokens_in
+        + Decimal(str(entry.price_out_cents_per_mtok)) * tokens_out
+    ) / 1_000_000
+    if entry.currency == "USD":
+        rate = settings.models.pricing.usd_to_eur
+        assert rate is not None
+        cents *= Decimal(str(rate))
+    return cents
 
 
 @pytest.fixture
@@ -119,7 +133,7 @@ async def test_rewrite_and_answer_usage_are_priced_into_the_ledger(
     assert row is not None
     # rewrite 40 + 8 (fixture completion) and answer 900 + 40, both on the default model
     assert (row["month"], row["tokens_in"], row["tokens_out"]) == (MONTH, 940, 48)
-    assert row["cost_cents"] == Decimal(940 * 20 + 48 * 80) / 1_000_000
+    assert row["cost_cents"] == expected_cents(settings, DEEPSEEK, 940, 48)
 
 
 async def test_external_answer_goes_through_openrouter_and_is_priced(
@@ -140,7 +154,13 @@ async def test_external_answer_goes_through_openrouter_and_is_priced(
     [request] = openrouter.requests
     body = json.loads(request.content)
     assert body["model"] == CLAUDE
-    assert body["provider"] == {"zdr": True, "data_collection": "deny"}
+    # The catalogue's provider pin, with zero-data-retention routing on top (P1a-10).
+    assert body["provider"] == {
+        "order": ["amazon-bedrock"],
+        "allow_fallbacks": False,
+        "zdr": True,
+        "data_collection": "deny",
+    }
     wire = request.content.decode() + str(request.url) + str(dict(request.headers))
     identifiers = [
         str(INTERNAL_TENANT_ID),
@@ -157,7 +177,11 @@ async def test_external_answer_goes_through_openrouter_and_is_priced(
         INTERNAL_TENANT_ID,
         CLAUDE,
     )
-    assert cost == CLAUDE_ANSWER_CENTS
+    # USAGE (900 in, 40 out) at Claude's USD prices, converted at usd_to_eur.
+    claude = catalogue.entry(settings, CLAUDE)
+    assert claude is not None and claude.currency == "USD"
+    assert cost == expected_cents(settings, CLAUDE, 900, 40)
+    assert cost == Decimal(900 * 440 + 40 * 2200) / 1_000_000 * Decimal("0.90")
 
 
 # --- 80 percent: one operator notice per month ----------------------------------------
@@ -173,7 +197,7 @@ async def test_80_percent_notice_is_written_once_per_month(
 ) -> None:
     await internal_entitlement([DEEPSEEK, CLAUDE], external=True, cap=100)
     await fixed_choice(world, ModelChoice(CLAUDE, False))
-    await ledger(CLAUDE, "79.6")  # one answer (0.55 cents) crosses 80 percent
+    await ledger(CLAUDE, "79.6")  # one answer (0.4356 euro cents) crosses 80 percent
     await ledger(CLAUDE, "500", LAST_MONTH)  # last month never counts
 
     for n in range(3):

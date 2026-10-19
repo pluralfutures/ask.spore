@@ -31,7 +31,7 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
         # Raises ConfigError (and the server exits) if any startup check fails.
         settings = get_settings()
         app.state.settings = settings
-        # P1a-10: until the owner replaces them, catalogue prices are placeholders (P1a-15).
+        # P1a-10: warns per catalogue entry still marked price_placeholder (none since Oct 19).
         catalogue.warn_placeholder_prices(settings)
         engine = create_engine(settings.secrets.database_url.get_secret_value())
         app.state.db_factory = session_factory(engine)

@@ -41,6 +41,7 @@ display_name = "Mistral Large"
 reasoning = "none"
 price_in_cents_per_mtok = 200
 price_out_cents_per_mtok = 600
+currency = "EUR"
 external = false
 
 [[catalogue]]
@@ -50,6 +51,7 @@ display_name = "Mistral Small"
 reasoning = "none"
 price_in_cents_per_mtok = 10
 price_out_cents_per_mtok = 30
+currency = "EUR"
 external = false
 """
 
@@ -219,6 +221,7 @@ display_name = "DeepSeek V4.1 Flash"
 reasoning = "thinking"
 price_in_cents_per_mtok = 20
 price_out_cents_per_mtok = 80
+currency = "EUR"
 external = false
 """
 )

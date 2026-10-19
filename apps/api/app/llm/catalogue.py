@@ -55,8 +55,17 @@ def external_ids(settings: Settings) -> tuple[str, ...]:
     return tuple(e.id for e in settings.models.catalogue if e.external)
 
 
-def cost_cents(model: CatalogueEntry, tokens_in: int, tokens_out: int) -> Decimal:
-    """Price one call from the catalogue, in euro cents (fractional, not rounded)."""
+def cost_cents(
+    settings: Settings, model: CatalogueEntry, tokens_in: int, tokens_out: int
+) -> Decimal:
+    """Price one call from the catalogue, in euro cents (fractional, not rounded). USD
+    prices are converted at ``[pricing] usd_to_eur``, which startup requires for them."""
     price_in = Decimal(str(model.price_in_cents_per_mtok))
     price_out = Decimal(str(model.price_out_cents_per_mtok))
-    return (price_in * tokens_in + price_out * tokens_out) / MILLION
+    cost = (price_in * tokens_in + price_out * tokens_out) / MILLION
+    if model.currency == "EUR":
+        return cost
+    rate = settings.models.pricing.usd_to_eur
+    if rate is None:
+        raise RuntimeError("USD catalogue price without [pricing] usd_to_eur")  # load_settings
+    return cost * Decimal(str(rate))

@@ -92,19 +92,22 @@ timeout_seconds = 90
 # provider's chat_model is the platform default and the eval model.
 # reasoning: "thinking" (DeepSeek, Qwen: thinking on or off), "effort" (GPT, Claude:
 # reasoning effort medium or none), "none" (no switch).
-# Prices: euro cents per million tokens, input and output; they price the usage ledger
-# and the external spend cap. PROVISIONAL figures, to be replaced from the providers'
-# price lists before any tenant is billed or capped on them (findings C4, C27).
-# price_placeholder = true marks an entry whose prices are still placeholders; the API
-# logs a warning per such entry at startup. Remove the key when the prices are real.
+# Prices: cents of `currency` ("EUR" or "USD") per million tokens, input and output;
+# they price the usage ledger and the external spend cap, which count euro cents: USD
+# prices are converted at [pricing] usd_to_eur (findings C30).
+# price_placeholder = true would mark an entry whose prices are still placeholders (the
+# API logs a warning per such entry at startup); no price is a placeholder now.
+# provider_order / provider_only (OpenRouter only): pin the upstream provider; sent as
+# provider.order and provider.allow_fallbacks = false, with zero-data-retention routing
+# always applied on top (findings C31).
 [[catalogue]]
 id = "deepseek-v4.1-flash"
 provider = "scaleway"
 display_name = "DeepSeek V4.1 Flash"
 reasoning = "thinking"
-price_in_cents_per_mtok = 20  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
-price_out_cents_per_mtok = 80  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
-price_placeholder = true
+currency = "EUR"
+price_in_cents_per_mtok = 60  # EUR 0.60; owner, Oct 19, 2026
+price_out_cents_per_mtok = 180  # EUR 1.80; owner, Oct 19, 2026
 external = false
 
 [[catalogue]]
@@ -112,9 +115,9 @@ id = "qwen3.8-27b"
 provider = "scaleway"
 display_name = "Qwen 3.8 27B"
 reasoning = "thinking"
-price_in_cents_per_mtok = 20  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
-price_out_cents_per_mtok = 60  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
-price_placeholder = true
+currency = "EUR"
+price_in_cents_per_mtok = 60  # EUR 0.60; owner, Oct 19, 2026
+price_out_cents_per_mtok = 330  # EUR 3.30; owner, Oct 19, 2026
 external = false
 
 [[catalogue]]
@@ -122,20 +125,29 @@ id = "openai/gpt-6.1-sol"
 provider = "openrouter"
 display_name = "GPT-6.1 Sol"
 reasoning = "effort"
-price_in_cents_per_mtok = 125  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
-price_out_cents_per_mtok = 1000  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
-price_placeholder = true
+currency = "USD"
+price_in_cents_per_mtok = 220  # USD 2.20; owner, Oct 19, 2026
+price_out_cents_per_mtok = 1100  # USD 11.00; owner, Oct 19, 2026
 external = true
+# Served by Azure only, EU region per the owner; the region is to be verified (P1a-15).
+provider_order = ["azure"]
+provider_only = true
 
 [[catalogue]]
 id = "anthropic/claude-opus-5.5"
 provider = "openrouter"
 display_name = "Claude Opus 5.5"
 reasoning = "effort"
-price_in_cents_per_mtok = 500  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
-price_out_cents_per_mtok = 2500  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
-price_placeholder = true
+currency = "USD"
+price_in_cents_per_mtok = 440  # USD 4.40; owner, Oct 19, 2026
+price_out_cents_per_mtok = 2200  # USD 22.00; owner, Oct 19, 2026
 external = true
+# Served by Amazon Bedrock only, eu-west-1 per the owner; the region is to be verified (P1a-15).
+provider_order = ["amazon-bedrock"]
+provider_only = true
+
+[pricing]
+usd_to_eur = 0.90  # owner, Oct 19, 2026; review monthly
 
 [ragflow]
 base_url = "http://ragflow:9380"

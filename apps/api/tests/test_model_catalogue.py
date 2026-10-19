@@ -62,9 +62,13 @@ id = "anthropic/claude-opus-5.5"
 provider = "openrouter"
 display_name = "Claude Opus 5.5"
 reasoning = "effort"
-price_in_cents_per_mtok = 500
-price_out_cents_per_mtok = 2500
+price_in_cents_per_mtok = 440
+price_out_cents_per_mtok = 2200
+currency = "USD"
 external = true
+
+[pricing]
+usd_to_eur = 0.90
 """
 )
 
@@ -87,8 +91,22 @@ def test_repository_catalogue() -> None:
     assert models.allow_list.external_hosts == ("eu.openrouter.ai",)
     assert "eu.openrouter.ai" not in models.allow_list.eu_hosts
     assert models.openrouter.base_url == "https://eu.openrouter.ai/api/v1"
-    # Every price is still a placeholder until the owner replaces it (findings C27).
-    assert all(e.price_placeholder for e in models.catalogue)
+    # Real prices since Oct 19, 2026 (findings C30): none is a placeholder.
+    assert not any(e.price_placeholder for e in models.catalogue)
+    assert [(e.id, e.currency) for e in models.catalogue] == [
+        (DEEPSEEK, "EUR"),
+        (QWEN, "EUR"),
+        (GPT, "USD"),
+        (CLAUDE, "USD"),
+    ]
+    assert models.pricing.usd_to_eur == 0.90
+    # Provider pins (findings C31): each external model has one provider, no fallback.
+    assert [(e.id, e.provider_order, e.provider_only) for e in models.catalogue] == [
+        (DEEPSEEK, (), False),
+        (QWEN, (), False),
+        (GPT, ("azure",), True),
+        (CLAUDE, ("amazon-bedrock",), True),
+    ]
     # The OpenRouter key is optional: without it, external models are refused.
     assert settings.secrets.openrouter_api_key is None
 
@@ -106,8 +124,10 @@ def test_startup_rejects_openrouters_global_host(tmp_path: Path) -> None:
 def test_placeholder_prices_warn_at_startup_with_metadata_only(
     settings: Settings, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    marked = [e.model_copy(update={"price_placeholder": True}) for e in settings.models.catalogue]
+    models = settings.models.model_copy(update={"catalogue": tuple(marked)})
     capsys.readouterr()
-    catalogue.warn_placeholder_prices(settings)
+    catalogue.warn_placeholder_prices(dataclasses.replace(settings, models=models))
     lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     assert [(r["event"], r["level"], r["model"]) for r in lines] == [
         ("config.price_placeholder", "warning", e.id) for e in settings.models.catalogue
@@ -116,12 +136,11 @@ def test_placeholder_prices_warn_at_startup_with_metadata_only(
         assert set(record) == {"ts", "level", "event", "model"}
 
 
-def test_real_prices_do_not_warn(settings: Settings, capsys: pytest.CaptureFixture[str]) -> None:
-    real = [e.model_copy(update={"price_placeholder": False}) for e in settings.models.catalogue]
-    models = settings.models.model_copy(update={"catalogue": tuple(real)})
-    priced = dataclasses.replace(settings, models=models)
+def test_repository_prices_do_not_warn(
+    settings: Settings, capsys: pytest.CaptureFixture[str]
+) -> None:
     capsys.readouterr()
-    catalogue.warn_placeholder_prices(priced)
+    catalogue.warn_placeholder_prices(settings)
     assert capsys.readouterr().out == ""
 
 
@@ -220,6 +239,19 @@ def test_openrouter_slugs_must_be_pinned(tmp_path: Path, slug: str) -> None:
             ('id = "anthropic/claude-opus-5.5"', 'id = "anthropic/claude-opus-9"'),
             "catalogue 'anthropic/claude-opus-9' is not pinned in [openrouter]",
         ),
+        (
+            ("[pricing]\nusd_to_eur = 0.90\n", ""),
+            "catalogue 'anthropic/claude-opus-5.5': currency USD needs [pricing] usd_to_eur",
+        ),
+        (
+            ("external = true", "external = true\nprovider_only = true"),
+            "catalogue 'anthropic/claude-opus-5.5': provider_only needs a provider_order",
+        ),
+        (
+            ("external = true", 'external = true\nprovider_order = ["Amazon Bedrock"]'),
+            "catalogue 'anthropic/claude-opus-5.5': provider_order 'Amazon Bedrock' is not a "
+            "provider slug",
+        ),
     ],
 )
 def test_catalogue_entries_are_checked(
@@ -228,6 +260,18 @@ def test_catalogue_entries_are_checked(
     head, tail = OPENROUTER_TOML.rsplit("[[catalogue]]", 1)
     text = head + "[[catalogue]]" + tail.replace(*change)
     assert problems_for(tmp_path, text) == [expected]
+
+
+def test_provider_pin_is_for_openrouter_entries_only(tmp_path: Path) -> None:
+    head, tail = SCALEWAY_TOML.rsplit("[[catalogue]]", 1)  # the DeepSeek entry
+    text = (
+        head
+        + "[[catalogue]]"
+        + tail.replace("external = false", 'external = false\nprovider_order = ["azure"]')
+    )
+    assert problems_for(tmp_path, text) == [
+        "catalogue 'deepseek-v4.1-flash': provider_order and provider_only are for openrouter"
+    ]
 
 
 def test_catalogue_needs_the_default_model(tmp_path: Path) -> None:
@@ -248,13 +292,23 @@ def test_openrouter_entry_needs_its_section(tmp_path: Path) -> None:
     ]
 
 
-def test_cost_is_priced_from_the_catalogue(settings: Settings) -> None:
-    claude = entry(settings, CLAUDE)
-    assert claude is not None
-    price_in, price_out = claude.price_in_cents_per_mtok, claude.price_out_cents_per_mtok
-    assert float(cost_cents(claude, 1_000_000, 0)) == price_in
-    assert float(cost_cents(claude, 2000, 1000)) == pytest.approx(
+def test_eur_cost_is_priced_from_the_catalogue(settings: Settings) -> None:
+    deepseek = entry(settings, DEEPSEEK)
+    assert deepseek is not None and deepseek.currency == "EUR"
+    price_in, price_out = deepseek.price_in_cents_per_mtok, deepseek.price_out_cents_per_mtok
+    assert float(cost_cents(settings, deepseek, 1_000_000, 0)) == price_in
+    assert float(cost_cents(settings, deepseek, 2000, 1000)) == pytest.approx(
         (2000 * price_in + 1000 * price_out) / 1_000_000
+    )
+
+
+def test_usd_cost_is_converted_to_euro_cents_at_the_rate(settings: Settings) -> None:
+    claude = entry(settings, CLAUDE)
+    rate = settings.models.pricing.usd_to_eur
+    assert claude is not None and claude.currency == "USD" and rate is not None
+    price_in, price_out = claude.price_in_cents_per_mtok, claude.price_out_cents_per_mtok
+    assert float(cost_cents(settings, claude, 2000, 1000)) == pytest.approx(
+        (2000 * price_in + 1000 * price_out) / 1_000_000 * rate
     )
 
 

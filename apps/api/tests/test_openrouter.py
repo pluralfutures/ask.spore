@@ -7,6 +7,7 @@ request and no tenant, user or workspace identifier anywhere on the wire.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import uuid
 from typing import Any
@@ -104,6 +105,53 @@ async def test_zdr_cannot_be_overridden_by_reasoning_fields() -> None:
         reasoning={"provider": {"zdr": False}, "reasoning": {"effort": "none"}},
     )
     assert recorder.bodies()[0]["provider"] == {"zdr": True, "data_collection": "deny"}
+
+
+# --- provider pins (owner, Oct 19, 2026) ------------------------------------------------
+
+
+@pytest.mark.parametrize(("model", "provider"), [(CLAUDE, "amazon-bedrock"), (GPT, "azure")])
+async def test_pinned_model_request_carries_the_pin_zdr_and_no_identifiers(
+    settings: Settings, surrounding_call: dict[str, Any], model: str, provider: str
+) -> None:
+    ids = {**surrounding_call["ids"], "workspace_id": str(uuid.uuid4())}
+    openrouter = OpenAIRecorder(fakes.sse(fakes.delta("Grew [1].")))
+    chunks, turns = _prompt_inputs(surrounding_call)
+
+    await collect(
+        router(settings, OpenAIRecorder(), openrouter),
+        chunks=chunks,
+        history=turns,
+        choice=ModelChoice(model, True),
+    )
+
+    [request] = openrouter.requests
+    body = json.loads(request.content)
+    assert body["model"] == model
+    assert body["provider"] == {
+        "order": [provider],
+        "allow_fallbacks": False,
+        "zdr": True,
+        "data_collection": "deny",
+    }
+    assert set(body) <= ALLOWED_BODY_KEYS, sorted(body)
+    wire = _serialised(request)
+    for name, value in ids.items():
+        assert value not in wire, f"{name} leaked into the OpenRouter request"
+
+
+async def test_entry_without_a_pin_sends_no_order_and_no_fallback_key(settings: Settings) -> None:
+    unpinned = [
+        e.model_copy(update={"provider_order": (), "provider_only": False})
+        for e in settings.models.catalogue
+    ]
+    models = settings.models.model_copy(update={"catalogue": tuple(unpinned)})
+    openrouter = OpenAIRecorder(fakes.sse(fakes.delta("Ok.")))
+    llm = router(dataclasses.replace(settings, models=models), OpenAIRecorder(), openrouter)
+
+    await collect(llm, choice=ModelChoice(CLAUDE, False))
+
+    assert openrouter.bodies()[0]["provider"] == {"zdr": True, "data_collection": "deny"}
 
 
 async def test_unpinned_slug_is_refused_without_a_call() -> None:

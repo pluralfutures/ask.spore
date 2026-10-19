@@ -11,7 +11,9 @@ Same answer interface and guarantees as ``app.llm.scaleway`` (OpenAI-compatible,
 ``openai`` SDK): the request carries only the system prompt, retrieved passages with
 provenance, conversation turns and the question. In addition, every request sets
 OpenRouter's provider routing to zero data retention (``provider.zdr``) and denies
-providers that collect data (``provider.data_collection``); the request has no
+providers that collect data (``provider.data_collection``), applied after a catalogue
+entry's provider pin (``provider.order``, and ``provider.allow_fallbacks = false``
+when the pin is exclusive) so a pin can never remove it; the request has no
 ``user`` field and no attribution headers, so nothing identifies a tenant, user or
 workspace. No tools, no plugins (a ``:online`` slug is refused at startup). SDK
 retries are off (our single retry on 5xx) and its logger is silenced; errors are
@@ -47,6 +49,16 @@ silence_library_loggers("openai", "httpx2")
 ZDR_ROUTING: Final[Mapping[str, Any]] = {"zdr": True, "data_collection": "deny"}
 
 
+def provider_pin(order: Sequence[str], only: bool) -> dict[str, Any]:
+    """A catalogue entry's provider pin as OpenRouter routing fields; empty without one."""
+    pin: dict[str, Any] = {}
+    if order:
+        pin["order"] = list(order)
+        if only:
+            pin["allow_fallbacks"] = False
+    return pin
+
+
 class OpenRouterClient:
     def __init__(
         self,
@@ -79,12 +91,17 @@ class OpenRouterClient:
         *,
         model: str,
         reasoning: Mapping[str, Any] | None = None,
+        provider_order: Sequence[str] = (),
+        provider_only: bool = False,
     ) -> AnswerStream:
         """Open a streamed answer from a pinned slug. Retries once on a 5xx at open."""
         if model not in self._config.models:
             raise LLMError("model_unavailable")  # only pinned slugs, whoever asks
         messages = answer_messages(system, context_chunks, history, question)
-        body: dict[str, Any] = {**(reasoning or {}), "provider": dict(ZDR_ROUTING)}
+        body: dict[str, Any] = {
+            **(reasoning or {}),
+            "provider": {**provider_pin(provider_order, provider_only), **ZDR_ROUTING},
+        }
         for attempt in range(RETRIES_ON_5XX + 1):
             try:
                 events = await self._sdk.chat.completions.create(  # type: ignore[call-overload]

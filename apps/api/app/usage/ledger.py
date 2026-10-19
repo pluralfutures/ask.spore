@@ -1,9 +1,9 @@
 """Usage ledger and the external spend cap (P1a-10).
 
-Every answer and query rewrite adds its tokens, priced from the catalogue, to
-``usage_ledger`` for the tenant, month and model, in the same transaction that stores
-the message. External models (OpenRouter) count towards the tenant's monthly
-``external_spend_cap_cents``:
+Every answer and query rewrite adds its tokens, priced from the catalogue in euro cents
+(USD prices converted at ``[pricing] usd_to_eur``), to ``usage_ledger`` for the
+tenant, month and model, in the same transaction that stores the message. External
+models (OpenRouter) count towards the tenant's monthly ``external_spend_cap_cents``:
 
 - at 80 percent an operator notice ``spend.cap_80`` is written, once per month;
 - at 100 percent an operator notice ``spend.cap_100`` is written, once per month, and
@@ -59,7 +59,7 @@ async def record_usage(
     external = False
     for model, (tokens_in, tokens_out) in totals.items():
         entry = catalogue.entry(settings, model)
-        cost = catalogue.cost_cents(entry, tokens_in, tokens_out) if entry else Decimal(0)
+        cost = catalogue.cost_cents(settings, entry, tokens_in, tokens_out) if entry else Decimal(0)
         external = external or (entry is not None and entry.external)
         stmt = pg_insert(UsageLedger).values(
             tenant_id=tenant_id,

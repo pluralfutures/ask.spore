@@ -108,7 +108,7 @@ async def test_scaleway_stream_with_reasoning_yields_only_the_answer(settings: S
     text = "".join([part async for part in stream])
     assert text == "Capacity grew [1] in 2025."
     assert stream.usage is not None and stream.usage.tokens_out == USAGE["completion_tokens"]
-    assert "reasoning_effort" not in recorder.bodies()[0]  # thinking on: provider default
+    assert recorder.bodies()[0]["reasoning_effort"] == "medium"  # thinking on (findings C26)
 
 
 async def test_openrouter_stream_with_reasoning_yields_only_the_answer() -> None:

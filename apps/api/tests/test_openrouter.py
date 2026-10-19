@@ -30,7 +30,7 @@ __all__ = ["surrounding_call"]  # fixture reused from the Mistral tests
 CLAUDE = "anthropic/claude-opus-5.5"
 GPT = "openai/gpt-6.1-sol"
 CONFIG = OpenRouterConfig(
-    base_url="https://api.openrouter.ai/api/v1", models=(GPT, CLAUDE), timeout_seconds=5
+    base_url="https://eu.openrouter.ai/api/v1", models=(GPT, CLAUDE), timeout_seconds=5
 )
 # Everything an OpenRouter answer request may carry; nothing else.
 ALLOWED_BODY_KEYS = {
@@ -81,7 +81,7 @@ async def test_serialised_request_carries_zdr_and_no_identifiers(
     )
 
     [request] = recorder.requests
-    assert str(request.url) == "https://api.openrouter.ai/api/v1/chat/completions"
+    assert str(request.url) == "https://eu.openrouter.ai/api/v1/chat/completions"
     wire = _serialised(request)
     for name, value in ids.items():
         assert value not in wire, f"{name} leaked into the OpenRouter request"
@@ -157,7 +157,7 @@ def test_timeout_comes_from_config() -> None:
 
 
 def test_reasoning_params_per_kind() -> None:
-    assert reasoning_params("thinking", True) == {}
+    assert reasoning_params("thinking", True) == {"reasoning_effort": "medium"}
     assert reasoning_params("thinking", False) == {"reasoning_effort": "none"}
     assert reasoning_params("effort", True) == {"reasoning": {"effort": "medium", "exclude": True}}
     assert reasoning_params("effort", False) == {"reasoning": {"effort": "none", "exclude": True}}
@@ -170,9 +170,9 @@ def test_reasoning_params_per_kind() -> None:
     ("model", "on", "provider", "fields"),
     [
         ("deepseek-v4.1-flash", False, "scaleway", {"reasoning_effort": "none"}),
-        ("deepseek-v4.1-flash", True, "scaleway", {}),
+        ("deepseek-v4.1-flash", True, "scaleway", {"reasoning_effort": "medium"}),
         ("qwen3.8-27b", False, "scaleway", {"reasoning_effort": "none"}),
-        ("qwen3.8-27b", True, "scaleway", {}),
+        ("qwen3.8-27b", True, "scaleway", {"reasoning_effort": "medium"}),
         (GPT, True, "openrouter", {"reasoning": {"effort": "medium", "exclude": True}}),
         (GPT, False, "openrouter", {"reasoning": {"effort": "none", "exclude": True}}),
         (CLAUDE, True, "openrouter", {"reasoning": {"effort": "medium", "exclude": True}}),

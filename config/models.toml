@@ -20,7 +20,7 @@ eu_hosts = [
 # "external models" entitlement, and only with zero-data-retention routing on every
 # request (app.llm.openrouter). OpenRouter DPA, SCCs and TIA: P1a-15.
 external_hosts = [
-    "api.openrouter.ai", # OpenRouter; host as given Oct 18, 2026, to confirm (findings C2)
+    "eu.openrouter.ai", # OpenRouter's EU endpoint, owner decision Oct 19, 2026 (findings C25)
 ]
 
 [auth]
@@ -64,11 +64,12 @@ base_url = "https://api.scaleway.ai"
 chat_model = "deepseek-v4.1-flash"
 rewrite_model = "deepseek-v4.1-flash"   # same model: one model to cover under the DPA
 judge_model = "deepseek-v4.1-flash"     # eval judge grades its own model (findings D6)
-# Every Scaleway model the [[catalogue]] may offer (P1a-09). qwen3.8-27b as given on
-# Oct 18, 2026; the owner confirms the served name when the account lists it.
+# Every Scaleway model the [[catalogue]] may offer (P1a-09). qwen3.8-27b confirmed by
+# the owner on Oct 19, 2026 (findings C26).
 models = ["deepseek-v4.1-flash", "qwen3.8-27b"]
 timeout_seconds = 60
-# DeepSeek reasons by default; "none" turns it off for answers, rewrites and the judge.
+# DeepSeek reasons by default; "none" turns it off for rewrites, the judge and the
+# default (no-choice) call. Answers follow the conversation's switch (app.llm.reasoning).
 reasoning_effort = "none"
 judge_reasoning_effort = "none"
 # Client-side throttle per process. The organisation's limits reported by the API
@@ -79,8 +80,10 @@ tokens_per_minute = 1000000
 [openrouter]
 # External (non-EU) provider, OpenAI-compatible (P1a-10). OPENROUTER_API_KEY is
 # optional: without it every external model is refused as unavailable.
-base_url = "https://api.openrouter.ai/api/v1"
-# Pinned slugs as given on Oct 18, 2026; not yet confirmed by the owner (findings C3).
+# OpenRouter's EU endpoint: the API hop stays in the EU; upstream vendors may still
+# process outside it (compliance addendum, findings C25).
+base_url = "https://eu.openrouter.ai/api/v1"
+# Pinned slugs, confirmed by the owner on Oct 19, 2026 (findings C26).
 # Never a ":variant" (":online" adds web search) and never "openrouter/auto".
 models = ["openai/gpt-6.1-sol", "anthropic/claude-opus-5.5"]
 timeout_seconds = 90
@@ -91,14 +94,17 @@ timeout_seconds = 90
 # reasoning effort medium or none), "none" (no switch).
 # Prices: euro cents per million tokens, input and output; they price the usage ledger
 # and the external spend cap. PROVISIONAL figures, to be replaced from the providers'
-# price lists before any tenant is billed or capped on them (findings C4).
+# price lists before any tenant is billed or capped on them (findings C4, C27).
+# price_placeholder = true marks an entry whose prices are still placeholders; the API
+# logs a warning per such entry at startup. Remove the key when the prices are real.
 [[catalogue]]
 id = "deepseek-v4.1-flash"
 provider = "scaleway"
 display_name = "DeepSeek V4.1 Flash"
 reasoning = "thinking"
-price_in_cents_per_mtok = 20
-price_out_cents_per_mtok = 80
+price_in_cents_per_mtok = 20  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
+price_out_cents_per_mtok = 80  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
+price_placeholder = true
 external = false
 
 [[catalogue]]
@@ -106,8 +112,9 @@ id = "qwen3.8-27b"
 provider = "scaleway"
 display_name = "Qwen 3.8 27B"
 reasoning = "thinking"
-price_in_cents_per_mtok = 20
-price_out_cents_per_mtok = 60
+price_in_cents_per_mtok = 20  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
+price_out_cents_per_mtok = 60  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
+price_placeholder = true
 external = false
 
 [[catalogue]]
@@ -115,8 +122,9 @@ id = "openai/gpt-6.1-sol"
 provider = "openrouter"
 display_name = "GPT-6.1 Sol"
 reasoning = "effort"
-price_in_cents_per_mtok = 125
-price_out_cents_per_mtok = 1000
+price_in_cents_per_mtok = 125  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
+price_out_cents_per_mtok = 1000  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
+price_placeholder = true
 external = true
 
 [[catalogue]]
@@ -124,8 +132,9 @@ id = "anthropic/claude-opus-5.5"
 provider = "openrouter"
 display_name = "Claude Opus 5.5"
 reasoning = "effort"
-price_in_cents_per_mtok = 500
-price_out_cents_per_mtok = 2500
+price_in_cents_per_mtok = 500  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
+price_out_cents_per_mtok = 2500  # PLACEHOLDER, replace from the provider price list before any tenant is capped (P1a-15)
+price_placeholder = true
 external = true
 
 [ragflow]

@@ -17,6 +17,7 @@ from app.core import cache
 from app.core.config import get_settings
 from app.core.db import create_engine, session_factory
 from app.core.logging import log
+from app.llm import catalogue
 from app.llm.factory import create_llm_router
 from app.retrieval.protocol import Retriever
 from app.retrieval.ragflow import RagflowRetriever
@@ -30,6 +31,8 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
         # Raises ConfigError (and the server exits) if any startup check fails.
         settings = get_settings()
         app.state.settings = settings
+        # P1a-10: until the owner replaces them, catalogue prices are placeholders (P1a-15).
+        catalogue.warn_placeholder_prices(settings)
         engine = create_engine(settings.secrets.database_url.get_secret_value())
         app.state.db_factory = session_factory(engine)
         cache.connect(settings.secrets.redis_url.get_secret_value())

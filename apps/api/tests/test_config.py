@@ -87,7 +87,7 @@ def test_valid_config_loads(tmp_path: Path) -> None:
 def test_repository_models_toml_is_valid() -> None:
     settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
     assert settings.models.allow_list.eu_hosts
-    assert settings.models.allow_list.external_hosts == ("api.openrouter.ai",)
+    assert settings.models.allow_list.external_hosts == ("eu.openrouter.ai",)
 
 
 def test_rejects_provider_host_not_in_allow_list(tmp_path: Path) -> None:

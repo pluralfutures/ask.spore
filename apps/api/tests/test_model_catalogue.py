@@ -7,6 +7,7 @@ before any outbound call (mocked transports record nothing).
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import AsyncIterator
 from datetime import date
@@ -20,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.chat.orchestrator import ErrorEvent, Orchestrator
 from app.core.config import DEFAULT_CONFIG_DIR, ConfigError, Settings, load_settings
 from app.core.db import session_factory
+from app.llm import catalogue
 from app.llm.catalogue import ModelChoice, cost_cents, entry
 from app.main import create_app
 from app.tenancy.entitlements import (
@@ -47,11 +49,11 @@ OPENROUTER_TOML = (
     SCALEWAY_TOML.replace(
         'eu_hosts = ["api.mistral.ai", "api.scaleway.ai", "ragflow"]',
         'eu_hosts = ["api.mistral.ai", "api.scaleway.ai", "ragflow"]\n'
-        'external_hosts = ["api.openrouter.ai"]',
+        'external_hosts = ["eu.openrouter.ai"]',
     )
     + """
 [openrouter]
-base_url = "https://api.openrouter.ai/api/v1"
+base_url = "https://eu.openrouter.ai/api/v1"
 models = ["anthropic/claude-opus-5.5"]
 timeout_seconds = 30
 
@@ -81,10 +83,46 @@ def test_repository_catalogue() -> None:
     ]
     assert models.scaleway is not None and QWEN in models.scaleway.models
     assert models.openrouter is not None and set(models.openrouter.models) == {GPT, CLAUDE}
-    assert models.allow_list.external_hosts == ("api.openrouter.ai",)
-    assert "api.openrouter.ai" not in models.allow_list.eu_hosts
+    # OpenRouter's EU endpoint only (owner decision Oct 19, 2026, findings C25).
+    assert models.allow_list.external_hosts == ("eu.openrouter.ai",)
+    assert "eu.openrouter.ai" not in models.allow_list.eu_hosts
+    assert models.openrouter.base_url == "https://eu.openrouter.ai/api/v1"
+    # Every price is still a placeholder until the owner replaces it (findings C27).
+    assert all(e.price_placeholder for e in models.catalogue)
     # The OpenRouter key is optional: without it, external models are refused.
     assert settings.secrets.openrouter_api_key is None
+
+
+def test_startup_rejects_openrouters_global_host(tmp_path: Path) -> None:
+    # Only the EU endpoint is allow-listed; the global API host is refused at startup.
+    text = (DEFAULT_CONFIG_DIR / "models.toml").read_text()
+    for host in ("api.openrouter.ai", "openrouter.ai"):
+        changed = text.replace("https://eu.openrouter.ai/api/v1", f"https://{host}/api/v1")
+        assert f"openrouter.base_url host '{host}' is not in allow_list.external_hosts" in (
+            problems_for(tmp_path, changed)
+        )
+
+
+def test_placeholder_prices_warn_at_startup_with_metadata_only(
+    settings: Settings, capsys: pytest.CaptureFixture[str]
+) -> None:
+    capsys.readouterr()
+    catalogue.warn_placeholder_prices(settings)
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [(r["event"], r["level"], r["model"]) for r in lines] == [
+        ("config.price_placeholder", "warning", e.id) for e in settings.models.catalogue
+    ]
+    for record in lines:
+        assert set(record) == {"ts", "level", "event", "model"}
+
+
+def test_real_prices_do_not_warn(settings: Settings, capsys: pytest.CaptureFixture[str]) -> None:
+    real = [e.model_copy(update={"price_placeholder": False}) for e in settings.models.catalogue]
+    models = settings.models.model_copy(update={"catalogue": tuple(real)})
+    priced = dataclasses.replace(settings, models=models)
+    capsys.readouterr()
+    catalogue.warn_placeholder_prices(priced)
+    assert capsys.readouterr().out == ""
 
 
 def test_openrouter_config_loads(tmp_path: Path) -> None:
@@ -95,7 +133,7 @@ def test_openrouter_config_loads(tmp_path: Path) -> None:
 
 
 def test_startup_rejects_an_unlisted_external_host(tmp_path: Path) -> None:
-    text = OPENROUTER_TOML.replace("https://api.openrouter.ai/api/v1", "https://or.example/v1")
+    text = OPENROUTER_TOML.replace("https://eu.openrouter.ai/api/v1", "https://or.example/v1")
     assert problems_for(tmp_path, text) == [
         "openrouter.base_url host 'or.example' is not in allow_list.external_hosts"
     ]
@@ -104,10 +142,10 @@ def test_startup_rejects_an_unlisted_external_host(tmp_path: Path) -> None:
 def test_startup_rejects_openrouter_on_the_eu_list(tmp_path: Path) -> None:
     # An external provider listed as EU would slip past the entitlement: refused.
     text = OPENROUTER_TOML.replace(
-        'external_hosts = ["api.openrouter.ai"]', "external_hosts = []"
-    ).replace('"api.scaleway.ai", "ragflow"]', '"api.scaleway.ai", "ragflow", "api.openrouter.ai"]')
+        'external_hosts = ["eu.openrouter.ai"]', "external_hosts = []"
+    ).replace('"api.scaleway.ai", "ragflow"]', '"api.scaleway.ai", "ragflow", "eu.openrouter.ai"]')
     assert problems_for(tmp_path, text) == [
-        "openrouter.base_url host 'api.openrouter.ai' is not in allow_list.external_hosts"
+        "openrouter.base_url host 'eu.openrouter.ai' is not in allow_list.external_hosts"
     ]
 
 
@@ -116,8 +154,8 @@ def test_startup_rejects_an_eu_service_on_an_external_host(tmp_path: Path) -> No
         'eu_hosts = ["api.mistral.ai", "api.scaleway.ai", "ragflow"]',
         'eu_hosts = ["api.mistral.ai", "ragflow"]',
     ).replace(
-        'external_hosts = ["api.openrouter.ai"]',
-        'external_hosts = ["api.openrouter.ai", "api.scaleway.ai"]',
+        'external_hosts = ["eu.openrouter.ai"]',
+        'external_hosts = ["eu.openrouter.ai", "api.scaleway.ai"]',
     )
     assert problems_for(tmp_path, text) == [
         "scaleway.base_url host 'api.scaleway.ai' is not in allow_list.eu_hosts"
@@ -126,8 +164,8 @@ def test_startup_rejects_an_eu_service_on_an_external_host(tmp_path: Path) -> No
 
 def test_startup_rejects_a_host_on_both_lists(tmp_path: Path) -> None:
     text = OPENROUTER_TOML.replace(
-        'external_hosts = ["api.openrouter.ai"]',
-        'external_hosts = ["api.openrouter.ai", "ragflow"]',
+        'external_hosts = ["eu.openrouter.ai"]',
+        'external_hosts = ["eu.openrouter.ai", "ragflow"]',
     )
     assert problems_for(tmp_path, text) == [
         "allow_list host 'ragflow' is in both eu_hosts and external_hosts"
@@ -139,7 +177,7 @@ async def test_app_refuses_to_start_with_an_unlisted_host(
 ) -> None:
     from app.core import config
 
-    text = OPENROUTER_TOML.replace("https://api.openrouter.ai/api/v1", "https://or.example/v1")
+    text = OPENROUTER_TOML.replace("https://eu.openrouter.ai/api/v1", "https://or.example/v1")
     monkeypatch.setenv("ASK_SPORE_CONFIG_DIR", str(write_config(tmp_path, text)))
     for name, value in ENV.items():
         monkeypatch.setenv(name, value)
@@ -201,7 +239,7 @@ def test_catalogue_needs_the_default_model(tmp_path: Path) -> None:
 
 def test_openrouter_entry_needs_its_section(tmp_path: Path) -> None:
     text = OPENROUTER_TOML.replace(
-        '[openrouter]\nbase_url = "https://api.openrouter.ai/api/v1"\n'
+        '[openrouter]\nbase_url = "https://eu.openrouter.ai/api/v1"\n'
         'models = ["anthropic/claude-opus-5.5"]\ntimeout_seconds = 30\n',
         "",
     )

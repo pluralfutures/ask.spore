@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from app.core.config import CatalogueEntry, Settings, default_models
+from app.core.logging import log
 
 MILLION = Decimal(1_000_000)
 
@@ -40,6 +41,14 @@ def platform_default(settings: Settings) -> str:
 def default_choice(settings: Settings) -> ModelChoice:
     """Reasoning off, as Phase 0 answered and as the eval baseline runs (findings M2)."""
     return ModelChoice(platform_default(settings), reasoning=False)
+
+
+def warn_placeholder_prices(settings: Settings) -> None:
+    """Log a warning per catalogue entry whose prices are placeholders (metadata only:
+    the model, never the figures). The usage ledger and spend cap price from them."""
+    for e in settings.models.catalogue:
+        if e.price_placeholder:
+            log("config.price_placeholder", level="warning", model=e.id)
 
 
 def external_ids(settings: Settings) -> tuple[str, ...]:

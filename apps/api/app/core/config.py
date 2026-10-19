@@ -160,6 +160,9 @@ class CatalogueEntry(_Strict):
     # external spend cap (P1a-10).
     price_in_cents_per_mtok: float = Field(ge=0)
     price_out_cents_per_mtok: float = Field(ge=0)
+    # The prices are placeholders still to be replaced from the provider's price list
+    # (P1a-15); the API logs a warning per such entry at startup.
+    price_placeholder: bool = False
     # Served outside the EU (compliance addendum, Oct 18 and 19, 2026); shown to users.
     external: bool
 

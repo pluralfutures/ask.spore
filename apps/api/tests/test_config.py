@@ -7,7 +7,7 @@ from app.main import create_app
 
 VALID_TOML = """
 [allow_list]
-hosts = ["api.mistral.ai", "ragflow"]
+eu_hosts = ["api.mistral.ai", "ragflow"]
 
 [mistral]
 base_url = "https://api.mistral.ai"
@@ -32,6 +32,24 @@ top_k = 10
 similarity_threshold = 0.2
 max_context_tokens = 6000
 cache_ttl_seconds = 86400
+
+[[catalogue]]
+id = "mistral-large-2512"
+provider = "mistral"
+display_name = "Mistral Large"
+reasoning = "none"
+price_in_cents_per_mtok = 200
+price_out_cents_per_mtok = 600
+external = false
+
+[[catalogue]]
+id = "mistral-small-2603"
+provider = "mistral"
+display_name = "Mistral Small"
+reasoning = "none"
+price_in_cents_per_mtok = 10
+price_out_cents_per_mtok = 30
+external = false
 """
 
 ENV = {
@@ -67,24 +85,25 @@ def test_valid_config_loads(tmp_path: Path) -> None:
 
 def test_repository_models_toml_is_valid() -> None:
     settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
-    assert settings.models.allow_list.hosts
+    assert settings.models.allow_list.eu_hosts
+    assert settings.models.allow_list.external_hosts == ("api.openrouter.ai",)
 
 
 def test_rejects_provider_host_not_in_allow_list(tmp_path: Path) -> None:
     text = VALID_TOML.replace("https://api.mistral.ai", "https://api.example.com")
     problems = problems_for(tmp_path, text)
-    assert problems == ["mistral.base_url host 'api.example.com' is not in allow_list.hosts"]
+    assert problems == ["mistral.base_url host 'api.example.com' is not in allow_list.eu_hosts"]
 
 
 def test_rejects_ragflow_host_not_in_allow_list(tmp_path: Path) -> None:
     text = VALID_TOML.replace("http://ragflow:9380", "http://ragflow.example.com:9380")
     problems = problems_for(tmp_path, text)
-    assert problems == ["ragflow.base_url host 'ragflow.example.com' is not in allow_list.hosts"]
+    assert problems == ["ragflow.base_url host 'ragflow.example.com' is not in allow_list.eu_hosts"]
 
 
 def test_allow_list_match_is_on_host_not_substring(tmp_path: Path) -> None:
     text = VALID_TOML.replace("https://api.mistral.ai", "https://api.mistral.ai.evil.example")
-    assert any("not in allow_list.hosts" in p for p in problems_for(tmp_path, text))
+    assert any("not in allow_list.eu_hosts" in p for p in problems_for(tmp_path, text))
 
 
 def test_rejects_plain_http_for_mistral(tmp_path: Path) -> None:
@@ -170,12 +189,13 @@ def test_rejects_latest_embedding_model(tmp_path: Path) -> None:
 
 # --- LLM provider switch and Scaleway (findings M2) ---------------------------------------
 
-SCALEWAY_TOML = VALID_TOML.replace(
-    'hosts = ["api.mistral.ai", "ragflow"]',
-    'hosts = ["api.mistral.ai", "api.scaleway.ai", "ragflow"]',
-).replace(
-    "[ragflow]",
-    """[llm]
+SCALEWAY_TOML = (
+    VALID_TOML.replace(
+        'eu_hosts = ["api.mistral.ai", "ragflow"]',
+        'eu_hosts = ["api.mistral.ai", "api.scaleway.ai", "ragflow"]',
+    ).replace(
+        "[ragflow]",
+        """[llm]
 provider = "scaleway"
 
 [scaleway]
@@ -183,11 +203,23 @@ base_url = "https://api.scaleway.ai"
 chat_model = "deepseek-v4.1-flash"
 rewrite_model = "deepseek-v4.1-flash"
 judge_model = "deepseek-v4.1-flash"
+models = ["deepseek-v4.1-flash"]
 timeout_seconds = 30
 rate_limit_rps = 5
 tokens_per_minute = 1000000
 
 [ragflow]""",
+    )
+    + """
+[[catalogue]]
+id = "deepseek-v4.1-flash"
+provider = "scaleway"
+display_name = "DeepSeek V4.1 Flash"
+reasoning = "thinking"
+price_in_cents_per_mtok = 20
+price_out_cents_per_mtok = 80
+external = false
+"""
 )
 PROJECT = "0b8c5d3e-1f2a-4b6c-9d7e-8f9a0b1c2d3e"
 
@@ -239,7 +271,7 @@ def test_scaleway_host_must_be_allow_listed_and_https(tmp_path: Path) -> None:
         'base_url = "https://api.scaleway.ai"', 'base_url = "http://api.scaleway.example"'
     )
     assert sorted(problems_for(tmp_path, text)) == [
-        "scaleway.base_url host 'api.scaleway.example' is not in allow_list.hosts",
+        "scaleway.base_url host 'api.scaleway.example' is not in allow_list.eu_hosts",
         "scaleway.base_url must use https",
     ]
 

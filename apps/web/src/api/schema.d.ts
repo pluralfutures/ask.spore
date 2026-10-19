@@ -185,6 +185,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/models": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Models
+     * @description The models the tenant's users may pick (P1a-09): enabled for the tenant, and
+     *     external ones only with the external-models entitlement.
+     */
+    get: operations["list_models_api_v1_models_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/operator/me": {
     parameters: {
       query?: never;
@@ -638,6 +659,25 @@ export interface components {
       /** Unsupported */
       unsupported: boolean;
     };
+    /**
+     * ModelOptionOut
+     * @description A model the signed-in user may pick for a new conversation (P1a-09).
+     *
+     *     ``external``: served outside the EU (compliance addendum, Oct 18-19, 2026); the
+     *     model picker says so. ``reasoning_switch``: reasoning can be turned on.
+     */
+    ModelOptionOut: {
+      /** Default */
+      default: boolean;
+      /** Display Name */
+      display_name: string;
+      /** External */
+      external: boolean;
+      /** Id */
+      id: string;
+      /** Reasoning Switch */
+      reasoning_switch: boolean;
+    };
     /** NoticeOut */
     NoticeOut: {
       /**
@@ -1069,6 +1109,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_models_api_v1_models_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelOptionOut"][];
         };
       };
     };

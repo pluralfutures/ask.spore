@@ -39,6 +39,7 @@ from app.api.schemas import (
     Health,
     MeOut,
     MessageOut,
+    ModelOptionOut,
     SourceOut,
 )
 from app.audit.writer import record
@@ -54,7 +55,9 @@ from app.chat.orchestrator import (
     TokenEvent,
 )
 from app.chat.package import tenant_package_tags
+from app.chat.selection import load_entitlement
 from app.content.models import Source
+from app.tenancy.entitlements import tenant_default_choice, usable_models
 from app.tenancy.models import Tenant, User
 
 router = APIRouter(prefix="/api/v1")
@@ -102,6 +105,27 @@ async def me(request: Request, session: AsyncSession = Depends(db_session)) -> M
         role="tenant_admin" if row.role == "tenant_admin" else "user",
         tenant_display_name=row.tenant,
     )
+
+
+@router.get("/models", response_model=list[ModelOptionOut])
+async def list_models(
+    request: Request, session: AsyncSession = Depends(db_session)
+) -> list[ModelOptionOut]:
+    """The models the tenant's users may pick (P1a-09): enabled for the tenant, and
+    external ones only with the external-models entitlement."""
+    settings = request.app.state.settings
+    ent = await load_entitlement(session, current_tenant_id(request))
+    default = tenant_default_choice(settings, ent)
+    return [
+        ModelOptionOut(
+            id=e.id,
+            display_name=e.display_name,
+            external=e.external,
+            reasoning_switch=e.reasoning != "none",
+            default=default is not None and e.id == default.model,
+        )
+        for e in usable_models(settings, ent)
+    ]
 
 
 @router.post(

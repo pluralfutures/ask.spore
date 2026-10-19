@@ -160,6 +160,20 @@ class MeOut(BaseModel):
     tenant_display_name: str
 
 
+class ModelOptionOut(BaseModel):
+    """A model the signed-in user may pick for a new conversation (P1a-09).
+
+    ``external``: served outside the EU (compliance addendum, Oct 18-19, 2026); the
+    model picker says so. ``reasoning_switch``: reasoning can be turned on.
+    """
+
+    id: str
+    display_name: str
+    external: bool
+    reasoning_switch: bool
+    default: bool
+
+
 # --- operator console (P1a-03) ---------------------------------------------------------
 
 SLUG_PATTERN = r"^[a-z0-9][a-z0-9-]{1,62}$"

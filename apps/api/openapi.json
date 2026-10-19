@@ -778,6 +778,40 @@
         "title": "MessageOut",
         "type": "object"
       },
+      "ModelOptionOut": {
+        "description": "A model the signed-in user may pick for a new conversation (P1a-09).\n\n``external``: served outside the EU (compliance addendum, Oct 18-19, 2026); the\nmodel picker says so. ``reasoning_switch``: reasoning can be turned on.",
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "external": {
+            "title": "External",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "reasoning_switch": {
+            "title": "Reasoning Switch",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "external",
+          "reasoning_switch",
+          "default"
+        ],
+        "title": "ModelOptionOut",
+        "type": "object"
+      },
       "NoticeOut": {
         "properties": {
           "created_at": {
@@ -1406,6 +1440,29 @@
           }
         },
         "summary": "Give Feedback"
+      }
+    },
+    "/api/v1/models": {
+      "get": {
+        "description": "The models the tenant's users may pick (P1a-09): enabled for the tenant, and\nexternal ones only with the external-models entitlement.",
+        "operationId": "list_models_api_v1_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModelOptionOut"
+                  },
+                  "title": "Response List Models Api V1 Models Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Models"
       }
     },
     "/api/v1/operator/me": {

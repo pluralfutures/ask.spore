@@ -28,7 +28,7 @@ import time
 import unicodedata
 import uuid
 from collections.abc import AsyncIterator, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime
 from typing import Any, Literal
 
@@ -47,6 +47,7 @@ from app.chat.package import (
     tenant_package_tags,
 )
 from app.chat.prompts import active_prompt
+from app.chat.selection import Authorization, authorize
 from app.core import cache
 from app.core.config import Settings
 from app.core.db import tenant_session
@@ -150,6 +151,8 @@ class _Run:
     started_at: datetime
     started: float
     query: str = ""
+    # P1a-09: the conversation's model choice, or why the tenant may not use it.
+    auth: Authorization = field(default_factory=lambda: Authorization(None, None, None))
     model: str | None = None
     tokens_in: int = 0
     tokens_out: int = 0
@@ -214,6 +217,7 @@ class Orchestrator:
             run.package = await resolve_package(
                 session, tenant_package_tags(ctx.tenant_id, self._tags)
             )
+            run.auth = await authorize(session, self._settings, ctx.tenant_id, conversation_id)
         return self._run(run)
 
     async def _history(self, session: AsyncSession, conversation_id: uuid.UUID) -> list[Turn]:
@@ -254,6 +258,12 @@ class Orchestrator:
 
     async def _run(self, run: _Run) -> AsyncIterator[ChatEvent]:
         system = active_prompt(self._settings, "corpus_only")
+
+        # 1b. Model entitlement (P1a-09): refused before any outbound call.
+        if run.auth.refusal is not None:
+            async for event in self._fail(run, run.auth.refusal):
+                yield event
+            return
 
         # 2. Query rewriting, only when there is history to resolve against.
         run.query = run.question
@@ -486,7 +496,7 @@ class Orchestrator:
             "outcome": outcome,
             "status": status,
             "error_code": error_code,
-            "model": run.model,
+            "model": run.model or (run.auth.choice.model if run.auth.choice else None),
             "prompt": active_prompt(self._settings, "corpus_only").ref,
             "cache_hit": run.cache_hit,
             "retrieved_chunk_count": run.retrieved,

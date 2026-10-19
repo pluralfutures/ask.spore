@@ -251,8 +251,8 @@ async def test_app_role_does_not_inherit_the_auth_role(admin_conn: asyncpg.Conne
 
 OIDC_TOML = (
     VALID_TOML.replace(
-        'hosts = ["api.mistral.ai", "ragflow"]',
-        'hosts = ["api.mistral.ai", "ragflow", "authentik-server"]',
+        'eu_hosts = ["api.mistral.ai", "ragflow"]',
+        'eu_hosts = ["api.mistral.ai", "ragflow", "authentik-server"]',
     )
     + """
 [auth]

@@ -10,26 +10,28 @@ Every request except the liveness probe must carry:
 - ``X-User-Email`` naming a user seeded into the single hard-coded ``internal``
   tenant (PHASE0_INTERNAL_USERS at migration time).
 
-The tenant is never taken from the request. On success the middleware sets
-``request.state.tenant_id`` and ``request.state.user_id``; ``app.api.deps.db_session``
-then scopes each database transaction to that tenant (``app.tenant_id``). Every
-failure returns the same 401 so the response does not reveal which check failed or
-whether an email exists.
+The tenant is never taken from the request. On success the middleware binds the
+request context (``app.tenancy.context``: tenant, user, role) resolved from the
+user's row; ``app.api.deps.db_session`` then scopes each database transaction to
+that tenant (``app.tenant_id``). Only active users of the internal tenant pass: the
+shared token never acts for a client tenant. Every failure returns the same 401 so
+the response does not reveal which check failed or whether an email exists.
+
+Phase 1a keeps this mode for the eval harness behind ``[auth] mode = "phase0"`` in
+``config/models.toml``; ``mode = "oidc"`` uses Authentik instead (P1a-02).
 """
 
 from __future__ import annotations
 
 import hmac
 import json
-from uuid import UUID
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from app.core.db import tenant_session
 from app.core.logging import log
-from app.tenancy.models import INTERNAL_TENANT_ID, User
+from app.tenancy.context import RequestContext, bind, resolve_user
+from app.tenancy.models import INTERNAL_TENANT_ID
 
 # Paths served without authentication. Liveness only; it returns no data.
 PUBLIC_PATHS = frozenset({"/healthz"})
@@ -57,15 +59,9 @@ def token_matches(header: str | None, expected: str) -> bool:
 
 async def lookup_internal_user(
     factory: async_sessionmaker[AsyncSession], email: str
-) -> UUID | None:
-    """The ID of a seeded user in the internal tenant, looked up under RLS."""
-    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
-        user_id: UUID | None = await session.scalar(
-            select(User.id).where(
-                User.tenant_id == INTERNAL_TENANT_ID, User.email == email.strip().lower()
-            )
-        )
-    return user_id
+) -> RequestContext | None:
+    """An active user of the internal tenant, looked up under that tenant's RLS scope."""
+    return await resolve_user(factory, INTERNAL_TENANT_ID, email)
 
 
 class Phase0AuthMiddleware:
@@ -80,9 +76,10 @@ class Phase0AuthMiddleware:
             return
 
         state = scope["app"].state
-        expected: str = state.settings.secrets.phase0_bearer_token.get_secret_value()
+        configured = state.settings.secrets.phase0_bearer_token
+        expected: str = configured.get_secret_value() if configured is not None else ""
 
-        if not token_matches(_header(scope, b"authorization"), expected):
+        if not expected or not token_matches(_header(scope, b"authorization"), expected):
             await self._reject(send, "bad_token")
             return
 
@@ -91,14 +88,12 @@ class Phase0AuthMiddleware:
             await self._reject(send, "no_user")
             return
 
-        user_id = await lookup_internal_user(state.db_factory, email)
-        if user_id is None:
+        context = await lookup_internal_user(state.db_factory, email)
+        if context is None:
             await self._reject(send, "unknown_user")
             return
 
-        scope.setdefault("state", {})
-        scope["state"]["tenant_id"] = INTERNAL_TENANT_ID
-        scope["state"]["user_id"] = user_id
+        bind(scope, context)
         await self.app(scope, receive, send)
 
     @staticmethod

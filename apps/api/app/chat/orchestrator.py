@@ -40,7 +40,12 @@ from app.audit.writer import record
 from app.chat.citations import MarkerFilter, strip_markers
 from app.chat.context import ContextChunk, estimate_tokens, select_context
 from app.chat.models import Citation, Conversation, Message
-from app.chat.package import Package, provenance_by_document, resolve_package
+from app.chat.package import (
+    Package,
+    provenance_by_document,
+    resolve_package,
+    tenant_package_tags,
+)
 from app.chat.prompts import active_prompt
 from app.core import cache
 from app.core.config import Settings
@@ -206,7 +211,9 @@ class Orchestrator:
             if found is None:
                 raise ConversationNotFound(str(conversation_id))
             run.history = await self._history(session, conversation_id)
-            run.package = await resolve_package(session, self._tags)
+            run.package = await resolve_package(
+                session, tenant_package_tags(ctx.tenant_id, self._tags)
+            )
         return self._run(run)
 
     async def _history(self, session: AsyncSession, conversation_id: uuid.UUID) -> list[Turn]:

@@ -32,7 +32,9 @@ def _migration() -> ModuleType:
     return module
 
 
-TENANT_TABLES: tuple[str, ...] = _migration().TENANT_TABLES
+# Tenant-scoped tables created after schema v1, each with RLS from its first migration.
+LATER_TENANT_TABLES = ("tenant_entitlements",)
+TENANT_TABLES: tuple[str, ...] = (*_migration().TENANT_TABLES, *LATER_TENANT_TABLES)
 ALL_SCOPED = (*TENANT_TABLES, "tenants")
 
 
@@ -45,7 +47,9 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
     """One row in every tenant-scoped table for the internal tenant, plus an empty tenant."""
     other = uuid.uuid4()
     await admin_conn.execute(
-        "INSERT INTO tenants (id, slug, name) VALUES ($1, $2, 'Other')", other, f"o-{other.hex}"
+        "INSERT INTO tenants (id, slug, display_name) VALUES ($1, $2, 'Other')",
+        other,
+        f"o-{other.hex}",
     )
     user = await admin_conn.fetchval(
         "SELECT id FROM users WHERE tenant_id = $1 LIMIT 1", INTERNAL_TENANT_ID

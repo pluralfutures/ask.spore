@@ -132,7 +132,9 @@ async def test_user_of_another_tenant_is_rejected(
     other = uuid.uuid4()
     email = f"outsider-{other.hex[:8]}@example.org"
     await admin_conn.execute(
-        "INSERT INTO tenants (id, slug, name) VALUES ($1, $2, 'Other')", other, f"o-{other.hex}"
+        "INSERT INTO tenants (id, slug, display_name) VALUES ($1, $2, 'Other')",
+        other,
+        f"o-{other.hex}",
     )
     await admin_conn.execute(
         "INSERT INTO users (tenant_id, email, display_name) VALUES ($1, $2, 'Outsider')",

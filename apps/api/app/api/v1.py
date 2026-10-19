@@ -45,6 +45,7 @@ from app.chat.orchestrator import (
     Orchestrator,
     TokenEvent,
 )
+from app.chat.package import tenant_package_tags
 from app.content.models import Source
 
 router = APIRouter(prefix="/api/v1")
@@ -286,7 +287,7 @@ async def get_source(
     source_id: UUID, request: Request, session: AsyncSession = Depends(db_session)
 ) -> SourceOut:
     """Provenance of a source in the tenant's package; any other source is not found."""
-    tags: tuple[str, ...] = request.app.state.package_tags
+    tags = tenant_package_tags(current_tenant_id(request), request.app.state.package_tags)
     source = await session.scalar(
         select(Source).where(Source.id == source_id, Source.tags.overlap(list(tags)))
     )

@@ -1,9 +1,11 @@
 """The tenant's package: which datasets it may retrieve from, and their provenance.
 
-PHASE 0: one tenant, whose package is every tag in ``config/tags.toml``. Phase 1
-replaces ``phase0_package_tags`` with the per-tenant package table; the rest is
-unchanged. Dataset IDs come only from the ``datasets`` table, never from a request
-(CLAUDE.md).
+PHASE 0: one tenant, whose package is every tag in ``config/tags.toml``. Phase 1a
+adds tenants (P1a-01) before workspaces (P1a-04): until P1a-04 assigns tags per
+workspace, only the internal tenant has the Phase 0 package and every other tenant
+has none, so it retrieves nothing (``tenant_package_tags``). P1a-04 replaces both
+functions with the workspace's tags; the rest is unchanged. Dataset IDs come only
+from the ``datasets`` table, never from a request (CLAUDE.md).
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.content.models import Dataset
+from app.tenancy.models import INTERNAL_TENANT_ID
 
 TAGS_FILE = "tags.toml"
 # Crawled or rendered web pages: untrusted text in prompts (CLAUDE.md).
@@ -64,6 +67,15 @@ def phase0_package_tags(config_dir: Path) -> tuple[str, ...]:
     if not isinstance(tags, dict) or not tags:
         raise PackageError(f"{path.name} must define at least one [tags.<name>] table")
     return tuple(sorted(tags))
+
+
+def tenant_package_tags(tenant_id: UUID, phase0_tags: tuple[str, ...]) -> tuple[str, ...]:
+    """STUB until P1a-04: the Phase 0 package for the internal tenant, nothing for others.
+
+    Fails closed: a client tenant created by the operator before its workspaces exist
+    must not inherit the internal tenant's corpus.
+    """
+    return phase0_tags if tenant_id == INTERNAL_TENANT_ID else ()
 
 
 async def resolve_package(session: AsyncSession, tags: tuple[str, ...]) -> Package:

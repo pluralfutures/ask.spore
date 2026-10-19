@@ -4,7 +4,7 @@ from app.audit.models import AuditEvent
 from app.chat.models import Citation, Conversation, Feedback, Message
 from app.content.models import Dataset, Source
 from app.core.db import Base
-from app.tenancy.models import Tenant, User
+from app.tenancy.models import Tenant, TenantEntitlements, User
 
 __all__ = [
     "AuditEvent",
@@ -16,5 +16,6 @@ __all__ = [
     "Message",
     "Source",
     "Tenant",
+    "TenantEntitlements",
     "User",
 ]

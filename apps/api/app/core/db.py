@@ -61,7 +61,15 @@ async def set_tenant(session: AsyncSession, tenant_id: UUID) -> None:
 async def tenant_session(
     factory: async_sessionmaker[AsyncSession], tenant_id: UUID
 ) -> AsyncIterator[AsyncSession]:
-    """A session whose transaction is scoped to ``tenant_id``; commits on success."""
+    """A session whose transaction is scoped to ``tenant_id``; commits on success.
+
+    The body may ``await session.commit()`` itself (API write handlers do, so the row
+    is durable before the response goes out, C5). SQLAlchemy 2.x allows that inside
+    ``session.begin()``: the block's exit then finds its transaction already closed and
+    does nothing. ``app.tenant_id`` ends with the committed transaction, and SQLAlchemy
+    refuses any further statement on the session inside the block
+    (``InvalidRequestError``), so nothing can run unscoped after the commit.
+    """
     async with factory() as session, session.begin():
         await set_tenant(session, tenant_id)
         yield session

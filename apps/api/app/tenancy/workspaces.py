@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
+from app.llm.catalogue import ModelChoice
 
 PROMPT_MAX_CHARS = 2000  # P1a-06: the additional-instructions block, before escaping
 _MODES = "('corpus_only', 'general_knowledge')"
@@ -138,13 +139,17 @@ class ChoiceRefused(ValueError):
 
 
 @dataclass(frozen=True)
-class ConversationChoice:
-    """Workspace, mode, model and reasoning of a new conversation, fixed from then on."""
+class WorkspaceChoice:
+    """Workspace and mode of a new conversation, and the workspace's model defaults.
+
+    The model and reasoning are chosen and checked by
+    ``app.chat.selection.choose_for_new_conversation`` (P1a-09, P1a-10), starting from
+    ``default``.
+    """
 
     workspace_id: uuid.UUID
     mode: str
-    model: str
-    reasoning: bool
+    default: ModelChoice
 
 
 async def choose(
@@ -152,17 +157,14 @@ async def choose(
     *,
     workspace_id: uuid.UUID | None,
     mode: str | None,
-    model: str | None,
-    reasoning: bool | None,
     answer_modes: Collection[str],
-    models: Collection[str],
-) -> ConversationChoice:
-    """Validate the start-panel choice in the session's tenant, defaults from the workspace.
+) -> WorkspaceChoice:
+    """Validate the start panel's workspace and mode in the session's tenant.
 
-    ``answer_modes`` and ``models`` are what the tenant may use: its entitlements, the
-    models further narrowed to what the platform can serve. A workspace of another
-    tenant is invisible (RLS) and refused as ``unknown_workspace``. Without a
-    workspace ID the tenant's only workspace is used (architecture §14.1).
+    ``answer_modes`` is what the tenant may use (its entitlement); the mode defaults
+    from the workspace. A workspace of another tenant is invisible (RLS) and refused
+    as ``unknown_workspace``. Without a workspace ID the tenant's only workspace is
+    used (architecture §14.1).
     """
     if workspace_id is None:
         found = (await session.scalars(select(Workspace).limit(2))).all()
@@ -181,15 +183,8 @@ async def choose(
         mode = workspace.default_mode if workspace.default_mode in answer_modes else "corpus_only"
     if mode not in answer_modes:
         raise ChoiceRefused("mode_not_enabled")
-    if model is None:
-        fallback = sorted(models)
-        model = workspace.default_model if workspace.default_model in models else None
-        model = model or (fallback[0] if fallback else None)
-    if model is None or model not in models:
-        raise ChoiceRefused("model_not_enabled")
-    return ConversationChoice(
+    return WorkspaceChoice(
         workspace_id=workspace.id,
         mode=mode,
-        model=model,
-        reasoning=workspace.default_reasoning if reasoning is None else reasoning,
+        default=ModelChoice(workspace.default_model, workspace.default_reasoning),
     )

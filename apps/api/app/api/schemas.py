@@ -61,6 +61,10 @@ class ConversationCreated(_Out):
     mode: str
     model: str
     reasoning: bool
+    # P1a-10: set when the external spend cap made the conversation fall back from
+    # the requested model (``external_spend_cap_reached``), with the text to show.
+    notice: str | None = None
+    notice_text: str | None = None
 
 
 class WorkspaceOut(_Out):
@@ -107,6 +111,10 @@ class MessageOut(BaseModel):
     unsupported: bool
     abstained: bool
     citations: list[CitationOut]
+    # Badge data (P1a-11), assistant messages: the model that answered and whether
+    # reasoning was on.
+    model: str | None = None
+    reasoning: bool | None = None
 
 
 class ConversationDetail(ConversationSummary):
@@ -162,6 +170,9 @@ class DoneData(BaseModel):
     cached: bool
     tokens_in: int
     tokens_out: int
+    # Badge data (P1a-11): the conversation's model and its reasoning switch.
+    model: str | None
+    reasoning: bool
 
 
 class ErrorData(BaseModel):
@@ -203,6 +214,20 @@ class MeOut(BaseModel):
     display_name: str
     role: Literal["user", "tenant_admin"]
     tenant_display_name: str
+
+
+class ModelOptionOut(BaseModel):
+    """A model the signed-in user may pick for a new conversation (P1a-09).
+
+    ``external``: served outside the EU (compliance addendum, Oct 18-19, 2026); the
+    model picker says so. ``reasoning_switch``: reasoning can be turned on.
+    """
+
+    id: str
+    display_name: str
+    external: bool
+    reasoning_switch: bool
+    default: bool
 
 
 # --- operator console (P1a-03) ---------------------------------------------------------

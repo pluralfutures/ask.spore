@@ -306,6 +306,28 @@
             "title": "Model",
             "type": "string"
           },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice"
+          },
+          "notice_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice Text"
+          },
           "reasoning": {
             "title": "Reasoning",
             "type": "boolean"
@@ -493,6 +515,21 @@
             "title": "Message Id",
             "type": "string"
           },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "reasoning": {
+            "title": "Reasoning",
+            "type": "boolean"
+          },
           "tokens_in": {
             "title": "Tokens In",
             "type": "integer"
@@ -512,7 +549,9 @@
           "abstained",
           "cached",
           "tokens_in",
-          "tokens_out"
+          "tokens_out",
+          "model",
+          "reasoning"
         ],
         "title": "DoneData",
         "type": "object"
@@ -874,6 +913,28 @@
             "title": "Mode",
             "type": "string"
           },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "reasoning": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning"
+          },
           "role": {
             "enum": [
               "user",
@@ -898,6 +959,40 @@
           "citations"
         ],
         "title": "MessageOut",
+        "type": "object"
+      },
+      "ModelOptionOut": {
+        "description": "A model the signed-in user may pick for a new conversation (P1a-09).\n\n``external``: served outside the EU (compliance addendum, Oct 18-19, 2026); the\nmodel picker says so. ``reasoning_switch``: reasoning can be turned on.",
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "external": {
+            "title": "External",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "reasoning_switch": {
+            "title": "Reasoning Switch",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "external",
+          "reasoning_switch",
+          "default"
+        ],
+        "title": "ModelOptionOut",
         "type": "object"
       },
       "NoticeOut": {
@@ -1525,7 +1620,7 @@
         "summary": "List Conversations"
       },
       "post": {
-        "description": "Start a conversation in a workspace with a mode, model and reasoning, all fixed.\n\nDefaults come from the workspace; the choice is checked against the tenant's\nentitlements. The model check is Group A's stub (``available_models``) until the\nmodel catalogue (P1a-09) replaces it.",
+        "description": "Start a conversation in a workspace with a mode, model and reasoning, all fixed.\n\nDefaults come from the workspace; the mode is checked against the tenant's\n``answer_modes``, the model and reasoning by ``choose_for_new_conversation``\n(catalogue, ``enabled_models``, external-models entitlement, reasoning switch and\nthe external spend cap, P1a-09 to P1a-11). At the cap an external model falls back\nto the workspace default and the response carries the notice.",
         "operationId": "create_conversation_api_v1_conversations_post",
         "requestBody": {
           "content": {
@@ -1781,6 +1876,29 @@
           }
         },
         "summary": "Give Feedback"
+      }
+    },
+    "/api/v1/models": {
+      "get": {
+        "description": "The models the tenant's users may pick (P1a-09): enabled for the tenant, and\nexternal ones only with the external-models entitlement. ``default`` marks the\ntenant-wide EU fallback; the start panel pre-fills from the workspace's defaults\n(``GET /workspaces``).",
+        "operationId": "list_models_api_v1_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModelOptionOut"
+                  },
+                  "title": "Response List Models Api V1 Models Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Models"
       }
     },
     "/api/v1/operator/me": {

@@ -22,7 +22,8 @@ from app.tenancy.context import resolve_user
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.chat_fixtures import World, chunks_for
 from tests.conftest import CONVERSATION_COLUMNS, CONVERSATION_DEFAULTS
-from tests.fakes import FakeRedis, FakeRetriever, Recorder
+from tests.fakes import FakeRedis, FakeRetriever, router
+from tests.fakes import OpenAIRecorder as Recorder
 
 pytestmark = pytest.mark.usefixtures("database")
 
@@ -276,7 +277,7 @@ async def test_client_tenant_retrieves_nothing_before_its_workspace_has_tags(
         settings=settings,
         db_factory=session_factory(engine),
         retriever=retriever,
-        llm=recorder.client(),
+        llm=router(settings, recorder),
     )
     events = await orchestrator.answer(
         ChatContext(tenant_id=client.id, user_id=client.user_id), conversation, "Capacity?"

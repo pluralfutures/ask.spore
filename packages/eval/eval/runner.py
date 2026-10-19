@@ -100,7 +100,7 @@ def with_ragflow_url(settings: Settings, url: str) -> Settings:
     host = urlsplit(url).hostname
     if host is None:
         raise HarnessError("--ragflow-url is not a valid URL")
-    allowed = {h.lower() for h in settings.models.allow_list.hosts}
+    allowed = {h.lower() for h in settings.models.allow_list.eu_hosts}
     if host.lower() not in allowed and not _internal(host):
         raise HarnessError(
             f"--ragflow-url host '{host}' is neither allow-listed nor a private address; "

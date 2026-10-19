@@ -19,7 +19,7 @@ message embeds the response body and must never be logged.
 from __future__ import annotations
 
 import html
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Literal
@@ -316,18 +316,28 @@ class MistralClient:
         context_chunks: Sequence[PromptChunk],
         history: Sequence[Turn],
         question: str,
+        *,
+        model: str | None = None,
+        reasoning: Mapping[str, Any] | None = None,
     ) -> AnswerStream:
-        """Open a streamed answer. Retries once if the stream fails to open with a 5xx."""
+        """Open a streamed answer. Retries once if the stream fails to open with a 5xx.
+
+        Mistral models have no reasoning switch in the catalogue (``reasoning = "none"``),
+        so ``reasoning`` must be empty.
+        """
+        if reasoning:
+            raise LLMError("reasoning_unsupported")
+        model = model or self._config.chat_model
         messages = answer_messages(system, context_chunks, history, question)
         for attempt in range(RETRIES_ON_5XX + 1):
             try:
                 events = await self._sdk.chat.stream_async(
-                    model=self._config.chat_model,
+                    model=model,
                     messages=messages,  # type: ignore[arg-type]
                     temperature=ANSWER_TEMPERATURE,
                     max_tokens=ANSWER_MAX_TOKENS,
                 )
-                return AnswerStream(events, self._config.chat_model)
+                return AnswerStream(events, model)
             except (MistralError, httpx.HTTPError) as exc:
                 if _is_5xx(exc) and attempt < RETRIES_ON_5XX:
                     continue

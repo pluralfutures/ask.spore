@@ -17,7 +17,7 @@ it would log request bodies. Errors are ``LLMError`` with a short code only.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Any
 
 import httpx2
@@ -48,6 +48,7 @@ from app.llm.mistral import (
     rewrite_messages,
 )
 from app.llm.ratelimit import TokenBucket, estimate_tokens
+from app.llm.reasoning import ThinkFilter
 
 silence_library_loggers("openai", "httpx2")
 
@@ -88,9 +89,14 @@ _ERRORS = (openai.APIError, httpx2.HTTPError)
 
 
 class AnswerStream:
-    """Async iterator of answer text deltas; ``usage`` is set when the stream ends."""
+    """Async iterator of answer text deltas; ``usage`` is set when the stream ends.
 
-    def __init__(self, events: Any, model: str, bucket: TokenBucket, reserved: int) -> None:
+    Shared with ``app.llm.openrouter``, which has no client-side throttle (``bucket``).
+    """
+
+    def __init__(
+        self, events: Any, model: str, bucket: TokenBucket | None = None, reserved: int = 0
+    ) -> None:
         self._events = events
         self.model = model
         self.usage: Usage | None = None
@@ -101,6 +107,10 @@ class AnswerStream:
         return self._deltas()
 
     async def _deltas(self) -> AsyncIterator[str]:
+        # Reasoning is never passed on (P1a-11): only ``delta.content`` is read, so
+        # ``reasoning_content`` (Scaleway), ``reasoning`` and ``reasoning_details``
+        # (OpenRouter) are dropped here, and inline ``<think>`` blocks are filtered out.
+        thinking = ThinkFilter()
         try:
             async with self._events as events:
                 async for chunk in events:
@@ -108,13 +118,18 @@ class AnswerStream:
                         self.usage = _usage(chunk.usage)
                     for choice in chunk.choices:
                         delta = choice.delta.content if choice.delta else None
-                        if delta:
-                            yield delta
+                        text = thinking.feed(delta) if delta else ""
+                        if text:
+                            yield text
+            tail = thinking.flush()
+            if tail:
+                yield tail
         except _ERRORS as exc:
             # Mid-stream failure: tokens may already be with the user, so no retry.
             raise _error(exc) from None
         finally:
-            self._bucket.settle(self._reserved, _total(self.usage, self._reserved))
+            if self._bucket is not None:
+                self._bucket.settle(self._reserved, _total(self.usage, self._reserved))
 
 
 class ScalewayClient:
@@ -223,24 +238,39 @@ class ScalewayClient:
         context_chunks: Sequence[PromptChunk],
         history: Sequence[Turn],
         question: str,
+        *,
+        model: str | None = None,
+        reasoning: Mapping[str, Any] | None = None,
     ) -> AnswerStream:
-        """Open a streamed answer. Retries once if the stream fails to open with a 5xx."""
+        """Open a streamed answer. Retries once if the stream fails to open with a 5xx.
+
+        ``model`` and ``reasoning`` come from the conversation's model choice
+        (``app.llm.factory.LLMRouter``, P1a-10, P1a-11): a pinned Scaleway model and the
+        request fields of its reasoning switch (``app.llm.reasoning``). Without them the
+        configured ``chat_model`` and ``reasoning_effort`` are used, as in Phase 0.
+        """
         messages = answer_messages(system, context_chunks, history, question)
+        model = model or self._config.chat_model
+        params = (
+            {"reasoning_effort": self._config.reasoning_effort}
+            if reasoning is None
+            else dict(reasoning)
+        )
         reserved = await self._bucket.acquire(
             estimate_tokens([m["content"] for m in messages], ANSWER_MAX_TOKENS)
         )
         for attempt in range(RETRIES_ON_5XX + 1):
             try:
                 events = await self._sdk.chat.completions.create(  # type: ignore[call-overload]
-                    model=self._config.chat_model,
+                    model=model,
                     messages=messages,
                     temperature=ANSWER_TEMPERATURE,
                     max_tokens=ANSWER_MAX_TOKENS,
-                    reasoning_effort=self._config.reasoning_effort,
                     stream=True,
                     stream_options={"include_usage": True},
+                    extra_body=params or None,
                 )
-                return AnswerStream(events, self._config.chat_model, self._bucket, reserved)
+                return AnswerStream(events, model, self._bucket, reserved)
             except _ERRORS as exc:
                 if _is_5xx(exc) and attempt < RETRIES_ON_5XX:
                     continue

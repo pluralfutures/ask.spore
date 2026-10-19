@@ -47,11 +47,14 @@ LATER_TENANT_TABLES = (
     "operator_notices",
     "workspaces",
     "workspace_prompts",
+    "usage_ledger",
+    "spend_notices",
 )
 # Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
 SET_ROLES = {"askspore_auth", "askspore_operator"}
 # Tenant tables the application role cannot read (only a SET role does). Since revision
-# 0008 it may INSERT operator notices (P1a-07), still without reading them.
+# 0008 it may INSERT operator notices (P1a-07, and the spend notices of P1a-10, revision
+# 0009), still without reading them.
 NO_APP_ACCESS = {"sign_in_links", "operators", "operator_notices"}
 TENANT_TABLES: tuple[str, ...] = (*_migration().TENANT_TABLES, *LATER_TENANT_TABLES)
 ALL_SCOPED = (*TENANT_TABLES, "tenants")
@@ -107,6 +110,15 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
         INTERNAL_TENANT_ID,
         user,
     )
+    await admin_conn.execute(
+        "INSERT INTO usage_ledger (tenant_id, month, model, tokens_in, tokens_out, cost_cents) "
+        "VALUES ($1, '1999-01-01', 'deepseek-v4.1-flash', 10, 2, 0.5)",
+        INTERNAL_TENANT_ID,
+    )
+    await admin_conn.execute(
+        "INSERT INTO spend_notices (tenant_id, month, threshold) VALUES ($1, '1999-01-01', 80)",
+        INTERNAL_TENANT_ID,
+    )
     workspace = await admin_conn.fetchval(
         "SELECT id FROM workspaces WHERE tenant_id = $1 AND slug = 'research'", INTERNAL_TENANT_ID
     )
@@ -125,6 +137,8 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
         "workspace": workspace,
     }
     await admin_conn.execute("DELETE FROM workspace_prompts WHERE id = $1", prompt)
+    await admin_conn.execute("DELETE FROM usage_ledger WHERE month = '1999-01-01'")
+    await admin_conn.execute("DELETE FROM spend_notices WHERE month = '1999-01-01'")
     # Cleanup bypasses the append-only trigger only by dropping nothing: audit rows stay,
     # and the other tenant stays referenced by nothing. Chat rows are removed.
     await admin_conn.execute("DELETE FROM conversations WHERE id = $1", conversation)

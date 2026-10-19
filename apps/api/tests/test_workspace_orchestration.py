@@ -18,7 +18,8 @@ from app.core.config import DEFAULT_CONFIG_DIR, Settings, load_settings
 from app.retrieval.types import RetrievedChunk
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.chat_fixtures import DATASETS, World, chunks_for
-from tests.fakes import FakeRedis, FakeRetriever, Recorder, delta, sse
+from tests.fakes import FakeRedis, FakeRetriever, delta, sse
+from tests.fakes import OpenAIRecorder as Recorder
 from tests.test_config import ENV
 from tests.test_orchestrator import done_of, orchestrator, run, text_of
 
@@ -223,7 +224,7 @@ async def test_audit_and_messages_record_workspace_model_and_reasoning(
     )
     assert metadata["workspace_id"] == str(workspace)
     assert metadata["reasoning"] is True
-    assert metadata["model"] == "mistral-large-2512"  # what the (recorded) provider served
+    assert metadata["model"] == "deepseek-v4.1-flash"  # what the (recorded) provider served
     assert metadata["mode"] == "corpus_only"
     rows = await world.admin.fetch(
         "SELECT role, mode, model, reasoning FROM messages WHERE conversation_id = $1 "
@@ -232,7 +233,7 @@ async def test_audit_and_messages_record_workspace_model_and_reasoning(
     )
     assert [tuple(r) for r in rows] == [
         ("user", "corpus_only", None, None),
-        ("assistant", "corpus_only", "mistral-large-2512", True),
+        ("assistant", "corpus_only", "deepseek-v4.1-flash", True),
     ]
 
 

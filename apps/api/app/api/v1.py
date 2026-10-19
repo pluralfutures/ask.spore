@@ -41,6 +41,7 @@ from app.api.schemas import (
     Health,
     MeOut,
     MessageOut,
+    ModelOptionOut,
     SourceOut,
     WorkspaceOut,
     WorkspacePromptIn,
@@ -58,10 +59,11 @@ from app.chat.orchestrator import (
     Orchestrator,
     TokenEvent,
 )
+from app.chat.selection import choose_for_new_conversation, load_entitlement
 from app.content.models import Source
 from app.core.logging import log
 from app.operator.models import OperatorNotice
-from app.tenancy.entitlements import available_models
+from app.tenancy.entitlements import ModelRefused, eu_fallback_choice, usable_models
 from app.tenancy.models import Tenant, TenantEntitlements, User
 from app.tenancy.name_flags import match_kinds, tenant_terms
 from app.tenancy.workspaces import (
@@ -121,6 +123,29 @@ async def me(request: Request, session: AsyncSession = Depends(db_session)) -> M
     )
 
 
+@router.get("/models", response_model=list[ModelOptionOut])
+async def list_models(
+    request: Request, session: AsyncSession = Depends(db_session)
+) -> list[ModelOptionOut]:
+    """The models the tenant's users may pick (P1a-09): enabled for the tenant, and
+    external ones only with the external-models entitlement. ``default`` marks the
+    tenant-wide EU fallback; the start panel pre-fills from the workspace's defaults
+    (``GET /workspaces``)."""
+    settings = request.app.state.settings
+    ent = await load_entitlement(session, current_tenant_id(request))
+    default = eu_fallback_choice(settings, ent)
+    return [
+        ModelOptionOut(
+            id=e.id,
+            display_name=e.display_name,
+            external=e.external,
+            reasoning_switch=e.reasoning != "none",
+            default=default is not None and e.id == default.model,
+        )
+        for e in usable_models(settings, ent)
+    ]
+
+
 @router.get("/workspaces", response_model=list[WorkspaceOut])
 async def list_workspaces(session: AsyncSession = Depends(db_session)) -> list[Workspace]:
     """The tenant's workspaces (RLS), for the start panel. No tags or dataset IDs."""
@@ -138,41 +163,53 @@ async def create_conversation(
 ) -> ConversationCreated:
     """Start a conversation in a workspace with a mode, model and reasoning, all fixed.
 
-    Defaults come from the workspace; the choice is checked against the tenant's
-    entitlements. The model check is Group A's stub (``available_models``) until the
-    model catalogue (P1a-09) replaces it.
+    Defaults come from the workspace; the mode is checked against the tenant's
+    ``answer_modes``, the model and reasoning by ``choose_for_new_conversation``
+    (catalogue, ``enabled_models``, external-models entitlement, reasoning switch and
+    the external spend cap, P1a-09 to P1a-11). At the cap an external model falls back
+    to the workspace default and the response carries the notice.
     """
     choice = body or ConversationCreateIn()
-    entitlements = await session.get(TenantEntitlements, current_tenant_id(request))
+    tenant_id, user_id = current_tenant_id(request), current_user_id(request)
+    entitlements = await session.get(TenantEntitlements, tenant_id)
     if entitlements is None:
         raise NOT_FOUND
-    allowed = set(entitlements.enabled_models) & set(available_models(request.app.state.settings))
     try:
         chosen = await choose(
             session,
             workspace_id=choice.workspace_id,
             mode=choice.mode,
+            answer_modes=entitlements.answer_modes,
+        )
+        selection = await choose_for_new_conversation(
+            session,
+            request.app.state.settings,
+            tenant_id,
+            user_id,
+            workspace_default=chosen.default,
             model=choice.model,
             reasoning=choice.reasoning,
-            answer_modes=entitlements.answer_modes,
-            models=allowed,
         )
     except ChoiceRefused as exc:
         if exc.code == "unknown_workspace":
             raise NOT_FOUND from None
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=exc.code) from None
+    except ModelRefused as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=exc.code) from None
     conversation = Conversation(
-        tenant_id=current_tenant_id(request),
-        user_id=current_user_id(request),
+        tenant_id=tenant_id,
+        user_id=user_id,
         workspace_id=chosen.workspace_id,
         mode=chosen.mode,
-        model=chosen.model,
-        reasoning=chosen.reasoning,
+        model=selection.choice.model,
+        reasoning=selection.choice.reasoning,
     )
     session.add(conversation)
     await session.flush()
     await session.refresh(conversation)
-    created = ConversationCreated.model_validate(conversation)
+    created = ConversationCreated.model_validate(conversation).model_copy(
+        update={"notice": selection.notice, "notice_text": selection.notice_text}
+    )
     await session.commit()
     return created
 
@@ -249,6 +286,8 @@ async def get_conversation(
                 unsupported=m.outcome == "unsupported",
                 abstained=m.outcome == "abstained",
                 citations=by_message.get(m.id, []),
+                model=m.model if m.role == "assistant" else None,
+                reasoning=m.reasoning if m.role == "assistant" else None,
             )
             for m in messages
         ],

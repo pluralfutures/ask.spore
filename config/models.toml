@@ -1,18 +1,26 @@
 # Provider endpoints, pinned model names and the outbound host allow-list.
 # Loaded and validated at API startup by app.core.config; the API refuses to start
-# if any outbound host below is not in [allow_list].hosts, if a model name is an
-# undated alias (for example "-latest"), or if a required secret is missing.
+# if any outbound host below is not in the right [allow_list] list (EU or external),
+# if a model name is an undated alias (for example "-latest"), if the [[catalogue]]
+# names a model its provider section does not pin, or if a required secret is missing.
 #
 # Secrets never live here. They come from the environment (see .env.example).
 
 [allow_list]
-# EU-hosted endpoints only. Add a host here only with the DPA / zero-retention
+# Split by P1a-09 (architecture §14.2, compliance addendum Oct 18-19, 2026).
+# eu_hosts: EU-hosted endpoints. Add a host here only with the DPA / zero-retention
 # evidence for it recorded next to this file.
-hosts = [
+eu_hosts = [
     "api.mistral.ai", # Mistral la Plateforme, EU-hosted (see design/specs/phase-0-findings.md M1)
     "api.scaleway.ai", # Scaleway Generative APIs, Paris (findings M2; DPA/ZDR confirmation open)
     "ragflow",        # RAGFlow on the private Compose network; never public
     "authentik-server", # Authentik (P1a-02) on the private Compose network; ours, Paris host
+]
+# external_hosts: non-EU model providers. Called only for a tenant with the operator-set
+# "external models" entitlement, and only with zero-data-retention routing on every
+# request (app.llm.openrouter). OpenRouter DPA, SCCs and TIA: P1a-15.
+external_hosts = [
+    "eu.openrouter.ai", # OpenRouter's EU endpoint, owner decision Oct 19, 2026 (findings C25)
 ]
 
 [auth]
@@ -56,14 +64,90 @@ base_url = "https://api.scaleway.ai"
 chat_model = "deepseek-v4.1-flash"
 rewrite_model = "deepseek-v4.1-flash"   # same model: one model to cover under the DPA
 judge_model = "deepseek-v4.1-flash"     # eval judge grades its own model (findings D6)
+# Every Scaleway model the [[catalogue]] may offer (P1a-09). qwen3.8-27b confirmed by
+# the owner on Oct 19, 2026 (findings C26).
+models = ["deepseek-v4.1-flash", "qwen3.8-27b"]
 timeout_seconds = 60
-# DeepSeek reasons by default; "none" turns it off for answers, rewrites and the judge.
+# DeepSeek reasons by default; "none" turns it off for rewrites, the judge and the
+# default (no-choice) call. Answers follow the conversation's switch (app.llm.reasoning).
 reasoning_effort = "none"
 judge_reasoning_effort = "none"
 # Client-side throttle per process. The organisation's limits reported by the API
 # (x-ratelimit-* headers, Oct 2026): 600 requests and 5,000,000 tokens per minute.
 rate_limit_rps = 5
 tokens_per_minute = 1000000
+
+[openrouter]
+# External (non-EU) provider, OpenAI-compatible (P1a-10). OPENROUTER_API_KEY is
+# optional: without it every external model is refused as unavailable.
+# OpenRouter's EU endpoint: the API hop stays in the EU; upstream vendors may still
+# process outside it (compliance addendum, findings C25).
+base_url = "https://eu.openrouter.ai/api/v1"
+# Pinned slugs, confirmed by the owner on Oct 19, 2026 (findings C26).
+# Never a ":variant" (":online" adds web search) and never "openrouter/auto".
+models = ["openai/gpt-6.1-sol", "anthropic/claude-opus-5.5"]
+timeout_seconds = 90
+
+# Model catalogue (P1a-09): what the operator may enable per tenant. The active
+# provider's chat_model is the platform default and the eval model.
+# reasoning: "thinking" (DeepSeek, Qwen: thinking on or off), "effort" (GPT, Claude:
+# reasoning effort medium or none), "none" (no switch).
+# Prices: cents of `currency` ("EUR" or "USD") per million tokens, input and output;
+# they price the usage ledger and the external spend cap, which count euro cents: USD
+# prices are converted at [pricing] usd_to_eur (findings C30).
+# price_placeholder = true would mark an entry whose prices are still placeholders (the
+# API logs a warning per such entry at startup); no price is a placeholder now.
+# provider_order / provider_only (OpenRouter only): pin the upstream provider; sent as
+# provider.order and provider.allow_fallbacks = false, with zero-data-retention routing
+# always applied on top (findings C31).
+[[catalogue]]
+id = "deepseek-v4.1-flash"
+provider = "scaleway"
+display_name = "DeepSeek V4.1 Flash"
+reasoning = "thinking"
+currency = "EUR"
+price_in_cents_per_mtok = 60  # EUR 0.60; owner, Oct 19, 2026
+price_out_cents_per_mtok = 180  # EUR 1.80; owner, Oct 19, 2026
+external = false
+
+[[catalogue]]
+id = "qwen3.8-27b"
+provider = "scaleway"
+display_name = "Qwen 3.8 27B"
+reasoning = "thinking"
+currency = "EUR"
+price_in_cents_per_mtok = 60  # EUR 0.60; owner, Oct 19, 2026
+price_out_cents_per_mtok = 330  # EUR 3.30; owner, Oct 19, 2026
+external = false
+
+[[catalogue]]
+id = "openai/gpt-6.1-sol"
+provider = "openrouter"
+display_name = "GPT-6.1 Sol"
+reasoning = "effort"
+currency = "USD"
+price_in_cents_per_mtok = 220  # USD 2.20; owner, Oct 19, 2026
+price_out_cents_per_mtok = 1100  # USD 11.00; owner, Oct 19, 2026
+external = true
+# Served by Azure only, EU region per the owner; the region is to be verified (P1a-15).
+provider_order = ["azure"]
+provider_only = true
+
+[[catalogue]]
+id = "anthropic/claude-opus-5.5"
+provider = "openrouter"
+display_name = "Claude Opus 5.5"
+reasoning = "effort"
+currency = "USD"
+price_in_cents_per_mtok = 440  # USD 4.40; owner, Oct 19, 2026
+price_out_cents_per_mtok = 2200  # USD 22.00; owner, Oct 19, 2026
+external = true
+# Served by Amazon Bedrock only, eu-west-1 per the owner; the region is to be verified (P1a-15).
+provider_order = ["amazon-bedrock"]
+provider_only = true
+
+[pricing]
+usd_to_eur = 0.90  # owner, Oct 19, 2026; review monthly
 
 [ragflow]
 base_url = "http://ragflow:9380"

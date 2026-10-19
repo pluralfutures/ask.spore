@@ -29,7 +29,7 @@ import time
 import unicodedata
 import uuid
 from collections.abc import AsyncIterator, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime
 from typing import Any, Literal
 
@@ -43,16 +43,19 @@ from app.chat.context import ContextChunk, estimate_tokens, select_context
 from app.chat.models import Citation, Conversation, Message
 from app.chat.package import Package, Provenance, provenance_by_document, workspace_package
 from app.chat.prompts import AnswerPrompt, active_prompt, render_system
+from app.chat.selection import Authorization, authorize, message_choice_fields
 from app.core import cache
 from app.core.config import Settings
 from app.core.db import tenant_session
 from app.core.logging import log
-from app.llm.factory import LLMClient
+from app.llm.catalogue import ModelChoice
+from app.llm.factory import LLMRouter
 from app.llm.mistral import LLMError, Turn, Usage
 from app.retrieval.protocol import Retriever
 from app.retrieval.ragflow import VECTOR_SIMILARITY_WEIGHT
 from app.retrieval.types import RetrievedChunk
 from app.tenancy.workspaces import NO_INSTRUCTIONS, WorkspaceInstructions, active_instructions
+from app.usage.ledger import record_usage
 
 Outcome = Literal["answered", "unsupported", "abstained"]
 
@@ -107,6 +110,9 @@ class DoneEvent:
     cached: bool
     tokens_in: int
     tokens_out: int
+    # Badge data (P1a-11): the conversation's model and its reasoning switch.
+    model: str | None = None
+    reasoning: bool = False
 
 
 @dataclass(frozen=True)
@@ -147,6 +153,11 @@ class ConversationSettings:
     model: str
     reasoning: bool
 
+    @property
+    def choice(self) -> ModelChoice:
+        """The model choice the router and the entitlement check take (P1a-09)."""
+        return ModelChoice(self.model, self.reasoning)
+
 
 @dataclass
 class _Run:
@@ -161,17 +172,22 @@ class _Run:
     instructions: WorkspaceInstructions = NO_INSTRUCTIONS
     prompt: str = ""  # template ref, e.g. corpus_only/v2
     query: str = ""
+    # P1a-09: the conversation's model choice, or why the tenant may not use it.
+    auth: Authorization = field(default_factory=lambda: Authorization(None, None, None))
     model: str | None = None
     tokens_in: int = 0
     tokens_out: int = 0
+    # P1a-10: per model, for the usage ledger (rewrite and answer may differ).
+    usage: list[tuple[str, Usage]] = field(default_factory=list)
     cache_hit: bool = False
     retrieved: int = 0
     context: int = 0
 
-    def add_usage(self, usage: Usage | None) -> None:
+    def add_usage(self, usage: Usage | None, model: str) -> None:
         if usage is not None:
             self.tokens_in += usage.tokens_in
             self.tokens_out += usage.tokens_out
+            self.usage.append((model, usage))
 
     def latency_ms(self) -> int:
         return int((time.perf_counter() - self.started) * 1000)
@@ -184,7 +200,7 @@ class Orchestrator:
         settings: Settings,
         db_factory: async_sessionmaker[AsyncSession],
         retriever: Retriever,
-        llm: LLMClient,
+        llm: LLMRouter,
     ) -> None:
         self._settings = settings
         self._chat = settings.models.chat
@@ -238,6 +254,9 @@ class Orchestrator:
             # The conversation's workspace, fixed at creation, decides the datasets
             # (architecture §8 package enforcement, per workspace).
             run.package = await workspace_package(session, found.workspace_id)
+            # P1a-09, P1a-10: the conversation's model checked against the entitlement
+            # and the spend cap, before any outbound call.
+            run.auth = await authorize(session, self._settings, ctx.tenant_id, conversation_id)
         return self._run(run)
 
     async def _history(self, session: AsyncSession, conversation_id: uuid.UUID) -> list[Turn]:
@@ -277,8 +296,7 @@ class Orchestrator:
             [
                 str(conversation.workspace_id),
                 conversation.mode,
-                conversation.model,
-                self._llm.chat_model,  # the served model, until P1a-09 routes by model
+                conversation.model,  # the model that answers (P1a-09 routes by it)
                 "reasoning" if conversation.reasoning else "no-reasoning",
                 prompt_ref,
                 normalise_query(run.query),
@@ -301,13 +319,22 @@ class Orchestrator:
         system = render_system(template, run.instructions.text)
         run.prompt = template.ref
 
+        # 1b. Model entitlement and spend cap (P1a-09, P1a-10): before any outbound call.
+        refusal = run.auth.refusal
+        if refusal is None and run.auth.model and not self._llm.serves(run.auth.model):
+            refusal = "model_unavailable"  # e.g. external, without OPENROUTER_API_KEY
+        if refusal is not None:
+            async for event in self._fail(run, refusal):
+                yield event
+            return
+
         # 2. Query rewriting, only when there is history to resolve against.
         run.query = run.question
         if run.history:
             try:
                 rewritten = await self._llm.rewrite(run.question, run.history)
                 run.query = rewritten.query
-                run.add_usage(rewritten.usage)
+                run.add_usage(rewritten.usage, self._llm.rewrite_model)
             except LLMError as exc:
                 # Degrade to the literal question rather than fail the turn.
                 log("chat.rewrite_failed", level="warning", error_code=exc.error_code)
@@ -374,7 +401,11 @@ class Orchestrator:
         parts: list[str] = []
         try:
             stream = await self._llm.answer(
-                system, [c.for_prompt() for c in context], run.history, run.question
+                system,
+                [c.for_prompt() for c in context],
+                run.history,
+                run.question,
+                run.auth.choice,
             )
             run.model = stream.model
             async for delta in stream:
@@ -386,7 +417,7 @@ class Orchestrator:
             if tail:
                 parts.append(tail)
                 yield TokenEvent(tail)
-            run.add_usage(stream.usage)
+            run.add_usage(stream.usage, stream.model)
         except LLMError as exc:
             async for event in self._fail(run, exc.error_code):
                 yield event
@@ -453,6 +484,8 @@ class Orchestrator:
             cached=run.cache_hit,
             tokens_in=run.tokens_in,
             tokens_out=run.tokens_out,
+            model=run.model or run.conversation.model,
+            reasoning=run.conversation.reasoning,
         )
 
     async def _persist(
@@ -486,12 +519,12 @@ class Orchestrator:
                 content=answer,
                 mode=run.conversation.mode,
                 model=run.model,
-                reasoning=run.conversation.reasoning,
                 tokens_in=run.tokens_in,
                 tokens_out=run.tokens_out,
                 latency_ms=latency,
                 outcome=outcome,
                 created_at=datetime.now(UTC),
+                **message_choice_fields(run.conversation.choice),
             )
         )
         await session.flush()
@@ -515,6 +548,7 @@ class Orchestrator:
                 title=func.coalesce(Conversation.title, run.question[:TITLE_MAX_CHARS]),
             )
         )
+        await record_usage(session, self._settings, tenant_id, run.usage, run.auth.entitlement)
         await record(
             session,
             tenant_id=tenant_id,

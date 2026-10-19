@@ -61,6 +61,9 @@ class World:
     sources: dict[str, uuid.UUID]  # document_id -> source_id
     admin: asyncpg.Connection
     workspaces: list[uuid.UUID] = field(default_factory=list)  # created by new_workspace
+    # Model and reasoning of conversations made by new_conversation (see fix_choice).
+    model: str = "deepseek-v4.1-flash"
+    reasoning: bool = False
 
     @property
     def ctx(self) -> ChatContext:
@@ -72,7 +75,7 @@ class World:
         expired: bool = False,
         workspace_id: uuid.UUID | None = None,
         mode: str = "corpus_only",
-        reasoning: bool = False,
+        reasoning: bool | None = None,
     ) -> uuid.UUID:
         """A conversation of the analyst, in ``workspace_id`` or the internal ``research``."""
         created = datetime.now(UTC) - (timedelta(days=31) if expired else timedelta())
@@ -81,15 +84,29 @@ class World:
             "workspace_id, mode, model, reasoning) VALUES ($1, $2, $3::timestamptz, "
             "$3::timestamptz + interval '30 days', "
             "coalesce($4, (SELECT id FROM workspaces WHERE tenant_id = $1 AND slug = 'research')), "
-            "$5, 'deepseek-v4.1-flash', $6) RETURNING id",
+            "$5, $6, $7) RETURNING id",
             INTERNAL_TENANT_ID,
             self.user_id,
             created,
             workspace_id,
             mode,
-            reasoning,
+            self.model,
+            self.reasoning if reasoning is None else reasoning,
         )
         return cid
+
+    async def fix_choice(self, model: str, reasoning: bool) -> None:
+        """Model and reasoning of ``conversation_id`` and of later conversations.
+
+        Set as the owner: the application role cannot change them (fixed at creation).
+        """
+        self.model, self.reasoning = model, reasoning
+        await self.admin.execute(
+            "UPDATE conversations SET model = $2, reasoning = $3 WHERE id = $1",
+            self.conversation_id,
+            model,
+            reasoning,
+        )
 
     async def new_workspace(self, tags: list[str], slug: str | None = None) -> uuid.UUID:
         """Another workspace of the internal tenant, with these tags (arranged as owner)."""

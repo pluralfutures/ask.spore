@@ -52,6 +52,9 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "instructions_version",
         "reasoning",
         "match_kinds",
+        # Model choice (P1a-10): the model a new conversation asked for before the
+        # external spend cap made it fall back.
+        "requested_model",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.

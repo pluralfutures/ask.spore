@@ -1,4 +1,5 @@
-"""Test doubles: a fake retriever, a fake Redis, and a recording Mistral transport."""
+"""Test doubles: a fake retriever, a fake Redis, and recording Mistral, Scaleway and
+OpenRouter transports (the last two over httpx2, which the openai SDK uses)."""
 
 from __future__ import annotations
 
@@ -7,10 +8,15 @@ from collections.abc import Sequence
 from typing import Any
 
 import httpx
+import httpx2
 from pydantic import SecretStr
 
-from app.core.config import MistralConfig
+from app.core.config import MistralConfig, OpenRouterConfig, ScalewayConfig, Settings
+from app.llm.factory import LLMRouter
 from app.llm.mistral import MistralClient
+from app.llm.openrouter import OpenRouterClient
+from app.llm.ratelimit import TokenBucket
+from app.llm.scaleway import ScalewayClient
 from app.retrieval.types import RetrievedChunk
 
 
@@ -136,3 +142,73 @@ def completion(text: str) -> httpx.Response:
 
 def error(status: int) -> httpx.Response:
     return httpx.Response(status, json={"message": "synthetic upstream error body"})
+
+
+def _convert(reply: httpx.Response | Exception) -> httpx2.Response | Exception:
+    if isinstance(reply, httpx.ReadTimeout):
+        return httpx2.ReadTimeout("synthetic")
+    if isinstance(reply, Exception):
+        return reply
+    return httpx2.Response(reply.status_code, headers=dict(reply.headers), content=reply.content)
+
+
+class OpenAIRecorder:
+    """Like ``Recorder``, for the openai SDK's httpx2 transport. Replies are httpx
+    responses (the fixtures above) and are converted."""
+
+    def __init__(self, *replies: httpx.Response | Exception) -> None:
+        self.replies: list[httpx2.Response | Exception] = [_convert(r) for r in replies]
+        self.requests: list[httpx2.Request] = []
+
+    def add(self, *replies: httpx.Response | Exception) -> None:
+        self.replies.extend(_convert(r) for r in replies)
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        request.read()
+        self.requests.append(request)
+        reply = self.replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    def http(self) -> httpx2.AsyncClient:
+        return httpx2.AsyncClient(transport=httpx2.MockTransport(self))
+
+    def bodies(self) -> list[dict[str, Any]]:
+        return [json.loads(r.content) for r in self.requests]
+
+    def scaleway(
+        self,
+        config: ScalewayConfig,
+        rewrite_system: str = "Rewrite prompt.",
+        *,
+        project_id: str | None = None,
+        bucket: TokenBucket | None = None,
+    ) -> ScalewayClient:
+        return ScalewayClient(
+            config,
+            SecretStr("test-scaleway-key"),
+            rewrite_system,
+            project_id=project_id,
+            http_client=self.http(),
+            bucket=bucket or TokenBucket(1000, 10_000_000),
+        )
+
+    def openrouter(self, config: OpenRouterConfig) -> OpenRouterClient:
+        return OpenRouterClient(config, SecretStr("test-openrouter-key"), http_client=self.http())
+
+
+def router(
+    settings: Settings,
+    scaleway: OpenAIRecorder,
+    openrouter: OpenAIRecorder | None = None,
+    rewrite_system: str = "Rewrite.",
+) -> LLMRouter:
+    """The API's router over recorded transports, configured from ``settings``."""
+    models = settings.models
+    assert models.scaleway is not None
+    external = None
+    if openrouter is not None:
+        assert models.openrouter is not None
+        external = openrouter.openrouter(models.openrouter)
+    return LLMRouter(settings, scaleway.scaleway(models.scaleway, rewrite_system), external)

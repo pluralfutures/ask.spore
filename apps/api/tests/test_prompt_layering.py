@@ -17,7 +17,8 @@ from app.chat.prompts import active_prompt, render_system
 from app.core.config import Settings
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.chat_fixtures import DATASETS, TAGS, World, chunks_for
-from tests.fakes import FakeRedis, FakeRetriever, Recorder, completion, delta, sse
+from tests.fakes import FakeRedis, FakeRetriever, completion, delta, sse
+from tests.fakes import OpenAIRecorder as Recorder
 from tests.test_orchestrator import done_of, orchestrator, run
 
 pytestmark = pytest.mark.usefixtures("database")

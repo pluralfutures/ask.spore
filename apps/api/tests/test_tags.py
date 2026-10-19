@@ -22,6 +22,8 @@ def test_repository_tags_are_the_phase0_tags_with_spec_chunk_methods() -> None:
     assert sorted(tags) == ["sample-analysis", "sample-reports", "sample-web"]
     # Spec P0-08: paper for reports, presentation for PPTX, naive for DOCX and web.
     assert tags["sample-reports"].chunk_method_for("pdf") == "paper"
+    assert tags["sample-reports"].chunk_method_for("docx") == "naive"
+    assert tags["sample-reports"].chunk_method_for("pptx") == "presentation"
     assert tags["sample-analysis"].chunk_method_for("pptx") == "presentation"
     assert tags["sample-analysis"].chunk_method_for("docx") == "naive"
     assert tags["sample-web"].chunk_method_for("markdown") == "naive"

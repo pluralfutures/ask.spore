@@ -10,15 +10,40 @@
 # evidence for it recorded next to this file.
 hosts = [
     "api.mistral.ai", # Mistral la Plateforme, EU-hosted (see design/specs/phase-0-findings.md M1)
+    "api.scaleway.ai", # Scaleway Generative APIs, Paris (findings M2; DPA/ZDR confirmation open)
     "ragflow",        # RAGFlow on the private Compose network; never public
 ]
+
+[llm]
+# Provider the API and the eval harness call: "mistral" or "scaleway".
+# PHASE 0: Scaleway, by owner decision, because the Mistral account has no API quota
+# (findings M2). The [mistral] section stays in place, inactive.
+provider = "scaleway"
 
 [mistral]
 base_url = "https://api.mistral.ai"
 # Dated model versions only; never "-latest" (reproducible evals).
-chat_model = "mistral-large-2512"
+# PHASE 0 substitute for Large, approved by the owner (findings M2): the account's tier
+# does not offer mistral-large-2512. Also the eval judge's model (findings D6).
+chat_model = "mistral-medium-2604"
 rewrite_model = "mistral-small-2603"
 timeout_seconds = 60
+
+[scaleway]
+# OpenAI-compatible; SCALEWAY_PROJECT_ID (optional) scopes it to .../<project-id>/v1.
+base_url = "https://api.scaleway.ai"
+# Scaleway names are not dated; fixed names only, never "latest" (findings M2).
+chat_model = "deepseek-v4.1-flash"
+rewrite_model = "deepseek-v4.1-flash"   # same model: one model to cover under the DPA
+judge_model = "deepseek-v4.1-flash"     # eval judge grades its own model (findings D6)
+timeout_seconds = 60
+# DeepSeek reasons by default; "none" turns it off for answers, rewrites and the judge.
+reasoning_effort = "none"
+judge_reasoning_effort = "none"
+# Client-side throttle per process. The organisation's limits reported by the API
+# (x-ratelimit-* headers, Oct 2026): 600 requests and 5,000,000 tokens per minute.
+rate_limit_rps = 5
+tokens_per_minute = 1000000
 
 [ragflow]
 base_url = "http://ragflow:9380"
@@ -41,6 +66,6 @@ judge = "v1"
 history_messages = 6        # last N messages of the conversation sent as context
 history_max_tokens = 2000   # ...bounded by this many tokens, newest first
 top_k = 10
-similarity_threshold = 0.2  # below this nothing is relevant: abstain without an LLM call
+similarity_threshold = 0.25  # below this nothing is relevant: abstain without an LLM call (findings section 5: v1 real-corpus runs)
 max_context_tokens = 6000   # cap on retrieved passages sent to the model
 cache_ttl_seconds = 86400   # answer cache; key includes the corpus version

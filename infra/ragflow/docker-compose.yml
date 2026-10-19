@@ -128,6 +128,9 @@ services:
 
   ragflow:
     image: infiniflow/ragflow:v0.27.2
+    # CPU cap so DeepDoc OCR leaves cores for TEI (findings R17). Host-specific: 0 means no
+    # limit; on the 8 vCPU Phase 0 Instance infra/ragflow/.env sets RAGFLOW_CPUS=5.
+    cpus: ${RAGFLOW_CPUS:-0}
     depends_on:
       ragflow-es:
         condition: service_healthy
@@ -167,6 +170,11 @@ services:
       # profiles; the variable is set for that check alone (findings R7).
       - COMPOSE_PROFILES=tei-cpu
       - REGISTER_ENABLED=${REGISTER_ENABLED:-0}
+      # CPU host: fewer parallel parse tasks and smaller embedding batches, so DeepDoc
+      # OCR does not starve TEI past RAGFlow's hard-coded 30 s embedding timeout
+      # (findings R17). Upstream defaults: 5 and 16.
+      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-2}
+      - EMBEDDING_BATCH_SIZE=${EMBEDDING_BATCH_SIZE:-8}
     volumes:
       - ragflow_logs:/ragflow/logs
     healthcheck:

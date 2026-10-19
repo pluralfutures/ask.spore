@@ -78,7 +78,7 @@ services:
       redis:
         condition: service_healthy
     env_file:
-      # MISTRAL_API_KEY, RAGFLOW_API_KEY. If absent, the API exits at startup and names
+      # The LLM provider's key (MISTRAL_API_KEY or SCALEWAY_API_KEY), RAGFLOW_API_KEY. If absent, the API exits at startup and names
       # the missing variables (app.core.config).
       - path: ../.env
         required: false

@@ -432,3 +432,47 @@ Scoping is complete. These are technical assumptions the Phase 0 build should co
 3. **Authentik email-link stage.** Confirm browser binding and single-use behaviour with Scaleway Transactional Email, and that per-tenant brands can hide the link option where it is switched off.
 4. **Embedding model quality.** Confirm the self-hosted multilingual model meets the eval set's retrieval hit-rate target; otherwise switch to `mistral-embed` under the same DPA.
 5. **Host sizing.** Measure RAGFlow parse throughput and memory on the 8 vCPU / 32 GB retrieval host with a realistic corpus sample; resize before Phase 1 if needed.
+
+---
+
+## 14. Addendum (Oct 18, 2026): workspaces, model choice, reasoning, file list
+
+Owner decisions of Oct 18, 2026. They extend §4.2, §5.1, §5.2, §7 and §11 and are specified for build in `design/specs/phase-1a-build-spec.md`. The compliance guide's addendum of the same date records the privacy consequences.
+
+### 14.1 Workspaces
+
+A tenant has one or more **workspaces**. A workspace is the unit a user chooses when starting a conversation and it carries:
+
+- a set of content tags (its corpus), resolved to RAGFlow dataset IDs server-side exactly as a package is today. Tags may be shared between workspaces (a "common" corpus) and unique to one workspace; a document that belongs in both is de-duplicated after retrieval;
+- an "additional instructions" prompt block, written by the tenant admin (Phase 1a) or any tenant user (Phase 2), inserted into a delimited section of the fixed platform system prompt. The platform block (grounding, citation format, abstention, instruction secrecy) is not overridable;
+- a default answer mode among those the operator enabled for the tenant;
+- a default model among those the operator enabled for the tenant, and a default reasoning setting.
+
+The package builder (§7.4) assigns tags per workspace instead of per tenant; "package" in this document now means the union of a tenant's workspace tag sets, and §8 "package enforcement" applies per workspace. The workspace is chosen when a conversation is created, is fixed for that conversation, and is shown as a label on the conversation. A tenant with one workspace sees no chooser.
+
+### 14.2 Model choice and reasoning
+
+The operator enables, per tenant, a set of models from the configured catalogue and may enable **external models**, which are served by a non-EU provider under the compliance addendum. The user picks the model when starting a conversation; the choice is fixed for that conversation. The user may switch reasoning on or off per conversation; the setting maps to each model's native switch (DeepSeek and Qwen thinking on/off, GPT and Claude reasoning effort). Reasoning text is discarded, never shown or stored; the answer carries a "reasoning on" badge. Model and reasoning flag are stored on every message, included in the cache key and in the audit event. External models carry a per-tenant monthly spend cap set by the operator: a soft warning to the operator at 80 percent, and at 100 percent new conversations fall back to the workspace default model with a notice to the user.
+
+Catalogue (pinned in `config/models.toml`): Scaleway `deepseek-v4.1-flash` (default and eval model) and `qwen3.8-27b`; OpenRouter `openai/gpt-6.1-sol` and `anthropic/claude-opus-5.5` with zero-data-retention routing enforced in the client. The eval harness runs on the default model only.
+
+### 14.3 Workspace file list and downloads
+
+Each workspace has a read-only page listing the PDF, DOCX and PPTX files in its corpus with publisher, title, publication date, canonical link and ingestion date, and crawled sites rolled up to the site with a page count. No search or filters. Each listed file can be downloaded, including third-party PDFs (licences confirmed by the owner for the test corpus), through signed short-lived URLs, audited and capped per user per day. This supersedes the "collections only" package page of §7.1 and the own-analysis-only download rule of §7.1 and §12.
+
+### 14.4 Phasing change
+
+Phase 1 is split. **Phase 1a** (the first test client) ships multi-tenancy with workspaces, model choice, reasoning, the file list with downloads, Authentik with sign-in links, and the general-knowledge mode, on the Phase 0 single Instance. **Phase 1b** carries the rest of the Phase 1 scope: content console, source register approval flow, two-host deployment, retention jobs, SSO connectors. Phase 2 adds user-edited workspace prompts and the items in `design/specs/backlog.md`.
+
+### 14.5 Decisions log additions
+
+| Topic | Decision |
+| --- | --- |
+| EU-only inference | Dropped for tenants with "external models" enabled by the operator; hosting and data stores stay in the EU |
+| External model provider | OpenRouter with ZDR routing; light paperwork for the test client, revisited before SOC 2 |
+| Model and workspace scope | Chosen per conversation, fixed for the conversation |
+| Reasoning | On/off per conversation, text hidden, badge shown; default per workspace |
+| Workspace prompts | Tenant admin edits in Phase 1a; any tenant user in Phase 2 with versioning and admin revert |
+| Tenant names in prompts | Permitted; matches flagged to the operator console and audit log, not to the user |
+| Downloads | PDF, DOCX and PPTX in the workspace corpus, third-party included; signed URLs, audited, capped |
+| Eval | Default model only (`deepseek-v4.1-flash`) |

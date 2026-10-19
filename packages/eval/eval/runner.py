@@ -17,7 +17,7 @@ import socket
 import subprocess
 import sys
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,8 +28,10 @@ import httpx
 from app.chat.prompts import active_prompt
 from app.core.config import Settings, load_settings
 from app.core.db import create_engine, session_factory
+from app.llm.factory import LLMClient, create_llm_client
 from app.llm.mistral import MistralClient
 from app.retrieval.ragflow import RagflowClient
+from pydantic import SecretStr
 
 from eval import mock, results
 from eval.judge import Judge
@@ -61,6 +63,16 @@ class RunOptions:
     mock_mistral: bool = False
     notes: list[str] = field(default_factory=list)
     limit: int | None = None
+    exclude_labels: list[str] = field(default_factory=list)
+
+
+def select_items(
+    items: Sequence[EvalItem], exclude_labels: Sequence[str], limit: int | None
+) -> tuple[list[EvalItem], list[str]]:
+    """Items to run (without excluded labels, then the first ``limit``) and excluded ids."""
+    excluded = [i.id for i in items if set(i.labels) & set(exclude_labels)]
+    kept = [i for i in items if i.id not in set(excluded)]
+    return (kept[:limit] if limit else kept), excluded
 
 
 def load_harness_settings(config: Path, environ: Mapping[str, str]) -> Settings:
@@ -152,10 +164,23 @@ def _config_meta(settings: Settings) -> dict[str, Any]:
         ragflow_version = RAGFLOW_VERSION_FILE.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
         ragflow_version = "unknown"
+    if models.llm.provider == "scaleway" and models.scaleway is not None:
+        chat, rewrite, judge = (
+            models.scaleway.chat_model,
+            models.scaleway.rewrite_model,
+            models.scaleway.judge_model,
+        )
+    else:
+        chat, rewrite, judge = (
+            models.mistral.chat_model,
+            models.mistral.rewrite_model,
+            models.mistral.chat_model,
+        )
     return {
-        "chat_model": models.mistral.chat_model,
-        "rewrite_model": models.mistral.rewrite_model,
-        "judge_model": models.mistral.chat_model,
+        "llm_provider": models.llm.provider,
+        "chat_model": chat,
+        "rewrite_model": rewrite,
+        "judge_model": judge,
         "prompts": prompts,
         "top_k": models.chat.top_k,
         "similarity_threshold": models.chat.similarity_threshold,
@@ -170,7 +195,7 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
     report = load_set(options.set_path)
     if not report.ok:
         raise HarnessError("eval set is invalid:\n" + "\n".join(report.errors))
-    items = report.items[: options.limit] if options.limit else report.items
+    items, excluded = select_items(report.items, options.exclude_labels, options.limit)
 
     settings = load_harness_settings(options.config, env)
     if options.ragflow_url:
@@ -183,13 +208,17 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
 
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     ragflow = RagflowClient.from_settings(settings)
-    judge_http = httpx.AsyncClient(transport=mock.transport()) if options.mock_mistral else None
-    llm = MistralClient(
-        settings.models.mistral,
-        settings.secrets.mistral_api_key,
-        active_prompt(settings, "rewrite").text,
-        http_client=judge_http,
-    )
+    rewrite_system = active_prompt(settings, "rewrite").text
+    llm: LLMClient
+    if options.mock_mistral:  # dev only: Mistral-shaped lexical stand-in, whatever the provider
+        llm = MistralClient(
+            settings.models.mistral,
+            settings.secrets.mistral_api_key or SecretStr("mock"),
+            rewrite_system,
+            http_client=httpx.AsyncClient(transport=mock.transport()),
+        )
+    else:
+        llm = create_llm_client(settings, rewrite_system)
     pipeline = ApiPipeline(options.api_url, token, options.user_email)
     warnings: list[str] = []
     item_results: list[ItemResult] = []
@@ -234,8 +263,6 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
     finally:
         await pipeline.aclose()
         await llm.aclose()
-        if judge_http is not None:
-            await judge_http.aclose()
         await ragflow.aclose()
         await engine.dispose()
 
@@ -268,6 +295,8 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
             "sha256": set_sha256(options.set_path),
             "items_run": len(items),
             "items_in_set": len(report.items),
+            "excluded_labels": options.exclude_labels,
+            "excluded_items": excluded,
         },
         "config": _config_meta(settings),
         "corpus_version": step.package.corpus_version,

@@ -46,7 +46,8 @@ from app.core import cache
 from app.core.config import Settings
 from app.core.db import tenant_session
 from app.core.logging import log
-from app.llm.mistral import LLMError, MistralClient, Turn, Usage
+from app.llm.factory import LLMClient
+from app.llm.mistral import LLMError, Turn, Usage
 from app.retrieval.protocol import Retriever
 
 MODE = "corpus_only"
@@ -167,7 +168,7 @@ class Orchestrator:
         settings: Settings,
         db_factory: async_sessionmaker[AsyncSession],
         retriever: Retriever,
-        llm: MistralClient,
+        llm: LLMClient,
         package_tags: tuple[str, ...],
     ) -> None:
         self._settings = settings

@@ -21,7 +21,8 @@ from datetime import date
 from typing import cast
 
 from app.chat.package import UNTRUSTED_SOURCE_TYPES
-from app.llm.mistral import LLMError, MistralClient, PromptChunk, Statement
+from app.llm.factory import LLMClient
+from app.llm.mistral import LLMError, PromptChunk, Statement
 
 from eval.metrics import faithfulness
 from eval.pipeline import Citation
@@ -136,7 +137,7 @@ def parse_verdicts(raw: str, count: int) -> list[Verdict]:
 
 
 class Judge:
-    def __init__(self, client: MistralClient, system: str) -> None:
+    def __init__(self, client: LLMClient, system: str) -> None:
         self._client = client
         self._system = system
 

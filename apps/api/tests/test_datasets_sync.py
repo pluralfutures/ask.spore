@@ -22,6 +22,7 @@ from tests.ragflow_fake import FakeRagflow
 EMBEDDING = "BAAI/bge-m3@Builtin"
 ENV = {
     "MISTRAL_API_KEY": "test-mistral-key",
+    "SCALEWAY_API_KEY": "test-scaleway-key",
     "RAGFLOW_API_KEY": "test-ragflow-key",
     "DATABASE_URL": "postgresql+asyncpg://u:p@127.0.0.1:1/none",  # never connected
     "REDIS_URL": "redis://localhost:6379/0",

@@ -38,6 +38,9 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "tag",
         "dataset_id",
         "document_id",
+        # Batch ingestion summary (P0-11): manifest line number and a row count.
+        "manifest_line",
+        "count",
     }
 )
 
@@ -107,6 +110,17 @@ def format_line(event: str, level: Level = "info", **fields: LogValue) -> str:
         **fields,
     }
     return json.dumps(record, separators=(",", ":"), ensure_ascii=False)
+
+
+def silence_library_loggers(*names: str) -> None:
+    """Mute third-party loggers that can write request bodies (e.g. ``openai`` when
+    OPENAI_LOG=debug). Only this module may touch the stdlib logging module."""
+    for name in names:
+        logger = _stdlib_logging.getLogger(name)
+        logger.setLevel(_stdlib_logging.CRITICAL + 1)
+        logger.propagate = False
+        logger.handlers.clear()
+        logger.addHandler(_stdlib_logging.NullHandler())
 
 
 def log(event: str, level: Level = "info", **fields: LogValue) -> None:

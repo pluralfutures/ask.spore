@@ -46,7 +46,16 @@ docker compose -f infra/compose.dev.yml run --rm -v "$PWD/$CORPUS:/corpus:ro" ap
 
 ## 2. Ingest the corpus
 
-Run one command per document. Mount the corpus read-only:
+With a `manifest.csv` (format: `design/specs/corpus-manifest.md`), one command ingests the whole corpus. It validates every row against `config/tags.toml` and the file tree first and uploads nothing if any row is invalid; re-running it is safe (files already ingested report `duplicate`). It logs one `manifest.row` line per row (manifest line, status, chunk count, wall time, source ID) and `manifest.summary` totals per status; `--summary` writes the same table to a CSV file:
+
+```
+docker compose -f infra/compose.dev.yml run --rm -v /srv/corpus:/corpus:ro api \
+  ask-spore ingest-manifest /corpus/manifest.csv --check     # validate only
+docker compose -f infra/compose.dev.yml run --rm -v /srv/corpus:/corpus:ro -v /srv/crawl:/crawl api \
+  ask-spore ingest-manifest /corpus/manifest.csv --summary /crawl/summary.csv --crawl-dir /crawl
+```
+
+Otherwise, run one command per document. Mount the corpus read-only:
 
 ```
 RUN='docker compose -f infra/compose.dev.yml run --rm -v /srv/corpus:/corpus:ro api ask-spore'

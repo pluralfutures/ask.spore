@@ -277,9 +277,9 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
     counts = summary["counts"]
     if counts["cached_answers"]:
         warnings.append(
-            f"{counts['cached_answers']} answers came from the API's answer cache. Its key "
-            "does not include retrieval parameters, so after a threshold or top_k change "
-            "these answers may not reflect the configuration under test."
+            f"{counts['cached_answers']} answers came from the API's answer cache. They were "
+            "produced with the same settings and prompts (P1a-05 cache key), but by an earlier "
+            "model call; flush the cache to measure the model afresh."
         )
     if counts["excerpt_fallbacks"]:
         warnings.append(

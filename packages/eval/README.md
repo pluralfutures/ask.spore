@@ -68,8 +68,10 @@ address. The harness and the API under test must run the same `config/` (the har
 own configuration in the results; the API does not report its own).
 
 Results go to `results/<UTC timestamp>-<git sha>/`. They hold answers and judged sentences but no
-chunk text. Answers served from the API's answer cache are counted and flagged: the cache key
-does not include retrieval parameters (findings), so flush the cache after changing them.
+chunk text. Answers served from the API's answer cache are counted and flagged. Since P1a-05 the
+cache key includes the retrieval settings, the prompt versions, the workspace, model and reasoning,
+but not RAGFlow's own state (a re-parse without a register change), so a run meant to measure the
+model should still start from a flushed cache.
 
 ### In GitHub Actions (P0-19)
 

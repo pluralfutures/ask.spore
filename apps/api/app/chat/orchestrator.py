@@ -1,13 +1,14 @@
-"""Chat orchestrator (P0-14): the Phase 0 subset of architecture §5.2, corpus-only mode.
+"""Chat orchestrator (P0-14): the Phase 0 subset of architecture §5.2.
 
 ``Orchestrator.answer(ctx, conversation_id, question)`` checks the conversation and
-returns an async iterator of events:
+returns an async iterator of events. The conversation fixes the workspace, mode,
+model and reasoning (P1a-04); the workspace fixes the package (P1a-05):
 
 1. load the last N turns of the conversation (bounded by tokens);
 2. rewrite a follow-up into a standalone query (skipped for a first question);
-3. answer-cache lookup keyed by tenant + mode + normalised query + package + corpus
-   version (+ prompt version and model);
-4. retrieve from every dataset of the tenant's package (``top_k``, threshold);
+3. answer-cache lookup keyed by tenant + workspace + mode + model + reasoning +
+   prompt version + normalised query + corpus version + retrieval settings;
+4. retrieve from every dataset of the conversation's workspace (``top_k``, threshold);
 5. abstain, without any LLM call, when nothing passes the threshold;
 6. de-duplicate and cap context tokens; assemble the prompt;
 7. stream the answer, dropping dangling ``[n]`` markers as it streams;
@@ -49,8 +50,8 @@ from app.core.logging import log
 from app.llm.factory import LLMClient
 from app.llm.mistral import LLMError, Turn, Usage
 from app.retrieval.protocol import Retriever
+from app.retrieval.ragflow import VECTOR_SIMILARITY_WEIGHT
 
-MODE = "corpus_only"
 Outcome = Literal["answered", "unsupported", "abstained"]
 
 # User-facing text, not prompt text: shown when nothing in the package is relevant.
@@ -135,6 +136,16 @@ def _citation(marker: int, item: ContextChunk) -> CitationOut:
     )
 
 
+@dataclass(frozen=True)
+class ConversationSettings:
+    """Fixed when the conversation was created (P1a-04)."""
+
+    workspace_id: uuid.UUID
+    mode: str
+    model: str
+    reasoning: bool
+
+
 @dataclass
 class _Run:
     ctx: ChatContext
@@ -144,6 +155,7 @@ class _Run:
     package: Package
     started_at: datetime
     started: float
+    conversation: ConversationSettings
     query: str = ""
     model: str | None = None
     tokens_in: int = 0
@@ -192,20 +204,35 @@ class Orchestrator:
             package=Package((), (), ""),
             started_at=datetime.now(UTC),
             started=time.perf_counter(),
+            conversation=ConversationSettings(uuid.UUID(int=0), "corpus_only", "", False),
         )
         async with tenant_session(self._db, ctx.tenant_id) as session:
-            workspace_id = await session.scalar(
-                select(Conversation.workspace_id).where(
-                    Conversation.id == conversation_id,
-                    Conversation.user_id == ctx.user_id,
-                    Conversation.expires_at > func.now(),
+            found = (
+                await session.execute(
+                    select(
+                        Conversation.workspace_id,
+                        Conversation.mode,
+                        Conversation.model,
+                        Conversation.reasoning,
+                    ).where(
+                        Conversation.id == conversation_id,
+                        Conversation.user_id == ctx.user_id,
+                        Conversation.expires_at > func.now(),
+                    )
                 )
-            )
-            if workspace_id is None:
+            ).one_or_none()
+            if found is None:
                 raise ConversationNotFound(str(conversation_id))
+            run.conversation = ConversationSettings(
+                workspace_id=found.workspace_id,
+                mode=found.mode,
+                model=found.model,
+                reasoning=found.reasoning,
+            )
             run.history = await self._history(session, conversation_id)
-            # The conversation's workspace, fixed at creation, decides the datasets.
-            run.package = await workspace_package(session, workspace_id)
+            # The conversation's workspace, fixed at creation, decides the datasets
+            # (architecture §8 package enforcement, per workspace).
+            run.package = await workspace_package(session, found.workspace_id)
         return self._run(run)
 
     async def _history(self, session: AsyncSession, conversation_id: uuid.UUID) -> list[Turn]:
@@ -233,16 +260,33 @@ class Orchestrator:
         return turns
 
     def _cache_key(self, run: _Run, prompt_ref: str) -> str:
+        """Tenant-prefixed by ``app.core.cache``; everything that shapes the answer here.
+
+        The retrieval settings are part of it (findings D7), so a threshold, ``top_k``,
+        context cap or vector weight change never serves answers retrieved under the
+        old settings. ``prompt_ref`` names the template version and the workspace's
+        instructions version, so either change misses.
+        """
+        conversation = run.conversation
         material = "\x00".join(
             [
+                str(conversation.workspace_id),
+                conversation.mode,
+                conversation.model,
+                self._llm.chat_model,  # the served model, until P1a-09 routes by model
+                "reasoning" if conversation.reasoning else "no-reasoning",
+                prompt_ref,
                 normalise_query(run.query),
                 ",".join(run.package.dataset_ids),
                 run.package.corpus_version,
-                prompt_ref,
-                self._llm.chat_model,
+                f"top_k={self._chat.top_k}",
+                f"threshold={self._chat.similarity_threshold!r}",
+                f"max_context={self._chat.max_context_tokens}",
+                f"vector_weight={VECTOR_SIMILARITY_WEIGHT!r}",
             ]
         )
-        return f"answer:{MODE}:{hashlib.sha256(material.encode('utf-8')).hexdigest()}"
+        digest = hashlib.sha256(material.encode("utf-8")).hexdigest()
+        return f"answer:{conversation.mode}:{digest}"
 
     async def _run(self, run: _Run) -> AsyncIterator[ChatEvent]:
         system = active_prompt(self._settings, "corpus_only")
@@ -413,7 +457,7 @@ class Orchestrator:
                 conversation_id=run.conversation_id,
                 role="user",
                 content=run.question,
-                mode=MODE,
+                mode=run.conversation.mode,
                 created_at=run.started_at,
             )
         )
@@ -424,8 +468,9 @@ class Orchestrator:
                 conversation_id=run.conversation_id,
                 role="assistant",
                 content=answer,
-                mode=MODE,
+                mode=run.conversation.mode,
                 model=run.model,
+                reasoning=run.conversation.reasoning,
                 tokens_in=run.tokens_in,
                 tokens_out=run.tokens_out,
                 latency_ms=latency,
@@ -474,11 +519,14 @@ class Orchestrator:
         return {
             "conversation_id": str(run.conversation_id),
             "message_id": str(message_id) if message_id else None,
-            "mode": MODE,
+            "workspace_id": str(run.conversation.workspace_id),
+            "mode": run.conversation.mode,
+            "reasoning": run.conversation.reasoning,
             "outcome": outcome,
             "status": status,
             "error_code": error_code,
-            "model": run.model,
+            # The model that answered, or the conversation's model when none was called.
+            "model": run.model or run.conversation.model,
             "prompt": active_prompt(self._settings, "corpus_only").ref,
             "cache_hit": run.cache_hit,
             "retrieved_chunk_count": run.retrieved,

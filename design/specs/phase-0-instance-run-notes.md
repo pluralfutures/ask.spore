@@ -2,7 +2,7 @@
 
 Log of the coding session on the Phase 0 Instance (branch `phase-0/instance-run`, merged into `main` before power-off), Oct 18 to 19, 2026. No secrets, corpus content or real query text here. Results and decisions are in `phase-0-findings.md`; this file is how we got there, the state the Instance was left in and how to resume.
 
-**Last update:** 2026-10-19 00:05 UTC. Ingestion of 59 of 60 documents done; the three threshold runs done and committed; findings sections 3, 4 and 5 written; `similarity_threshold` set to 0.25. The 60th document (manifest line 15) was ingesting at this update; its outcome is in (b).
+**Last update (final):** 2026-10-19 02:05 UTC. 59 of 60 documents ingested; the three threshold runs done and committed; findings sections 3, 4 and 5 written; `similarity_threshold` set to 0.25. Line 15 could not finish before the deadline and was stopped cleanly (b). Branch merged into `main`; Compose stopped; Instance powered off early by the session.
 
 **Deadline:** the owner set a power-off at 03:50 UTC on Oct 19 (first 03:00, then extended; scheduled with `shutdown -h 03:50`). Note: a power-off from inside the OS may leave a Scaleway Instance allocated, and some resources billed, until it is stopped from the console or API. Check the console.
 
@@ -33,7 +33,7 @@ Checks on this Instance after the last code change: API ruff, format and mypy cl
 
 Corpus: `/srv/corpus/Corpus/manifest.csv`, 60 rows (49 PDF, 8 DOCX, 3 PPTX), every row tagged `sample-reports`, all valid. Three `~$…pptx` Office lock files in the tree are not in the manifest and were not ingested. 1,264 PDF pages in all; two PDFs hold 692 of them (manifest lines 4 and 15: 316 and 376 pages).
 
-**Result: 59 of 60 documents ingested** (48 PDF, 8 DOCX, 3 PPTX, 2,580 chunks, no row left `ingesting`). **Line 15** was started at 23:58 UTC as a one-row run (`/srv/ingest-out/manifest-line15.csv`, container `askspore-ingest15`, `--parse-timeout 14400`), expected to finish about 02:50. If this file still says it was in progress, check the register: `status = 'ingested'` for it means done; otherwise the session stopped it before power-off, deleted its RAGFlow document and marked the row `failed` (see the final update at the end of this file).
+**Result: 59 of 60 documents ingested** (48 PDF, 8 DOCX, 3 PPTX, 2,580 chunks, no row left `ingesting`). **Line 15 (376 pages): not ingested.** Started at 23:58 UTC as a one-row run (`/srv/ingest-out/manifest-line15.csv`, `--parse-timeout 14400`). At 02:00 it was 35 % parsed (6 of about 18 page ranges, no errors), so it needed about 6 h in all, far past the deadline. Stopped at 02:01: its RAGFlow document was deleted by ID (nothing of it is retrievable) and its row marked `failed` with the reason. RAGFlow holds exactly the 59 ingested documents.
 
 | Run | Result |
 | --- | --- |
@@ -78,11 +78,11 @@ Measurements (findings section 3 item 5): memory peak 17.7 GiB for all container
 
 - `/srv/corpus/Corpus/`: the corpus and `manifest.csv` (owner's files, unchanged; read-only to the containers).
 - `/eval-v1-source/spore_eval_v1.jsonl`: the owner's eval set source.
-- `/srv/ingest-out/`: derived manifests (`manifest-run6.csv`, `manifest-run6-lines.csv`, `manifest-line15.csv`) and summary tables (`summary-run6.csv`, `summary-line15.csv` if line 15 finished); no titles or content.
+- `/srv/ingest-out/`: derived manifests (`manifest-run6.csv`, `manifest-run6-lines.csv`, `manifest-line15.csv`) and the summary table `summary-run6.csv`; no titles or content.
 - Root `.env` keys (names only): `MISTRAL_API_KEY`, `SCALEWAY_API_KEY`, `SCALEWAY_PROJECT_ID`, `PHASE0_BEARER_TOKEN`, `RAGFLOW_API_KEY`, `PHASE0_INTERNAL_USERS`, `DATABASE_URL`, `MIGRATIONS_DATABASE_URL`, `REDIS_URL`.
 - `infra/ragflow/.env` differs from `.env.example` in: the four passwords, `REGISTER_ENABLED=0`, `RAGFLOW_CPUS=5`, `EMBEDDING_BATCH_SIZE=1`.
 - RAGFlow: one registered account (registration closed); datasets `ask-spore-sample-reports` (all documents), `ask-spore-sample-analysis`, `ask-spore-sample-web` (empty).
-- Postgres `askspore`: `sources` (59 or 60 `ingested`, 5 or 6 `failed` history rows, 1 `withdrawn` synthetic dry-run row), `datasets` mapping; eval conversations were deleted after each item.
+- Postgres `askspore`: `sources` (59 `ingested`, 6 `failed` history rows, 1 `withdrawn` synthetic dry-run row), `datasets` mapping; eval conversations were deleted after each item.
 - Docker volumes: `ask-spore-dev_postgres_data`, `_ragflow_esdata`, `_ragflow_mysql`, `_ragflow_minio`, `_ragflow_redis`, `_ragflow_logs`. Compose stopped cleanly before power-off.
 - The API runs the repository config (`similarity_threshold` 0.25). The throwaway test database container `askspore-testpg` was removed.
 
@@ -94,10 +94,10 @@ docker compose -f infra/compose.dev.yml up -d
 docker compose -f infra/compose.dev.yml ps        # wait until ragflow and api are healthy
 # finish anything incomplete; ingested files report duplicate
 docker compose -f infra/compose.dev.yml run --rm -v /srv/corpus/Corpus:/corpus:ro -v /srv/ingest-out:/out \
-  api ask-spore ingest-manifest /corpus/manifest.csv --summary /out/summary.csv --parse-timeout 14400
+  api ask-spore ingest-manifest /corpus/manifest.csv --summary /out/summary.csv --parse-timeout 28800
 ```
 
-**If line 15 is not `ingested`, that is the first thing to do**: the command above does it (about 2.8 h on this Instance; everything else reports `duplicate`). Then re-run the eval (no v1 item names line 15, but its chunks change what retrieval returns for other items):
+**First thing to do: line 15 is not ingested.** The command above ingests it (about 6 h on this Instance, hence the 8 h timeout; everything else reports `duplicate`). Better: do it after resizing (findings section 3 item 5). Then re-run the eval (no v1 item names line 15, but its chunks change what retrieval returns for other items):
 
 ```
 set -a; . ./.env; set +a; export EVAL_USER_EMAIL="${PHASE0_INTERNAL_USERS%%:*}"

@@ -11,12 +11,13 @@ from typing import Any
 
 import httpx
 import pytest
-from fastapi import FastAPI
-from sqlalchemy.ext.asyncio import AsyncEngine
+from fastapi import FastAPI, Request
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from app.api.deps import current_tenant_id, db_session
 from app.chat.orchestrator import Orchestrator
 from app.core.config import Settings
-from app.core.db import session_factory
+from app.core.db import session_factory, set_tenant
 from scripts.export_openapi import OPENAPI_PATH, render
 from tests.chat_fixtures import TAGS, World, chunks_for
 from tests.fakes import FakeRedis, FakeRetriever, Recorder, completion, delta, sse
@@ -274,6 +275,76 @@ async def test_delete_is_a_hard_delete(api: Harness) -> None:
         )
         assert count == 0, table
     assert (await api.request("DELETE", f"/conversations/{conversation}")).status_code == 404
+
+
+def _no_commit_on_dependency_exit(app: FastAPI) -> None:
+    """Swap ``db_session`` for one whose exit rolls back instead of committing, so a
+    write is visible afterwards only if the handler committed it itself (C5)."""
+
+    async def session_without_exit_commit(request: Request) -> AsyncIterator[AsyncSession]:
+        async with request.app.state.db_factory() as session:
+            await session.begin()
+            await set_tenant(session, current_tenant_id(request))
+            try:
+                yield session
+            finally:
+                await session.rollback()
+
+    app.dependency_overrides[db_session] = session_without_exit_commit
+
+
+async def test_writes_are_committed_before_the_response(api: Harness) -> None:
+    """C5: create, ask, feedback and delete back to back; each write is visible to an
+    independent connection as soon as its response arrives."""
+    _no_commit_on_dependency_exit(api.app)
+    admin = api.world.admin
+
+    conversation = await api.conversation()
+    cid = uuid.UUID(conversation)
+    assert await admin.fetchval("SELECT count(*) FROM conversations WHERE id = $1", cid) == 1
+
+    events = await api.ask(conversation, "Q?", "Grew [1].")
+    assert events[-1][0] == "done"
+    message_id = uuid.UUID(events[-1][1]["message_id"])
+
+    feedback = await api.request("POST", f"/messages/{message_id}/feedback", json={"rating": "up"})
+    assert feedback.status_code == 200
+    assert await admin.fetchval("SELECT count(*) FROM feedback WHERE message_id = $1", message_id)
+
+    response = await api.request("DELETE", f"/conversations/{conversation}")
+    assert response.status_code == 204
+    assert await admin.fetchval("SELECT count(*) FROM conversations WHERE id = $1", cid) == 0
+    deleted = await admin.fetchval(
+        "SELECT count(*) FROM audit_events WHERE event = 'conversation.deleted' "
+        "AND metadata->>'conversation_id' = $1",
+        conversation,
+    )
+    assert deleted == 1
+
+
+async def test_answer_is_committed_before_done_is_sent(api: Harness) -> None:
+    """C5: when the client reads ``done`` the message row is already committed."""
+    conversation = await api.conversation()
+    api.recorder.replies.append(sse(delta("Grew [1].")))
+    headers = {"Authorization": f"Bearer {TOKEN}", "X-User-Email": ANALYST}
+    seen_at_done = None
+    async with api.http.stream(
+        "POST",
+        f"/api/v1/conversations/{conversation}/messages",
+        json={"question": "Q?"},
+        headers=headers,
+    ) as response:
+        assert response.status_code == 200
+        buffer = ""
+        async for chunk in response.aiter_text():
+            buffer += chunk
+            if "event: done" in buffer and seen_at_done is None:
+                seen_at_done = await api.world.admin.fetchval(
+                    "SELECT count(*) FROM messages WHERE conversation_id = $1 "
+                    "AND role = 'assistant'",
+                    uuid.UUID(conversation),
+                )
+    assert seen_at_done == 1
 
 
 async def test_feedback_upserts_per_user(api: Harness) -> None:

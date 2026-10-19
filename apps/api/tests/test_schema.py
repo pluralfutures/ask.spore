@@ -12,6 +12,7 @@ import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from sqlalchemy import Connection, text
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core.db import create_engine, session_factory, tenant_session
@@ -279,6 +280,18 @@ async def test_tenant_session_sets_transaction_local_tenant(database: MigratedDa
     async with factory() as session:
         value = await session.scalar(text("SELECT current_setting('app.tenant_id', true)"))
         assert value in (None, "")
+    await engine.dispose()
+
+
+async def test_tenant_session_tolerates_explicit_commit(database: MigratedDatabase) -> None:
+    """C5: a handler may commit inside ``tenant_session``; the block then exits cleanly and
+    no statement can run on the session after the commit, when the tenant is unset."""
+    engine = create_engine(database.sqlalchemy_url)
+    factory = session_factory(engine)
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        await session.commit()
+        with pytest.raises(InvalidRequestError):
+            await session.scalar(text("SELECT 1"))
     await engine.dispose()
 
 

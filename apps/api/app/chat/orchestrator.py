@@ -366,6 +366,7 @@ class Orchestrator:
         message_id = uuid.uuid4()
         latency = run.latency_ms()
         try:
+            # Leaving the block commits, so the message is durable before ``done`` (C5).
             async with tenant_session(self._db, run.ctx.tenant_id) as session:
                 await self._persist(session, run, message_id, answer, citations, outcome, latency)
         except IntegrityError:

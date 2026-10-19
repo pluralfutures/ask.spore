@@ -3,6 +3,12 @@
 Tenant and user come from ``request.state`` (set by authentication); every query
 runs in a transaction scoped to the tenant for row-level security, and is further
 restricted to the current user's own conversations.
+
+Write handlers commit before they return (C5): the ``db_session`` dependency's own
+commit runs when the dependency exits, which can be after the response is sent, so a
+fast client could act on a row that is not committed yet. ``app.tenant_id`` is
+transaction-scoped, so nothing tenant-scoped may run on the session after the commit;
+handlers build the response first, then commit, then return it.
 """
 
 from __future__ import annotations
@@ -81,14 +87,16 @@ async def healthz() -> Health:
 )
 async def create_conversation(
     request: Request, session: AsyncSession = Depends(db_session)
-) -> Conversation:
+) -> ConversationCreated:
     conversation = Conversation(
         tenant_id=current_tenant_id(request), user_id=current_user_id(request)
     )
     session.add(conversation)
     await session.flush()
     await session.refresh(conversation)
-    return conversation
+    created = ConversationCreated.model_validate(conversation)
+    await session.commit()
+    return created
 
 
 @router.get("/conversations", response_model=list[ConversationSummary])
@@ -187,6 +195,7 @@ async def delete_conversation(
         event="conversation.deleted",
         metadata={"conversation_id": str(conversation_id)},
     )
+    await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -232,6 +241,8 @@ async def ask(
     request: Request,
     orchestrator: Orchestrator = Depends(get_orchestrator),
 ) -> EventStreamResponse:
+    # No request-scoped session: the orchestrator commits the persisted message in its
+    # own tenant transaction before it yields ``done`` (C5).
     ctx = ChatContext(tenant_id=current_tenant_id(request), user_id=current_user_id(request))
     try:
         events = await orchestrator.answer(ctx, conversation_id, body.question)
@@ -278,7 +289,9 @@ async def give_feedback(
         event="chat.feedback",
         metadata={"message_id": str(message_id), "rating": body.rating},
     )
-    return FeedbackOut(message_id=message_id, rating=body.rating, comment=body.comment)
+    out = FeedbackOut(message_id=message_id, rating=body.rating, comment=body.comment)
+    await session.commit()
+    return out
 
 
 @router.get("/sources/{source_id}", response_model=SourceOut)

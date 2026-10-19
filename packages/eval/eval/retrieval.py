@@ -1,8 +1,9 @@
 """The orchestrator's retrieval step, run on its own (P0-18).
 
 Mirrors ``app.chat.orchestrator`` steps 4 to 6 with the same building blocks and
-the same ``[chat]`` parameters: the package's dataset IDs from the ``datasets``
-table (never from input), RAGFlow retrieval with ``top_k`` and the similarity
+the same ``[chat]`` parameters: the package of the eval workspace (P1a-04: a
+workspace of the internal tenant, ``research`` by default) with its dataset IDs from
+the ``datasets`` table (never from input), RAGFlow retrieval with ``top_k`` and the similarity
 threshold, the provenance join, and ``select_context`` (threshold, de-duplication,
 token cap). Eval questions are first turns, so there is no rewrite: the query is
 the question, as in the orchestrator.
@@ -16,10 +17,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.chat.context import select_context
-from app.chat.package import Package, phase0_package_tags, provenance_by_document, resolve_package
+from app.chat.package import Package, provenance_by_document, workspace_package
 from app.content.models import Source
 from app.core.config import Settings
+from app.core.db import set_tenant
 from app.retrieval.ragflow import RagflowClient, RagflowError
+from app.tenancy.models import INTERNAL_TENANT_ID
+from app.tenancy.workspaces import Workspace
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -27,6 +31,11 @@ from eval.metrics import hit_at
 from eval.records import RankedChunk, RetrievalRecord, SourceRef
 
 HIT_KS = (5, 10)
+DEFAULT_WORKSPACE = "research"  # seeded by alembic revision 0007
+
+
+class WorkspaceMissing(LookupError):
+    """The internal tenant has no workspace with the requested slug."""
 
 
 @dataclass(frozen=True)
@@ -37,12 +46,17 @@ class RetrievalOutput:
 
 class RetrievalStep:
     def __init__(
-        self, settings: Settings, client: RagflowClient, db: async_sessionmaker[AsyncSession]
+        self,
+        settings: Settings,
+        client: RagflowClient,
+        db: async_sessionmaker[AsyncSession],
+        workspace: str = DEFAULT_WORKSPACE,
     ) -> None:
         self._chat = settings.models.chat
-        self._tags = phase0_package_tags(settings.config_dir)
+        self._workspace = workspace
         self._client = client
         self._db = db
+        self.workspace_id: str | None = None
         self.package = Package((), (), "")
         self.register: list[SourceRef] = []
 
@@ -53,7 +67,15 @@ class RetrievalStep:
 
     async def prepare(self) -> None:
         async with self._db() as session:
-            self.package = await resolve_package(session, self._tags)
+            # The eval user is an internal-tenant user; workspaces are tenant-scoped (RLS).
+            await set_tenant(session, INTERNAL_TENANT_ID)
+            workspace_id = await session.scalar(
+                select(Workspace.id).where(Workspace.slug == self._workspace)
+            )
+            if workspace_id is None:
+                raise WorkspaceMissing(self._workspace)
+            self.workspace_id = str(workspace_id)
+            self.package = await workspace_package(session, workspace_id)
             rows = await session.execute(
                 select(Source.id, Source.canonical_url).where(Source.status != "withdrawn")
             )

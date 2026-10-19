@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 import asyncpg
@@ -60,25 +60,59 @@ class World:
     conversation_id: uuid.UUID
     sources: dict[str, uuid.UUID]  # document_id -> source_id
     admin: asyncpg.Connection
+    workspaces: list[uuid.UUID] = field(default_factory=list)  # created by new_workspace
 
     @property
     def ctx(self) -> ChatContext:
         return ChatContext(tenant_id=INTERNAL_TENANT_ID, user_id=self.user_id)
 
-    async def new_conversation(self, *, expired: bool = False) -> uuid.UUID:
+    async def new_conversation(
+        self,
+        *,
+        expired: bool = False,
+        workspace_id: uuid.UUID | None = None,
+        mode: str = "corpus_only",
+        reasoning: bool = False,
+    ) -> uuid.UUID:
+        """A conversation of the analyst, in ``workspace_id`` or the internal ``research``."""
         created = datetime.now(UTC) - (timedelta(days=31) if expired else timedelta())
         cid: uuid.UUID = await self.admin.fetchval(
-            "INSERT INTO conversations (tenant_id, user_id, created_at, expires_at) "
-            "VALUES ($1, $2, $3::timestamptz, $3::timestamptz + interval '30 days') RETURNING id",
+            "INSERT INTO conversations (tenant_id, user_id, created_at, expires_at, "
+            "workspace_id, mode, model, reasoning) VALUES ($1, $2, $3::timestamptz, "
+            "$3::timestamptz + interval '30 days', "
+            "coalesce($4, (SELECT id FROM workspaces WHERE tenant_id = $1 AND slug = 'research')), "
+            "$5, 'deepseek-v4.1-flash', $6) RETURNING id",
             INTERNAL_TENANT_ID,
             self.user_id,
             created,
+            workspace_id,
+            mode,
+            reasoning,
         )
         return cid
 
+    async def new_workspace(self, tags: list[str], slug: str | None = None) -> uuid.UUID:
+        """Another workspace of the internal tenant, with these tags (arranged as owner)."""
+        wid: uuid.UUID = await self.admin.fetchval(
+            "INSERT INTO workspaces (tenant_id, slug, name, tag_ids, default_model) "
+            "VALUES ($1, $2, 'Synthetic workspace', $3, 'deepseek-v4.1-flash') RETURNING id",
+            INTERNAL_TENANT_ID,
+            slug or f"ws-{uuid.uuid4().hex[:10]}",
+            tags,
+        )
+        self.workspaces.append(wid)
+        return wid
+
+    async def drop_workspaces(self) -> None:
+        """Teardown: the internal tenant keeps exactly its seeded workspace."""
+        for wid in self.workspaces:
+            await self.admin.execute("DELETE FROM conversations WHERE workspace_id = $1", wid)
+            await self.admin.execute("DELETE FROM workspaces WHERE id = $1", wid)
+        self.workspaces.clear()
+
 
 @pytest.fixture
-async def world(admin_conn: asyncpg.Connection) -> World:
+async def world(admin_conn: asyncpg.Connection) -> AsyncIterator[World]:
     for tag, dataset_id in DATASETS.items():
         await admin_conn.execute(
             "INSERT INTO datasets (tag, ragflow_dataset_id) VALUES ($1, $2) "
@@ -109,7 +143,8 @@ async def world(admin_conn: asyncpg.Connection) -> World:
     user_id = await admin_conn.fetchval("SELECT id FROM users WHERE email = $1", email)
     w = World(user_id, email, uuid.uuid4(), sources, admin_conn)
     w.conversation_id = await w.new_conversation()
-    return w
+    yield w
+    await w.drop_workspaces()
 
 
 def chunks_for(world: World, score: float = 0.8) -> list[RetrievedChunk]:

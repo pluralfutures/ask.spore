@@ -408,6 +408,7 @@ async def test_options_list_what_can_be_enabled(console: Console) -> None:
     assert (await op.get("/api/v1/operator/options")).json() == {
         "answer_modes": ["corpus_only", "general_knowledge"],
         "models": [MODEL],
+        "tags": ["sample-analysis", "sample-reports", "sample-web"],
     }
     me = (await op.get("/api/v1/operator/me")).json()
     assert me["email"] == OPERATOR_EMAIL

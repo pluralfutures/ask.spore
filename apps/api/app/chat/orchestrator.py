@@ -40,12 +40,7 @@ from app.audit.writer import record
 from app.chat.citations import MarkerFilter, strip_markers
 from app.chat.context import ContextChunk, estimate_tokens, select_context
 from app.chat.models import Citation, Conversation, Message
-from app.chat.package import (
-    Package,
-    provenance_by_document,
-    resolve_package,
-    tenant_package_tags,
-)
+from app.chat.package import Package, provenance_by_document, workspace_package
 from app.chat.prompts import active_prompt
 from app.core import cache
 from app.core.config import Settings
@@ -174,14 +169,12 @@ class Orchestrator:
         db_factory: async_sessionmaker[AsyncSession],
         retriever: Retriever,
         llm: LLMClient,
-        package_tags: tuple[str, ...],
     ) -> None:
         self._settings = settings
         self._chat = settings.models.chat
         self._db = db_factory
         self._retriever = retriever
         self._llm = llm
-        self._tags = package_tags
 
     async def answer(
         self, ctx: ChatContext, conversation_id: uuid.UUID, question: str
@@ -201,19 +194,18 @@ class Orchestrator:
             started=time.perf_counter(),
         )
         async with tenant_session(self._db, ctx.tenant_id) as session:
-            found = await session.scalar(
-                select(Conversation.id).where(
+            workspace_id = await session.scalar(
+                select(Conversation.workspace_id).where(
                     Conversation.id == conversation_id,
                     Conversation.user_id == ctx.user_id,
                     Conversation.expires_at > func.now(),
                 )
             )
-            if found is None:
+            if workspace_id is None:
                 raise ConversationNotFound(str(conversation_id))
             run.history = await self._history(session, conversation_id)
-            run.package = await resolve_package(
-                session, tenant_package_tags(ctx.tenant_id, self._tags)
-            )
+            # The conversation's workspace, fixed at creation, decides the datasets.
+            run.package = await workspace_package(session, workspace_id)
         return self._run(run)
 
     async def _history(self, session: AsyncSession, conversation_id: uuid.UUID) -> list[Turn]:

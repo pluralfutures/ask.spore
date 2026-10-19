@@ -37,7 +37,6 @@ def orchestrator(
         db_factory=session_factory(engine),
         retriever=retriever,
         llm=recorder.client(rewrite_system="Rewrite."),
-        package_tags=TAGS,
     )
 
 
@@ -187,8 +186,8 @@ async def test_abstains_when_package_has_no_synced_dataset(
     retriever = FakeRetriever(chunks_for(world))
     recorder = Recorder()
     orch = orchestrator(settings, engine, retriever, recorder)
-    orch._tags = ("not-yet-synced",)
-    events = await run(orch, world, "Q?")
+    workspace = await world.new_workspace(["not-yet-synced"])
+    events = await run(orch, world, "Q?", await world.new_conversation(workspace_id=workspace))
     assert retriever.calls == [] and recorder.requests == []
     assert done_of(events).abstained
 

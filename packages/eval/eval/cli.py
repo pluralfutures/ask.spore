@@ -122,6 +122,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         notes=list(args.note),
         limit=args.limit,
         exclude_labels=list(args.exclude_label),
+        workspace=args.workspace,
     )
     try:
         directory = asyncio.run(run(options))
@@ -214,6 +215,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         help="skip items carrying this label (recorded in the results); repeatable",
+    )
+    run_cmd.add_argument(
+        "--workspace",
+        default="research",
+        help="slug of the internal-tenant workspace to run in (default: research)",
     )
     run_cmd.add_argument(
         "--note", action="append", default=[], help="line for the summary; repeatable"

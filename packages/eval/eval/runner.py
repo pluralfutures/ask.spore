@@ -38,7 +38,7 @@ from eval.judge import Judge
 from eval.metrics import aggregate, citation_precision, matches
 from eval.pipeline import ApiPipeline, PipelineAnswer
 from eval.records import CitationRecord, ItemResult, PipelineRecord, SourceRef
-from eval.retrieval import RetrievalStep
+from eval.retrieval import DEFAULT_WORKSPACE, RetrievalStep, WorkspaceMissing
 from eval.schema import EvalItem, load_set, set_sha256
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -64,6 +64,7 @@ class RunOptions:
     notes: list[str] = field(default_factory=list)
     limit: int | None = None
     exclude_labels: list[str] = field(default_factory=list)
+    workspace: str = DEFAULT_WORKSPACE  # slug of an internal-tenant workspace (P1a-04)
 
 
 def select_items(
@@ -229,8 +230,14 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
             raise HarnessError(
                 f"API not reachable or not authorised: {type(exc).__name__}"
             ) from None
-        step = RetrievalStep(settings, ragflow, session_factory(engine))
-        await step.prepare()
+        step = RetrievalStep(settings, ragflow, session_factory(engine), options.workspace)
+        try:
+            await step.prepare()
+        except WorkspaceMissing:
+            raise HarnessError(
+                f"the internal tenant has no workspace '{options.workspace}'"
+            ) from None
+        pipeline.workspace_id = step.workspace_id
         if not step.package.dataset_ids:
             raise HarnessError("the package has no datasets; run `ask-spore datasets sync`")
         judge = Judge(llm, active_prompt(settings, "judge").text)
@@ -301,6 +308,7 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
         "config": _config_meta(settings),
         "corpus_version": step.package.corpus_version,
         "package_datasets": len(step.package.dataset_ids),
+        "workspace": options.workspace,
         "warnings": warnings,
     }
     directory = options.results_root / run_id

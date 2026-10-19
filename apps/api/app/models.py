@@ -7,6 +7,7 @@ from app.content.models import Dataset, Source
 from app.core.db import Base
 from app.operator.models import Operator, OperatorNotice
 from app.tenancy.models import Tenant, TenantEntitlements, User
+from app.tenancy.workspaces import Workspace, WorkspacePrompt
 
 __all__ = [
     "AuditEvent",
@@ -23,4 +24,6 @@ __all__ = [
     "Tenant",
     "TenantEntitlements",
     "User",
+    "Workspace",
+    "WorkspacePrompt",
 ]

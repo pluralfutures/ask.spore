@@ -18,7 +18,13 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.core.db import create_engine, session_factory, tenant_session
 from app.models import Base
 from app.tenancy.models import INTERNAL_TENANT_ID
-from tests.conftest import API_DIR, MigratedDatabase, migrate
+from tests.conftest import (
+    API_DIR,
+    CONVERSATION_COLUMNS,
+    CONVERSATION_DEFAULTS,
+    MigratedDatabase,
+    migrate,
+)
 
 pytestmark = pytest.mark.usefixtures("database")
 
@@ -34,7 +40,14 @@ def _migration() -> ModuleType:
 
 
 # Tenant-scoped tables created after schema v1, each with RLS from its first migration.
-LATER_TENANT_TABLES = ("tenant_entitlements", "sign_in_links", "operators", "operator_notices")
+LATER_TENANT_TABLES = (
+    "tenant_entitlements",
+    "sign_in_links",
+    "operators",
+    "operator_notices",
+    "workspaces",
+    "workspace_prompts",
+)
 # Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
 SET_ROLES = {"askspore_auth", "askspore_operator"}
 # Tenant tables the application role has no privileges on at all (only a SET role does).
@@ -64,7 +77,8 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
         "VALUES ('pdf', 'Synthetic report', 'Synthetic Publisher', 'test') RETURNING id"
     )
     conversation = await admin_conn.fetchval(
-        "INSERT INTO conversations (tenant_id, user_id, title) VALUES ($1, $2, 't') RETURNING id",
+        f"INSERT INTO conversations (tenant_id, user_id, title, {CONVERSATION_COLUMNS}) "
+        f"VALUES ($1, $2, 't', {CONVERSATION_DEFAULTS}) RETURNING id",
         INTERNAL_TENANT_ID,
         user,
     )
@@ -92,7 +106,24 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
         INTERNAL_TENANT_ID,
         user,
     )
-    yield {"other": other, "user": user, "conversation": conversation, "message": message}
+    workspace = await admin_conn.fetchval(
+        "SELECT id FROM workspaces WHERE tenant_id = $1 AND slug = 'research'", INTERNAL_TENANT_ID
+    )
+    prompt = await admin_conn.fetchval(
+        "INSERT INTO workspace_prompts (tenant_id, workspace_id, version, text, author_user_id) "
+        "VALUES ($1, $2, 1000, 'Synthetic instructions.', $3) RETURNING id",
+        INTERNAL_TENANT_ID,
+        workspace,
+        user,
+    )
+    yield {
+        "other": other,
+        "user": user,
+        "conversation": conversation,
+        "message": message,
+        "workspace": workspace,
+    }
+    await admin_conn.execute("DELETE FROM workspace_prompts WHERE id = $1", prompt)
     # Cleanup bypasses the append-only trigger only by dropping nothing: audit rows stay,
     # and the other tenant stays referenced by nothing. Chat rows are removed.
     await admin_conn.execute("DELETE FROM conversations WHERE id = $1", conversation)
@@ -177,9 +208,11 @@ async def test_cannot_write_rows_for_another_tenant(
     await _scope(app_conn, populated["other"])
     with pytest.raises(asyncpg.InsufficientPrivilegeError, match="row-level security"):
         await app_conn.execute(
-            "INSERT INTO conversations (tenant_id, user_id) VALUES ($1, $2)",
+            f"INSERT INTO conversations (tenant_id, user_id, {CONVERSATION_COLUMNS}) "
+            "VALUES ($1, $2, $3, 'corpus_only', 'deepseek-v4.1-flash', false)",
             INTERNAL_TENANT_ID,
             populated["user"],
+            populated["workspace"],
         )
 
 
@@ -187,11 +220,19 @@ async def test_cannot_move_rows_to_another_tenant(
     app_conn: asyncpg.Connection, populated: dict[str, uuid.UUID]
 ) -> None:
     await _scope(app_conn, INTERNAL_TENANT_ID)
-    with pytest.raises(asyncpg.InsufficientPrivilegeError, match="row-level security"):
+    # Since revision 0007 the app role may update only a conversation's title and
+    # timestamps, so the move fails on privileges before row-level security is reached.
+    with pytest.raises(asyncpg.InsufficientPrivilegeError, match="permission denied"):
         await app_conn.execute(
             "UPDATE conversations SET tenant_id = $1 WHERE id = $2",
             populated["other"],
             populated["conversation"],
+        )
+    with pytest.raises(asyncpg.InsufficientPrivilegeError, match="row-level security"):
+        await app_conn.execute(
+            "UPDATE messages SET tenant_id = $1 WHERE id = $2",
+            populated["other"],
+            populated["message"],
         )
 
 
@@ -255,8 +296,8 @@ async def test_conversation_retention_capped_at_30_days(
 ) -> None:
     with pytest.raises(asyncpg.CheckViolationError, match="retention_cap"):
         await admin_conn.execute(
-            "INSERT INTO conversations (tenant_id, user_id, expires_at) "
-            "VALUES ($1, $2, now() + interval '31 days')",
+            f"INSERT INTO conversations (tenant_id, user_id, expires_at, {CONVERSATION_COLUMNS}) "
+            f"VALUES ($1, $2, now() + interval '31 days', {CONVERSATION_DEFAULTS})",
             INTERNAL_TENANT_ID,
             populated["user"],
         )

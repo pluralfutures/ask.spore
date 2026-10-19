@@ -1,4 +1,5 @@
-"""``ask-spore`` command line for content operations (P0-08 to P0-11).
+"""``ask-spore`` command line for content operations (P0-08 to P0-11) and for granting
+the operator role (P1a-03, ``operators grant|revoke``, as the schema owner).
 
 Runs where the API runs (inside the Compose network, e.g.
 ``docker compose -f infra/compose.dev.yml run --rm api ask-spore datasets sync``):
@@ -11,14 +12,18 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import tempfile
 from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.auth.authentik import oidc_services
+from app.auth.provider import ProviderError
 from app.content.crawler import crawl, page_markdown, write_pages
 from app.content.datasets import sync_datasets
 from app.content.fetch import FetchError, fetch, http_client
@@ -43,6 +48,7 @@ from app.content.tags import TagConfig, load_tags
 from app.core.config import get_settings
 from app.core.db import create_engine, session_factory
 from app.core.logging import log
+from app.operator.grants import grant_operator, revoke_operator
 from app.retrieval.ragflow import RagflowClient
 
 
@@ -298,6 +304,41 @@ async def _ingest_manifest(args: argparse.Namespace) -> int:
     return 1 if any(o.status == "failed" for o in outcomes) else 0
 
 
+async def _operators(args: argparse.Namespace) -> int:
+    """Grant or revoke the operator role, as the owner (MIGRATIONS_DATABASE_URL)."""
+    settings = get_settings()
+    owner_url = os.environ.get("MIGRATIONS_DATABASE_URL", "").strip()
+    if not owner_url:
+        log("operators.failed", level="error", error_code="no_owner_database_url")
+        return 1
+    engine = create_engine(owner_url)
+    try:
+        factory = session_factory(engine)
+        if args.operators_command == "revoke":
+            result: str = await revoke_operator(factory, email=args.email)
+        elif settings.models.auth.mode == "oidc":
+            async with httpx.AsyncClient(timeout=10) as http:
+                _, provider = oidc_services(settings, http)
+                try:
+                    result = await grant_operator(
+                        factory, email=args.email, display_name=args.name, provider=provider
+                    )
+                finally:
+                    await provider.aclose()
+        else:
+            result = await grant_operator(
+                factory, email=args.email, display_name=args.name, provider=None
+            )
+    except ProviderError as exc:
+        log("operators.failed", level="error", error_code=exc.error_code)
+        return 1
+    finally:
+        await engine.dispose()
+    failed = result in ("no_user", "not_operator")
+    log("operators." + args.operators_command, level="error" if failed else "info", status=result)
+    return 1 if failed else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ask-spore", description="ask.spore content operations (Phase 0)"
@@ -374,6 +415,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--crawl-dir", help="directory for crawled Markdown, one sub-folder per site row"
     )
     manifest_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
+
+    operators = commands.add_parser(
+        "operators",
+        help="grant or revoke the platform operator role (P1a-03)",
+        description="Runs as the schema owner (MIGRATIONS_DATABASE_URL). An operator is a "
+        "user of the internal tenant; grant creates that user when --name is given.",
+    )
+    operators_commands = operators.add_subparsers(dest="operators_command", required=True)
+    grant_cmd = operators_commands.add_parser("grant", help="make an internal user an operator")
+    grant_cmd.add_argument("--email", required=True)
+    grant_cmd.add_argument("--name", help="display name; creates the internal user if missing")
+    revoke_cmd = operators_commands.add_parser("revoke", help="remove the operator role")
+    revoke_cmd.add_argument("--email", required=True)
     return parser
 
 
@@ -389,6 +443,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_crawl(args))
     if args.command == "ingest-manifest":
         return asyncio.run(_ingest_manifest(args))
+    if args.command == "operators":
+        return asyncio.run(_operators(args))
     raise AssertionError("unreachable: argparse enforces the commands")
 
 

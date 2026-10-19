@@ -3,7 +3,7 @@
 Ideas and deferred items raised during a phase that belong to a later phase. One line each, with the phase it belongs to.
 
 - Phase 1: pin container images by digest, not only by tag (architecture §8 "Hardening"); Phase 0 pins exact tags. Raised in P0-02.
-- Phase 1: write auth events (success, failure with method) to `audit_events` once Authentik replaces the Phase 0 bearer token; P0-06 only logs rejections. Raised in P0-06.
+- ~~Phase 1: write auth events (success, failure with method) to `audit_events` once Authentik replaces the Phase 0 bearer token; P0-06 only logs rejections. Raised in P0-06.~~ Done in P1a-02 (`auth.login`, `auth.login_failed`, `auth.link_requested`, `auth.link_refused`, each with `method`).
 - Phase 1: decide the production path for the RAGFlow web UI, whose nginx also proxies RAGFlow's API (findings R3): keep it on the Private Network only, or front it with an authenticating proxy. Raised in P0-02.
 - Phase 1: replace the 4-characters-per-token estimate (history and context caps) with Mistral's tokenizer. Raised in P0-14.
 - Phase 1: keep the question (and a partial answer, flagged) when the model fails or the client disconnects mid-stream; Phase 0 persists nothing for a failed turn, only an audit event. Raised in P0-14.
@@ -23,3 +23,6 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 - Phase 2: source filters driven from the per-workspace file list (architecture §7.1); P1a-09 is a plain list with no search or filters.
 - Phase 2: per-model eval baselines; Phase 1a evaluates on `deepseek-v4.1-flash` only by owner decision.
 - Phase 1: first-login onboarding with consent gate. When a person signs in for the first time (once Authentik replaces the Phase 0 bearer token), show the use and privacy policy in full legal wording plus a short plain-language summary of the key points, and require explicit consent to the privacy terms before the first login completes; no consent, no access. Record the consent (user, policy version, timestamp) as an audit event, and re-prompt when the policy version changes. Relates to the compliance guide's public privacy notice and acceptable-use policy. Raised by product owner.
+- Phase 1b: per-IP rate limit on `POST /auth/link` (architecture §8 "per-address and per-IP"); P1a-02 caps links per user (`links_per_window`) and leaves per-IP limits to the proxy. Raised in P1a-02.
+- Phase 1b: revoke the Authentik access token on sign-out and offer a refresh before expiry; P1a-02 clears the session cookie and lets the token run out (provider validity, `hours=8`). Raised in P1a-02.
+- Phase 1b: an Authentik blueprint for the sign-in flow, provider, scope mapping and application, once the manual configuration in `infra/authentik/README.md` has run against a live instance (findings A7). Raised in P1a-02.

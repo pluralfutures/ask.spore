@@ -1,0 +1,102 @@
+# Authentik identity broker (P1a-02), pinned to the version in ./VERSION.
+#
+# Derived from the official authentik Compose file at that tag
+# (lifecycle/container/compose.yml on branch version-2026.8). Differences from
+# upstream are deliberate and listed in ./README.md; re-apply them when upgrading.
+#
+# Nothing is published beyond loopback. Browsers never talk to Authentik: the API
+# runs the sign-in flow on the `authentik` Compose network
+# (http://authentik-server:9000). The admin interface is reachable only on
+# 127.0.0.1 (SSH tunnel on the Instance), never on a public port.
+#
+# Started only with the `auth` profile (P1a-02), so the Phase 0 stack runs without it:
+#   docker compose -f infra/compose.dev.yml --profile auth up -d
+#
+# Secrets come from ./.env (git-ignored; see .env.example) as container environment,
+# not Compose interpolation, so the file is needed only when the profile runs. Without
+# it Postgres and Authentik refuse to start (no password, no secret key).
+
+services:
+  authentik-postgresql:
+    image: docker.io/library/postgres:16.15-alpine
+    profiles: [auth]
+    env_file:
+      - path: ./.env  # POSTGRES_PASSWORD
+        required: false
+    environment:
+      POSTGRES_DB: authentik
+      POSTGRES_USER: authentik
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      timeout: 5s
+    volumes:
+      - authentik_database:/var/lib/postgresql/data
+    networks:
+      - authentik
+    restart: unless-stopped
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2026.8.4
+    profiles: [auth]
+    command: server
+    depends_on:
+      authentik-postgresql:
+        condition: service_healthy
+    env_file:
+      # AUTHENTIK_SECRET_KEY, AUTHENTIK_POSTGRESQL__PASSWORD, AUTHENTIK_EMAIL__USERNAME,
+      # AUTHENTIK_EMAIL__PASSWORD, AUTHENTIK_EMAIL__FROM
+      - path: ./.env
+        required: false
+    environment: &authentik-env
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      AUTHENTIK_DISABLE_STARTUP_ANALYTICS: "true"
+      # Sign-in links go out through Scaleway Transactional Email (Paris), over SMTP.
+      AUTHENTIK_EMAIL__HOST: smtp.tem.scaleway.com
+      AUTHENTIK_EMAIL__PORT: "587"
+      AUTHENTIK_EMAIL__USE_TLS: "true"
+      AUTHENTIK_EMAIL__USE_SSL: "false"
+      AUTHENTIK_EMAIL__TIMEOUT: "10"
+    ports:
+      # Admin interface for the operator, loopback only (SSH tunnel on the Instance).
+      - 127.0.0.1:${AUTHENTIK_ADMIN_PORT:-9000}:9000
+    shm_size: 512mb
+    volumes:
+      - authentik_data:/data
+      - ./templates:/templates:ro
+    networks:
+      - authentik
+    restart: unless-stopped
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2026.8.4
+    profiles: [auth]
+    command: worker
+    depends_on:
+      authentik-postgresql:
+        condition: service_healthy
+    env_file:
+      - path: ./.env
+        required: false
+    environment: *authentik-env
+    shm_size: 512mb
+    volumes:
+      - authentik_data:/data
+      - ./templates:/templates:ro
+    networks:
+      - authentik
+    restart: unless-stopped
+
+volumes:
+  authentik_database:
+  authentik_data:
+
+networks:
+  authentik:
+    driver: bridge

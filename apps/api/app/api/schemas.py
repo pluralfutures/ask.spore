@@ -6,11 +6,12 @@ authentication and from the server-side package.
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_QUESTION_CHARS = 4000
 MAX_COMMENT_CHARS = 2000
@@ -129,3 +130,119 @@ class ChatStreamEvents(BaseModel):
     citations: CitationsData
     done: DoneData
     error: ErrorData
+
+
+# --- authentication (P1a-02) -----------------------------------------------------------
+
+
+class AuthModeOut(BaseModel):
+    mode: Literal["phase0", "oidc"]
+
+
+class LinkRequestIn(_In):
+    email: str = Field(min_length=3, max_length=320)
+
+
+class LinkRequestOut(BaseModel):
+    """Identical for every address (no enumeration)."""
+
+    status: Literal["sent_if_known"]
+
+
+class LinkCompleteIn(_In):
+    token: str = Field(min_length=1, max_length=512)
+
+
+class MeOut(BaseModel):
+    email: str
+    display_name: str
+    role: Literal["user", "tenant_admin"]
+    tenant_display_name: str
+
+
+# --- operator console (P1a-03) ---------------------------------------------------------
+
+SLUG_PATTERN = r"^[a-z0-9][a-z0-9-]{1,62}$"
+_DOMAIN = re.compile(r"^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
+
+
+class TenantCreateIn(_In):
+    slug: str = Field(pattern=SLUG_PATTERN)
+    display_name: str = Field(min_length=1, max_length=128)
+    verified_domains: list[str] = Field(default_factory=list, max_length=20)
+
+    @field_validator("verified_domains")
+    @classmethod
+    def _domains(cls, value: list[str]) -> list[str]:
+        domains = sorted({domain.strip().lower() for domain in value})
+        bad = [d for d in domains if not _DOMAIN.fullmatch(d)]
+        if bad:
+            raise ValueError("not an email domain")
+        return domains
+
+
+class AcceptanceIn(_In):
+    """The client's signed acceptance of external models: the DPA document and date."""
+
+    reference: str = Field(min_length=1, max_length=128)
+    accepted_on: date
+
+
+class EntitlementsIn(_In):
+    answer_modes: list[Literal["corpus_only", "general_knowledge"]] = Field(min_length=1)
+    enabled_models: list[str] = Field(min_length=1, max_length=20)
+    external_models_enabled: bool
+    external_spend_cap_cents: int | None = Field(default=None, ge=0, le=100_000_000)
+    sign_in_links_enabled: bool
+    # Required when this request switches external models on.
+    external_acceptance: AcceptanceIn | None = None
+
+
+class EntitlementsOut(_Out):
+    answer_modes: list[str]
+    enabled_models: list[str]
+    external_models_enabled: bool
+    external_spend_cap_cents: int | None
+    sign_in_links_enabled: bool
+    external_acceptance_reference: str | None
+    external_acceptance_date: date | None
+    updated_at: datetime
+
+
+class TenantOut(BaseModel):
+    id: UUID
+    slug: str
+    display_name: str
+    verified_domains: list[str]
+    status: str
+    created_at: datetime
+    admins: int
+    entitlements: EntitlementsOut
+
+
+class AdminInviteIn(_In):
+    email: str = Field(min_length=3, max_length=320)
+    display_name: str = Field(min_length=1, max_length=128)
+
+
+class AdminInvitedOut(BaseModel):
+    user_id: UUID
+    status: Literal["invited"]
+
+
+class NoticeOut(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    tenant_slug: str
+    kind: str
+    created_at: datetime
+
+
+class OperatorOptionsOut(BaseModel):
+    answer_modes: list[str]
+    models: list[str]
+
+
+class OperatorMeOut(BaseModel):
+    email: str
+    display_name: str

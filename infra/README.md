@@ -4,6 +4,7 @@
 | --- | --- |
 | `compose.dev.yml` | Local stack: Postgres 16, Redis 7, API, web dev server, and RAGFlow (included from `ragflow/`) |
 | `ragflow/` | Pinned RAGFlow Compose, `VERSION`, `.env.example`; see its README for differences from upstream |
+| `authentik/` | Pinned Authentik Compose (P1a-02, profile `auth`), sign-in email template, `.env.example`; see its README for differences from upstream and the configuration the API relies on |
 | `caddy/`, `monitoring/` | Phase 1+ |
 
 ## Local stack
@@ -20,6 +21,11 @@ docker compose -f infra/compose.dev.yml up -d
 | RAGFlow UI | http://127.0.0.1:8080 | Loopback only; the UI port also proxies RAGFlow's API, so never publish it beyond loopback or the firewall |
 | Postgres | 127.0.0.1:5432 | db `askspore`; owner `askspore` (`POSTGRES_PASSWORD`, dev `askspore-dev`) runs migrations; the API logs in as `askspore_app` (`APP_DB_PASSWORD`, dev `askspore-app-dev`), which is not the owner, so row-level security applies |
 | Redis | 127.0.0.1:6379 | |
+| Authentik admin | http://127.0.0.1:9000 | Only with `--profile auth`. Loopback only, never a public port: browsers never talk to Authentik, the API reaches it at `http://authentik-server:9000` on the `authentik` network |
+
+Sign-in links (P1a-02) need the `auth` profile and `[auth] mode = "oidc"` in
+`config/models.toml`; `mode = "phase0"` keeps the Phase 0 bearer token for the eval
+harness. See `authentik/README.md`.
 
 All host ports bind to `127.0.0.1`. RAGFlow's Elasticsearch, MySQL, MinIO, Redis, TEI
 and HTTP API (`9380`) publish nothing; the API container reaches RAGFlow at

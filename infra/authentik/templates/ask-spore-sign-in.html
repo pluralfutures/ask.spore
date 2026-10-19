@@ -1,0 +1,25 @@
+{% load i18n %}
+{# Sign-in link email for the ask-spore-sign-in-link flow (P1a-02).
+
+   The link opens OUR landing page with the flow token in the URL FRAGMENT. A fragment
+   is never sent to a server by a fetch, so a mail security scanner that opens the
+   link spends nothing; only the page's "Click to finish logging in" button POSTs the
+   token, from the browser that requested the link. Never link to {{ url }} (Authentik's
+   own flow URL with ?flow_token=): that would put the token in a query string.
+
+   __ASK_SPORE_PUBLIC_HOST__ is replaced at deploy time with the public hostname
+   (infra/authentik/README.md, "Email template"). #}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>{% trans "Sign in to ask.spore" %}</title>
+  </head>
+  <body style="font-family: sans-serif; color: #0f172a;">
+    <p>{% trans "Use this link to sign in to ask.spore. It works once, in the browser where you asked for it, and expires in 15 minutes." %}</p>
+    <p>
+      <a href="https://__ASK_SPORE_PUBLIC_HOST__/auth/finish#token={{ token }}">{% trans "Sign in to ask.spore" %}</a>
+    </p>
+    <p style="color: #475569; font-size: 12px;">{% trans "If you did not ask to sign in, ignore this email." %}</p>
+  </body>
+</html>

@@ -1,4 +1,5 @@
-"""/api/v1 routes (P0-15). Every route is behind the Phase 0 auth middleware (P0-06).
+"""/api/v1 routes (P0-15). Every route is behind authentication (``app.auth.middleware``:
+the Phase 0 bearer token or Authentik OIDC, P1a-02).
 
 Tenant and user come from ``request.state`` (set by authentication); every query
 runs in a transaction scoped to the tenant for row-level security, and is further
@@ -36,6 +37,7 @@ from app.api.schemas import (
     FeedbackIn,
     FeedbackOut,
     Health,
+    MeOut,
     MessageOut,
     SourceOut,
 )
@@ -51,7 +53,9 @@ from app.chat.orchestrator import (
     Orchestrator,
     TokenEvent,
 )
+from app.chat.package import tenant_package_tags
 from app.content.models import Source
+from app.tenancy.models import Tenant, User
 
 router = APIRouter(prefix="/api/v1")
 
@@ -80,6 +84,24 @@ def _live_conversation(user_id: UUID) -> Any:
 @router.get("/healthz", response_model=Health)
 async def healthz() -> Health:
     return Health(status="ok")
+
+
+@router.get("/me", response_model=MeOut)
+async def me(request: Request, session: AsyncSession = Depends(db_session)) -> MeOut:
+    """The signed-in user, from the request context (P1a-02)."""
+    row = (
+        await session.execute(
+            select(User.email, User.display_name, User.role, Tenant.display_name.label("tenant"))
+            .join(Tenant, Tenant.id == User.tenant_id)
+            .where(User.id == current_user_id(request))
+        )
+    ).one()
+    return MeOut(
+        email=row.email,
+        display_name=row.display_name,
+        role="tenant_admin" if row.role == "tenant_admin" else "user",
+        tenant_display_name=row.tenant,
+    )
 
 
 @router.post(
@@ -299,7 +321,7 @@ async def get_source(
     source_id: UUID, request: Request, session: AsyncSession = Depends(db_session)
 ) -> SourceOut:
     """Provenance of a source in the tenant's package; any other source is not found."""
-    tags: tuple[str, ...] = request.app.state.package_tags
+    tags = tenant_package_tags(current_tenant_id(request), request.app.state.package_tags)
     source = await session.scalar(
         select(Source).where(Source.id == source_id, Source.tags.overlap(list(tags)))
     )

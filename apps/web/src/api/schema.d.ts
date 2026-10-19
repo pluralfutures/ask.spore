@@ -4,6 +4,74 @@
  */
 
 export interface paths {
+  "/api/v1/auth/link": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Request Sign In Link */
+    post: operations["request_sign_in_link_api_v1_auth_link_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/link/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Complete Sign In Link */
+    post: operations["complete_sign_in_link_api_v1_auth_link_complete_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/logout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Logout */
+    post: operations["logout_api_v1_auth_logout_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/mode": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Auth Mode */
+    get: operations["auth_mode_api_v1_auth_mode_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/conversations": {
     parameters: {
       query?: never;
@@ -77,6 +145,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Me
+     * @description The signed-in user, from the request context (P1a-02).
+     */
+    get: operations["me_api_v1_me_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/messages/{message_id}/feedback": {
     parameters: {
       query?: never;
@@ -91,6 +179,116 @@ export interface paths {
      * @description Thumbs up/down on an assistant message in one of the user's own conversations.
      */
     post: operations["give_feedback_api_v1_messages__message_id__feedback_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Operator Me */
+    get: operations["operator_me_api_v1_operator_me_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/notices": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Notices */
+    get: operations["list_notices_api_v1_operator_notices_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Operator Options */
+    get: operations["operator_options_api_v1_operator_options_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Tenants */
+    get: operations["list_tenants_api_v1_operator_tenants_get"];
+    put?: never;
+    /** Create Tenant */
+    post: operations["create_tenant_api_v1_operator_tenants_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/admins": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Invite Admin
+     * @description Create the tenant's admin as ``invited`` and provision them in Authentik.
+     *
+     *     They then sign in with a link from their own browser; the first sign-in makes
+     *     them ``active``. An email already used in any tenant is refused: Authentik's
+     *     usernames are emails, and an email maps to one tenant (findings A8).
+     */
+    post: operations["invite_admin_api_v1_operator_tenants__tenant_id__admins_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/entitlements": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Set Entitlements */
+    put: operations["set_entitlements_api_v1_operator_tenants__tenant_id__entitlements_put"];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -121,10 +319,51 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /**
+     * AcceptanceIn
+     * @description The client's signed acceptance of external models: the DPA document and date.
+     */
+    AcceptanceIn: {
+      /**
+       * Accepted On
+       * Format: date
+       */
+      accepted_on: string;
+      /** Reference */
+      reference: string;
+    };
+    /** AdminInviteIn */
+    AdminInviteIn: {
+      /** Display Name */
+      display_name: string;
+      /** Email */
+      email: string;
+    };
+    /** AdminInvitedOut */
+    AdminInvitedOut: {
+      /**
+       * Status
+       * @constant
+       */
+      status: "invited";
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
+    };
     /** AskIn */
     AskIn: {
       /** Question */
       question: string;
+    };
+    /** AuthModeOut */
+    AuthModeOut: {
+      /**
+       * Mode
+       * @enum {string}
+       */
+      mode: "phase0" | "oidc";
     };
     /**
      * ChatStreamEvents
@@ -257,6 +496,42 @@ export interface components {
       /** Unsupported */
       unsupported: boolean;
     };
+    /** EntitlementsIn */
+    EntitlementsIn: {
+      /** Answer Modes */
+      answer_modes: ("corpus_only" | "general_knowledge")[];
+      /** Enabled Models */
+      enabled_models: string[];
+      external_acceptance?: components["schemas"]["AcceptanceIn"] | null;
+      /** External Models Enabled */
+      external_models_enabled: boolean;
+      /** External Spend Cap Cents */
+      external_spend_cap_cents?: number | null;
+      /** Sign In Links Enabled */
+      sign_in_links_enabled: boolean;
+    };
+    /** EntitlementsOut */
+    EntitlementsOut: {
+      /** Answer Modes */
+      answer_modes: string[];
+      /** Enabled Models */
+      enabled_models: string[];
+      /** External Acceptance Date */
+      external_acceptance_date: string | null;
+      /** External Acceptance Reference */
+      external_acceptance_reference: string | null;
+      /** External Models Enabled */
+      external_models_enabled: boolean;
+      /** External Spend Cap Cents */
+      external_spend_cap_cents: number | null;
+      /** Sign In Links Enabled */
+      sign_in_links_enabled: boolean;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
     /** ErrorData */
     ErrorData: {
       /** Error Code */
@@ -300,6 +575,41 @@ export interface components {
        */
       status: "ok";
     };
+    /** LinkCompleteIn */
+    LinkCompleteIn: {
+      /** Token */
+      token: string;
+    };
+    /** LinkRequestIn */
+    LinkRequestIn: {
+      /** Email */
+      email: string;
+    };
+    /**
+     * LinkRequestOut
+     * @description Identical for every address (no enumeration).
+     */
+    LinkRequestOut: {
+      /**
+       * Status
+       * @constant
+       */
+      status: "sent_if_known";
+    };
+    /** MeOut */
+    MeOut: {
+      /** Display Name */
+      display_name: string;
+      /** Email */
+      email: string;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "user" | "tenant_admin";
+      /** Tenant Display Name */
+      tenant_display_name: string;
+    };
     /** MessageOut */
     MessageOut: {
       /** Abstained */
@@ -328,6 +638,42 @@ export interface components {
       /** Unsupported */
       unsupported: boolean;
     };
+    /** NoticeOut */
+    NoticeOut: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Kind */
+      kind: string;
+      /**
+       * Tenant Id
+       * Format: uuid
+       */
+      tenant_id: string;
+      /** Tenant Slug */
+      tenant_slug: string;
+    };
+    /** OperatorMeOut */
+    OperatorMeOut: {
+      /** Display Name */
+      display_name: string;
+      /** Email */
+      email: string;
+    };
+    /** OperatorOptionsOut */
+    OperatorOptionsOut: {
+      /** Answer Modes */
+      answer_modes: string[];
+      /** Models */
+      models: string[];
+    };
     /** SourceOut */
     SourceOut: {
       /** Canonical Url */
@@ -347,6 +693,39 @@ export interface components {
       type: string;
       /** Withdrawn */
       withdrawn: boolean;
+    };
+    /** TenantCreateIn */
+    TenantCreateIn: {
+      /** Display Name */
+      display_name: string;
+      /** Slug */
+      slug: string;
+      /** Verified Domains */
+      verified_domains?: string[];
+    };
+    /** TenantOut */
+    TenantOut: {
+      /** Admins */
+      admins: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Display Name */
+      display_name: string;
+      entitlements: components["schemas"]["EntitlementsOut"];
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Slug */
+      slug: string;
+      /** Status */
+      status: string;
+      /** Verified Domains */
+      verified_domains: string[];
     };
     /** TokenData */
     TokenData: {
@@ -375,6 +754,108 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  request_sign_in_link_api_v1_auth_link_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LinkRequestIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LinkRequestOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  complete_sign_in_link_api_v1_auth_link_complete_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LinkCompleteIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  logout_api_v1_auth_logout_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  auth_mode_api_v1_auth_mode_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuthModeOut"];
+        };
+      };
+    };
+  };
   list_conversations_api_v1_conversations_get: {
     parameters: {
       query?: never;
@@ -537,6 +1018,26 @@ export interface operations {
       };
     };
   };
+  me_api_v1_me_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MeOut"];
+        };
+      };
+    };
+  };
   give_feedback_api_v1_messages__message_id__feedback_post: {
     parameters: {
       query?: never;
@@ -559,6 +1060,189 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["FeedbackOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  operator_me_api_v1_operator_me_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatorMeOut"];
+        };
+      };
+    };
+  };
+  list_notices_api_v1_operator_notices_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NoticeOut"][];
+        };
+      };
+    };
+  };
+  operator_options_api_v1_operator_options_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatorOptionsOut"];
+        };
+      };
+    };
+  };
+  list_tenants_api_v1_operator_tenants_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TenantOut"][];
+        };
+      };
+    };
+  };
+  create_tenant_api_v1_operator_tenants_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TenantCreateIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TenantOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  invite_admin_api_v1_operator_tenants__tenant_id__admins_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminInviteIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminInvitedOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_entitlements_api_v1_operator_tenants__tenant_id__entitlements_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EntitlementsIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EntitlementsOut"];
         };
       };
       /** @description Validation Error */

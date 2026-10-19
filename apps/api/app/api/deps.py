@@ -5,21 +5,33 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from uuid import UUID
 
-from fastapi import Request
+from fastapi import HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import tenant_session
+from app.tenancy.context import STATE_KEY, RequestContext
+
+UNAUTHORIZED = HTTPException(status.HTTP_401_UNAUTHORIZED, detail="unauthorized")
+
+
+def request_context(request: Request) -> RequestContext:
+    """Set by authentication from the credential, never from request parameters.
+
+    A request that reaches a tenant route without one is refused: fail closed, no
+    transaction is opened.
+    """
+    context = getattr(request.state, STATE_KEY, None)
+    if not isinstance(context, RequestContext):
+        raise UNAUTHORIZED
+    return context
 
 
 def current_tenant_id(request: Request) -> UUID:
-    """Set by the auth middleware from the credential, never from request parameters."""
-    tenant_id: UUID = request.state.tenant_id
-    return tenant_id
+    return request_context(request).tenant_id
 
 
 def current_user_id(request: Request) -> UUID:
-    user_id: UUID = request.state.user_id
-    return user_id
+    return request_context(request).user_id
 
 
 async def db_session(request: Request) -> AsyncIterator[AsyncSession]:

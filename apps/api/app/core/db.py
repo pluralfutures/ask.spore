@@ -6,6 +6,13 @@ transaction sets ``app.tenant_id`` with ``set_config(..., is_local => true)``:
 the value lives only for that transaction, so a pooled connection never carries
 one request's tenant into another. With no tenant set, every policy matches zero
 rows (fail closed).
+
+Two narrower paths do not run under a tenant scope, each in a transaction that
+switches to a dedicated NOLOGIN role (``SET LOCAL ROLE``) which ``askspore_app`` can
+assume but does not inherit:
+
+- ``askspore_auth`` (revision 0005): pre-authentication lookups for sign-in links;
+- ``askspore_operator`` (revision 0006): the operator console, outside tenant RLS.
 """
 
 from __future__ import annotations
@@ -24,6 +31,8 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 
 APP_ROLE = "askspore_app"
+AUTH_ROLE = "askspore_auth"
+OPERATOR_ROLE = "askspore_operator"
 TENANT_SETTING = "app.tenant_id"
 
 NAMING_CONVENTION = {
@@ -33,6 +42,10 @@ NAMING_CONVENTION = {
     "fk": "fk_%(table_name)s_%(column_0_N_name)s_%(referred_table_name)s",
     "pk": "pk_%(table_name)s",
 }
+
+
+# Roles the API may switch to inside one transaction; never built from input.
+_SET_ROLES = frozenset({AUTH_ROLE, OPERATOR_ROLE})
 
 
 class Base(DeclarativeBase):
@@ -55,6 +68,18 @@ async def set_tenant(session: AsyncSession, tenant_id: UUID) -> None:
         text("SELECT set_config(:name, :value, true)"),
         {"name": TENANT_SETTING, "value": str(tenant_id)},
     )
+
+
+@asynccontextmanager
+async def role_session(
+    factory: async_sessionmaker[AsyncSession], role: str
+) -> AsyncIterator[AsyncSession]:
+    """A transaction run as ``role`` (one of the fixed roles above), with no tenant set."""
+    if role not in _SET_ROLES:
+        raise ValueError(f"not a role the API may assume: {role}")
+    async with factory() as session, session.begin():
+        await session.execute(text(f"SET LOCAL ROLE {role}"))
+        yield session
 
 
 @asynccontextmanager

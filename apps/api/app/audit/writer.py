@@ -49,6 +49,7 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         # conversation's reasoning setting, and which kinds of tenant name matched.
         "workspace_id",
         "version",
+        "instructions_version",
         "reasoning",
         "match_kinds",
     }

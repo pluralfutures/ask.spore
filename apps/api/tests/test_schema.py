@@ -50,7 +50,8 @@ LATER_TENANT_TABLES = (
 )
 # Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
 SET_ROLES = {"askspore_auth", "askspore_operator"}
-# Tenant tables the application role has no privileges on at all (only a SET role does).
+# Tenant tables the application role cannot read (only a SET role does). Since revision
+# 0008 it may INSERT operator notices (P1a-07), still without reading them.
 NO_APP_ACCESS = {"sign_in_links", "operators", "operator_notices"}
 TENANT_TABLES: tuple[str, ...] = (*_migration().TENANT_TABLES, *LATER_TENANT_TABLES)
 ALL_SCOPED = (*TENANT_TABLES, "tenants")

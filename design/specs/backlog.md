@@ -26,3 +26,4 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 - Phase 1b: per-IP rate limit on `POST /auth/link` (architecture §8 "per-address and per-IP"); P1a-02 caps links per user (`links_per_window`) and leaves per-IP limits to the proxy. Raised in P1a-02.
 - Phase 1b: revoke the Authentik access token on sign-out and offer a refresh before expiry; P1a-02 clears the session cookie and lets the token run out (provider validity, `hours=8`). Raised in P1a-02.
 - Phase 1b: an Authentik blueprint for the sign-in flow, provider, scope mapping and application, once the manual configuration in `infra/authentik/README.md` has run against a live instance (findings A7). Raised in P1a-02.
+- Phase 2: when the tenant audit-log download is built (architecture §7.2), leave out `workspace.prompt_tenant_name_match` events, which are for the operator only (compliance addendum Oct 18: nothing is shown to the tenant). Raised in P1a-07.

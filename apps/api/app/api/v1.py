@@ -18,7 +18,7 @@ import json
 from collections.abc import AsyncIterator
 from dataclasses import asdict
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
@@ -46,7 +46,7 @@ from app.api.schemas import (
     WorkspacePromptIn,
     WorkspacePromptOut,
 )
-from app.audit.writer import record
+from app.audit.writer import AuditValue, record
 from app.chat.models import Citation, Conversation, Feedback, Message
 from app.chat.orchestrator import (
     ChatContext,
@@ -60,8 +60,10 @@ from app.chat.orchestrator import (
 )
 from app.content.models import Source
 from app.core.logging import log
+from app.operator.models import OperatorNotice
 from app.tenancy.entitlements import available_models
 from app.tenancy.models import Tenant, TenantEntitlements, User
+from app.tenancy.name_flags import match_kinds, tenant_terms
 from app.tenancy.workspaces import (
     ChoiceRefused,
     Workspace,
@@ -74,6 +76,7 @@ router = APIRouter(prefix="/api/v1")
 
 NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, detail="not_found")
 FORBIDDEN = HTTPException(status.HTTP_403_FORBIDDEN, detail="forbidden")
+NAME_MATCH_NOTICE = "workspace_prompt.tenant_name_match"
 
 
 class EventStreamResponse(StreamingResponse):
@@ -417,6 +420,39 @@ async def list_workspace_prompts(
     return list(rows)
 
 
+async def _flag_tenant_names(
+    session: AsyncSession, tenant_id: UUID, prompt: WorkspacePrompt
+) -> None:
+    """P1a-07: a prompt naming the tenant or its people is permitted but flagged.
+
+    Writes an operator notice and an audit event naming only the kinds that matched,
+    in the save's transaction. The save succeeds either way and its response is the
+    same: nothing here reaches the tenant user.
+    """
+    kinds = match_kinds(prompt.text, await tenant_terms(session))
+    if not kinds:
+        return
+    metadata: dict[str, AuditValue] = {
+        "workspace_id": str(prompt.workspace_id),
+        "version": prompt.version,
+        "match_kinds": kinds,
+    }
+    # No RETURNING (the ID is ours): the application role may add notices, not read them.
+    await session.execute(
+        insert(OperatorNotice).values(
+            id=uuid4(), tenant_id=tenant_id, kind=NAME_MATCH_NOTICE, metadata_=metadata
+        )
+    )
+    await record(
+        session,
+        tenant_id=tenant_id,
+        actor_user_id=prompt.author_user_id,
+        event="workspace.prompt_tenant_name_match",
+        metadata=metadata,
+    )
+    log("workspace.prompt_tenant_name_match", tenant_id=str(tenant_id), count=len(kinds))
+
+
 @router.put("/workspaces/{workspace_id}/prompt", response_model=WorkspacePromptOut)
 async def save_workspace_prompt(
     workspace_id: UUID,
@@ -456,6 +492,7 @@ async def save_workspace_prompt(
         metadata={"workspace_id": str(workspace_id), "version": prompt.version},
     )
     log("workspace.prompt_saved", tenant_id=str(tenant_id), user_id=str(prompt.author_user_id))
+    await _flag_tenant_names(session, tenant_id, prompt)
     out = WorkspacePromptOut.model_validate(prompt)
     await session.commit()
     return out

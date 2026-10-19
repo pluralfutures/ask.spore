@@ -5,7 +5,8 @@ every address; the lookup and the email run after the response. ``POST
 /auth/link/complete`` is the only route that submits a link token, and only the
 landing page's button calls it: there is no GET that consumes anything. On success
 the Authentik access token is set as the ``askspore_session`` cookie (HttpOnly,
-Secure, SameSite=Strict) and never returned in a body.
+Secure, SameSite=Strict) and never returned in a body. ``POST /auth/logout`` clears
+the cookie and revokes the token (``app.auth.sessions``).
 """
 
 from __future__ import annotations
@@ -17,7 +18,8 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 
 from app.api.schemas import AuthModeOut, LinkCompleteIn, LinkRequestIn, LinkRequestOut
 from app.auth.links import SignInRefused, complete_link, new_binding, request_link
-from app.auth.middleware import SESSION_COOKIE
+from app.auth.middleware import SESSION_COOKIE, presented_token
+from app.auth.sessions import revoke
 
 router = APIRouter(prefix="/api/v1/auth")
 
@@ -90,7 +92,18 @@ async def complete_sign_in_link(body: LinkCompleteIn, request: Request) -> Respo
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout() -> Response:
+async def logout(request: Request) -> Response:
+    """Clear the session cookie and revoke the session server-side (P1a-02): the token
+    is listed in ``revoked_sessions``, so a copy of the old cookie is refused."""
+    state = request.app.state
+    token = presented_token(request.scope)
+    if state.settings.models.auth.mode == "oidc" and token is not None:
+        await revoke(
+            state.db_factory,
+            state.token_validator,
+            getattr(state, "sign_in_provider", None),
+            token,
+        )
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     response.delete_cookie(SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="strict")
     return response

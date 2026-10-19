@@ -190,6 +190,23 @@ class AuthentikProvider:
             raise ProviderError("token_exchange_failed")
         return IssuedTokens(access_token=access_token)
 
+    async def revoke_token(self, access_token: str) -> None:
+        """RFC 7009 revocation at Authentik's OAuth2 provider (P1a-02, desk-checked)."""
+        try:
+            async with self._client() as http:
+                response = await http.post(
+                    "/application/o/revoke/",
+                    data={
+                        "token": access_token,
+                        "token_type_hint": "access_token",
+                        "client_id": self._config.client_id,
+                        "client_secret": self._client_secret.get_secret_value(),
+                    },
+                )
+            response.raise_for_status()
+        except httpx.HTTPError:
+            raise ProviderError("revocation_failed") from None
+
     # --- provisioning ---------------------------------------------------------------
 
     async def provision_user(self, *, email: str, display_name: str, tenant_id: UUID) -> None:

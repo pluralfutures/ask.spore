@@ -5,11 +5,13 @@ either): ``phase0`` delegates to ``app.core.phase0_auth`` (eval harness), ``oidc
 validates the Authentik access token (``app.auth.tokens``) from the
 ``askspore_session`` cookie or an ``Authorization: Bearer`` header, then binds the
 request context of the user named by the token's tenant and email
-(``app.tenancy.context``). Every failure is the same 401.
+(``app.tenancy.context``), unless that token was revoked by sign-out (P1a-02). Every
+failure is the same 401.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 
@@ -56,6 +58,11 @@ def presented_token(scope: Scope) -> str | None:
     return cookies.get(SESSION_COOKIE) or None
 
 
+def token_digest(token: str) -> str:
+    """What ``revoked_sessions`` keys a signed-out token by: never the token itself."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 class AuthMiddleware:
     """Dispatches to the configured authentication mode."""
 
@@ -87,7 +94,9 @@ class AuthMiddleware:
             return
         scope.setdefault("state", {})[IDENTITY_KEY] = identity
 
-        context = await resolve_user(state.db_factory, identity.tenant_id, identity.email)
+        context = await resolve_user(
+            state.db_factory, identity.tenant_id, identity.email, token_sha256=token_digest(token)
+        )
         if context is None:
             await reject(send, "unknown_user")
             return

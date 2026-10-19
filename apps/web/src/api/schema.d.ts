@@ -47,7 +47,11 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Logout */
+    /**
+     * Logout
+     * @description Clear the session cookie and revoke the session server-side (P1a-02): the token
+     *     is listed in ``revoked_sessions``, so a copy of the old cookie is refused.
+     */
     post: operations["logout_api_v1_auth_logout_post"];
     delete?: never;
     options?: never;

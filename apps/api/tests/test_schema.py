@@ -49,6 +49,7 @@ LATER_TENANT_TABLES = (
     "workspace_prompts",
     "usage_ledger",
     "spend_notices",
+    "revoked_sessions",
 )
 # Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
 SET_ROLES = {"askspore_auth", "askspore_operator"}
@@ -119,6 +120,12 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
         "INSERT INTO spend_notices (tenant_id, month, threshold) VALUES ($1, '1999-01-01', 80)",
         INTERNAL_TENANT_ID,
     )
+    await admin_conn.execute(
+        "INSERT INTO revoked_sessions (tenant_id, token_sha256, user_id, expires_at) "
+        "VALUES ($1, repeat('0', 64), $2, now())",
+        INTERNAL_TENANT_ID,
+        user,
+    )
     workspace = await admin_conn.fetchval(
         "SELECT id FROM workspaces WHERE tenant_id = $1 AND slug = 'research'", INTERNAL_TENANT_ID
     )
@@ -139,6 +146,7 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
     await admin_conn.execute("DELETE FROM workspace_prompts WHERE id = $1", prompt)
     await admin_conn.execute("DELETE FROM usage_ledger WHERE month = '1999-01-01'")
     await admin_conn.execute("DELETE FROM spend_notices WHERE month = '1999-01-01'")
+    await admin_conn.execute("DELETE FROM revoked_sessions WHERE token_sha256 = repeat('0', 64)")
     # Cleanup bypasses the append-only trigger only by dropping nothing: audit rows stay,
     # and the other tenant stays referenced by nothing. Chat rows are removed.
     await admin_conn.execute("DELETE FROM conversations WHERE id = $1", conversation)

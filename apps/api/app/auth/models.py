@@ -50,3 +50,21 @@ class SignInLink(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RevokedSession(Base):
+    """An access token whose holder signed out (P1a-02). Only its SHA-256 is kept."""
+
+    __tablename__ = "revoked_sessions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], ondelete="CASCADE"
+        ),
+        CheckConstraint("token_sha256 ~ '^[0-9a-f]{64}$'", name="token_sha256_hex"),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    token_sha256: Mapped[str] = mapped_column(Text, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    revoked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

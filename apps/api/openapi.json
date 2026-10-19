@@ -1571,6 +1571,7 @@
     },
     "/api/v1/auth/logout": {
       "post": {
+        "description": "Clear the session cookie and revoke the session server-side (P1a-02): the token\nis listed in ``revoked_sessions``, so a copy of the old cookie is refused.",
         "operationId": "logout_api_v1_auth_logout_post",
         "responses": {
           "204": {

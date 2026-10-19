@@ -7,6 +7,7 @@ validator, the link controls, the middleware and RLS are the real ones. Each
 
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from collections.abc import AsyncIterator, Callable
@@ -480,6 +481,54 @@ async def test_logout_clears_the_session_cookie(auth: Auth) -> None:
     assert response.status_code == 204
     assert SESSION not in browser.cookies
     assert (await browser.get("/api/v1/me")).status_code == 401
+
+
+async def test_old_cookie_is_refused_after_logout(auth: Auth) -> None:
+    """P1a-02: sign-out revokes the session server-side, not only in the browser."""
+    a = await auth.tenant()
+    browser = auth.browser()
+    await auth.sign_in(browser, a)
+    old = browser.cookies[SESSION]
+    assert (await browser.get("/api/v1/me")).status_code == 200
+    assert (await browser.post("/api/v1/auth/logout")).status_code == 204
+
+    replay = auth.browser()
+    replay.cookies.set(SESSION, old)
+    assert (await replay.get("/api/v1/me")).status_code == 401
+    bearer = await auth.browser().get("/api/v1/me", headers={"Authorization": f"Bearer {old}"})
+    assert bearer.status_code == 401
+    assert auth.idp.revoked == [old]
+    assert await auth.audit("auth.signed_out", a.id) == [{"actor": a.user_id, "status": "revoked"}]
+    stored = await auth.admin.fetch(
+        "SELECT token_sha256, user_id FROM revoked_sessions WHERE tenant_id = $1", a.id
+    )
+    # Only the hash is kept, never the token.
+    assert [(r["token_sha256"], r["user_id"]) for r in stored] == [
+        (hashlib.sha256(old.encode()).hexdigest(), a.user_id)
+    ]
+    # A second sign-out with the same token revokes nothing new.
+    again = auth.browser()
+    again.cookies.set(SESSION, old)
+    assert (await again.post("/api/v1/auth/logout")).status_code == 204
+    assert len(await auth.audit("auth.signed_out", a.id)) == 1
+
+
+async def test_logout_revokes_only_that_session(auth: Auth) -> None:
+    a = await auth.tenant()
+    first, second = auth.browser(), auth.browser()
+    await auth.sign_in(first, a)
+    await auth.sign_in(second, a)
+    assert (await first.post("/api/v1/auth/logout")).status_code == 204
+    assert (await second.get("/api/v1/me")).status_code == 200
+
+
+async def test_logout_with_an_invalid_token_only_clears_the_cookie(auth: Auth) -> None:
+    browser = auth.browser()
+    browser.cookies.set(SESSION, "not-a-token")
+    response = await browser.post("/api/v1/auth/logout")
+    assert response.status_code == 204
+    assert "max-age=0" in set_cookie(response, SESSION).lower()
+    assert auth.idp.revoked == []
 
 
 async def test_unauthenticated_routes_and_docs(auth: Auth) -> None:

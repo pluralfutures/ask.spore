@@ -63,7 +63,7 @@ Build in this order; items in a group can be parallelised. Every tenant-scoped t
 
 ### Group C — Models and reasoning
 
-**P1a-09 Model catalogue and entitlement.** `config/models.toml` gains `[catalogue]` entries per model (provider, id, display name, reasoning switch kind, price per million tokens in and out, `external = true/false`) and splits `[allow_list]` into `eu_hosts` and `external_hosts`; `api.openrouter.ai` joins `external_hosts`. Add `qwen3.8-27b` to the Scaleway section. The orchestrator refuses a model not in the tenant's `enabled_models`, and refuses any external model when `external_models_enabled` is false, before any outbound call. Tests: startup rejects an unlisted host; disabled model and external-without-entitlement both fail closed with no HTTP call (asserted with a mocked transport).
+**P1a-09 Model catalogue and entitlement.** `config/models.toml` gains `[catalogue]` entries per model (provider, id, display name, reasoning switch kind, price per million tokens in and out, `external = true/false`) and splits `[allow_list]` into `eu_hosts` and `external_hosts`; `eu.openrouter.ai`, OpenRouter's EU endpoint, joins `external_hosts` (owner decision Oct 19, 2026, replacing `api.openrouter.ai`; findings C25). Add `qwen3.8-27b` to the Scaleway section. The orchestrator refuses a model not in the tenant's `enabled_models`, and refuses any external model when `external_models_enabled` is false, before any outbound call. Tests: startup rejects an unlisted host; disabled model and external-without-entitlement both fail closed with no HTTP call (asserted with a mocked transport).
 
 **P1a-10 OpenRouter client and spend cap.** `app.llm.openrouter` on the OpenAI-compatible path, same interface as the Scaleway client, with the zero-data-retention routing option set on every request, pinned slugs, timeouts, one retry on 5xx. Usage per message is priced from the catalogue into `usage_ledger(tenant_id, month, model, tokens_in, tokens_out, cost_cents)`. At 80 percent of the cap an operator notice is written once per month; at 100 percent new conversations on external models are refused with a user-facing notice and fall back to the workspace default model. Tests: serialised request carries the ZDR flag and no tenant, user or workspace identifiers; cap at 100 percent falls back and audits; reasoning parameter mapped per model kind.
 
@@ -85,7 +85,7 @@ Build in this order; items in a group can be parallelised. Every tenant-scoped t
 
 ## Open items for the owner
 
-- Confirm the Scaleway catalogue name `qwen3.8-27b` and the OpenRouter slugs when the accounts are opened; the spec pins what was given on Oct 18.
+- ~~Confirm the Scaleway catalogue name `qwen3.8-27b` and the OpenRouter slugs when the accounts are opened; the spec pins what was given on Oct 18.~~ Confirmed by the owner on Oct 19, 2026 (findings C26).
 - Confirm the per-user daily download cap (default 50) and the external spend cap for the test client.
 - Confirm the test client's three workspaces: names, tag sets, which tags are common.
 - Confirm with the test client's IT contact which mail security product they use, so the post-click landing page can be checked against it before launch.

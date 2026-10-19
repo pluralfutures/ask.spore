@@ -86,7 +86,7 @@ Build in this order; items in a group can be parallelised. Every tenant-scoped t
 ## Open items for the owner
 
 - Confirmed Oct 19, 2026: Scaleway `qwen3.8-27b` (reasoning efforts none, low, medium, xhigh) and OpenRouter `openai/gpt-6.1-sol` (provider azure, EU region) and `anthropic/claude-opus-5.5` (provider amazon-bedrock, eu-west-1), reached through `https://eu.openrouter.ai/api/v1`. Prices and the USD to EUR rate (0.90) are in `config/models.toml` with the date.
-- Confirm the per-user daily download cap (default 50) and the external spend cap for the test client.
+- Confirmed Oct 19, 2026: per-user daily download cap 50 (the default); external-model spend cap for the test client EUR 30.00 per month (3,000 cents), set in the operator console when external models are enabled, after P1a-15.
 - Confirmed Oct 19, 2026: the test client's three workspaces. Each has its own tag plus the shared tag `CC_Shared` (the common corpus). Tags are added to `config/tags.toml` when the client corpus is ingested (Group E); workspaces are created in the operator console with `tag_ids` = own tag + `CC_Shared`.
   - "CC Team 1 Healthcare GPO": `CC_Team1_HealthcareGPO`, `CC_Shared`
   - "CC Team 2 College & Universities": `CC_Team2_CollegeUniversities`, `CC_Shared`

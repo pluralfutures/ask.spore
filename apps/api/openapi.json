@@ -67,6 +67,71 @@
         "title": "AdminInvitedOut",
         "type": "object"
       },
+      "AdminUserOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "last_login_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login Method"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "role",
+          "status",
+          "last_login_at",
+          "last_login_method",
+          "created_at"
+        ],
+        "title": "AdminUserOut",
+        "type": "object"
+      },
       "AskIn": {
         "additionalProperties": false,
         "properties": {
@@ -1150,6 +1215,22 @@
         "title": "OperatorWorkspaceOut",
         "type": "object"
       },
+      "RetentionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "retention_days": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Retention Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "retention_days"
+        ],
+        "title": "RetentionIn",
+        "type": "object"
+      },
       "SourceOut": {
         "properties": {
           "canonical_url": {
@@ -1291,6 +1372,32 @@
         "title": "TenantOut",
         "type": "object"
       },
+      "TenantSettingsOut": {
+        "properties": {
+          "answer_modes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Answer Modes",
+            "type": "array"
+          },
+          "max_retention_days": {
+            "title": "Max Retention Days",
+            "type": "integer"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "retention_days",
+          "max_retention_days",
+          "answer_modes"
+        ],
+        "title": "TenantSettingsOut",
+        "type": "object"
+      },
       "TokenData": {
         "properties": {
           "text": {
@@ -1302,6 +1409,76 @@
           "text"
         ],
         "title": "TokenData",
+        "type": "object"
+      },
+      "UserChangeIn": {
+        "additionalProperties": false,
+        "description": "Change a user's role, or deactivate and reactivate them. Users are never deleted.",
+        "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "user",
+                  "tenant_admin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "active",
+                  "deactivated"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "UserChangeIn",
+        "type": "object"
+      },
+      "UserInviteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          },
+          "role": {
+            "default": "user",
+            "enum": [
+              "user",
+              "tenant_admin"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "display_name"
+        ],
+        "title": "UserInviteIn",
         "type": "object"
       },
       "ValidationError": {
@@ -1395,6 +1572,37 @@
           "default_model"
         ],
         "title": "WorkspaceCreateIn",
+        "type": "object"
+      },
+      "WorkspaceDefaultsIn": {
+        "additionalProperties": false,
+        "description": "A workspace's defaults, among the tenant's enabled modes and models.",
+        "properties": {
+          "default_mode": {
+            "enum": [
+              "corpus_only",
+              "general_knowledge"
+            ],
+            "title": "Default Mode",
+            "type": "string"
+          },
+          "default_model": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Default Model",
+            "type": "string"
+          },
+          "default_reasoning": {
+            "title": "Default Reasoning",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "default_mode",
+          "default_model",
+          "default_reasoning"
+        ],
+        "title": "WorkspaceDefaultsIn",
         "type": "object"
       },
       "WorkspaceOut": {
@@ -1510,6 +1718,224 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/settings": {
+      "get": {
+        "operationId": "get_settings_api_v1_admin_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Settings"
+      }
+    },
+    "/api/v1/admin/settings/retention": {
+      "put": {
+        "description": "Shorten (or restore up to 30 days) the tenant's chat-history retention.",
+        "operationId": "set_retention_days_api_v1_admin_settings_retention_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Retention Days"
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "list_users_api_v1_admin_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminUserOut"
+                  },
+                  "title": "Response List Users Api V1 Admin Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Users"
+      },
+      "post": {
+        "description": "Invite a user of one of the tenant's verified email domains, as ``invited``.\n\nThey then request a sign-in link from their own browser; the first sign-in makes\nthem ``active`` (findings A15). An email that exists in any tenant is refused:\nAuthentik's usernames are emails, and an email maps to one tenant (findings A8).",
+        "operationId": "invite_user_api_v1_admin_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserInviteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invite User"
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "patch": {
+        "description": "Change role or status. Deactivated users are refused at sign-in and on every\nrequest; reactivating returns them to ``active``, or ``invited`` if they never\nsigned in.",
+        "operationId": "change_user_api_v1_admin_users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserChangeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change User"
+      }
+    },
+    "/api/v1/admin/workspaces/{workspace_id}/defaults": {
+      "put": {
+        "description": "Default mode, model and reasoning of a new conversation in the workspace, among\nthe modes and models the operator enabled for the tenant (P1a-03, P1a-09).",
+        "operationId": "set_workspace_defaults_api_v1_admin_workspaces__workspace_id__defaults_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceDefaultsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Workspace Defaults"
+      }
+    },
     "/api/v1/auth/link": {
       "post": {
         "operationId": "request_sign_in_link_api_v1_auth_link_post",

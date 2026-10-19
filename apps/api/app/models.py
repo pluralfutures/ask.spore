@@ -6,7 +6,7 @@ from app.chat.models import Citation, Conversation, Feedback, Message
 from app.content.models import Dataset, Source
 from app.core.db import Base
 from app.operator.models import Operator, OperatorNotice
-from app.tenancy.models import Tenant, TenantEntitlements, User
+from app.tenancy.models import Tenant, TenantEntitlements, TenantSettings, User
 from app.tenancy.workspaces import Workspace, WorkspacePrompt
 from app.usage.models import SpendNotice, UsageLedger
 
@@ -26,6 +26,7 @@ __all__ = [
     "SpendNotice",
     "Tenant",
     "TenantEntitlements",
+    "TenantSettings",
     "UsageLedger",
     "User",
     "Workspace",

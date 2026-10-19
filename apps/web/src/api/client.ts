@@ -2,6 +2,7 @@
 import { readEvents } from "../lib/sse";
 import type {
   AdminInviteIn,
+  AdminUser,
   AuthMode,
   ChatStreamEvent,
   ConversationCreated,
@@ -19,8 +20,13 @@ import type {
   OperatorWorkspace,
   TenantCreateIn,
   TenantOut,
+  TenantSettings,
+  UserChangeIn,
+  UserInviteIn,
   Workspace,
   WorkspaceCreateIn,
+  WorkspaceDefaultsIn,
+  WorkspacePrompt,
 } from "./types";
 
 const BASE = "/api/v1";
@@ -157,6 +163,7 @@ export async function currentUser(): Promise<Me | null> {
 }
 
 export const api = {
+  me: () => json<Me>("GET", "/me"),
   listConversations: () => json<ConversationSummary[]>("GET", "/conversations"),
   workspaces: () => json<Workspace[]>("GET", "/workspaces"),
   models: () => json<ModelOption[]>("GET", "/models"),
@@ -172,6 +179,23 @@ export const api = {
     const response = await send("POST", `/conversations/${id}/messages`, { question }, signal);
     yield* readEvents(response);
   },
+};
+
+// Tenant admin pages (P1a-13). The API answers 403 to anyone who is not a tenant admin.
+export const adminApi = {
+  users: () => json<AdminUser[]>("GET", "/admin/users"),
+  invite: (body: UserInviteIn) => json<AdminUser>("POST", "/admin/users", body),
+  changeUser: (userId: string, body: UserChangeIn) =>
+    json<AdminUser>("PATCH", `/admin/users/${userId}`, body),
+  setDefaults: (workspaceId: string, body: WorkspaceDefaultsIn) =>
+    json<Workspace>("PUT", `/admin/workspaces/${workspaceId}/defaults`, body),
+  prompts: (workspaceId: string) =>
+    json<WorkspacePrompt[]>("GET", `/workspaces/${workspaceId}/prompts`),
+  savePrompt: (workspaceId: string, text: string) =>
+    json<WorkspacePrompt>("PUT", `/workspaces/${workspaceId}/prompt`, { text }),
+  settings: () => json<TenantSettings>("GET", "/admin/settings"),
+  setRetention: (days: number) =>
+    json<TenantSettings>("PUT", "/admin/settings/retention", { retention_days: days }),
 };
 
 // Operator console (P1a-03). The API answers 403 to anyone who is not an operator.

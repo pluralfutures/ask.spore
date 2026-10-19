@@ -4,6 +4,111 @@
  */
 
 export interface paths {
+  "/api/v1/admin/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Settings */
+    get: operations["get_settings_api_v1_admin_settings_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/settings/retention": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Retention Days
+     * @description Shorten (or restore up to 30 days) the tenant's chat-history retention.
+     */
+    put: operations["set_retention_days_api_v1_admin_settings_retention_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/users": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Users */
+    get: operations["list_users_api_v1_admin_users_get"];
+    put?: never;
+    /**
+     * Invite User
+     * @description Invite a user of one of the tenant's verified email domains, as ``invited``.
+     *
+     *     They then request a sign-in link from their own browser; the first sign-in makes
+     *     them ``active`` (findings A15). An email that exists in any tenant is refused:
+     *     Authentik's usernames are emails, and an email maps to one tenant (findings A8).
+     */
+    post: operations["invite_user_api_v1_admin_users_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/users/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Change User
+     * @description Change role or status. Deactivated users are refused at sign-in and on every
+     *     request; reactivating returns them to ``active``, or ``invited`` if they never
+     *     signed in.
+     */
+    patch: operations["change_user_api_v1_admin_users__user_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/admin/workspaces/{workspace_id}/defaults": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Workspace Defaults
+     * @description Default mode, model and reasoning of a new conversation in the workspace, among
+     *     the modes and models the operator enabled for the tenant (P1a-03, P1a-09).
+     */
+    put: operations["set_workspace_defaults_api_v1_admin_workspaces__workspace_id__defaults_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/auth/link": {
     parameters: {
       query?: never;
@@ -487,6 +592,31 @@ export interface components {
        */
       user_id: string;
     };
+    /** AdminUserOut */
+    AdminUserOut: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Display Name */
+      display_name: string;
+      /** Email */
+      email: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Last Login At */
+      last_login_at: string | null;
+      /** Last Login Method */
+      last_login_method: string | null;
+      /** Role */
+      role: string;
+      /** Status */
+      status: string;
+    };
     /** AskIn */
     AskIn: {
       /** Question */
@@ -926,6 +1056,11 @@ export interface components {
        */
       tenant_id: string;
     };
+    /** RetentionIn */
+    RetentionIn: {
+      /** Retention Days */
+      retention_days: number;
+    };
     /** SourceOut */
     SourceOut: {
       /** Canonical Url */
@@ -979,10 +1114,42 @@ export interface components {
       /** Verified Domains */
       verified_domains: string[];
     };
+    /** TenantSettingsOut */
+    TenantSettingsOut: {
+      /** Answer Modes */
+      answer_modes: string[];
+      /** Max Retention Days */
+      max_retention_days: number;
+      /** Retention Days */
+      retention_days: number;
+    };
     /** TokenData */
     TokenData: {
       /** Text */
       text: string;
+    };
+    /**
+     * UserChangeIn
+     * @description Change a user's role, or deactivate and reactivate them. Users are never deleted.
+     */
+    UserChangeIn: {
+      /** Role */
+      role?: ("user" | "tenant_admin") | null;
+      /** Status */
+      status?: ("active" | "deactivated") | null;
+    };
+    /** UserInviteIn */
+    UserInviteIn: {
+      /** Display Name */
+      display_name: string;
+      /** Email */
+      email: string;
+      /**
+       * Role
+       * @default user
+       * @enum {string}
+       */
+      role: "user" | "tenant_admin";
     };
     /** ValidationError */
     ValidationError: {
@@ -1018,6 +1185,21 @@ export interface components {
       slug: string;
       /** Tag Ids */
       tag_ids?: string[];
+    };
+    /**
+     * WorkspaceDefaultsIn
+     * @description A workspace's defaults, among the tenant's enabled modes and models.
+     */
+    WorkspaceDefaultsIn: {
+      /**
+       * Default Mode
+       * @enum {string}
+       */
+      default_mode: "corpus_only" | "general_knowledge";
+      /** Default Model */
+      default_model: string;
+      /** Default Reasoning */
+      default_reasoning: boolean;
     };
     /** WorkspaceOut */
     WorkspaceOut: {
@@ -1076,6 +1258,182 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  get_settings_api_v1_admin_settings_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TenantSettingsOut"];
+        };
+      };
+    };
+  };
+  set_retention_days_api_v1_admin_settings_retention_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RetentionIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TenantSettingsOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_users_api_v1_admin_users_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminUserOut"][];
+        };
+      };
+    };
+  };
+  invite_user_api_v1_admin_users_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserInviteIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminUserOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  change_user_api_v1_admin_users__user_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserChangeIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminUserOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_workspace_defaults_api_v1_admin_workspaces__workspace_id__defaults_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkspaceDefaultsIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   request_sign_in_link_api_v1_auth_link_post: {
     parameters: {
       query?: never;

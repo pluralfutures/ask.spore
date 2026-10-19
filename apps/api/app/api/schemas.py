@@ -344,3 +344,51 @@ class OperatorWorkspaceOut(WorkspaceOut):
 class OperatorMeOut(BaseModel):
     email: str
     display_name: str
+
+
+# --- tenant admin pages (P1a-13) -------------------------------------------------------
+
+UserRole = Literal["user", "tenant_admin"]
+
+
+class AdminUserOut(_Out):
+    id: UUID
+    email: str
+    display_name: str
+    role: str
+    status: str
+    last_login_at: datetime | None
+    last_login_method: str | None
+    created_at: datetime
+
+
+class UserInviteIn(_In):
+    email: str = Field(min_length=3, max_length=320)
+    display_name: str = Field(min_length=1, max_length=128)
+    role: UserRole = "user"
+
+
+class UserChangeIn(_In):
+    """Change a user's role, or deactivate and reactivate them. Users are never deleted."""
+
+    role: UserRole | None = None
+    status: Literal["active", "deactivated"] | None = None
+
+
+class WorkspaceDefaultsIn(_In):
+    """A workspace's defaults, among the tenant's enabled modes and models."""
+
+    default_mode: AnswerMode
+    default_model: str = Field(min_length=1, max_length=128)
+    default_reasoning: bool
+
+
+class RetentionIn(_In):
+    # CLAUDE.md: 30 days maximum; a tenant admin may only shorten it.
+    retention_days: int = Field(ge=1, le=30)
+
+
+class TenantSettingsOut(BaseModel):
+    retention_days: int
+    max_retention_days: int
+    answer_modes: list[str]  # what the operator enabled; workspace defaults pick among them

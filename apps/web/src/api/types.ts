@@ -28,6 +28,12 @@ export type TenantCreateIn = Schemas["TenantCreateIn"];
 export type AdminInviteIn = Schemas["AdminInviteIn"];
 export type OperatorWorkspace = Schemas["OperatorWorkspaceOut"];
 export type WorkspaceCreateIn = Schemas["WorkspaceCreateIn"];
+export type AdminUser = Schemas["AdminUserOut"];
+export type UserInviteIn = Schemas["UserInviteIn"];
+export type UserChangeIn = Schemas["UserChangeIn"];
+export type WorkspaceDefaultsIn = Schemas["WorkspaceDefaultsIn"];
+export type WorkspacePrompt = Schemas["WorkspacePromptOut"];
+export type TenantSettings = Schemas["TenantSettingsOut"];
 
 export type ChatStreamEvent =
   | { event: "token"; data: TokenData }

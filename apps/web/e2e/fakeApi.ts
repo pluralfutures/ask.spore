@@ -76,6 +76,9 @@ function sse(events: [string, unknown][]): string {
 
 export class FakeApi {
   readonly created: unknown[] = [];
+  // Tenant admin routes (P1a-13): saved prompt versions per workspace, and the calls.
+  readonly prompts = new Map<string, { version: number; text: string; created_at: string }[]>();
+  readonly adminCalls: { method: string; path: string; body: unknown }[] = [];
   readonly asked: { conversation: string; body: unknown }[] = [];
   private readonly conversations = new Map<string, Conversation>();
   private next = 1;
@@ -191,6 +194,51 @@ export class FakeApi {
     await page.route("**/api/v1/**", (route) => this.handle(route));
   }
 
+  private async admin(route: Route, method: string, path: string): Promise<void> {
+    const body = route.request().postDataJSON() as unknown;
+    this.adminCalls.push({ method, path, body });
+    if (this.options.role !== "tenant_admin") {
+      return route.fulfill({ status: 403, json: { detail: "forbidden" } });
+    }
+    if (path === "/admin/users") {
+      return route.fulfill({
+        json: [
+          {
+            id: "55555555-5555-4555-8555-555555555555",
+            email: "analyst@example.org",
+            display_name: "Synthetic Analyst",
+            role: "tenant_admin",
+            status: "active",
+            last_login_at: NOW,
+            last_login_method: "sign_in_link",
+            created_at: NOW,
+          },
+        ],
+      });
+    }
+    if (path === "/admin/settings") {
+      return route.fulfill({
+        json: { retention_days: 30, max_retention_days: 30, answer_modes: ["corpus_only"] },
+      });
+    }
+    const prompt = path.match(/^\/workspaces\/([^/]+)\/prompts?$/);
+    if (prompt) {
+      const versions = this.prompts.get(prompt[1]) ?? [];
+      if (method === "PUT") {
+        const saved = {
+          workspace_id: prompt[1],
+          version: versions.length + 1,
+          text: (body as { text: string }).text,
+          created_at: NOW,
+        };
+        this.prompts.set(prompt[1], [saved, ...versions]);
+        return route.fulfill({ json: saved });
+      }
+      return route.fulfill({ json: versions });
+    }
+    return route.fulfill({ status: 404, json: { detail: "not_found" } });
+  }
+
   private async handle(route: Route): Promise<void> {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace(/^\/api\/v1/, "");
@@ -207,6 +255,9 @@ export class FakeApi {
       });
     }
     if (path === "/workspaces") return route.fulfill({ json: this.options.workspaces });
+    if (path.startsWith("/admin") || /^\/workspaces\/[^/]+\/prompts?$/.test(path)) {
+      return this.admin(route, method, path);
+    }
     if (path === "/models") return route.fulfill({ json: this.options.models });
     if (path === "/conversations" && method === "POST") {
       const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;

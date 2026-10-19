@@ -1,5 +1,5 @@
-"""Tenants, users and entitlements. Mirrors alembic revisions 0001, 0004 and 0006; the
-migrations are authoritative."""
+"""Tenants, users, entitlements and tenant settings. Mirrors alembic revisions 0001, 0004,
+0006 and 0011; the migrations are authoritative."""
 
 from __future__ import annotations
 
@@ -117,4 +117,22 @@ class TenantEntitlements(Base):
     # The client DPA document accepting external models, and its date (P1a-03).
     external_acceptance_reference: Mapped[str | None] = mapped_column(Text)
     external_acceptance_date: Mapped[date | None] = mapped_column(Date)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+MAX_RETENTION_DAYS = 30  # CLAUDE.md: chat history retention is 30 days maximum
+
+
+class TenantSettings(Base):
+    """What a tenant admin sets for their tenant (P1a-13). No row: the defaults."""
+
+    __tablename__ = "tenant_settings"
+    __table_args__ = (
+        CheckConstraint(f"retention_days BETWEEN 1 AND {MAX_RETENTION_DAYS}", name="retention_cap"),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True
+    )
+    retention_days: Mapped[int] = mapped_column(Integer, server_default=text("30"))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

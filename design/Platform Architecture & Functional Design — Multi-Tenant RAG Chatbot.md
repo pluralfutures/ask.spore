@@ -458,7 +458,7 @@ Catalogue (pinned in `config/models.toml`): Scaleway `deepseek-v4.1-flash` (defa
 
 ### 14.3 Workspace file list and downloads
 
-Each workspace has a read-only page listing the PDF, DOCX and PPTX files in its corpus with publisher, title, publication date, canonical link and ingestion date, and crawled sites rolled up to the site with a page count. No search or filters. A listed file can be downloaded only when its source-register row is flagged `downloadable` (set by the operator from the licence basis; our own DOCX and PPTX analyses by default, third-party files only where the licence permits redistribution), through signed short-lived URLs, audited and capped per user per day. Files that are not downloadable show their canonical link. This supersedes the "collections only" package page of §7.1 and the own-analysis-only download rule of §7.1 and §12.
+Each workspace has a read-only page listing the PDF, DOCX and PPTX files in its corpus with publisher, title, publication date, canonical link and ingestion date, and crawled sites rolled up to the site with a page count. No search or filters. A listed file can be downloaded only when its source-register row is flagged `downloadable` (set per source from the licence basis, by the manifest at ingestion or by the operator; in practice our own DOCX and PPTX analyses, and third-party files only where the licence permits redistribution; never by default), through signed short-lived URLs, audited and capped per user per day. Files that are not downloadable show their canonical link. This supersedes the "collections only" package page of §7.1 and the own-analysis-only download rule of §7.1 and §12.
 
 ### 14.4 Phasing change
 
@@ -470,7 +470,7 @@ Phase 1 is split. **Phase 1a** (the first test client) ships multi-tenancy with 
 | --- | --- |
 | EU-only inference | Dropped for tenants with "external models" enabled by the operator; hosting and data stores stay in the EU |
 | External model provider | OpenRouter with ZDR routing; DPA, transfer impact assessment and the tenant's signed acceptance are on file before the entitlement is enabled (revised Oct 19, 2026) |
-| Downloads | Licence-gated per source (`downloadable` flag); own analyses by default, third-party only where the licence permits (revised Oct 19, 2026) |
+| Downloads | Licence-gated per source (`downloadable` flag set explicitly per manifest row, never by default); own analyses in practice, third-party only where the licence permits (revised Oct 19, 2026) |
 | Retention purge | Read-time 30-day expiry is tested in Phase 1a; the purge job stays in Phase 1b |
 | Model and workspace scope | Chosen per conversation, fixed for the conversation |
 | Reasoning | On/off per conversation, text hidden, badge shown; default per workspace |

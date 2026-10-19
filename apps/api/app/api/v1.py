@@ -62,6 +62,7 @@ from app.chat.orchestrator import (
 from app.chat.selection import choose_for_new_conversation, load_entitlement
 from app.content.models import Source
 from app.core.logging import log
+from app.llm import catalogue
 from app.operator.models import OperatorNotice
 from app.tenancy.entitlements import ModelRefused, eu_fallback_choice, usable_models
 from app.tenancy.models import Tenant, TenantEntitlements, User
@@ -266,8 +267,14 @@ async def get_conversation(
                 type=source.type,
             )
         )
+    workspace_name = await session.scalar(
+        select(Workspace.name).where(Workspace.id == conversation.workspace_id)
+    )
+    listed = catalogue.entry(request.app.state.settings, conversation.model)
     return ConversationDetail(
         id=conversation.id,
+        workspace_name=workspace_name or "",
+        model_display_name=listed.display_name if listed else conversation.model,
         title=conversation.title,
         created_at=conversation.created_at,
         updated_at=conversation.updated_at,

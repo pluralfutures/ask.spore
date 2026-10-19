@@ -217,6 +217,9 @@ async def test_get_conversation_returns_messages_and_citations(api: Harness) -> 
     assert (answer["unsupported"], answer["abstained"]) == (False, False)
     assert answer["citations"][0]["publisher"] == "Synthetic Institute"
     assert answer["citations"][0]["published_on"] == "2026-03-01"
+    # Header data (P1a-12): workspace label and the model's display name.
+    assert body["workspace_name"] == "Research"
+    assert body["model_display_name"] == "DeepSeek V4.1 Flash"
 
 
 async def test_ask_abstention_and_unsupported_states_survive_reload(api: Harness) -> None:

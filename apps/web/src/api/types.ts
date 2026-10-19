@@ -5,6 +5,9 @@ type Schemas = components["schemas"];
 
 export type ConversationSummary = Schemas["ConversationSummary"];
 export type ConversationCreated = Schemas["ConversationCreated"];
+export type ConversationCreateIn = Schemas["ConversationCreateIn"];
+export type Workspace = Schemas["WorkspaceOut"];
+export type ModelOption = Schemas["ModelOptionOut"];
 export type ConversationDetail = Schemas["ConversationDetail"];
 export type Message = Schemas["MessageOut"];
 export type Citation = Schemas["CitationOut"];

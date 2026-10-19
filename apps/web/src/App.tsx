@@ -17,6 +17,7 @@ import { SignIn } from "./components/SignIn";
 import { Chat } from "./pages/Chat";
 import { ConversationList } from "./pages/ConversationList";
 import { FinishSignIn } from "./pages/FinishSignIn";
+import { NewConversation } from "./pages/NewConversation";
 import { OperatorConsole } from "./pages/OperatorConsole";
 
 const queryClient = new QueryClient({
@@ -36,6 +37,7 @@ function Signed({ children }: { children: React.ReactNode }) {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<ConversationList />} />
+          <Route path="/new" element={<NewConversation />} />
           <Route path="/c/:id" element={<Chat />} />
           <Route path="/operator" element={<OperatorConsole />} />
         </Routes>

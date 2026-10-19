@@ -5,6 +5,7 @@ import type {
   AuthMode,
   ChatStreamEvent,
   ConversationCreated,
+  ConversationCreateIn,
   ConversationDetail,
   ConversationSummary,
   FeedbackIn,
@@ -12,11 +13,13 @@ import type {
   EntitlementsIn,
   EntitlementsOut,
   Me,
+  ModelOption,
   NoticeOut,
   OperatorOptions,
   OperatorWorkspace,
   TenantCreateIn,
   TenantOut,
+  Workspace,
   WorkspaceCreateIn,
 } from "./types";
 
@@ -61,8 +64,21 @@ export function clearCredentials(): void {
 }
 
 export class ApiError extends Error {
-  constructor(readonly status: number) {
+  // `code`: the API's `detail` when it is a short code such as "workspace_required".
+  constructor(
+    readonly status: number,
+    readonly code: string | null = null,
+  ) {
     super(`API request failed with status ${status}`);
+  }
+}
+
+async function errorCode(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as { detail?: unknown };
+    return typeof body.detail === "string" ? body.detail : null;
+  } catch {
+    return null;
   }
 }
 
@@ -91,7 +107,7 @@ async function send(method: string, path: string, body?: unknown, signal?: Abort
     clearCredentials();
     onUnauthorized();
   }
-  if (!response.ok) throw new ApiError(response.status);
+  if (!response.ok) throw new ApiError(response.status, await errorCode(response));
   return response;
 }
 
@@ -142,7 +158,10 @@ export async function currentUser(): Promise<Me | null> {
 
 export const api = {
   listConversations: () => json<ConversationSummary[]>("GET", "/conversations"),
-  createConversation: () => json<ConversationCreated>("POST", "/conversations"),
+  workspaces: () => json<Workspace[]>("GET", "/workspaces"),
+  models: () => json<ModelOption[]>("GET", "/models"),
+  createConversation: (body: ConversationCreateIn) =>
+    json<ConversationCreated>("POST", "/conversations", body),
   getConversation: (id: string) => json<ConversationDetail>("GET", `/conversations/${id}`),
   deleteConversation: async (id: string) => {
     await send("DELETE", `/conversations/${id}`);

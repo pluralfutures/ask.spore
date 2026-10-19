@@ -118,6 +118,10 @@ class MessageOut(BaseModel):
 
 
 class ConversationDetail(ConversationSummary):
+    # Header of the conversation (P1a-12): the workspace's label and the model's
+    # catalogue display name (the ID when the catalogue no longer lists it).
+    workspace_name: str
+    model_display_name: str
     messages: list[MessageOut]
 
 

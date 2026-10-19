@@ -1,17 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import { api } from "../api/client";
 import { formatDate } from "../lib/format";
 
 export function ConversationList() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const conversations = useQuery({ queryKey: ["conversations"], queryFn: api.listConversations });
-  const create = useMutation({
-    mutationFn: api.createConversation,
-    onSuccess: (created) => navigate(`/c/${created.id}`),
-  });
   const remove = useMutation({
     mutationFn: api.deleteConversation,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["conversations"] }),
@@ -21,14 +16,9 @@ export function ConversationList() {
     <main className="mx-auto max-w-3xl p-4">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Conversations</h1>
-        <button
-          type="button"
-          onClick={() => create.mutate()}
-          disabled={create.isPending}
-          className="rounded bg-slate-900 px-3 py-1.5 text-white"
-        >
+        <Link to="/new" className="rounded bg-slate-900 px-3 py-1.5 text-white">
           New conversation
-        </button>
+        </Link>
       </div>
       {conversations.isPending ? <p>Loading…</p> : null}
       {conversations.isError ? <p className="text-red-700">Could not load conversations.</p> : null}

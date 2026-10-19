@@ -616,6 +616,8 @@ export interface components {
       mode: string;
       /** Model */
       model: string;
+      /** Model Display Name */
+      model_display_name: string;
       /** Reasoning */
       reasoning: boolean;
       /** Title */
@@ -630,6 +632,8 @@ export interface components {
        * Format: uuid
        */
       workspace_id: string;
+      /** Workspace Name */
+      workspace_name: string;
     };
     /** ConversationSummary */
     ConversationSummary: {

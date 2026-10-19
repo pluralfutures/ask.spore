@@ -1,0 +1,87 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+
+import { ApiError, api } from "../api/client";
+import { StartPanel } from "../components/StartPanel";
+import { createBody, initialChoice, refusalText, type StartChoice } from "../lib/startPanel";
+
+// What the chat page needs from the start: the first question and the spend-cap notice.
+export interface StartState {
+  question: string;
+  notice: string | null;
+}
+
+// P1a-12: the conversation is created with its first question, so the panel's choice
+// stays editable until that first message and is fixed from then on.
+export function NewConversation() {
+  const navigate = useNavigate();
+  const workspaces = useQuery({ queryKey: ["workspaces"], queryFn: api.workspaces });
+  const models = useQuery({ queryKey: ["models"], queryFn: api.models });
+  const [edited, setEdited] = useState<StartChoice | null>(null);
+  const [question, setQuestion] = useState("");
+  const create = useMutation({
+    mutationFn: (choice: StartChoice) => api.createConversation(createBody(choice)),
+    onSuccess: (created) => {
+      const state: StartState = { question: question.trim(), notice: created.notice_text ?? null };
+      navigate(`/c/${created.id}`, { state });
+    },
+  });
+
+  if (workspaces.isPending || models.isPending) {
+    return <main className="mx-auto max-w-3xl p-4">Loading…</main>;
+  }
+  if (!workspaces.data || !models.data) {
+    return <main className="mx-auto max-w-3xl p-4 text-red-700">Could not load the options.</main>;
+  }
+  const choice = edited ?? initialChoice(workspaces.data, models.data);
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (question.trim()) create.mutate(choice);
+  }
+
+  return (
+    <main className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
+      <Link to="/" className="text-sm underline">
+        ← Conversations
+      </Link>
+      {workspaces.data.length === 0 ? (
+        <p>No workspace has been set up for your organisation yet.</p>
+      ) : (
+        <form onSubmit={submit} className="flex flex-col gap-3">
+          <StartPanel
+            workspaces={workspaces.data}
+            models={models.data}
+            choice={choice}
+            onChange={setEdited}
+          />
+          <label htmlFor="first-question" className="sr-only">
+            Question
+          </label>
+          <textarea
+            id="first-question"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            maxLength={4000}
+            rows={3}
+            placeholder="Ask a question about this workspace's sources"
+            className="rounded border px-2 py-1"
+          />
+          {create.error ? (
+            <p role="alert" className="text-red-700">
+              {refusalText(create.error instanceof ApiError ? create.error.code : null)}
+            </p>
+          ) : null}
+          <button
+            type="submit"
+            disabled={create.isPending || !question.trim() || !choice.model}
+            className="self-end rounded bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50"
+          >
+            Start
+          </button>
+        </form>
+      )}
+    </main>
+  );
+}

@@ -30,6 +30,7 @@ from app.content.tags import load_tags
 from app.core.config import DEFAULT_CONFIG_DIR
 from app.core.db import create_engine, session_factory
 from app.retrieval.ragflow import RagflowError
+from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.conftest import MigratedDatabase
 from tests.ragflow_fake import FakeRagflow, Outcome
 
@@ -272,6 +273,165 @@ async def test_already_ingested_file_is_a_duplicate(env: tuple[Env, Ingest]) -> 
     assert second.status == "duplicate"
     assert second.source_id == first.source_id
     assert len(e.fake.uploads) == uploads
+
+
+# --- P1a-04: an already-registered file linked into new tag datasets -----------------------
+
+
+async def retag_events(admin_conn: asyncpg.Connection, source_id: UUID) -> list[dict[str, Any]]:
+    rows = await admin_conn.fetch(
+        "SELECT tenant_id, metadata FROM audit_events WHERE event = 'ingest.source_retagged'"
+        " AND metadata->>'source_id' = $1",
+        str(source_id),
+    )
+    return [{"tenant_id": r["tenant_id"], **json.loads(r["metadata"])} for r in rows]
+
+
+async def test_duplicate_without_new_tags_uploads_nothing(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    e, run = env
+    first = await run(load_path(PDF), meta("sample-reports", "sample-web"))
+    uploads, parsed = len(e.fake.uploads), len(e.fake.parsed)
+    second = await run(load_path(PDF), meta("sample-web"))  # a subset: nothing new
+    assert (second.status, second.source_id, second.tags_added) == (
+        "duplicate",
+        first.source_id,
+        (),
+    )
+    assert (len(e.fake.uploads), len(e.fake.parsed)) == (uploads, parsed)
+    assert await retag_events(admin_conn, first.source_id) == []
+
+
+async def test_duplicate_with_a_new_tag_is_linked_into_that_dataset_only(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    e, run = env
+    e.fake.outcomes[".pptx"] = Outcome(chunk_count=4)
+    first = await run(load_path(PPTX), meta("sample-reports", title="Kestrel briefing"))
+    [(reports_dataset, reports_doc)] = first.document_ids.items()
+    uploads = len(e.fake.uploads)
+
+    result = await run(
+        load_path(PPTX), meta("sample-reports", "sample-analysis", title="Renamed in manifest")
+    )
+    assert (result.status, result.source_id) == ("retagged", first.source_id)
+    assert result.tags_added == ("sample-analysis",)
+    assert result.chunk_count == 4
+    [(uploaded_to, name, content)] = e.fake.uploads[uploads:]
+    assert uploaded_to == e.datasets["sample-analysis"]  # from the datasets table
+    assert name == upload_name("Kestrel briefing", first.source_id, "pptx")  # the row's title
+    assert content == PPTX.read_bytes()
+    [(new_dataset, new_doc)] = result.document_ids.items()
+    assert new_dataset == uploaded_to
+    assert e.fake.parsed[-1] == new_doc
+    assert e.fake.chunk_methods[new_doc] == "presentation"  # the per-type method, as before
+
+    row = await source_row(admin_conn, first.source_id)
+    assert row["status"] == "ingested"
+    assert row["tags"] == ["sample-reports", "sample-analysis"]
+    assert json.loads(row["ragflow_document_ids"]) == {
+        reports_dataset: reports_doc,
+        new_dataset: new_doc,
+    }
+    assert row["chunk_count"] == 8
+    assert row["title"] == "Kestrel briefing"  # the rest of the register row is unchanged
+
+    again = await run(load_path(PPTX), meta("sample-analysis", "sample-reports"))
+    assert again.status == "duplicate"  # both tags are now the source's
+
+
+async def test_failure_in_the_new_dataset_leaves_the_source_as_it_was(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    e, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    before = await source_row(admin_conn, first.source_id)
+    e.fake.outcomes[".pdf"] = Outcome(run="FAIL", chunk_count=0, progress_msg="[ERROR] shard")
+
+    result = await run(load_path(PDF), meta("sample-reports", "sample-web"))
+    assert (result.status, result.error_code) == ("failed", "parse_failed")
+    assert result.source_id == first.source_id
+    assert "sample-web: parse FAIL" in (result.error or "")
+    [new_doc] = e.fake.deleted
+    assert new_doc not in e.fake.documents  # the new document is gone
+    assert result.document_ids == {}
+    # The original document and mapping are untouched.
+    assert set(e.fake.documents) == set(first.document_ids.values())
+    after = await source_row(admin_conn, first.source_id)
+    assert {k: after[k] for k in ("status", "tags", "ragflow_document_ids", "chunk_count")} == {
+        k: before[k] for k in ("status", "tags", "ragflow_document_ids", "chunk_count")
+    }
+    assert after["error"] is None
+    assert await retag_events(admin_conn, first.source_id) == []
+
+
+async def test_upload_error_in_the_new_dataset_is_reported(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    e, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    e.fake.fail_upload = RagflowError("upload_document", 101, "file type not supported")
+    result = await run(load_path(PDF), meta("sample-reports", "sample-web"))
+    assert (result.status, result.error_code) == ("failed", "ragflow_101")
+    row = await source_row(admin_conn, first.source_id)
+    assert (row["status"], row["tags"]) == ("ingested", ["sample-reports"])
+    assert json.loads(row["ragflow_document_ids"]) == first.document_ids
+
+
+async def test_retag_applies_the_rows_downloadable_and_audits_it(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection, tmp_path: Path
+) -> None:
+    _, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    flagged = SourceMetadata(
+        **{**meta("sample-reports", "sample-web").__dict__, "downloadable": True}
+    )
+    result = await run(load_path(PDF), flagged, content_root=tmp_path)
+    assert result.status == "retagged"
+    row = await source_row(admin_conn, first.source_id)
+    assert row["downloadable"] is True
+    assert row["stored_path"] is not None
+    [audit] = await retag_events(admin_conn, first.source_id)
+    assert audit["tenant_id"] == INTERNAL_TENANT_ID  # shared corpus: the platform tenant
+    assert audit["before"] == {"tag_ids": ["sample-reports"], "downloadable": False}
+    assert audit["after"] == {"tag_ids": ["sample-reports", "sample-web"], "downloadable": True}
+    # Metadata only: no title, publisher, file name or dataset/document IDs.
+    text = json.dumps(audit, default=str)
+    for value in ("Tidewater", "Fictional", "tidewater", *result.document_ids.values()):
+        assert value not in text
+
+    # And back: a later row adding another tag with downloadable false closes the gate.
+    plain = await run(load_path(PDF), meta("sample-analysis"), content_root=tmp_path)
+    assert plain.status == "retagged"
+    assert (await source_row(admin_conn, first.source_id))["downloadable"] is False
+
+
+async def test_retag_takes_dataset_ids_from_the_datasets_table_only(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    e, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    uploads = len(e.fake.uploads)
+    # SourceMetadata (a manifest row) has no field that could carry a dataset ID.
+    assert not any("dataset" in name for name in SourceMetadata.__dataclass_fields__)
+    await admin_conn.execute("DELETE FROM datasets WHERE tag = 'sample-web'")
+    with pytest.raises(IngestError) as refused:
+        await run(load_path(PDF), meta("sample-reports", "sample-web"))
+    assert refused.value.code == "no_dataset"
+    assert len(e.fake.uploads) == uploads
+    row = await source_row(admin_conn, first.source_id)
+    assert row["tags"] == ["sample-reports"]
+
+    # A dataset re-synced under a new ID is the one used.
+    replacement = e.fake.add_dataset("ask-spore-sample-web-new", "naive")
+    await admin_conn.execute(
+        "INSERT INTO datasets (tag, ragflow_dataset_id) VALUES ('sample-web', $1)", replacement.id
+    )
+    result = await run(load_path(PDF), meta("sample-reports", "sample-web"))
+    assert result.status == "retagged"
+    assert list(result.document_ids) == [replacement.id]
+    assert e.fake.uploads[-1][0] == replacement.id
 
 
 # --- P1a-14: our own stored copy and the download flag -------------------------------------

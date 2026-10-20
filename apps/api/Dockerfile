@@ -18,6 +18,10 @@ COPY app ./app
 RUN uv sync --locked --no-dev
 
 RUN useradd --system --uid 10001 api
+# The content store ([files] content_root, P1a-14) is a named volume. Docker creates a
+# fresh volume with the mount point's owner, so it must belong to the api user before
+# the first run, or ingestion fails at its first store with "Permission denied".
+RUN mkdir -p /srv/ask-spore/content && chown api:api /srv/ask-spore/content
 USER api
 
 EXPOSE 8000

@@ -308,6 +308,29 @@ async def test_rerun_is_idempotent_by_file_hash(env: tuple[Env, Ingest], corpus:
     assert uploads == 4  # the DOCX went to both of its tags' datasets
 
 
+async def test_rerun_with_a_new_tag_links_the_file_into_that_dataset(
+    env: tuple[Env, Ingest], corpus: Path
+) -> None:
+    e, run = env
+
+    async def ingest_file(row: ManifestRow) -> IngestResult:
+        assert row.path is not None
+        return await run(load_path(row.path), row.metadata)
+
+    async def no_site(_: ManifestRow) -> tuple[str, list[IngestResult]]:
+        raise AssertionError("no site rows")
+
+    first = await run_manifest(load_manifest(write(corpus, PDF_ROW), TAGS), ingest_file, no_site)
+    retag_row = PDF_ROW.replace(",sample-reports,", ",sample-reports;sample-web,")
+    second = await run_manifest(load_manifest(write(corpus, retag_row), TAGS), ingest_file, no_site)
+    assert [o.status for o in second] == ["retagged"]
+    assert second[0].source_ids == first[0].source_ids
+    assert [dataset for dataset, _, _ in e.fake.uploads] == [
+        e.datasets["sample-reports"],
+        e.datasets["sample-web"],
+    ]
+
+
 class _Client:
     async def __aenter__(self) -> _Client:
         return self
@@ -387,6 +410,31 @@ def test_cli_ingests_and_logs_a_metadata_only_summary(
         ("3", "docx", "ingested", "2"),
     ]
     assert "Tidewater" not in summary.read_text(encoding="utf-8")
+
+
+def test_cli_summary_counts_retagged_rows_separately(
+    cli_env: list[tuple[Any, Any]],
+    corpus: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    statuses = iter(["retagged", "duplicate"])
+
+    async def fake_ingest(*_: Any, **__: Any) -> IngestResult:
+        status = next(statuses)
+        return IngestResult(
+            source_id=uuid4(), status=status, chunk_count=3 * (status == "retagged")
+        )
+
+    monkeypatch.setattr(cli, "ingest", fake_ingest)
+    assert cli.main(["ingest-manifest", str(write(corpus, PDF_ROW, DOCX_ROW))]) == 0
+    logged = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    totals = {
+        line["status"]: (line["count"], line["chunk_count"])
+        for line in logged
+        if line["event"] == "manifest.summary"
+    }
+    assert totals == {"retagged": (1, 3), "duplicate": (1, 0)}
 
 
 def test_write_summary_handles_site_rows(tmp_path: Path) -> None:

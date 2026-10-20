@@ -410,9 +410,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="ingest every row of a corpus manifest.csv (design/specs/corpus-manifest.md)",
         description="Validates every row against config/tags.toml and the file tree first and "
         "uploads nothing if any row is invalid. Files already ingested (same content hash) are "
-        "reported as duplicate, so re-running after a failure is safe. PDF, DOCX and PPTX "
-        "files are also stored under [files] content_root for downloads; the optional "
-        "downloadable column (default false) sets the licence gate of new sources.",
+        "reported as duplicate, so re-running after a failure is safe; a row that gives such "
+        "a file a tag it lacks links it into that tag's dataset and is reported as retagged. "
+        "PDF, DOCX and PPTX files are also stored under [files] content_root for downloads; "
+        "the optional downloadable column (default false) sets the licence gate of new and "
+        "retagged sources.",
     )
     manifest_cmd.add_argument(
         "manifest", help="path to manifest.csv; file paths are relative to it"

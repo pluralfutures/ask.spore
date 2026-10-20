@@ -3,7 +3,8 @@
 Format: ``design/specs/corpus-manifest.md``. ``load_manifest`` validates every row
 against ``config/tags.toml`` and the file tree and reports all problems at once;
 ``run_manifest`` ingests the rows only when there are none. Re-running is safe:
-``ingest`` reports a file whose content hash is already ingested as ``duplicate``.
+``ingest`` reports a file whose content hash is already ingested as ``duplicate``, or
+as ``retagged`` when the row adds tags the source lacks.
 
 Problems name a manifest line and column, never a row's content beyond its path.
 """
@@ -75,7 +76,7 @@ class ManifestRow:
 class RowOutcome:
     line: int
     type: str
-    status: str  # ingested, duplicate, failed; for sites ok or failed
+    status: str  # ingested, duplicate, retagged, failed; for sites ok or failed
     chunk_count: int
     seconds: float
     source_ids: tuple[UUID, ...] = ()

@@ -139,3 +139,64 @@ questions, Oct 19, 2026.
 | E5 | P1a-02, P1a-15 | Email provider: Mailgun EU as the sole provider (Oct 19 decision) | **Owner decision, Oct 20, 2026:** Scaleway Transactional Email (fr-par) is the primary email provider; Mailgun EU stays as an optional backup, inactive until switched on in configuration and only after its DPA is filed. `infra/authentik/docker-compose.yml` no longer hard-codes the relay host: `AUTHENTIK_EMAIL__HOST` and `__PORT` come from `infra/authentik/.env` (STARTTLS on 587 for both providers). Stack Decision, architecture, compliance guide (Oct 20 update), sub-processor list, client DPA draft and backlog (Phase 1b `app.core.mail` over the Scaleway HTTP API) updated. P1a-15: the Mailgun DPA moves from "before first sign-in" to "before the backup is activated"; the Scaleway DPA already covers the primary. |
 | E6 | P1a-04, P0-08 | `config/tags.toml`: cc-* tags default to `paper` with overrides for pptx and docx only | **Found during the Oct 20 ingestion (Corpus_T3, 1 of 22 rows failed):** RAGFlow's `paper` parser accepts PDF only, so a Markdown row under a cc-* tag fell back to `paper` and failed with "file type not supported yet". Fix: every tag whose default method is PDF-only (`paper`, `manual`) now names a method for every other source type (`markdown` and `html` → `naive` on the cc-* tags and `sample-reports`), and `load_tags` refuses a tags file that leaves such a type uncovered, so the API and the CLI fail at startup instead of at the first non-PDF row. Tests added. The failed row is re-run from the same manifest (a failed row is not a duplicate). |
 | E7 | P1a-04 | Corpus ingestion | **Found during the Oct 20 ingestion (Corpus_T2, 1 of 64 rows failed):** a 469 MB PDF was uploaded but every parse task refused it with RAGFlow's 128 MiB per-document cap (`no_chunks`). `infra/ragflow/docker-compose.yml` now exposes `MAX_CONTENT_LENGTH` (default unchanged); the Instance sets 512 MiB in `infra/ragflow/.env` (owner decision Oct 20, 2026). Parse time is driven by page count (CPU OCR, about one to two minutes per page), so the cap is a safety limit, not a performance one. The row is retried by re-running the manifest. |
+
+## 9. Corpus ingestion of Oct 20, 2026
+
+The test client's corpus was ingested on the Phase 0 Instance: 8 dedicated vCPUs, 32 GB RAM, CPU only. The repository was on `main`, first at d80d686 and then at 99d3d99 for the re-run. Each manifest was run with `ask-spore ingest-manifest <manifest> --summary … --parse-timeout 28800` in a `docker compose run` container of the api image. A detached host script ran the manifests in sequence. This section records metadata only.
+
+### Runs
+
+| Run | Manifest | Rows | Ingested | Retagged | Duplicate | Failed | Chunks | Start (UTC) | End (UTC) | Wall time |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | `Corpus_T3` | 22 | 21 | 0 | 0 | 1 (E6) | 1,129 | 10:22:41 | 11:51:21 | 1 h 29 min |
+| 1 | `Corpus_T2` | 64 | 63 | 0 | 0 | 1 (E7) | 3,903 | 11:51:21 | 15:38:53 | 3 h 48 min |
+| 1 | `Corpus` | 60 | 1 | 59 | 0 | 0 | 4,037 | 15:38:53 | 20:24:11 | 4 h 45 min |
+| 2 | `Corpus_T2` | 64 | 1 | 0 | 63 | 0 | 184 | 21:11:42 | 21:21:41 | 10 min |
+| 2 | `Corpus_T3` | 22 | 1 | 0 | 21 | 0 | 16 | 21:21:41 | 21:22:03 | 22 s |
+
+An earlier attempt at 10:22:13 stopped at row 1 of each manifest with nothing uploaded (E4). Its logs are in `attempt1/`.
+
+- **`Corpus`:** the 59 files ingested under `sample-reports` in Phase 0 were linked into `cc-team1-healthcare-gpo`, re-uploaded and parsed per E3. The one new file is line 15, the Elior URD 2024–2025 PDF, which Phase 0 never ingested: 1,453 chunks in 2 h 18 min.
+- **Failed rows of run 1, both ingested in run 2 on this Instance (owner decision, Oct 20, 2026):**
+  - `Corpus_T3` line 13, `Sweetgreen_2023-Impact-Summary.md`: `parse_failed`, because Markdown fell back to the PDF-only `paper` method (E6). Re-run after the tags fix (main ≥ 99f9908) and an api rebuild: 16 chunks in 18 s.
+  - `Corpus_T2` line 32, `NACUFS_campus-dining-today-summer-2025.pdf` (469 MB, about 60 pages): `no_chunks`, because RAGFlow's 128 MiB per-document cap applied (E7). Re-run after `MAX_CONTENT_LENGTH=536870912` was set in `infra/ragflow/.env` (main ≥ 42a77ea), with only the `ragflow` service restarted and the api rebuilt: 184 chunks in 9 min 54 s.
+
+### Datasets after the runs
+
+| Dataset | Documents | Chunks |
+| --- | --- | --- |
+| `ask-spore-cc-team1-healthcare-gpo` | 60 | 4,037 |
+| `ask-spore-cc-team2-college-universities` | 64 | 4,087 |
+| `ask-spore-cc-team3-commercial-restaurants` | 22 | 1,145 |
+| `ask-spore-cc-shared` | 0 | 0 |
+| `ask-spore-sample-reports` | 59 | 2,580 (unchanged from Phase 0) |
+| `ask-spore-sample-analysis`, `ask-spore-sample-web` | 0 | 0 |
+
+No row is tagged `cc-shared` yet. Every row except the Sweetgreen Markdown file has `downloadable` = `yes`, and that includes 18 publisher-terms rows. The owner is to confirm the licence gate per source before downloads are offered (P1a-14).
+
+### Throughput
+
+These figures are per file across runs 1 and 2, counting ingested and retagged files only. Times are upload plus parse, measured by the CLI.
+
+| Type | Files | Mean per file | Total | Chunks | Notes |
+| --- | --- | --- | --- | --- | --- |
+| PDF | 131 | 4 min 38 s | 10.1 h | 9,059 | about 2,730 pages in total, about 13 s per page on average; image-heavy pages are slower |
+| PPTX | 5 | 28 s | 2 min | 157 | |
+| DOCX | 9 | 9 s | 1 min | 37 | |
+| Markdown | 1 | 18 s | 18 s | 16 | |
+
+The average of about 13 s per page is well below E7's "one to two minutes per page". That estimate came from the slowest Phase 0 OCR runs. With the Phase 0 tuning, pages parse much faster on average.
+
+### Operational notes
+
+- **RAGFlow tuning:** `MAX_CONCURRENT_TASKS=2` (compose default), `EMBEDDING_BATCH_SIZE=1` and `RAGFLOW_CPUS=5`, all unchanged from Phase 0. `MAX_CONTENT_LENGTH=536870912` was added for run 2, and the previous `infra/ragflow/.env` was kept as `.env.bak-20261020`. The api reported healthy throughout. The CLI run containers show `unhealthy` because they inherit the api's HTTP healthcheck without running the server.
+- **Manual fixes on the Instance:**
+  - The `content` volume was chowned to uid 10001 by hand before run 1 (E4).
+  - `Corpus_T2/manifest.csv` was changed from mode 600 to 644 so that the api user could read it.
+  - Ten `published_on` values that Excel had mangled were set to the bare year at the owner's request. The pre-fix copies are `manifest.csv.bak-20261020-094158` beside each manifest.
+- **Leftovers:** the Phase 0 orphan container `askspore-ingest15` (exited) was kept. Stray files in the corpus folders are not in any manifest and were not ingested: Office lock files, `.DS_Store`, and `Document.docx`, two `.xlsx` files and `corpus-manifest.md` in `Corpus_T2`.
+- **Logs, metadata only:** under `/srv/ingest-out/p1a-20261020/`:
+  - `run.sh`, `progress.log`, `ingest-<manifest>.log` and `summary-<manifest>.csv` for run 1;
+  - `rerun/` for run 2;
+  - `attempt1/` for the stopped attempt.
+- **Shutdown:** after the runs, the stack was stopped with `docker compose -f infra/compose.dev.yml --profile auth down` (no `-v`), and the Instance was shut down to be resized to a shared 8 vCPU type with the same disk. Every volume, `/srv/corpus`, `/srv/ingest-out` and both `.env` files remain on disk. On the new Instance, `docker compose -f infra/compose.dev.yml up -d --build` brings the stack back with all datasets in place. No re-ingestion is needed.

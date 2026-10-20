@@ -175,6 +175,10 @@ services:
       # (findings R17). Upstream defaults: 5 and 16.
       - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-2}
       - EMBEDDING_BATCH_SIZE=${EMBEDDING_BATCH_SIZE:-8}
+      # Per-document size cap in bytes (upstream default 128 MiB; findings E7). A larger
+      # document is accepted on upload but every parse task refuses it. The Instance sets
+      # 536870912 (512 MiB) in infra/ragflow/.env for one 469 MB client PDF (Oct 20, 2026).
+      - MAX_CONTENT_LENGTH=${MAX_CONTENT_LENGTH:-134217728}
     volumes:
       - ragflow_logs:/ragflow/logs
     healthcheck:

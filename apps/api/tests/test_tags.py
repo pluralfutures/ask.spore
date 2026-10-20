@@ -17,9 +17,17 @@ def write(tmp_path: Path, text: str) -> Path:
     return tmp_path
 
 
+CLIENT_TAGS = (
+    "cc-team1-healthcare-gpo",
+    "cc-team2-college-universities",
+    "cc-team3-commercial-restaurants",
+    "cc-shared",
+)
+
+
 def test_repository_tags_are_the_phase0_tags_with_spec_chunk_methods() -> None:
     tags = load_tags(DEFAULT_CONFIG_DIR)
-    assert sorted(tags) == ["sample-analysis", "sample-reports", "sample-web"]
+    assert sorted(tags) == sorted(["sample-analysis", "sample-reports", "sample-web", *CLIENT_TAGS])
     # Spec P0-08: paper for reports, presentation for PPTX, naive for DOCX and web.
     assert tags["sample-reports"].chunk_method_for("pdf") == "paper"
     assert tags["sample-reports"].chunk_method_for("docx") == "naive"
@@ -27,6 +35,15 @@ def test_repository_tags_are_the_phase0_tags_with_spec_chunk_methods() -> None:
     assert tags["sample-analysis"].chunk_method_for("pptx") == "presentation"
     assert tags["sample-analysis"].chunk_method_for("docx") == "naive"
     assert tags["sample-web"].chunk_method_for("markdown") == "naive"
+
+
+@pytest.mark.parametrize("tag", CLIENT_TAGS)
+def test_client_tags_chunk_methods(tag: str) -> None:
+    # P1a-04, owner decision Oct 20, 2026 (findings E1).
+    config = load_tags(DEFAULT_CONFIG_DIR)[tag]
+    assert config.chunk_method_for("pdf") == "paper"
+    assert config.chunk_method_for("pptx") == "presentation"
+    assert config.chunk_method_for("docx") == "naive"
 
 
 def test_source_type_literal_matches_schema() -> None:

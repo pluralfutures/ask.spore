@@ -23,3 +23,28 @@ chunk_method_by_type = { pptx = "presentation" }
 [tags.sample-web]
 # Crawled pages, rendered to Markdown.
 chunk_method = "naive"
+
+# Test client (P1a-04, owner decision Oct 19, 2026; renamed to the TAG_PATTERN form
+# Oct 20, 2026, findings E1). One tag per workspace plus the shared corpus tag; each
+# workspace's tag_ids are its own tag + cc-shared (set in the operator console).
+# PDF with "paper", PPTX with "presentation", DOCX with "naive".
+
+[tags.cc-team1-healthcare-gpo]
+# Workspace "CC Team 1 Healthcare GPO".
+chunk_method = "paper"
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive" }
+
+[tags.cc-team2-college-universities]
+# Workspace "CC Team 2 College & Universities".
+chunk_method = "paper"
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive" }
+
+[tags.cc-team3-commercial-restaurants]
+# Workspace "CC Team 3 Commercial Restaurants".
+chunk_method = "paper"
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive" }
+
+[tags.cc-shared]
+# The test client's common corpus, shared by all three workspaces.
+chunk_method = "paper"
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive" }

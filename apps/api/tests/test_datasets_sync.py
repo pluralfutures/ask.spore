@@ -70,6 +70,10 @@ async def test_creates_one_dataset_per_tag_with_its_chunk_method(
 
     assert statuses(results) == dict.fromkeys(TAGS, "created")
     assert sorted(fake.created) == [
+        "ask-spore-cc-shared",
+        "ask-spore-cc-team1-healthcare-gpo",
+        "ask-spore-cc-team2-college-universities",
+        "ask-spore-cc-team3-commercial-restaurants",
         "ask-spore-sample-analysis",
         "ask-spore-sample-reports",
         "ask-spore-sample-web",
@@ -80,6 +84,28 @@ async def test_creates_one_dataset_per_tag_with_its_chunk_method(
     assert by_name["ask-spore-sample-web"].chunk_method == "naive"
     assert {d.embedding_model for d in fake.datasets.values()} == {EMBEDDING}
     assert await mapping(admin_conn) == {tag: by_name[f"ask-spore-{tag}"].id for tag in TAGS}
+
+
+async def test_new_tags_get_datasets_on_the_next_run(
+    sync: Sync, admin_conn: asyncpg.Connection
+) -> None:
+    # P1a-04 (findings E1): an instance synced before the client tags existed creates
+    # exactly their four datasets on its next run and leaves the earlier ones alone.
+    client = {tag for tag in TAGS if tag.startswith("cc-")}
+    assert len(client) == 4
+    fake = FakeRagflow()
+    await sync(fake, {tag: config for tag, config in TAGS.items() if tag not in client})
+    before = await mapping(admin_conn)
+    created = len(fake.created)
+
+    results = await sync(fake)
+
+    assert {tag for tag, status in statuses(results).items() if status == "created"} == client
+    assert sorted(fake.created[created:]) == sorted(f"ask-spore-{tag}" for tag in client)
+    by_name = {d.name: d for d in fake.datasets.values()}
+    assert {by_name[f"ask-spore-{tag}"].chunk_method for tag in client} == {"paper"}
+    after = await mapping(admin_conn)
+    assert {tag: after[tag] for tag in before} == before and set(after) == set(TAGS)
 
 
 async def test_second_run_is_a_no_op(sync: Sync, admin_conn: asyncpg.Connection) -> None:

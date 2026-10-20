@@ -1,6 +1,6 @@
 # Sample corpus manifest — `manifest.csv`
 
-Implemented by `ask-spore ingest-manifest` (P0-11, `apps/api/app/content/manifest.py`); the licence basis vocabulary is enforced as proposed below unless the owner amends it. Two details the command fixes: `canonical_url` is required unless `licence_basis` is `own-work`, and a `site` row without `max_pages` crawls at most 50 pages.
+Implemented by `ask-spore ingest-manifest` (P0-11, `apps/api/app/content/manifest.py`); the licence basis vocabulary is enforced as proposed below unless the owner amends it. Columns are matched by header name in any order. Two details the command fixes: `canonical_url` is required unless `licence_basis` is `own-work`, and a `site` row without `max_pages` crawls at most 50 pages.
 
 Format for the manifest that drives batch ingestion of the Phase 0 sample corpus (spec items P0-09, P0-10, P0-11). The columns map one-to-one onto the `ask-spore ingest` and `ask-spore crawl` flags and onto the `sources` table (P0-05).
 
@@ -37,11 +37,11 @@ The corpus and the manifest live on the Phase 0 Instance only. Never commit them
 | `language` | no | ISO 639-1, e.g. `en`, `de` | For spot-checking only; not used by retrieval in Phase 0. |
 | `max_pages` | no | Integer | `site` rows only; caps the crawl. |
 | `notes` | no | Free text | Anything the content editor wants recorded. Not sent to RAGFlow or the LLM. |
-| `downloadable` | no (optional column) | `true` or `false`; empty means `false` | P1a-14, licence-gated downloads: `true` only where the licence permits redistribution from our domain (our own analyses; third-party files only with the permission recorded per source). Only `pdf`, `docx` and `pptx` rows. Read for new sources only: re-running the manifest does not change the flag of a source already ingested; the operator console does, audited. The column may be left out entirely. |
+| `downloadable` | no (optional column) | `true` or `false`; empty means `false` | P1a-14, licence-gated downloads: `true` only where the licence permits redistribution from our domain (our own analyses; third-party files only with the permission recorded per source). Only `pdf`, `docx` and `pptx` rows. Read for new sources only: re-running the manifest does not change the flag of a source already ingested; the operator console does, audited. The column may be left out entirely, or placed anywhere. |
 
 ## Rules
 
-- UTF-8, comma-separated, header row exactly as above (optionally with `downloadable` as a thirteenth, last column), one row per document or site.
+- UTF-8, comma-separated, one row per document or site. The header row names the columns; their order is free (owner decision, Oct 20, 2026), since columns are matched by header name. All twelve columns from `path` to `notes` must be present (a column marked "no" may be left empty, not out); `downloadable` is the only optional column and may be anywhere or left out. Any other column name, or a column listed twice, is refused.
 - PDF, DOCX and PPTX files are also copied to the API's content store (`[files] content_root`, named by content hash) for downloads. Re-running the manifest stores the copy of a file ingested before P1a-14.
 - Quote any field containing a comma. Spreadsheet exports do this automatically.
 - File names must be unique across the whole tree. Eval items reference files by name until source register IDs exist after ingestion.

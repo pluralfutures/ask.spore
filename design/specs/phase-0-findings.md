@@ -126,7 +126,8 @@ Authentik version, before the Phase 1 spec fixes the login flow. Check: (a) whet
 in a different browser from the one that asked for it is refused, or can be made to be;
 (b) whether a link works only once and expires; (c) whether a per-tenant brand or flow can leave
 out the email-link option where the operator turned it off; (d) SMTP delivery through Scaleway
-Transactional Email.
+Transactional Email (provider changed to Mailgun, EU region, on Oct 19, 2026; see the Stack
+Decision).
 
 **4. Embedding quality.** **Answered for English on the Phase 0 corpus** (eval set v1, section 5). Against the targets proposed here before the run, hit@10 ≥ 90 and hit@5 ≥ 80 on `factual` items: **factual hit@10 = hit@5 = 100** (29 items) at thresholds 0.20 and 0.25, and synthesis items also 100. The first expected source is at rank 1 for 40 of 48 in-corpus items. So bge-m3 with RAGFlow's hybrid score (`0.3 × vector + 0.7 × keyword`) meets the targets; there is no case for switching to `mistral-embed` or a hosted embedding on quality grounds. Caveats:
 

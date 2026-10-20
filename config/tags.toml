@@ -13,7 +13,7 @@
 # Third-party reports: PDF with "paper". The Phase 0 corpus also has third-party
 # DOCX and PPTX files under this tag; they get the methods sample-analysis uses.
 chunk_method = "paper"
-chunk_method_by_type = { docx = "naive", pptx = "presentation" }
+chunk_method_by_type = { docx = "naive", pptx = "presentation", markdown = "naive", html = "naive" }
 
 [tags.sample-analysis]
 # Own analysis: DOCX with "naive", PPTX with "presentation".
@@ -27,24 +27,25 @@ chunk_method = "naive"
 # Test client (P1a-04, owner decision Oct 19, 2026; renamed to the TAG_PATTERN form
 # Oct 20, 2026, findings E1). One tag per workspace plus the shared corpus tag; each
 # workspace's tag_ids are its own tag + cc-shared (set in the operator console).
-# PDF with "paper", PPTX with "presentation", DOCX with "naive".
+# PDF with "paper", PPTX with "presentation", DOCX with "naive"; Markdown and HTML with
+# "naive" ("paper" parses PDF only, findings E6).
 
 [tags.cc-team1-healthcare-gpo]
 # Workspace "CC Team 1 Healthcare GPO".
 chunk_method = "paper"
-chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive" }
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }
 
 [tags.cc-team2-college-universities]
 # Workspace "CC Team 2 College & Universities".
 chunk_method = "paper"
-chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive" }
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }
 
 [tags.cc-team3-commercial-restaurants]
 # Workspace "CC Team 3 Commercial Restaurants".
 chunk_method = "paper"
-chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive" }
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }
 
 [tags.cc-shared]
 # The test client's common corpus, shared by all three workspaces.
 chunk_method = "paper"
-chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive" }
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }

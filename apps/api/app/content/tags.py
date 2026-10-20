@@ -17,6 +17,10 @@ TAG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 ChunkMethod = Literal["naive", "paper", "book", "presentation", "manual", "laws", "one"]
 # Must equal app.content.models.SOURCE_TYPES (tests/test_tags.py).
 SourceType = Literal["pdf", "docx", "pptx", "html", "markdown"]
+SOURCE_TYPES: tuple[SourceType, ...] = ("pdf", "docx", "pptx", "html", "markdown")
+# Methods whose RAGFlow parser accepts PDF only ("file type not supported yet"): a tag
+# defaulting to one of them must name a method for every other source type (findings E6).
+PDF_ONLY_METHODS: frozenset[str] = frozenset({"paper", "manual"})
 
 
 class TagsConfigError(ValueError):
@@ -63,4 +67,15 @@ def load_tags(config_dir: Path) -> dict[str, TagConfig]:
     bad = [tag for tag in parsed.tags if not re.fullmatch(TAG_PATTERN, tag)]
     if bad:
         raise TagsConfigError(f"{TAGS_FILE}: tag names must be lowercase-hyphenated: {bad}")
+    for tag, config in parsed.tags.items():
+        uncovered = [
+            source_type
+            for source_type in SOURCE_TYPES
+            if source_type != "pdf" and config.chunk_method_for(source_type) in PDF_ONLY_METHODS
+        ]
+        if uncovered:
+            raise TagsConfigError(
+                f"{TAGS_FILE}: tag {tag!r} would parse {uncovered} with a PDF-only method; "
+                "set chunk_method_by_type for them"
+            )
     return dict(parsed.tags)

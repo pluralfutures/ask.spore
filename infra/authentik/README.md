@@ -15,7 +15,7 @@ branch. Differences, to re-apply on upgrade:
 | Worker's `/var/run/docker.sock` and `./certs` mounts removed | No outposts; the worker must not control the Docker host |
 | Named volumes instead of `./data`; `./templates` mounted read-only at `/templates` (upstream `./custom-templates`) | The sign-in email template is versioned here |
 | Secrets read from `./.env` as container environment, not Compose interpolation; services behind the `auth` profile | The Phase 0 stack must keep starting without Authentik secrets; without `.env` the containers refuse to start |
-| SMTP fixed to Mailgun's EU region (`smtp.eu.mailgun.org:587`, STARTTLS) | Stack decision (Mailgun, Oct 19, 2026; Authentik's email stage only speaks SMTP, the API uses Mailgun's HTTP API); credentials in `.env` |
+| SMTP over STARTTLS on port 587; host, port and credentials in `.env` | Stack decision (Oct 20, 2026): Scaleway Transactional Email (fr-par, `smtp.tem.scw.cloud`) is the primary relay, Mailgun EU (`smtp.eu.mailgun.org`) the optional backup; Authentik's email stage only speaks SMTP |
 | Update check, error reporting and startup analytics off | No calls home |
 
 ## First run (dev or the Instance)
@@ -86,6 +86,8 @@ Desk-checked against the `version-2026.8` source (findings §3 of Phase 0, item 
 - (c) **Per-tenant switch-off: not needed in Authentik.** The API sends no link for a
   tenant whose `sign_in_links_enabled` is off, and refuses completion if it was switched
   off in between.
-- (d) **SMTP over Mailgun (EU region):** configured above; delivery not yet tested. Switch
-  click tracking off on the Mailgun domain: a tracking redirect would rewrite the link,
-  and the token must stay in the fragment of our landing page.
+- (d) **SMTP over Scaleway Transactional Email (fr-par), Mailgun EU as backup:**
+  configured above; delivery not yet tested. Scaleway Transactional Email does not
+  rewrite links. If the Mailgun backup is ever switched on, click tracking must be off on
+  the Mailgun domain: a tracking redirect would rewrite the link, and the token must stay
+  in the fragment of our landing page.

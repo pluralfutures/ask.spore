@@ -163,7 +163,8 @@ See `sub-processors.md` for the maintained list; at the date of this DPA:
 | --- | --- | --- | --- |
 | Scaleway SAS | Hosting, database, storage, backups | Paris, France | EU; Scaleway DPA |
 | Scaleway SAS — Generative APIs | Language model inference (default) | Paris, France | EU; Scaleway DPA, zero-retention confirmation [pending] |
-| Mailgun Technologies, Inc. (Sinch), EU region | Sending sign-in links and platform mail (email address and the link only) | EU region | Mailgun DPA with SCCs; EU region pinned; tracking off |
+| Scaleway SAS — Transactional Email | Sending sign-in links and platform mail (email address and the link only) | Paris, France | EU; Scaleway DPA |
+| Mailgun Technologies, Inc. (Sinch), EU region — **optional backup, only if activated** | Sending sign-in links and platform mail (email address and the link only) | EU region | Mailgun DPA with SCCs; EU region pinned; tracking off; the client is notified before activation per the sub-processor change clause |
 | OpenRouter, Inc. — **only if external models are enabled** | Routing prompts to external models via EU endpoint | United States (EU endpoint) | SCCs; TIA |
 | Amazon Web Services (Bedrock) — **only if enabled**, upstream of OpenRouter | Claude inference | [eu-west-1 Ireland — pending verification; otherwise United States] | Via OpenRouter; SCCs; TIA |
 | Microsoft (Azure) — **only if enabled**, upstream of OpenRouter | GPT inference | [EU region — pending verification; otherwise United States] | Via OpenRouter; SCCs; TIA |

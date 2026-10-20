@@ -7,7 +7,7 @@ Authentik session. Each call runs in a fresh cookie jar on the Compose network.
 
 Sending (``send_sign_in_link``): the API runs the ``sign_in_flow`` (identification
 stage by email, then the email stage) through the flow executor API. Authentik's
-email stage creates a flow token and mails it over Mailgun's EU SMTP relay using
+email stage creates a flow token and mails it over the configured SMTP relay using
 our template (``infra/authentik/templates``), which puts the token in the fragment of
 our landing page, never in a URL a mail scanner could open to spend it.
 

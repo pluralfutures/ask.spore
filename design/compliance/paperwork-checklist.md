@@ -25,6 +25,7 @@ Evidence is metadata and contracts only: no real queries, no secrets, no client 
 | 10 | `anthropic/claude-opus-5.5` confirmed with one real call through `eu.openrouter.ai` with the production request shape (pin, `allow_fallbacks: false`, `zdr: true`, `data_collection: "deny"`); serving provider recorded | Engineering | Open | Same; can be the same call as item 4 |
 | 11 | `openai/gpt-6.1-sol` confirmed the same way | Engineering | Open | Same |
 | 12 | Spend cap of EUR 30.00 (3,000 cents) set for [Client] in the operator console when enabling | Operator | Open (after 1 to 11) | Audit event `operator.entitlements_changed` |
+| 13 | Email: sending domain verified in Scaleway Transactional Email (fr-par; SPF, DKIM, MX, DMARC), quota checked, covered by item 2. Mailgun EU backup: DPA with SCCs accepted and filed, EU region, tracking off, **before** the backup is ever switched on (owner decision Oct 20, 2026) | Owner | Open | [document store]/vendors/scaleway/ and /vendors/mailgun/; reference in `sub-processors.md` |
 
 Real calls in items 4 and 9 to 11 use a synthetic question, never a client query, and record only metadata (provider, model, token counts, status), never the prompt or answer text.
 

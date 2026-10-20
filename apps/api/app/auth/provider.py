@@ -3,7 +3,7 @@
 Authentik and the transactional email provider are external services. The API
 talks to them only through ``SignInLinkProvider``: ``app.auth.authentik`` is the
 real implementation (Authentik's flow executor and OIDC endpoints; Authentik's
-email stage sends the link over Mailgun's EU SMTP relay), and the tests use an
+email stage sends the link over the configured SMTP relay, Scaleway Transactional Email), and the tests use an
 in-memory fake (``tests/fake_idp.py``).
 
 The controls the compliance guide requires of sign-in links do not depend on the

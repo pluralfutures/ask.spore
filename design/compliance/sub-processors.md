@@ -15,7 +15,7 @@ Method: built from `config/models.toml` (allow-list, provider sections, catalogu
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Scaleway SAS (France) | Instances, Block Storage, Private Network; Object Storage for backups (Phase 1b) | Hosting the API, web app, database, Redis, RAGFlow index, the download content store, logs and backups | All platform data, encrypted at rest | Paris, France (fr-par) | EU processing; Scaleway DPA **[reference, date accepted]** | Always | [date] |
 | Scaleway SAS | Generative APIs (`api.scaleway.ai`), models `deepseek-v4.1-flash`, `qwen3.8-27b` | Default language-model inference, query rewrite | Prompt contents (system prompt, workspace instructions, public-source chunks, conversation turns, question); no identifiers | Paris, France | EU processing; Scaleway DPA; written zero-retention confirmation naming organisation, models and endpoint **pending** (findings M2); provider prompt-caching treatment to confirm | Every tenant | [date] |
-| Scaleway SAS | Transactional Email (`smtp.tem.scaleway.com`) | Sending single-use sign-in links | Recipient email address and the link | Paris, France | EU processing; Scaleway DPA | Every tenant with sign-in links on (default) | [date] |
+| Mailgun Technologies, Inc. (Sinch), EU region | Transactional email: SMTP relay `smtp.eu.mailgun.org` for Authentik's sign-in links; HTTP API `api.eu.mailgun.net` for the platform's own mail (invitations, operator notices; Phase 1b) | Sending single-use sign-in links and platform mail | Recipient email address, the link, and Mailgun's delivery logs (retention per Mailgun EU plan; click and open tracking switched off) | EU region (Mailgun EU data centres) | Mailgun DPA with SCCs for any US-parent access **[reference, date accepted]**; EU region pinned in configuration (owner decision Oct 19, 2026) | Every tenant with sign-in links on (default) | [date] |
 
 ## Sub-processors for the optional external-models mode
 
@@ -38,7 +38,7 @@ Used only for a tenant whose signed acceptance is on file and for which the oper
 | Service | Why not |
 | --- | --- |
 | RAGFlow (Elasticsearch, MySQL, MinIO-compatible store, Valkey, TEI embedding model `bge-m3`) | Self-hosted on our Scaleway Instance on the private Compose network; no public listener, no external calls (it is configured with no LLM of its own, findings R11) |
-| Authentik | Self-hosted on our Instance; sends mail through Scaleway Transactional Email (listed above) |
+| Authentik | Self-hosted on our Instance; sends mail through Mailgun's EU SMTP relay (listed above) |
 | PostgreSQL, Redis, Caddy | Self-hosted on our Instance |
 | Prometheus, Grafana, Loki (Phase 1b) | Self-hosted; "no SaaS APM that receives bodies" (architecture §9) |
 | Container registries (Docker Hub, GitHub Container Registry) | Images are pulled; no platform data is sent |

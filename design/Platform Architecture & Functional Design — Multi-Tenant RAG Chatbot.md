@@ -27,7 +27,8 @@ Key decisions:
 | Answer modes | Corpus-only (default); General-knowledge; Web-search. Enabled per tenant by the platform operator only; tenant admins cannot enable modes | Strict grounding by default; modes are explicit, contractual, labelled and auditable |
 | Source access | Excerpt plus link: third-party sources link to the publisher's canonical location; our own DOCX/PPTX analysis is downloadable from the platform | Licensing-safe for third-party content; our own work is ours to distribute |
 | History retention | 30 days maximum, fixed; tenant admin may shorten to 0 | Decided |
-| Hosting | Scaleway (Paris) Instances, Private Network, Object Storage, Transactional Email, Secret Manager | Single EU vendor for hosting, email and fallback inference; low expected load |
+| Hosting | Scaleway (Paris) Instances, Private Network, Object Storage, Secret Manager | Single EU vendor for hosting and fallback inference; low expected load |
+| Email | Mailgun, EU region (revised Oct 19, 2026; was Scaleway Transactional Email) | Sign-in links and the API's own transactional mail through one provider; HTTP API for the API, SMTP relay for Authentik's email stage; EU data residency, DPA and SCCs on file (compliance guide, Oct 19 update) |
 
 ---
 
@@ -76,7 +77,7 @@ flowchart LR
   subgraph EU providers
     MIS[Mistral La Plateforme\nEU, ZDR]
     SCW[Scaleway Generative APIs\nParis, no retention]
-    TEM[Scaleway Transactional Email\nsign-in links]
+    TEM[Mailgun EU region\nsign-in links]
   end
 
   OBJ[(Scaleway Object Storage\nencrypted backups)]
@@ -140,7 +141,7 @@ Login methods, all terminating at the broker so the application sees one OIDC is
 | Microsoft Entra ID | OIDC federation, one source per tenant | Tenant's Entra tenant ID pinned; group claims optionally mapped to roles |
 | Google Workspace | OIDC federation, hosted-domain restricted per tenant | `hd` claim checked |
 | Generic SSO | OIDC or SAML 2.0 source per tenant | Covers Okta, Ping, JumpCloud, Keycloak and others |
-| Emailed sign-in link | Email-link stage via Scaleway Transactional Email | Single-use, 15-minute expiry, bound to the requesting browser; rate-limited per address |
+| Emailed sign-in link | Email-link stage via Mailgun (EU region, SMTP relay) | Single-use, 15-minute expiry, bound to the requesting browser; rate-limited per address |
 
 Policy:
 
@@ -330,7 +331,7 @@ This section states how the compliance guide's controls are realised; it does no
 | Prompt-injection resistance | Retrieval is read-only; no tools; crawled and web-fetched text is wrapped as untrusted context; output scanner for system-prompt leakage |
 | Sign-in link hardening | Single-use tokens, 15-minute expiry, bound to the browser that requested them, per-address and per-IP rate limits, no account enumeration in responses |
 | Audit log | Append-only table plus daily export to write-once object storage; events: auth (with method), admin actions, package changes, mode changes, source-register changes, takedowns, support access, every query (mode, metadata and cited chunk IDs or URLs, not text) |
-| Secrets | Provider API keys, RAGFlow service key, SMTP and database credentials in Scaleway Secret Manager; rotated on schedule and on staff departure |
+| Secrets | Provider API keys, RAGFlow service key, Mailgun API key and SMTP credential, and database credentials in Scaleway Secret Manager; rotated on schedule and on staff departure |
 | Hardening | Both hosts: SSH keys only, Scaleway security groups default-deny, automatic security updates, fail2ban, container images pinned by digest, weekly vulnerability scan, annual pentest |
 
 ---
@@ -348,7 +349,7 @@ This section states how the compliance guide's controls are realised; it does no
 
 ### 10.1 Topology on Scaleway
 
-- **Region**: Paris (fr-par) for Instances, Private Network, Object Storage, Transactional Email, Secret Manager and Generative APIs.
+- **Region**: Paris (fr-par) for Instances, Private Network, Object Storage, Secret Manager and Generative APIs. Email goes through Mailgun's EU region (revised Oct 19, 2026).
 - **Environments**: dev (local Compose), staging (one small Instance), production (two Instances). Staging uses synthetic queries and a subset corpus; never real client history.
 - **Application host**: proxy, web, API, Authentik, PostgreSQL, Redis, workers, monitoring.
 - **Retrieval host**: RAGFlow stack with Elasticsearch, MySQL, MinIO, Redis and the embedding model.
@@ -380,7 +381,7 @@ This is light load. The retrieval host is sized by RAGFlow's baseline needs (par
 | Application host | 4 vCPU, 16 GB RAM, 100 GB block storage | ~€70 |
 | Staging host | 4 vCPU, 16 GB RAM, used intermittently | ~€40 |
 | Object Storage backups | ~200 GB | ~€5 |
-| Transactional Email | a few thousand sign-in links per month | ~€0–10 |
+| Mailgun (EU region) | a few thousand sign-in links per month | ~€0–35 (lowest paid plan; the free tier is not used in production) |
 | LLM usage, Mistral Large class (default) | 3,000 queries/day × ~7k tokens | ~€400–600 |
 | Mistral web-search tool (tenants with the mode enabled) | per-call pricing on top of tokens | depends on share of web-mode queries |
 
@@ -429,7 +430,7 @@ Scoping is complete. These are technical assumptions the Phase 0 build should co
 
 1. **Mistral web-search tool coverage.** Confirm the tool is available on the EU endpoint for the pinned Large model, that calls through it are covered by the zero-retention letter, and what its per-call pricing is.
 2. **RAGFlow retrieval API behaviour.** Confirm document-level metadata filters work as expected across multiple datasets in one call and that the same file linked into several datasets does not double-count in results.
-3. **Authentik email-link stage.** Confirm browser binding and single-use behaviour with Scaleway Transactional Email, and that per-tenant brands can hide the link option where it is switched off.
+3. **Authentik email-link stage.** Confirm browser binding and single-use behaviour with the transactional email provider (Scaleway Transactional Email when written; Mailgun since Oct 19, 2026), and that per-tenant brands can hide the link option where it is switched off.
 4. **Embedding model quality.** Confirm the self-hosted multilingual model meets the eval set's retrieval hit-rate target; otherwise switch to `mistral-embed` under the same DPA.
 5. **Host sizing.** Measure RAGFlow parse throughput and memory on the 8 vCPU / 32 GB retrieval host with a realistic corpus sample; resize before Phase 1 if needed.
 
@@ -478,3 +479,4 @@ Phase 1 is split. **Phase 1a** (the first test client) ships multi-tenancy with 
 | Tenant names in prompts | Permitted; matches flagged to the operator console and audit log, not to the user |
 | Downloads (superseded Oct 19, 2026, see the row above) | PDF, DOCX and PPTX in the workspace corpus; single-use 60-second links, audited, capped; only sources flagged `downloadable` |
 | Eval | Default model only (`deepseek-v4.1-flash`) |
+| Email provider | Mailgun, EU region, for every outbound email: sign-in links (Authentik's email stage over Mailgun's EU SMTP relay) and the API's own mail (invitations, operator notices) over the Mailgun HTTP API from `app.core.mail`. Replaces Scaleway Transactional Email; Scaleway keeps hosting, storage, secrets and fallback inference (owner decision Oct 19, 2026) |

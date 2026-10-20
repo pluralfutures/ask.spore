@@ -46,8 +46,9 @@ services:
       authentik-postgresql:
         condition: service_healthy
     env_file:
-      # AUTHENTIK_SECRET_KEY, AUTHENTIK_POSTGRESQL__PASSWORD, AUTHENTIK_EMAIL__USERNAME,
-      # AUTHENTIK_EMAIL__PASSWORD, AUTHENTIK_EMAIL__FROM
+      # AUTHENTIK_SECRET_KEY, AUTHENTIK_POSTGRESQL__PASSWORD, AUTHENTIK_EMAIL__HOST,
+      # AUTHENTIK_EMAIL__PORT, AUTHENTIK_EMAIL__USERNAME, AUTHENTIK_EMAIL__PASSWORD,
+      # AUTHENTIK_EMAIL__FROM
       - path: ./.env
         required: false
     environment: &authentik-env
@@ -57,10 +58,10 @@ services:
       AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
       AUTHENTIK_DISABLE_STARTUP_ANALYTICS: "true"
-      # Sign-in links go out through Mailgun's EU region, over SMTP (Authentik's email
-      # stage has no HTTP sender). The same Mailgun domain serves the API's own mail.
-      AUTHENTIK_EMAIL__HOST: smtp.eu.mailgun.org
-      AUTHENTIK_EMAIL__PORT: "587"
+      # Sign-in links go out over SMTP with STARTTLS (Authentik's email stage has no HTTP
+      # sender). AUTHENTIK_EMAIL__HOST and __PORT come from ./.env: Scaleway Transactional
+      # Email (fr-par) is the primary relay, Mailgun EU the optional backup (owner decision
+      # Oct 20, 2026). Both use STARTTLS on 587.
       AUTHENTIK_EMAIL__USE_TLS: "true"
       AUTHENTIK_EMAIL__USE_SSL: "false"
       AUTHENTIK_EMAIL__TIMEOUT: "10"

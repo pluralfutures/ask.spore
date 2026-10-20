@@ -37,7 +37,7 @@ The corpus and the manifest live on the Phase 0 Instance only. Never commit them
 | `language` | no | ISO 639-1, e.g. `en`, `de` | For spot-checking only; not used by retrieval in Phase 0. |
 | `max_pages` | no | Integer | `site` rows only; caps the crawl. |
 | `notes` | no | Free text | Anything the content editor wants recorded. Not sent to RAGFlow or the LLM. |
-| `downloadable` | no (optional column) | `true` or `false`; empty means `false` | P1a-14, licence-gated downloads: `true` only where the licence permits redistribution from our domain (our own analyses; third-party files only with the permission recorded per source). Only `pdf`, `docx` and `pptx` rows. Read for new sources only: re-running the manifest does not change the flag of a source already ingested; the operator console does, audited. The column may be left out entirely, or placed anywhere. |
+| `downloadable` | no (optional column) | `true` or `false`; empty means `false` | P1a-14, licence-gated downloads: `true` only where the licence permits redistribution from our domain (our own analyses; third-party files only with the permission recorded per source). Only `pdf`, `docx` and `pptx` rows. Read for new sources, and for an already-ingested source when its row adds a tag (re-tagging, below; the change is audited); otherwise re-running the manifest does not change the flag, and the operator console does, audited. The column may be left out entirely, or placed anywhere. |
 
 ## Rules
 
@@ -46,6 +46,7 @@ The corpus and the manifest live on the Phase 0 Instance only. Never commit them
 - Quote any field containing a comma. Spreadsheet exports do this automatically.
 - File names must be unique across the whole tree. Eval items reference files by name until source register IDs exist after ingestion.
 - The batch command validates every row before uploading anything and reports all errors at once.
+- Re-tagging: a row whose file is already ingested (same content hash) but whose `tags` include tags the source lacks uploads and parses the file again into each new tag's dataset (RAGFlow cannot link one document into a second dataset), adds the tags to the source and reports the row as `retagged`; a failure there removes only the new documents and leaves the source as it was.
 
 ## Example
 

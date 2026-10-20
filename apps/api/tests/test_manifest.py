@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
 import shutil
 from datetime import date
@@ -166,8 +167,63 @@ def test_duplicate_file_names_and_sites_are_rejected(corpus: Path) -> None:
 
 
 def test_wrong_header_is_rejected(corpus: Path) -> None:
-    [problem] = problems(write(corpus, PDF_ROW, header=HEADER.replace("licence_basis", "licence")))
-    assert problem.startswith("line 1: header must be exactly")
+    found = problems(write(corpus, PDF_ROW, header=HEADER.replace("licence_basis", "licence")))
+    assert found == (
+        "line 1: header is missing required columns: licence_basis",
+        "line 1: unknown columns: 'licence' (the only optional column is downloadable)",
+    )
+
+
+def reorder(row: str, header: list[str], order: list[str]) -> str:
+    """``row``, written for ``header``, with its fields in the column order ``order``."""
+    [fields] = csv.reader([row])
+    by_name = dict(zip(header, fields, strict=True))
+    out = io.StringIO()
+    csv.writer(out, lineterminator="").writerow([by_name[name] for name in order])
+    return out.getvalue()
+
+
+def test_columns_are_matched_by_name_in_any_order(corpus: Path) -> None:
+    # P0-09, owner decision Oct 20, 2026: downloadable in the middle, the rest shuffled.
+    header = [*COLUMNS, "downloadable"]
+    order = [
+        "title",
+        "type",
+        "downloadable",
+        *reversed([c for c in COLUMNS if c not in ("title", "type")]),
+    ]
+    rows = load_manifest(
+        write(
+            corpus,
+            reorder(PDF_ROW + ",", header, order),
+            reorder(DOCX_ROW + ",true", header, order),
+            reorder(SITE_ROW + ",", header, order),
+            header=",".join(order),
+        ),
+        TAGS,
+    )
+    assert rows == load_manifest(
+        write(corpus, PDF_ROW + ",", DOCX_ROW + ",true", SITE_ROW + ",", header=",".join(header)),
+        TAGS,
+    )
+    assert [(r.type, r.metadata.title, r.metadata.downloadable) for r in rows] == [
+        ("pdf", "Tidewater Outlook", False),
+        ("docx", "Brightwater note", True),
+        ("site", "Site", False),
+    ]
+
+
+@pytest.mark.parametrize("column", COLUMNS)
+def test_missing_required_column_is_rejected(corpus: Path, column: str) -> None:
+    header = [name for name in COLUMNS if name != column]
+    row = reorder(PDF_ROW, list(COLUMNS), header)
+    found = problems(write(corpus, row, header=",".join(header)))
+    assert found == (f"line 1: header is missing required columns: {column}",)
+
+
+def test_repeated_column_is_rejected(corpus: Path) -> None:
+    found = problems(write(corpus, PDF_ROW + ",x", header=HEADER + ",notes"))
+    assert found == ("line 1: columns listed more than once: notes",)
 
 
 def test_empty_manifest_is_rejected(corpus: Path) -> None:
@@ -376,7 +432,12 @@ def test_downloadable_column_values_are_checked(corpus: Path) -> None:
 
 def test_unknown_extra_column_is_rejected(corpus: Path) -> None:
     [problem] = problems(write(corpus, PDF_ROW + ",x", header=HEADER + ",extra"))
-    assert problem.startswith("line 1: header must be exactly")
+    assert problem == "line 1: unknown columns: 'extra' (the only optional column is downloadable)"
+    # Also in the middle, and also next to the optional column.
+    header = ["extra", *COLUMNS[:4], "downloadable", *COLUMNS[4:]]
+    row = reorder("x," + PDF_ROW + ",", ["extra", *COLUMNS, "downloadable"], header)
+    [problem] = problems(write(corpus, row, header=",".join(header)))
+    assert problem.startswith("line 1: unknown columns: 'extra'")
 
 
 def test_cli_passes_the_downloadable_flag(cli_env: list[tuple[Any, Any]], corpus: Path) -> None:

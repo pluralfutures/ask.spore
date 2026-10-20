@@ -38,7 +38,7 @@ COLUMNS = (
     "max_pages",
     "notes",
 )
-# P1a-14: an optional last column; when absent every row is not downloadable.
+# P1a-14: an optional column; when absent every row is not downloadable.
 OPTIONAL_COLUMNS = ("downloadable",)
 DOWNLOADABLE_FILE_TYPES = ("pdf", "docx", "pptx")
 _TRUE = ("true", "yes", "1")
@@ -192,6 +192,25 @@ def _row(
     return ManifestRow(line, kind, metadata, path, url, max_pages), []
 
 
+def _header_problems(header: Sequence[str]) -> list[str]:
+    """Columns are matched by name, in any order (P0-09, owner decision Oct 20, 2026)."""
+    problems: list[str] = []
+    missing = [name for name in COLUMNS if name not in header]
+    if missing:
+        problems.append(f"line 1: header is missing required columns: {', '.join(missing)}")
+    unknown = [name for name in header if name not in (*COLUMNS, *OPTIONAL_COLUMNS)]
+    if unknown:
+        allowed = ", ".join(OPTIONAL_COLUMNS)
+        problems.append(
+            f"line 1: unknown columns: {', '.join(repr(name) for name in unknown)} "
+            f"(the only optional column is {allowed})"
+        )
+    repeated = sorted({name for name in header if header.count(name) > 1})
+    if repeated:
+        problems.append(f"line 1: columns listed more than once: {', '.join(repeated)}")
+    return problems
+
+
 def load_manifest(manifest: Path, tags_config: Mapping[str, TagConfig]) -> list[ManifestRow]:
     """Parse and validate the whole manifest; raise ManifestError listing every problem."""
     try:
@@ -201,16 +220,11 @@ def load_manifest(manifest: Path, tags_config: Mapping[str, TagConfig]) -> list[
     except UnicodeDecodeError:
         raise ManifestError([f"{manifest} is not UTF-8"]) from None
     reader = csv.DictReader(io.StringIO(text, newline=""))
-    header = tuple(name.strip() for name in reader.fieldnames or ())
-    if header not in (COLUMNS, (*COLUMNS, *OPTIONAL_COLUMNS)):
-        raise ManifestError(
-            [
-                f"line 1: header must be exactly: {','.join(COLUMNS)} "
-                f"(optionally followed by ,{','.join(OPTIONAL_COLUMNS)})"
-            ]
-        )
-    if reader.fieldnames is not None:
-        reader.fieldnames = list(header)
+    header = [name.strip() for name in reader.fieldnames or ()]
+    header_problems = _header_problems(header)
+    if header_problems:
+        raise ManifestError(header_problems)
+    reader.fieldnames = header
 
     base = manifest.parent
     rows: list[ManifestRow] = []

@@ -233,7 +233,7 @@ Phase 0 may use a RAGFlow chat assistant behind our API for an early demo; it ca
 
 ### 6.1 Source register
 
-PostgreSQL table, the single source of truth for what is in the corpus and why. Fields: source ID, type (PDF, web, DOCX, PPTX), URL or file hash, publisher, title, publication date, canonical link shown to users, licence basis (licence name, permission letter reference, or "own work"), content tags, crawl/upload date, review date, status (proposed, approved, ingested, withdrawn), RAGFlow document IDs per dataset, takedown reference if any.
+PostgreSQL table, the single source of truth for what is in the corpus and why. Fields: source ID, type (PDF, web, DOCX, PPTX), URL or file hash, publisher, title, publication date, canonical link shown to users, licence basis (licence name, permission letter reference, or "own work"), content tags, crawl/upload date, review date, status (proposed, approved, ingested, withdrawn; plus failed, retryable, and rejected, Phase 1b findings A1-1), RAGFlow document IDs per dataset, takedown reference if any.
 
 No document reaches RAGFlow without an approved register row. This is both the licensing defence and the index for erasure. Licences are assumed to permit text-and-data mining and excerpt display; the register still records the basis per document so that an exception can be handled.
 
@@ -245,7 +245,7 @@ No document reaches RAGFlow without an approved register row. This is both the l
 | Crawled website | Editor registers the site, scope rules and crawl schedule → worker checks robots.txt and TDM opt-out, crawls, renders Markdown, computes hashes → changed pages are re-ingested, removed pages are withdrawn → register updated per page; the page URL is the canonical link |
 | Own analysis (DOCX/PPTX) | Editor uploads with target tags → ingested with "naive"/"presentation" method → optional metadata (project, client package) attached; the original file is kept in platform storage and served as a download link to users whose package includes the tag |
 
-Re-ingestion is versioned: a new parse creates new chunk IDs, old chunks are withdrawn, stored citations keep pointing at the old chunk ID and are shown as "superseded" in the UI.
+Re-ingestion is versioned: a new parse creates new chunk IDs, old chunks are withdrawn, stored citations keep pointing at the old chunk ID and are shown as "superseded" in the UI. A re-ingestion is a file with new content at the canonical link of exactly one ingested source; the old source is then withdrawn as in §6.3, its citations flagged superseded rather than withdrawn (Phase 1b findings A1-14).
 
 ### 6.3 Withdrawal and takedown cascade
 

@@ -1,6 +1,6 @@
 # Sample corpus manifest — `manifest.csv`
 
-Implemented by `ask-spore ingest-manifest` (P0-11, `apps/api/app/content/manifest.py`); the licence basis vocabulary is enforced as proposed below unless the owner amends it. Columns are matched by header name in any order. Two details the command fixes: `canonical_url` is required unless `licence_basis` is `own-work`, and a `site` row without `max_pages` crawls at most 50 pages.
+Implemented by `ask-spore ingest-manifest` (P0-11, `apps/api/app/content/manifest.py`; since Phase 1b through the source register and the job queue, see "Register, approval and the worker" below); the licence basis vocabulary is enforced as proposed below unless the owner amends it. Columns are matched by header name in any order. Two details the command fixes: `canonical_url` is required unless `licence_basis` is `own-work`, and a `site` row without `max_pages` crawls at most 50 pages.
 
 Format for the manifest that drives batch ingestion of the Phase 0 sample corpus (spec items P0-09, P0-10, P0-11). The columns map one-to-one onto the `ask-spore ingest` and `ask-spore crawl` flags and onto the `sources` table (P0-05).
 
@@ -46,7 +46,44 @@ The corpus and the manifest live on the Phase 0 Instance only. Never commit them
 - Quote any field containing a comma. Spreadsheet exports do this automatically.
 - File names must be unique across the whole tree. Eval items reference files by name until source register IDs exist after ingestion.
 - The batch command validates every row before uploading anything and reports all errors at once.
-- Re-tagging: a row whose file is already ingested (same content hash) but whose `tags` include tags the source lacks uploads and parses the file again into each new tag's dataset (RAGFlow cannot link one document into a second dataset), adds the tags to the source and reports the row as `retagged`; a failure there removes only the new documents and leaves the source as it was.
+- Re-tagging: a row whose file is already ingested (same content hash) but whose `tags` include tags the source lacks uploads and parses the file again into each new tag's dataset (RAGFlow cannot link one document into a second dataset), adds the tags to the source and reports the row as `retagged`; a failure there removes only the new documents and leaves the source as it was. Since Phase 1b a re-tag needs a reviewer: without `--approve-as` the row reports `retag_pending` and nothing changes.
+- `canonical_url` must identify **one document** (Phase 1b, P1b-03). A file with new content at the canonical link of exactly one ingested source is treated as that source's new version: once it is ingested, the old version is withdrawn from every dataset and citations of it show as "superseded". Do not give two different documents the same link (for example a publisher's landing page): the second would replace the first. When several ingested sources already share a link, a new file there is a new source.
+
+## Register, approval and the worker (Phase 1b)
+
+Every row goes through the source register (P1b-01, P1b-02): it is **proposed**, and nothing reaches RAGFlow until a content reviewer **approves** it. Approval queues a job; the `worker` Compose service ingests it.
+
+```
+ask-spore ingest-manifest corpus/manifest.csv --approve-as owner@example.org --wait
+```
+
+- `--approve-as <email>`: a content reviewer (an internal user with the `content_reviewer` role) approves every proposal of the run, audited. Without it the rows stay `proposed` for a reviewer (`ask-spore sources approve <source_id> --as <email>`).
+- `--propose-as <email>`: the content editor proposing; defaults to the `--approve-as` user. When that is the same person (the owner holds both roles, owner decision Oct 21, 2026) the approval is recorded as a self-approval.
+- `--wait`: wait for the worker and report what the jobs did. Without it the run ends once the jobs are queued.
+- Files are staged under `[files] content_root` by content hash at proposal, so the worker can read them; the original file names are not kept.
+- A file whose content was withdrawn after a takedown request is not proposed again (`failed`, error code `taken_down`).
+
+Row statuses in the summary (log lines and `--summary` CSV):
+
+| Status | Meaning |
+| --- | --- |
+| `proposed` | Recorded; waits for a reviewer. |
+| `retag_pending` | Already ingested; the row adds tags, which needs a reviewer. Nothing recorded. |
+| `queued` | Approved; the worker will ingest it (without `--wait`). |
+| `ingested` | Ingested (with `--wait`). |
+| `retagged` | Linked into the new tags' datasets (with `--wait`; chunk count 0, jobs record no counts). |
+| `duplicate` | Same content already ingested in every listed tag; nothing to do. |
+| `failed` | With an error code: the job's (`parse_failed`, `no_chunks`, `ragflow_…`), `taken_down`, or `needs_retry` (a failed source waiting for a reviewer's `sources retry`). |
+
+Site rows report `ok`, `failed`, or the first waiting status of their pages.
+
+Source register states: `proposed → approved → ingested → withdrawn`, plus `failed` (a reviewer retries it) and `rejected` (a reviewer declined the proposal, with a note).
+
+## Withdrawal and takedown (Phase 1b, P1b-03)
+
+- `ask-spore sources withdraw <source_id> --as <reviewer email> --reason "…" [--wait]` queues the withdrawal: the document is deleted from every dataset, its citations in users' history are flagged **withdrawn**, the register row is marked `withdrawn` with the reason and date, our stored copy is deleted, and cached answers that cite it are purged in every tenant.
+- `ask-spore sources takedown <source_id> --as <reviewer email> --reference <ref> --requested-on YYYY-MM-DD [--licence-breach]` puts a source on the takedown queue: due 10 working days (Monday to Friday) after the request, or the same day for a licence breach we find ourselves. The withdrawal is a separate reviewer step.
+- In the chat history a citation of a re-ingested source is labelled **superseded**, of a withdrawn source **withdrawn**; the stored excerpt stays.
 
 ## Example
 

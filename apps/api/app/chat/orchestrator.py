@@ -65,11 +65,9 @@ Outcome = Literal["answered", "unsupported", "abstained"]
 ABSTENTION_TEXT = "Nothing relevant was found in your research package for this question."
 # Shown instead of a corpus-only answer that cites no passage (findings section 11, G6):
 # the prompt asks for citations, and this check holds even when an instruction or the
-# model drops them.
-WITHHELD_TEXT = (
-    "No answer is shown because the reply cited none of your sources. "
-    "Try asking again or rephrasing the question."
-)
+# model drops them. The prompt's own decline ("The passages don't answer this.") cites
+# nothing either, so the text fits both cases (findings G7).
+WITHHELD_TEXT = "No answer from your sources can be shown for this question. Try rephrasing it."
 EXCERPT_MAX_CHARS = 1200
 TITLE_MAX_CHARS = 80
 _SPACE = re.compile(r"\s+")

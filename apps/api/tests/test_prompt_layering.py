@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from app.chat.orchestrator import TokenEvent
 from app.chat.prompts import active_prompt, render_system
 from app.core.config import Settings
 from app.tenancy.models import INTERNAL_TENANT_ID
@@ -165,7 +166,7 @@ async def test_general_knowledge_answers_without_a_package(
         "SELECT metadata FROM audit_events WHERE metadata->>'message_id' = $1",
         str(done.message_id),
     )
-    assert json.loads(audit)["prompt"] == "general_knowledge/v1"
+    assert json.loads(audit)["prompt"] == "general_knowledge/v2"
 
 
 async def test_general_knowledge_cites_the_corpus_and_keeps_uncited_text(
@@ -182,6 +183,25 @@ async def test_general_knowledge_cites_the_corpus_and_keeps_uncited_text(
     done = done_of(events)
     assert not done.unsupported and not done.abstained
     assert "<passage " in _messages(recorder)[-1]["content"]
+
+
+async def test_general_knowledge_streams_an_uncited_answer_unchanged(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    # The corpus-only citation check (findings section 11, G6) does not apply here.
+    conversation = await world.new_conversation(mode="general_knowledge")
+    recorder = Recorder(sse(delta("Prices tend "), delta("to fall as markets mature.")))
+    events = await run(
+        orchestrator(settings, engine, FakeRetriever(chunks_for(world)), recorder),
+        world,
+        "Prices?",
+        conversation,
+    )
+    assert [e.text for e in events if isinstance(e, TokenEvent)] == [
+        "Prices tend ",
+        "to fall as markets mature.",
+    ]
+    assert not done_of(events).unsupported
 
 
 async def test_corpus_only_still_abstains_where_general_knowledge_would_answer(

@@ -346,10 +346,12 @@ async def run(
     blocks = load_blocks(options.blocks)
     items = load_items(options.contexts, options.eval_set)
     env = dict(os.environ if environ is None else environ)
-    # Only the model is called: no database, RAGFlow, cache or API sign-in.
+    # Only the model is called: no database, RAGFlow, cache or API sign-in, so the
+    # secrets of either auth mode are fillers too (the config loader requires them).
     # An empty variable (as a CI step sets for an absent secret) counts as unset.
     fillers = {"DATABASE_URL": "unused", "RAGFLOW_API_KEY": "unused"}
     fillers["PHASE0_BEARER_TOKEN"] = UNUSED_TOKEN
+    fillers |= {"AUTHENTIK_CLIENT_SECRET": "unused", "AUTHENTIK_API_TOKEN": "unused"}
     if options.mock:
         fillers |= {"SCALEWAY_API_KEY": "mock", "MISTRAL_API_KEY": "mock"}
     for name, value in fillers.items():

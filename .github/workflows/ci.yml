@@ -146,15 +146,14 @@ jobs:
           done
           echo "Authentik did not become ready"; exit 1
       - name: Wait for Authentik's own blueprints (ours depends on three)
+        # The code goes in on stdin: the image's `ak` wrapper re-splits its arguments, so a
+        # `shell -c` program with spaces would not survive it.
         run: |
-          check='import sys
-          from authentik.blueprints.models import BlueprintInstance
-          names = ["Default - Provider authorization flow (implicit consent)",
-                   "Default - Provider invalidation flow", "System - OAuth2 Provider - Scopes"]
-          done = BlueprintInstance.objects.filter(name__in=names, status="successful").count()
-          sys.exit(0 if done == len(names) else 1)'
           for _ in $(seq 1 60); do
-            if docker compose --profile auth exec -T authentik-worker ak manage shell -c "$check"; then exit 0; fi
+            if docker compose --profile auth exec -T authentik-worker ak manage shell \
+                < blueprints/wait_for_defaults.py; then
+              exit 0
+            fi
             sleep 5
           done
           echo "Authentik's default blueprints were not applied"; exit 1

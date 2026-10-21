@@ -280,4 +280,7 @@ def test_ci_applies_it_to_an_empty_authentik() -> None:
     assert "blueprints/verify_blueprint.py" in workflow
     compose = (REPO / "infra" / "authentik" / "docker-compose.yml").read_text()
     assert compose.count("./blueprints:/blueprints/custom:ro") == 2  # server and worker
-    compile(VERIFY.read_text(), str(VERIFY), "exec")  # the check script is valid Python
+    assert "blueprints/wait_for_defaults.py" in workflow
+    # The scripts run in Authentik's shell from stdin: they must at least be valid Python.
+    for script in (VERIFY, VERIFY.with_name("wait_for_defaults.py")):
+        compile(script.read_text(), str(script), "exec")

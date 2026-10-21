@@ -27,7 +27,7 @@ external_hosts = [
 # "phase0": the shared bearer token plus X-User-Email (P0-06), kept so the eval harness
 # keeps working; needs PHASE0_BEARER_TOKEN. "oidc": Authentik sign-in links (P1a-02);
 # needs AUTHENTIK_CLIENT_SECRET and AUTHENTIK_API_TOKEN. The Instance runs one or the other.
-mode = "phase0"
+mode = "oidc"
 link_ttl_seconds = 900     # single-use sign-in links expire after 15 minutes at most
 links_per_window = 5       # per user per link lifetime; further requests send nothing
 

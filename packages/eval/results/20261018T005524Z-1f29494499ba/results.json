@@ -35,7 +35,8 @@
     },
     "corpus_version": "1995ab7326f93cd4",
     "package_datasets": 3,
-    "warnings": []
+    "warnings": [],
+    "redaction": "Answer and judged-statement text removed on Oct 21, 2026 (owner decision); metrics, counts, retrieval and judge verdicts unchanged."
   },
   "metrics": {
     "hit_at_5": 100.0,
@@ -128,7 +129,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "1. [1] &lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -158,7 +159,7 @@
       "judge": {
         "statements": [
           {
-            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -166,7 +167,7 @@
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -227,7 +228,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "1. [1] &lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -257,7 +258,7 @@
       "judge": {
         "statements": [
           {
-            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -265,7 +266,7 @@
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -305,7 +306,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "1. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -326,7 +327,7 @@
       "judge": {
         "statements": [
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -376,7 +377,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [1] 1. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -406,21 +407,21 @@
       "judge": {
         "statements": [
           {
-            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "1.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -489,7 +490,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [1] 1. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -519,21 +520,21 @@
       "judge": {
         "statements": [
           {
-            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "1.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -580,7 +581,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "2. [1] 1. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -610,7 +611,7 @@
       "judge": {
         "statements": [
           {
-            "text": "1.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -618,7 +619,7 @@
             "verdict": "no_claim"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -665,7 +666,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "1. [1] 2. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -695,7 +696,7 @@
       "judge": {
         "statements": [
           {
-            "text": "2.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -703,7 +704,7 @@
             "verdict": "no_claim"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -750,7 +751,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "1. [1] 4. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -780,7 +781,7 @@
       "judge": {
         "statements": [
           {
-            "text": "4.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -788,7 +789,7 @@
             "verdict": "no_claim"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -835,7 +836,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "1. [1] &lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -865,7 +866,7 @@
       "judge": {
         "statements": [
           {
-            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -873,7 +874,7 @@
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -920,7 +921,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "1. [1] 2. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -950,7 +951,7 @@
       "judge": {
         "statements": [
           {
-            "text": "2.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -958,7 +959,7 @@
             "verdict": "no_claim"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1033,7 +1034,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [1] 1. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1063,21 +1064,21 @@
       "judge": {
         "statements": [
           {
-            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "1.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1117,7 +1118,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1138,14 +1139,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1185,7 +1186,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1206,14 +1207,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1253,7 +1254,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1274,14 +1275,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1377,7 +1378,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025. [1] Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1407,21 +1408,21 @@
       "judge": {
         "statements": [
           {
-            "text": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1482,7 +1483,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Revenue stack Frequency response provides 55 percent of revenue; arbitrage 30 percent. [1] Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1512,21 +1513,21 @@
       "judge": {
         "statements": [
           {
-            "text": "Revenue stack Frequency response provides 55 percent of revenue; arbitrage 30 percent.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1587,7 +1588,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029. [1] Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1617,21 +1618,21 @@
       "judge": {
         "statements": [
           {
-            "text": "Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1707,7 +1708,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025. [1] Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1737,21 +1738,21 @@
       "judge": {
         "statements": [
           {
-            "text": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1791,7 +1792,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Home | News # Ferrow hydrogen pilot results Synthetic page. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1812,14 +1813,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Home | News # Ferrow hydrogen pilot results Synthetic page.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1859,7 +1860,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Home | News # Ferrow hydrogen pilot results Synthetic page. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1880,14 +1881,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Home | News # Ferrow hydrogen pilot results Synthetic page.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1927,7 +1928,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Home | News # Ferrow hydrogen pilot results Synthetic page. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1948,14 +1949,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Home | News # Ferrow hydrogen pilot results Synthetic page.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -1995,7 +1996,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2016,14 +2017,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -2063,7 +2064,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2084,14 +2085,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -2131,7 +2132,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2152,14 +2153,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -2199,7 +2200,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2220,14 +2221,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -2276,7 +2277,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "1. [1] Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2306,7 +2307,7 @@
       "judge": {
         "statements": [
           {
-            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -2314,7 +2315,7 @@
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -2369,7 +2370,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] 1. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2399,21 +2400,21 @@
       "judge": {
         "statements": [
           {
-            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "1.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -2475,7 +2476,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [1] 1. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2505,21 +2506,21 @@
       "judge": {
         "statements": [
           {
-            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "1.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -2560,7 +2561,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2581,14 +2582,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -2656,7 +2657,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "1. [1] 2. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2686,7 +2687,7 @@
       "judge": {
         "statements": [
           {
-            "text": "2.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -2694,7 +2695,7 @@
             "verdict": "no_claim"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -2755,7 +2756,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025. [1] Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2785,21 +2786,21 @@
       "judge": {
         "statements": [
           {
-            "text": "Deployed capacity Grid batteries in the fictional Kestrel Valley reached 850 MWh in 2025.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Outlook Kestrel Valley Energy Board expects 2.4 GWh of storage by 2029.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -2829,7 +2830,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -2857,7 +2858,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -2885,7 +2886,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -2921,7 +2922,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Home | News # Ferrow hydrogen pilot results Synthetic page. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2942,14 +2943,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Home | News # Ferrow hydrogen pilot results Synthetic page.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -3015,7 +3016,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "1. [1] &lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -3045,7 +3046,7 @@
       "judge": {
         "statements": [
           {
-            "text": "&lt;table&gt;&lt;caption&gt; Table 1 lists installed and planned capacity by zone.&lt;/caption&gt; &lt;tr&gt;&lt;th &gt;Zone&lt;/th&gt;&lt;th &gt;Installed 2025.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -3053,7 +3054,7 @@
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -3105,7 +3106,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis. [1] 1. [2] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -3135,21 +3136,21 @@
       "judge": {
         "statements": [
           {
-            "text": "Analysis note: heat pump adoption in BrightwaterSynthetic internal analysis.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "1.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }
@@ -3187,7 +3188,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "# Grid tariff reform in Hollin Synthetic article. [1] An unsupported aside .",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -3208,14 +3209,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Grid tariff reform in Hollin Synthetic article.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "An unsupported aside.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           }

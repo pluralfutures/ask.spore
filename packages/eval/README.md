@@ -69,7 +69,10 @@ address. The harness and the API under test must run the same `config/` (the har
 own configuration in the results; the API does not report its own).
 
 Results go to `results/<UTC timestamp>-<git sha>/`. They hold answers and judged sentences but no
-chunk text. Answers served from the API's answer cache are counted and flagged. Since P1a-05 the
+chunk text. **Committing results (owner decision, Oct 21, 2026):** only `summary.md` and a
+`results.json` with the answer and judged-statement text removed may be committed (the metrics,
+counts, retrieval and judge verdicts stay, which is all `compare` reads); answers quote the
+corpus, and publisher text does not belong in the repository. Full outputs stay on the Instance. Answers served from the API's answer cache are counted and flagged. Since P1a-05 the
 cache key includes the retrieval settings, the prompt versions, the workspace, model and reasoning,
 but not RAGFlow's own state (a re-parse without a register change), so a run meant to measure the
 model should still start from a flushed cache.

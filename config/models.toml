@@ -105,6 +105,8 @@ id = "deepseek-v4.1-flash"
 provider = "scaleway"
 display_name = "DeepSeek V4.1 Flash"
 reasoning = "thinking"
+# Scaleway refuses "medium" for DeepSeek V4.1 (low, high, xhigh, max; checked Oct 21, 2026).
+reasoning_effort_on = "high"
 currency = "EUR"
 price_in_cents_per_mtok = 60  # EUR 0.60; owner, Oct 19, 2026
 price_out_cents_per_mtok = 180  # EUR 1.80; owner, Oct 19, 2026

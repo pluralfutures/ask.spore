@@ -31,7 +31,12 @@ const ERRORS: Record<string, string> = {
   model_unavailable: "This conversation's model is not available right now.",
   model_not_enabled: "This conversation's model is no longer enabled for your organisation.",
   external_not_entitled: "This conversation's model is no longer enabled for your organisation.",
+  answer_cut_off:
+    "The model used its whole length budget before it could answer. Ask again, or start a " +
+    "new conversation with reasoning off.",
 };
+
+const CUT_OFF_NOTE = "This answer was cut off at the length limit.";
 
 export function Chat() {
   const { id = "" } = useParams();
@@ -43,6 +48,8 @@ export function Chat() {
   const [question, setQuestion] = useState("");
   const [live, setLive] = useState<Live | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
+  // Answers that stopped at the output budget, for this visit (the flag is not stored).
+  const [cutOff, setCutOff] = useState<ReadonlySet<string>>(new Set());
   const abort = useRef<AbortController | null>(null);
   // From the start panel (P1a-12): the first question, sent once, and the spend-cap
   // fallback notice, kept for this visit.
@@ -69,8 +76,11 @@ export function Chat() {
       for await (const e of api.ask(id, text, abort.current.signal)) {
         if (e.event === "token") state.text += e.data.text;
         else if (e.event === "citations") state.citations = e.data.citations;
-        else if (e.event === "done") state.done = e.data;
-        else state.error = ERRORS[e.data.error_code] ?? "The answer could not be completed.";
+        else if (e.event === "done") {
+          state.done = e.data;
+          const cut = e.data.message_id;
+          if (e.data.truncated) setCutOff((ids) => new Set(ids).add(cut));
+        } else state.error = ERRORS[e.data.error_code] ?? "The answer could not be completed.";
         setLive({ ...state });
       }
     } catch {
@@ -140,6 +150,9 @@ export function Chat() {
                   messageId={m.id}
                   onCite={(marker) => setSelection({ key: m.id, marker })}
                 />
+                {cutOff.has(m.id) ? (
+                  <p className="mt-1 text-sm text-amber-900">{CUT_OFF_NOTE}</p>
+                ) : null}
               </li>
             ),
           )}
@@ -159,6 +172,9 @@ export function Chat() {
                 ) : (
                   <p className="text-slate-600">Searching your research package…</p>
                 )}
+                {live.done?.truncated ? (
+                  <p className="mt-1 text-sm text-amber-900">{CUT_OFF_NOTE}</p>
+                ) : null}
                 {live.error ? <p className="mt-2 text-red-700">{live.error}</p> : null}
               </li>
             </>

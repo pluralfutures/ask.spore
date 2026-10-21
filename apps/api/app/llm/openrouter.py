@@ -93,6 +93,7 @@ class OpenRouterClient:
         reasoning: Mapping[str, Any] | None = None,
         provider_order: Sequence[str] = (),
         provider_only: bool = False,
+        max_tokens: int = ANSWER_MAX_TOKENS,
     ) -> AnswerStream:
         """Open a streamed answer from a pinned slug. Retries once on a 5xx at open."""
         if model not in self._config.models:
@@ -108,7 +109,7 @@ class OpenRouterClient:
                     model=model,
                     messages=messages,
                     temperature=ANSWER_TEMPERATURE,
-                    max_tokens=ANSWER_MAX_TOKENS,
+                    max_tokens=max_tokens,
                     stream=True,
                     stream_options={"include_usage": True},
                     extra_body=body,

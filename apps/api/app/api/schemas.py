@@ -23,8 +23,30 @@ class _Out(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# C0 control characters other than tab and newline (findings §12): PostgreSQL refuses
+# NUL in text, and none of them belongs in a question, comment, prompt or name.
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f]")
+
+
+def _refuse_control_chars(value: object) -> None:
+    if isinstance(value, str):
+        if _CONTROL_CHARS.search(value):
+            raise ValueError("control characters are not allowed")
+    elif isinstance(value, list | tuple | set | frozenset):
+        for item in value:
+            _refuse_control_chars(item)
+
+
 class _In(BaseModel):
+    """Base of every request body: no extra fields, no control characters in any text."""
+
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("*", mode="after")
+    @classmethod
+    def _no_control_chars(cls, value: object) -> object:
+        _refuse_control_chars(value)
+        return value
 
 
 class ConversationSummary(_Out):

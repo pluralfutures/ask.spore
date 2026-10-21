@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_tenant_id, current_user_id, db_session, require_tenant_admin
@@ -346,8 +346,19 @@ def _frame(event: ChatEvent) -> bytes:
 
 
 async def _stream(events: AsyncIterator[ChatEvent]) -> AsyncIterator[bytes]:
-    async for event in events:
-        yield _frame(event)
+    try:
+        async for event in events:
+            yield _frame(event)
+    except SQLAlchemyError as exc:
+        # A database failure mid-stream ends it with an error code; the exception's
+        # message can quote the question, so only its class name is logged (§12).
+        log(
+            "chat.stream_failed",
+            level="error",
+            exception=type(exc).__name__,
+            error_code="database_error",
+        )
+        yield _frame(ErrorEvent("database_error"))
 
 
 @router.post(

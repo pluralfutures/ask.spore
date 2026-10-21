@@ -3,6 +3,7 @@ recorded (mocked) Mistral transport."""
 
 from __future__ import annotations
 
+import contextlib
 import json
 import uuid
 from collections.abc import AsyncIterator
@@ -12,10 +13,12 @@ from typing import Any
 import httpx
 import pytest
 from fastapi import FastAPI, Request
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.api.deps import current_tenant_id, db_session
-from app.chat.orchestrator import Orchestrator
+from app.chat.orchestrator import ErrorEvent, Orchestrator
 from app.core.config import Settings
 from app.core.db import session_factory, set_tenant
 from scripts.export_openapi import OPENAPI_PATH, render
@@ -246,7 +249,10 @@ async def test_ask_rejects_client_supplied_dataset_ids(api: Harness) -> None:
     assert api.retriever.calls == []
 
 
-@pytest.mark.parametrize("body", [{}, {"question": ""}, {"question": "x" * 4001}])
+@pytest.mark.parametrize(
+    "body",
+    [{}, {"question": ""}, {"question": "x" * 4001}, {"question": "Why?\u0000"}],
+)
 async def test_ask_validates_question(api: Harness, body: dict[str, Any]) -> None:
     conversation = await api.conversation()
     response = await api.request("POST", f"/conversations/{conversation}/messages", json=body)
@@ -434,6 +440,98 @@ async def test_feedback_only_on_own_assistant_messages(api: Harness) -> None:
     assert other.status_code == 404
     bad = await api.request("POST", f"/messages/{answer}/feedback", json={"rating": "meh"})
     assert bad.status_code == 422
+
+
+SECRET = "synthetic-question-7f3a about capacity"
+FAIL_WRITES = """
+CREATE FUNCTION fail_write() RETURNS trigger LANGUAGE plpgsql AS
+$$ BEGIN RAISE EXCEPTION 'synthetic write failure'; END $$;
+CREATE TRIGGER fail_write BEFORE INSERT ON {table} FOR EACH ROW EXECUTE FUNCTION fail_write();
+"""
+
+
+@contextlib.asynccontextmanager
+async def _failing_writes(world: World, table: str) -> AsyncIterator[None]:
+    """Every insert into ``table`` fails with a non-integrity database error."""
+    await world.admin.execute(FAIL_WRITES.format(table=table))
+    try:
+        yield
+    finally:
+        await world.admin.execute(f"DROP TRIGGER fail_write ON {table}; DROP FUNCTION fail_write()")
+
+
+def _assert_no_text(capfd: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture) -> str:
+    out, err = capfd.readouterr()
+    assert SECRET not in out and SECRET not in err and SECRET not in caplog.text
+    return out
+
+
+async def test_feedback_comment_with_control_characters_is_refused(api: Harness) -> None:
+    events = await api.ask(await api.conversation(), "Q?", "Grew [1].")
+    message_id = events[-1][1]["message_id"]
+    response = await api.request(
+        "POST", f"/messages/{message_id}/feedback", json={"rating": "up", "comment": "a\u0000"}
+    )
+    assert response.status_code == 422
+
+
+async def test_engine_error_carries_no_parameter_values(engine: AsyncEngine) -> None:
+    """The app's engine (hide_parameters): PostgreSQL rejects the NUL, and the error's
+    message names no bound value."""
+    async with engine.connect() as connection:
+        with pytest.raises(DBAPIError) as caught:
+            await connection.execute(text("SELECT CAST(:v AS text)"), {"v": f"{SECRET}\x00"})
+    assert SECRET not in str(caught.value)
+    assert "[parameters:" not in str(caught.value)
+
+
+async def test_nul_question_that_reaches_postgres_leaves_no_text(
+    api: Harness, capfd: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture
+) -> None:
+    """The reviewer's case, past the schema: PostgreSQL refuses the NUL in the stored
+    question; the turn ends with an error code and the text is logged nowhere."""
+    api.recorder.add(sse(delta("Grew [1].")))
+    orchestrator: Orchestrator = api.app.state.orchestrator
+    conversation = uuid.UUID(await api.conversation())
+    events = [
+        e async for e in await orchestrator.answer(api.world.ctx, conversation, f"{SECRET}\x00")
+    ]
+    assert events[-1] == ErrorEvent("database_error")
+    out = _assert_no_text(capfd, caplog)
+    assert '"error_code":"database_error"' in out
+    count = await api.world.admin.fetchval(
+        "SELECT count(*) FROM messages WHERE conversation_id = $1", conversation
+    )
+    assert count == 0
+
+
+async def test_failing_answer_write_is_an_error_event_without_text(
+    api: Harness, capfd: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture
+) -> None:
+    conversation = await api.conversation()
+    async with _failing_writes(api.world, "messages"):
+        events = await api.ask(conversation, SECRET, "Grew [1].")
+    assert events[-1] == ("error", {"error_code": "database_error"})
+    out = _assert_no_text(capfd, caplog)
+    assert '"event":"chat.answer"' in out and '"error_code":"database_error"' in out
+
+
+async def test_failing_feedback_write_is_a_500_code_without_text(
+    api: Harness, capfd: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture
+) -> None:
+    events = await api.ask(await api.conversation(), "Q?", "Grew [1].")
+    message_id = events[-1][1]["message_id"]
+    async with _failing_writes(api.world, "feedback"):
+        response = await api.request(
+            "POST", f"/messages/{message_id}/feedback", json={"rating": "up", "comment": SECRET}
+        )
+    assert response.status_code == 500
+    assert response.json()["detail"] == "database_error"
+    assert SECRET not in response.text
+    out = _assert_no_text(capfd, caplog)
+    (line,) = [json.loads(x) for x in out.splitlines() if '"api.error"' in x]
+    assert line["route"] == "/api/v1/messages/{message_id}/feedback"
+    assert line["error_code"] == "database_error"
 
 
 async def test_source_provenance(api: Harness) -> None:

@@ -134,10 +134,10 @@ check the result once it is applied:
 
 ```
 docker compose -f infra/compose.dev.yml --profile auth run --rm authentik-worker \
-  manage apply_blueprint --dry-run custom/ask-spore.yaml
+  apply_blueprint --dry-run custom/ask-spore.yaml
 docker compose -f infra/compose.dev.yml --profile auth up -d
 docker compose -f infra/compose.dev.yml --profile auth exec -T authentik-worker \
-  ak manage shell < infra/authentik/blueprints/verify_blueprint.py
+  ak shell < infra/authentik/blueprints/verify_blueprint.py
 ```
 
 The live Instance's provisioner may have another username; the blueprint then adds

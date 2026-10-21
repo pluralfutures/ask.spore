@@ -1,6 +1,6 @@
 # Checks an Authentik that ask-spore.yaml was applied to (P1b-08). Run inside the worker:
 #   docker compose -f infra/authentik/docker-compose.yml --profile auth \
-#     exec -T authentik-worker ak manage shell < infra/authentik/blueprints/verify_blueprint.py
+#     exec -T authentik-worker ak shell < infra/authentik/blueprints/verify_blueprint.py
 # Exits non-zero, naming what is missing, when the result is not what the API relies on
 # (infra/authentik/README.md, "Configuration the API relies on"). Not a .yaml file, so
 # Authentik's blueprint discovery ignores it. Prints names only, never a secret.

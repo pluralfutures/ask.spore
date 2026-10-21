@@ -150,7 +150,7 @@ jobs:
         # `shell -c` program with spaces would not survive it.
         run: |
           for _ in $(seq 1 60); do
-            if docker compose --profile auth exec -T authentik-worker ak manage shell \
+            if docker compose --profile auth exec -T authentik-worker ak shell \
                 < blueprints/wait_for_defaults.py; then
               exit 0
             fi
@@ -158,13 +158,13 @@ jobs:
           done
           echo "Authentik's default blueprints were not applied"; exit 1
       - name: Validate the blueprint (dry run)
-        run: docker compose --profile auth exec -T authentik-worker ak manage apply_blueprint --dry-run custom/ask-spore.yaml
+        run: docker compose --profile auth exec -T authentik-worker ak apply_blueprint --dry-run custom/ask-spore.yaml
       - name: Apply the blueprint
-        run: docker compose --profile auth exec -T authentik-worker ak manage apply_blueprint custom/ask-spore.yaml
+        run: docker compose --profile auth exec -T authentik-worker ak apply_blueprint custom/ask-spore.yaml
       - name: Apply it again (idempotent)
-        run: docker compose --profile auth exec -T authentik-worker ak manage apply_blueprint custom/ask-spore.yaml
+        run: docker compose --profile auth exec -T authentik-worker ak apply_blueprint custom/ask-spore.yaml
       - name: Check the result
-        run: docker compose --profile auth exec -T authentik-worker ak manage shell < blueprints/verify_blueprint.py
+        run: docker compose --profile auth exec -T authentik-worker ak shell < blueprints/verify_blueprint.py
       - name: Authentik logs on failure
         if: failure()
         run: docker compose --profile auth logs --tail 200 authentik-server authentik-worker

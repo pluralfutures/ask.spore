@@ -575,6 +575,61 @@
         "title": "ConversationSummary",
         "type": "object"
       },
+      "DiscoverIn": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "DiscoverIn",
+        "type": "object"
+      },
+      "DiscoverOut": {
+        "description": "The sign-in methods an address's domain allows (P1b-06). The same for every\naddress of a domain, and the links-only answer for any unknown domain.",
+        "properties": {
+          "methods": {
+            "items": {
+              "enum": [
+                "sso",
+                "sign_in_link"
+              ],
+              "type": "string"
+            },
+            "title": "Methods",
+            "type": "array"
+          },
+          "sso_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "entra",
+                  "google",
+                  "oidc",
+                  "saml"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sso Kind"
+          }
+        },
+        "required": [
+          "methods",
+          "sso_kind"
+        ],
+        "title": "DiscoverOut",
+        "type": "object"
+      },
       "DoneData": {
         "properties": {
           "abstained": {
@@ -706,17 +761,12 @@
               }
             ],
             "title": "External Spend Cap Cents"
-          },
-          "sign_in_links_enabled": {
-            "title": "Sign In Links Enabled",
-            "type": "boolean"
           }
         },
         "required": [
           "answer_modes",
           "enabled_models",
-          "external_models_enabled",
-          "sign_in_links_enabled"
+          "external_models_enabled"
         ],
         "title": "EntitlementsIn",
         "type": "object"
@@ -775,10 +825,6 @@
             ],
             "title": "External Spend Cap Cents"
           },
-          "sign_in_links_enabled": {
-            "title": "Sign In Links Enabled",
-            "type": "boolean"
-          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -790,7 +836,6 @@
           "enabled_models",
           "external_models_enabled",
           "external_spend_cap_cents",
-          "sign_in_links_enabled",
           "external_acceptance_reference",
           "external_acceptance_date",
           "updated_at"
@@ -948,6 +993,91 @@
           "status"
         ],
         "title": "LinkRequestOut",
+        "type": "object"
+      },
+      "LoginPolicyIn": {
+        "additionalProperties": false,
+        "description": "The operator's switches (P1b-06). The SSO source has its own routes (P1b-07).",
+        "properties": {
+          "admin_mfa_required": {
+            "title": "Admin Mfa Required",
+            "type": "boolean"
+          },
+          "jit_provisioning_enabled": {
+            "title": "Jit Provisioning Enabled",
+            "type": "boolean"
+          },
+          "sign_in_links_enabled": {
+            "title": "Sign In Links Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sign_in_links_enabled",
+          "jit_provisioning_enabled",
+          "admin_mfa_required"
+        ],
+        "title": "LoginPolicyIn",
+        "type": "object"
+      },
+      "LoginPolicyOut": {
+        "description": "A tenant's login policy: non-secret fields only (P1b-06, P1b-07).",
+        "properties": {
+          "admin_mfa_required": {
+            "title": "Admin Mfa Required",
+            "type": "boolean"
+          },
+          "jit_provisioning_enabled": {
+            "title": "Jit Provisioning Enabled",
+            "type": "boolean"
+          },
+          "sign_in_links_enabled": {
+            "title": "Sign In Links Enabled",
+            "type": "boolean"
+          },
+          "sso_source_config": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              ]
+            },
+            "title": "Sso Source Config",
+            "type": "object"
+          },
+          "sso_source_kind": {
+            "enum": [
+              "none",
+              "entra",
+              "google",
+              "oidc",
+              "saml"
+            ],
+            "title": "Sso Source Kind",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sign_in_links_enabled",
+          "sso_source_kind",
+          "sso_source_config",
+          "jit_provisioning_enabled",
+          "admin_mfa_required",
+          "updated_at"
+        ],
+        "title": "LoginPolicyOut",
         "type": "object"
       },
       "MeOut": {
@@ -1440,6 +1570,9 @@
             "title": "Id",
             "type": "string"
           },
+          "login_policy": {
+            "$ref": "#/components/schemas/LoginPolicyOut"
+          },
           "slug": {
             "title": "Slug",
             "type": "string"
@@ -1464,7 +1597,8 @@
           "status",
           "created_at",
           "admins",
-          "entitlements"
+          "entitlements",
+          "login_policy"
         ],
         "title": "TenantOut",
         "type": "object"
@@ -2151,6 +2285,45 @@
           }
         },
         "summary": "Set Workspace Defaults"
+      }
+    },
+    "/api/v1/auth/discover": {
+      "post": {
+        "description": "Tenant discovery (P1b-06): the methods the address's domain allows. Domain-level\nonly, so it says nothing about whether the address belongs to a user; an unknown\ndomain gets the links-only answer, like any domain without SSO.",
+        "operationId": "discover_methods_api_v1_auth_discover_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoverIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discover Methods"
       }
     },
     "/api/v1/auth/link": {
@@ -2887,6 +3060,95 @@
           }
         },
         "summary": "Set Entitlements"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/login-policy": {
+      "get": {
+        "operationId": "get_login_policy_api_v1_operator_tenants__tenant_id__login_policy_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Login Policy"
+      },
+      "put": {
+        "description": "Sign-in links on or off (on by default), JIT provisioning from the tenant's SSO\nsource, and the MFA requirement for tenant admins. Audited with before and after.",
+        "operationId": "set_login_policy_api_v1_operator_tenants__tenant_id__login_policy_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginPolicyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Login Policy"
       }
     },
     "/api/v1/operator/tenants/{tenant_id}/workspaces": {

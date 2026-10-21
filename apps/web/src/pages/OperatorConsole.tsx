@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 
 import { ApiError, operatorApi } from "../api/client";
-import type { OperatorOptions, OperatorWorkspace, TenantOut } from "../api/types";
+import type { LoginPolicyIn, OperatorOptions, OperatorWorkspace, TenantOut } from "../api/types";
 import { formatDate } from "../lib/format";
 import { formFrom, toRequest, type EntitlementsForm } from "../lib/entitlements";
 
@@ -230,14 +230,6 @@ function TenantPanel({ tenant, options }: { tenant: TenantOut; options: Operator
             </label>
           ))}
         </fieldset>
-        <label>
-          <input
-            type="checkbox"
-            checked={form.signInLinksEnabled}
-            onChange={(e) => setForm({ ...form, signInLinksEnabled: e.target.checked })}
-          />{" "}
-          Sign-in links
-        </label>
         <fieldset className="flex flex-wrap items-end gap-2">
           <legend>External models (served outside the EU)</legend>
           <label>
@@ -287,6 +279,7 @@ function TenantPanel({ tenant, options }: { tenant: TenantOut; options: Operator
           <p className="text-red-700">{problem ?? errorText(save.error)}</p>
         )}
       </form>
+      <LoginPolicy tenant={tenant} />
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -325,6 +318,51 @@ function TenantPanel({ tenant, options }: { tenant: TenantOut; options: Operator
       </form>
       <Workspaces tenant={tenant} options={options} />
     </section>
+  );
+}
+
+// P1b-06: how the tenant's users sign in. Sign-in links are on by default; the operator
+// switches them off once the client's SSO is live and their IT asks for it.
+function LoginPolicy({ tenant }: { tenant: TenantOut }) {
+  const queryClient = useQueryClient();
+  const current = tenant.login_policy;
+  const [form, setForm] = useState<LoginPolicyIn>({
+    sign_in_links_enabled: current.sign_in_links_enabled,
+    jit_provisioning_enabled: current.jit_provisioning_enabled,
+    admin_mfa_required: current.admin_mfa_required,
+  });
+  const save = useMutation({
+    mutationFn: () => operatorApi.setLoginPolicy(tenant.id, form),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["operator", "tenants"] }),
+  });
+  const box = (key: keyof LoginPolicyIn, label: string) => (
+    <label>
+      <input
+        type="checkbox"
+        checked={form[key]}
+        onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
+      />{" "}
+      {label}
+    </label>
+  );
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate();
+      }}
+      className="flex flex-wrap items-center gap-3"
+    >
+      <h3 className="w-full font-semibold">Login policy</h3>
+      {box("sign_in_links_enabled", "Sign-in links")}
+      {box("jit_provisioning_enabled", "Create users on first SSO sign-in (verified domains)")}
+      {box("admin_mfa_required", "Second factor for tenant admins")}
+      <span className="text-slate-600">SSO: {current.sso_source_kind}</span>
+      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+        Save login policy
+      </button>
+      {errorText(save.error) && <p className="w-full text-red-700">{errorText(save.error)}</p>}
+    </form>
   );
 }
 

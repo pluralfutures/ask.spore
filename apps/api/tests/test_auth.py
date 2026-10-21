@@ -164,7 +164,7 @@ async def test_no_enumeration_and_no_link_for_ineligible_addresses(
     )
     if setup.get("links_off"):
         await auth.admin.execute(
-            "UPDATE tenant_entitlements SET sign_in_links_enabled = false WHERE tenant_id = $1",
+            "UPDATE tenant_login_policy SET sign_in_links_enabled = false WHERE tenant_id = $1",
             t.id,
         )
     email = f"nobody-{uuid.uuid4().hex[:6]}@client.example" if setup.get("unknown") else t.email
@@ -343,7 +343,7 @@ async def test_links_disabled_after_sending_refuses_the_sign_in(auth: Auth) -> N
     browser = auth.browser()
     await auth.request_link(browser, t.email)
     await auth.admin.execute(
-        "UPDATE tenant_entitlements SET sign_in_links_enabled = false WHERE tenant_id = $1", t.id
+        "UPDATE tenant_login_policy SET sign_in_links_enabled = false WHERE tenant_id = $1", t.id
     )
     assert (await auth.complete(browser, auth.idp.last_token())).status_code == 401
     assert (await auth.audit("auth.login_failed", t.id))[-1]["error_code"] == "links_disabled"
@@ -566,6 +566,10 @@ async def test_phase0_mode_has_no_sign_in_links(
         assert me.status_code == 200 and me.json()["email"] == ANALYST
         link = await http.post("/api/v1/auth/link", json={"email": ANALYST}, headers=headers)
         assert link.status_code == 404
+        discover = await http.post(
+            "/api/v1/auth/discover", json={"email": ANALYST}, headers=headers
+        )
+        assert discover.status_code == 404
         # An OIDC token means nothing in Phase 0 mode.
         idp = FakeSignInLinks()
         token = sign(idp.key, email=ANALYST, tenant_id=INTERNAL_TENANT_ID)

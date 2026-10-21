@@ -9,11 +9,14 @@ import type {
   ConversationCreateIn,
   ConversationDetail,
   ConversationSummary,
+  DiscoverOut,
   DownloadLink,
   FeedbackIn,
   FeedbackOut,
   EntitlementsIn,
   EntitlementsOut,
+  LoginPolicyIn,
+  LoginPolicyOut,
   Me,
   ModelOption,
   NoticeOut,
@@ -144,6 +147,19 @@ export async function completeSignIn(
   return response.ok;
 }
 
+// Tenant discovery (P1b-06): the methods the address's domain allows. Any unknown domain
+// gets the links-only answer, like every domain without SSO.
+export async function discoverMethods(email: string): Promise<DiscoverOut> {
+  const response = await fetch(`${BASE}/auth/discover`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+    credentials: "same-origin",
+  });
+  if (!response.ok) throw new ApiError(response.status);
+  return (await response.json()) as DiscoverOut;
+}
+
 export async function requestSignInLink(email: string): Promise<void> {
   const response = await fetch(`${BASE}/auth/link`, {
     method: "POST",
@@ -228,6 +244,9 @@ export const operatorApi = {
     ),
   setEntitlements: (tenantId: string, body: EntitlementsIn) =>
     json<EntitlementsOut>("PUT", `/operator/tenants/${tenantId}/entitlements`, body),
+  // Login policy (P1b-06): sign-in links, JIT provisioning, MFA for tenant admins.
+  setLoginPolicy: (tenantId: string, body: LoginPolicyIn) =>
+    json<LoginPolicyOut>("PUT", `/operator/tenants/${tenantId}/login-policy`, body),
   notices: () => json<NoticeOut[]>("GET", "/operator/notices"),
   // Package builder (P1a-04): a tenant's workspaces and their tags.
   workspaces: (tenantId: string) =>

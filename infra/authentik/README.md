@@ -87,8 +87,8 @@ Desk-checked against the `version-2026.8` source (findings §3 of Phase 0, item 
   and the token is deleted when the consent challenge is answered, not on GET. The API
   adds its own single-POST and 15-minute checks before calling Authentik.
 - (c) **Per-tenant switch-off: not needed in Authentik.** The API sends no link for a
-  tenant whose `sign_in_links_enabled` is off, and refuses completion if it was switched
-  off in between.
+  tenant whose login policy (`tenant_login_policy.sign_in_links_enabled`, P1b-06) has
+  links off, and refuses completion if they were switched off in between.
 - (d) **SMTP over Scaleway Transactional Email (fr-par), Mailgun EU as backup:**
   configured above; delivery not yet tested. Scaleway Transactional Email does not
   rewrite links. If the Mailgun backup is ever switched on, click tracking must be off on

@@ -45,7 +45,16 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
             "answer_modes": ["corpus_only"],
             "enabled_models": [MODEL],
             "external_models_enabled": False,
+        },
+    ),
+    ("GET", f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/login-policy", None),
+    (
+        "PUT",
+        f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/login-policy",
+        {
             "sign_in_links_enabled": False,
+            "jit_provisioning_enabled": False,
+            "admin_mfa_required": True,
         },
     ),
     ("GET", "/api/v1/operator/notices", None),
@@ -102,7 +111,6 @@ def entitlements(**overrides: Any) -> dict[str, Any]:
         "enabled_models": [MODEL],
         "external_models_enabled": False,
         "external_spend_cap_cents": None,
-        "sign_in_links_enabled": True,
     }
     body.update(overrides)
     return body
@@ -174,7 +182,10 @@ async def test_create_tenant_with_defaults_and_audit(console: Console) -> None:
     assert created["status"] == "active" and created["admins"] == 0
     ent = created["entitlements"]
     assert (ent["answer_modes"], ent["enabled_models"]) == (["corpus_only"], [MODEL])
-    assert ent["external_models_enabled"] is False and ent["sign_in_links_enabled"] is True
+    assert ent["external_models_enabled"] is False
+    policy = created["login_policy"]
+    assert (policy["sign_in_links_enabled"], policy["sso_source_kind"]) == (True, "none")
+    assert (policy["jit_provisioning_enabled"], policy["admin_mfa_required"]) == (False, True)
 
     tenant_id = uuid.UUID(created["id"])
     (event,) = await console.events("operator.tenant_created", tenant_id)
@@ -282,9 +293,7 @@ async def test_entitlement_change_is_audited_with_before_and_after(console: Cons
     tenant_id = (await create(op))["id"]
     response = await op.put(
         f"/api/v1/operator/tenants/{tenant_id}/entitlements",
-        json=entitlements(
-            answer_modes=["general_knowledge", "corpus_only"], sign_in_links_enabled=False
-        ),
+        json=entitlements(answer_modes=["general_knowledge", "corpus_only"]),
     )
     assert response.status_code == 200
     assert response.json()["answer_modes"] == ["corpus_only", "general_knowledge"]
@@ -292,16 +301,10 @@ async def test_entitlement_change_is_audited_with_before_and_after(console: Cons
     assert event["operator_id"] == str(await console.operator_id())
     assert event["before"]["answer_modes"] == ["corpus_only"]
     assert event["after"]["answer_modes"] == ["corpus_only", "general_knowledge"]
-    assert (event["before"]["sign_in_links_enabled"], event["after"]["sign_in_links_enabled"]) == (
-        True,
-        False,
-    )
     # Saving the same values again changes nothing and writes nothing.
     again = await op.put(
         f"/api/v1/operator/tenants/{tenant_id}/entitlements",
-        json=entitlements(
-            answer_modes=["general_knowledge", "corpus_only"], sign_in_links_enabled=False
-        ),
+        json=entitlements(answer_modes=["general_knowledge", "corpus_only"]),
     )
     assert again.status_code == 200
     assert len(await console.events("operator.entitlements_changed", uuid.UUID(tenant_id))) == 1

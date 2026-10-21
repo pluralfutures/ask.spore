@@ -27,6 +27,8 @@ from app.api.schemas import (
     AdminInviteIn,
     EntitlementsIn,
     EntitlementsOut,
+    LoginPolicyIn,
+    LoginPolicyOut,
     NoticeOut,
     OperatorMeOut,
     OperatorOptionsOut,
@@ -48,6 +50,7 @@ from app.core.logging import log
 from app.operator.deps import OperatorContext, operator_session, require_operator
 from app.operator.models import OperatorNotice
 from app.tenancy.entitlements import available_answer_modes, available_models, default_model
+from app.tenancy.login_policy import TenantLoginPolicy
 from app.tenancy.models import INTERNAL_TENANT_ID, Tenant, TenantEntitlements, User
 from app.tenancy.workspaces import Workspace
 
@@ -81,15 +84,25 @@ def _entitlement_values(row: TenantEntitlements) -> Change:
         "enabled_models": list(row.enabled_models),
         "external_models_enabled": row.external_models_enabled,
         "external_spend_cap_cents": row.external_spend_cap_cents,
-        "sign_in_links_enabled": row.sign_in_links_enabled,
         "external_acceptance_reference": row.external_acceptance_reference,
         "external_acceptance_date": accepted.isoformat() if accepted else None,
     }
 
 
+def _policy_values(row: TenantLoginPolicy) -> Change:
+    return {
+        "sign_in_links_enabled": row.sign_in_links_enabled,
+        "sso_source_kind": row.sso_source_kind,
+        "sso_source_slug": row.sso_source_slug,
+        "jit_provisioning_enabled": row.jit_provisioning_enabled,
+        "admin_mfa_required": row.admin_mfa_required,
+    }
+
+
 async def _tenant_out(session: AsyncSession, tenant: Tenant) -> TenantOut:
     entitlements = await session.get(TenantEntitlements, tenant.id)
-    if entitlements is None:
+    policy = await session.get(TenantLoginPolicy, tenant.id)
+    if entitlements is None or policy is None:
         raise NOT_FOUND
     admins = await session.scalar(
         select(func.count())
@@ -105,6 +118,7 @@ async def _tenant_out(session: AsyncSession, tenant: Tenant) -> TenantOut:
         created_at=tenant.created_at,
         admins=admins or 0,
         entitlements=EntitlementsOut.model_validate(entitlements),
+        login_policy=LoginPolicyOut.model_validate(policy),
     )
 
 
@@ -161,7 +175,6 @@ async def create_tenant(
         answer_modes=["corpus_only"],
         enabled_models=[default_model(request.app.state.settings)],
         external_models_enabled=False,
-        sign_in_links_enabled=True,
     )
     session.add(tenant)
     try:
@@ -172,6 +185,10 @@ async def create_tenant(
     await session.flush()
     await session.refresh(tenant)
     await session.refresh(entitlements)
+    # Created with the tenant by a trigger (revision 0020): links on, no SSO.
+    policy = await session.get(TenantLoginPolicy, tenant.id)
+    if policy is None:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="no_login_policy")
     await record(
         session,
         tenant_id=tenant.id,
@@ -180,7 +197,11 @@ async def create_tenant(
         metadata={
             "operator_id": str(operator.user_id),
             "before": {},
-            "after": {**_tenant_values(tenant), **_entitlement_values(entitlements)},
+            "after": {
+                **_tenant_values(tenant),
+                **_entitlement_values(entitlements),
+                **_policy_values(policy),
+            },
         },
     )
     log("operator.tenant_created", tenant_id=str(tenant.id), user_id=str(operator.user_id))
@@ -279,7 +300,6 @@ async def set_entitlements(
     row.enabled_models = sorted(set(body.enabled_models))
     row.external_models_enabled = body.external_models_enabled
     row.external_spend_cap_cents = body.external_spend_cap_cents
-    row.sign_in_links_enabled = body.sign_in_links_enabled
     if acceptance is not None:
         row.external_acceptance_reference = acceptance.reference.strip()
         row.external_acceptance_date = acceptance.accepted_on
@@ -304,6 +324,51 @@ async def set_entitlements(
             metadata=metadata,
         )
         log("operator.entitlements_changed", tenant_id=str(tenant_id), status="changed")
+    return row
+
+
+# --- login policy (P1b-06) ----------------------------------------------------------------
+
+
+@router.get("/tenants/{tenant_id}/login-policy", response_model=LoginPolicyOut)
+async def get_login_policy(
+    tenant_id: UUID, session: AsyncSession = Depends(operator_session)
+) -> TenantLoginPolicy:
+    row = await session.get(TenantLoginPolicy, tenant_id)
+    if row is None:
+        raise NOT_FOUND
+    return row
+
+
+@router.put("/tenants/{tenant_id}/login-policy", response_model=LoginPolicyOut)
+async def set_login_policy(
+    tenant_id: UUID,
+    body: LoginPolicyIn,
+    operator: OperatorContext = Depends(require_operator),
+    session: AsyncSession = Depends(operator_session),
+) -> TenantLoginPolicy:
+    """Sign-in links on or off (on by default), JIT provisioning from the tenant's SSO
+    source, and the MFA requirement for tenant admins. Audited with before and after."""
+    row = await session.get(TenantLoginPolicy, tenant_id, with_for_update=True)
+    if row is None:
+        raise NOT_FOUND
+    before = _policy_values(row)
+    row.sign_in_links_enabled = body.sign_in_links_enabled
+    row.jit_provisioning_enabled = body.jit_provisioning_enabled
+    row.admin_mfa_required = body.admin_mfa_required
+    row.updated_at = func.now()
+    await session.flush()
+    await session.refresh(row)
+    after = _policy_values(row)
+    if after != before:
+        await record(
+            session,
+            tenant_id=tenant_id,
+            actor_user_id=None,
+            event="operator.login_policy_changed",
+            metadata={"operator_id": str(operator.user_id), "before": before, "after": after},
+        )
+        log("operator.login_policy_changed", tenant_id=str(tenant_id), status="changed")
     return row
 
 

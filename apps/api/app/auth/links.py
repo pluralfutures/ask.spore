@@ -6,7 +6,7 @@ enforced here whatever the provider does:
 - **No enumeration.** ``POST /auth/link`` answers the same way, with the same
   binding cookie, for every address; the lookup and the send run after the response.
   A link is sent only when the address names exactly one invited or active user of an
-  active tenant whose sign-in-links entitlement is on.
+  active tenant whose login policy has sign-in links on (P1b-06).
 - **Browser binding.** The request sets a random binding secret in an HttpOnly,
   SameSite=Strict cookie on the requesting browser; only its SHA-256 is stored, on
   the ``sign_in_links`` row. Completion needs that cookie: a link opened in another
@@ -45,7 +45,8 @@ from app.core.config import AuthConfig
 from app.core.db import AUTH_ROLE, role_session, tenant_session
 from app.core.logging import log
 from app.tenancy.context import RequestContext, resolve_user
-from app.tenancy.models import INTERNAL_TENANT_ID, Tenant, TenantEntitlements, User
+from app.tenancy.login_policy import TenantLoginPolicy
+from app.tenancy.models import INTERNAL_TENANT_ID, Tenant, User
 
 METHOD: Final = "sign_in_link"
 MAX_EMAIL_LENGTH: Final = 320
@@ -119,12 +120,12 @@ async def _request_link(
             await session.execute(
                 select(User.id, User.tenant_id)
                 .join(Tenant, Tenant.id == User.tenant_id)
-                .join(TenantEntitlements, TenantEntitlements.tenant_id == User.tenant_id)
+                .join(TenantLoginPolicy, TenantLoginPolicy.tenant_id == User.tenant_id)
                 .where(
                     User.email == email,
                     User.status.in_(("invited", "active")),
                     Tenant.status == "active",
-                    TenantEntitlements.sign_in_links_enabled.is_(True),
+                    TenantLoginPolicy.sign_in_links_enabled.is_(True),
                 )
             )
         ).all()
@@ -252,8 +253,8 @@ async def complete_link(
         await _refuse(factory, pending.tenant_id, pending.user_id, "user_inactive")
     async with tenant_session(factory, pending.tenant_id) as session:
         enabled = await session.scalar(
-            select(TenantEntitlements.sign_in_links_enabled).where(
-                TenantEntitlements.tenant_id == pending.tenant_id
+            select(TenantLoginPolicy.sign_in_links_enabled).where(
+                TenantLoginPolicy.tenant_id == pending.tenant_id
             )
         )
         if enabled:

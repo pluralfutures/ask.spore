@@ -227,6 +227,18 @@ class LinkRequestIn(_In):
     email: str = Field(min_length=3, max_length=320)
 
 
+class DiscoverIn(_In):
+    email: str = Field(min_length=3, max_length=320)
+
+
+class DiscoverOut(BaseModel):
+    """The sign-in methods an address's domain allows (P1b-06). The same for every
+    address of a domain, and the links-only answer for any unknown domain."""
+
+    methods: list[Literal["sso", "sign_in_link"]]
+    sso_kind: Literal["entra", "google", "oidc", "saml"] | None
+
+
 class LinkRequestOut(BaseModel):
     """Identical for every address (no enumeration)."""
 
@@ -291,7 +303,6 @@ class EntitlementsIn(_In):
     enabled_models: list[str] = Field(min_length=1, max_length=20)
     external_models_enabled: bool
     external_spend_cap_cents: int | None = Field(default=None, ge=0, le=100_000_000)
-    sign_in_links_enabled: bool
     # Required when this request switches external models on.
     external_acceptance: AcceptanceIn | None = None
 
@@ -301,9 +312,27 @@ class EntitlementsOut(_Out):
     enabled_models: list[str]
     external_models_enabled: bool
     external_spend_cap_cents: int | None
-    sign_in_links_enabled: bool
     external_acceptance_reference: str | None
     external_acceptance_date: date | None
+    updated_at: datetime
+
+
+class LoginPolicyIn(_In):
+    """The operator's switches (P1b-06). The SSO source has its own routes (P1b-07)."""
+
+    sign_in_links_enabled: bool
+    jit_provisioning_enabled: bool
+    admin_mfa_required: bool
+
+
+class LoginPolicyOut(_Out):
+    """A tenant's login policy: non-secret fields only (P1b-06, P1b-07)."""
+
+    sign_in_links_enabled: bool
+    sso_source_kind: Literal["none", "entra", "google", "oidc", "saml"]
+    sso_source_config: dict[str, str | list[str]]
+    jit_provisioning_enabled: bool
+    admin_mfa_required: bool
     updated_at: datetime
 
 
@@ -316,6 +345,7 @@ class TenantOut(BaseModel):
     created_at: datetime
     admins: int
     entitlements: EntitlementsOut
+    login_policy: LoginPolicyOut
 
 
 class AdminInviteIn(_In):

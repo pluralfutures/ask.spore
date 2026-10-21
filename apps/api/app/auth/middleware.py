@@ -24,11 +24,12 @@ from app.core.phase0_auth import Phase0AuthMiddleware
 from app.tenancy.context import bind, resolve_user
 
 SESSION_COOKIE = "askspore_session"
-# Unauthenticated: liveness, the auth mode, and the sign-in link endpoints.
+# Unauthenticated: liveness, the auth mode, tenant discovery and the sign-in endpoints.
 PUBLIC_PATHS = frozenset(
     {
         "/healthz",
         "/api/v1/auth/mode",
+        "/api/v1/auth/discover",
         "/api/v1/auth/link",
         "/api/v1/auth/link/complete",
         "/api/v1/auth/logout",

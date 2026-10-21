@@ -7,6 +7,7 @@ from app.content.models import Dataset, Source
 from app.core.db import Base
 from app.files.models import Download
 from app.operator.models import Operator, OperatorNotice
+from app.tenancy.login_policy import TenantLoginPolicy
 from app.tenancy.models import Tenant, TenantEntitlements, TenantSettings, User
 from app.tenancy.workspaces import Workspace, WorkspacePrompt
 from app.usage.models import SpendNotice, UsageLedger
@@ -28,6 +29,7 @@ __all__ = [
     "SpendNotice",
     "Tenant",
     "TenantEntitlements",
+    "TenantLoginPolicy",
     "TenantSettings",
     "UsageLedger",
     "User",

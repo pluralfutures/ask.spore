@@ -1,4 +1,5 @@
-"""/api/v1/auth: sign-in links (P1a-02). Public routes; see ``app.auth.links``.
+"""/api/v1/auth: tenant discovery (P1b-06) and sign-in links (P1a-02). Public routes;
+see ``app.tenancy.login_policy`` and ``app.auth.links``.
 
 ``POST /auth/link`` sets the browser-binding cookie and answers 202 the same way for
 every address; the lookup and the email run after the response. ``POST
@@ -16,10 +17,18 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
 
-from app.api.schemas import AuthModeOut, LinkCompleteIn, LinkRequestIn, LinkRequestOut
+from app.api.schemas import (
+    AuthModeOut,
+    DiscoverIn,
+    DiscoverOut,
+    LinkCompleteIn,
+    LinkRequestIn,
+    LinkRequestOut,
+)
 from app.auth.links import SignInRefused, complete_link, new_binding, request_link
 from app.auth.middleware import SESSION_COOKIE, presented_token
 from app.auth.sessions import revoke
+from app.tenancy.login_policy import discover
 
 router = APIRouter(prefix="/api/v1/auth")
 
@@ -44,6 +53,16 @@ def _cookie(response: Response, name: str, value: str, *, max_age: int, path: st
 @router.get("/mode", response_model=AuthModeOut)
 async def auth_mode(request: Request) -> AuthModeOut:
     return AuthModeOut(mode=request.app.state.settings.models.auth.mode)
+
+
+@router.post("/discover", response_model=DiscoverOut)
+async def discover_methods(body: DiscoverIn, request: Request) -> DiscoverOut:
+    """Tenant discovery (P1b-06): the methods the address's domain allows. Domain-level
+    only, so it says nothing about whether the address belongs to a user; an unknown
+    domain gets the links-only answer, like any domain without SSO."""
+    _require_oidc(request)
+    methods, kind = (await discover(request.app.state.db_factory, body.email)).public()
+    return DiscoverOut(methods=list(methods), sso_kind=kind)
 
 
 @router.post("/link", status_code=status.HTTP_202_ACCEPTED, response_model=LinkRequestOut)

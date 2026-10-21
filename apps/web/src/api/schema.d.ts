@@ -109,6 +109,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/auth/discover": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Discover Methods
+     * @description Tenant discovery (P1b-06): the methods the address's domain allows. Domain-level
+     *     only, so it says nothing about whether the address belongs to a user; an unknown
+     *     domain gets the links-only answer, like any domain without SSO.
+     */
+    post: operations["discover_methods_api_v1_auth_discover_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/auth/link": {
     parameters: {
       query?: never;
@@ -491,6 +513,28 @@ export interface paths {
     get?: never;
     /** Set Entitlements */
     put: operations["set_entitlements_api_v1_operator_tenants__tenant_id__entitlements_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/login-policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Login Policy */
+    get: operations["get_login_policy_api_v1_operator_tenants__tenant_id__login_policy_get"];
+    /**
+     * Set Login Policy
+     * @description Sign-in links on or off (on by default), JIT provisioning from the tenant's SSO
+     *     source, and the MFA requirement for tenant admins. Audited with before and after.
+     */
+    put: operations["set_login_policy_api_v1_operator_tenants__tenant_id__login_policy_put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -901,6 +945,22 @@ export interface components {
        */
       workspace_id: string;
     };
+    /** DiscoverIn */
+    DiscoverIn: {
+      /** Email */
+      email: string;
+    };
+    /**
+     * DiscoverOut
+     * @description The sign-in methods an address's domain allows (P1b-06). The same for every
+     *     address of a domain, and the links-only answer for any unknown domain.
+     */
+    DiscoverOut: {
+      /** Methods */
+      methods: ("sso" | "sign_in_link")[];
+      /** Sso Kind */
+      sso_kind: ("entra" | "google" | "oidc" | "saml") | null;
+    };
     /** DoneData */
     DoneData: {
       /** Abstained */
@@ -949,8 +1009,6 @@ export interface components {
       external_models_enabled: boolean;
       /** External Spend Cap Cents */
       external_spend_cap_cents?: number | null;
-      /** Sign In Links Enabled */
-      sign_in_links_enabled: boolean;
     };
     /** EntitlementsOut */
     EntitlementsOut: {
@@ -966,8 +1024,6 @@ export interface components {
       external_models_enabled: boolean;
       /** External Spend Cap Cents */
       external_spend_cap_cents: number | null;
-      /** Sign In Links Enabled */
-      sign_in_links_enabled: boolean;
       /**
        * Updated At
        * Format: date-time
@@ -1037,6 +1093,44 @@ export interface components {
        * @constant
        */
       status: "sent_if_known";
+    };
+    /**
+     * LoginPolicyIn
+     * @description The operator's switches (P1b-06). The SSO source has its own routes (P1b-07).
+     */
+    LoginPolicyIn: {
+      /** Admin Mfa Required */
+      admin_mfa_required: boolean;
+      /** Jit Provisioning Enabled */
+      jit_provisioning_enabled: boolean;
+      /** Sign In Links Enabled */
+      sign_in_links_enabled: boolean;
+    };
+    /**
+     * LoginPolicyOut
+     * @description A tenant's login policy: non-secret fields only (P1b-06, P1b-07).
+     */
+    LoginPolicyOut: {
+      /** Admin Mfa Required */
+      admin_mfa_required: boolean;
+      /** Jit Provisioning Enabled */
+      jit_provisioning_enabled: boolean;
+      /** Sign In Links Enabled */
+      sign_in_links_enabled: boolean;
+      /** Sso Source Config */
+      sso_source_config: {
+        [key: string]: string | string[];
+      };
+      /**
+       * Sso Source Kind
+       * @enum {string}
+       */
+      sso_source_kind: "none" | "entra" | "google" | "oidc" | "saml";
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
     };
     /** MeOut */
     MeOut: {
@@ -1254,6 +1348,7 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      login_policy: components["schemas"]["LoginPolicyOut"];
       /** Slug */
       slug: string;
       /** Status */
@@ -1623,6 +1718,39 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["WorkspaceOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  discover_methods_api_v1_auth_discover_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DiscoverIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiscoverOut"];
         };
       };
       /** @description Validation Error */
@@ -2255,6 +2383,72 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["EntitlementsOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_login_policy_api_v1_operator_tenants__tenant_id__login_policy_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LoginPolicyOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_login_policy_api_v1_operator_tenants__tenant_id__login_policy_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LoginPolicyIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LoginPolicyOut"];
         };
       };
       /** @description Validation Error */

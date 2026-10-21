@@ -1,5 +1,6 @@
 """Tenants, users, entitlements and tenant settings. Mirrors alembic revisions 0001, 0004,
-0006 and 0011; the migrations are authoritative."""
+0006, 0011 and 0020; the migrations are authoritative. The login policy is in
+``app.tenancy.login_policy``."""
 
 from __future__ import annotations
 
@@ -113,7 +114,6 @@ class TenantEntitlements(Base):
     )
     external_models_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     external_spend_cap_cents: Mapped[int | None] = mapped_column(Integer)
-    sign_in_links_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     # The client DPA document accepting external models, and its date (P1a-03).
     external_acceptance_reference: Mapped[str | None] = mapped_column(Text)
     external_acceptance_date: Mapped[date | None] = mapped_column(Date)

@@ -73,6 +73,11 @@ CHANGE_FIELDS: Final[frozenset[str]] = frozenset(
         "external_models_enabled",
         "external_spend_cap_cents",
         "sign_in_links_enabled",
+        # Login policy (P1b-06, P1b-07): non-secret fields only.
+        "sso_source_kind",
+        "sso_source_slug",
+        "jit_provisioning_enabled",
+        "admin_mfa_required",
         "external_acceptance_reference",
         "external_acceptance_date",
         "user_id",

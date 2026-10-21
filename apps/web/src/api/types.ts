@@ -34,6 +34,10 @@ export type UserChangeIn = Schemas["UserChangeIn"];
 export type WorkspaceDefaultsIn = Schemas["WorkspaceDefaultsIn"];
 export type WorkspacePrompt = Schemas["WorkspacePromptOut"];
 export type TenantSettings = Schemas["TenantSettingsOut"];
+// Login policy and tenant discovery (P1b-06).
+export type DiscoverOut = Schemas["DiscoverOut"];
+export type LoginPolicyIn = Schemas["LoginPolicyIn"];
+export type LoginPolicyOut = Schemas["LoginPolicyOut"];
 
 export type ChatStreamEvent =
   | { event: "token"; data: TokenData }

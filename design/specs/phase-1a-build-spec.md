@@ -83,6 +83,8 @@ Build in this order; items in a group can be parallelised. Every tenant-scoped t
 
 **P1a-16 Release checks.** Phase 0 eval set on `deepseek-v4.1-flash` compared against the Phase 0 baseline; guardrail eval passing; isolation tests reviewed and signed in `design/specs/phase-1a-findings.md`; a test proving that conversations and messages older than 30 days are not returned by any read route (read-time expiry, pending the Phase 1b purge job); CLAUDE.md rules verified by a reviewer.
 
+**Status: Phase 1a closed on Oct 21, 2026** (findings §10 to §12; P1a-15 paperwork items carried by owner decision, see the compliance checklist).
+
 ## Open items for the owner
 
 - Confirmed Oct 19, 2026: Scaleway `qwen3.8-27b` (reasoning efforts none, low, medium, xhigh) and OpenRouter `openai/gpt-6.1-sol` (provider azure, EU region) and `anthropic/claude-opus-5.5` (provider amazon-bedrock, eu-west-1), reached through `https://eu.openrouter.ai/api/v1`. Prices and the USD to EUR rate (0.90) are in `config/models.toml` with the date. Findings C26, C30, C31; the provider is pinned, the regions are to be verified in P1a-15 (C32).

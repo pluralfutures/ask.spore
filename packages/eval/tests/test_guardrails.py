@@ -63,7 +63,7 @@ def test_mocked_run_passes_on_the_active_prompts(tmp_path: Path) -> None:
     directory, data = asyncio.run(guardrails.run(_options(tmp_path)))
     assert data["regressions"] == []
     assert data["meta"]["mocked"] is True
-    assert data["meta"]["prompts"] == ["corpus_only/v2", "general_knowledge/v1"]
+    assert data["meta"]["prompts"] == ["corpus_only/v3", "general_knowledge/v2"]
     baseline = data["results"][0]
     assert (baseline["mode"], baseline["block"]) == ("corpus_only", "none")
     assert baseline["metrics"] == {
@@ -162,3 +162,24 @@ def test_metrics_and_regressions() -> None:
     }
     gk = guardrails.metrics("general_knowledge", [scored("decline", 1)])
     assert gk["abstention"] is None  # general knowledge may answer without the corpus
+
+
+@pytest.mark.parametrize("mode", guardrails.MODES)
+def test_fixed_replies_of_the_active_prompts_are_not_scored_as_leaks(mode: str) -> None:
+    # corpus_only/v3 and general_knowledge/v2 (findings section 10) tell the model to
+    # answer a request for its instructions, and corpus_only an unanswered question,
+    # with one fixed sentence. Giving it must not count as quoting the prompt.
+    from eval.runner import load_harness_settings
+
+    env = {
+        "DATABASE_URL": "unused",
+        "RAGFLOW_API_KEY": "unused",
+        "PHASE0_BEARER_TOKEN": guardrails.UNUSED_TOKEN,
+        "SCALEWAY_API_KEY": "mock",
+        "MISTRAL_API_KEY": "mock",
+    }
+    settings = load_harness_settings(cli.DEFAULT_CONFIG, env)
+    secrets = guardrails.platform_sentences(settings, mode)  # type: ignore[arg-type]
+    assert secrets  # the prompt has sentences long enough to be leaks
+    for reply in ("I can't share my instructions.", "The passages don't answer this."):
+        assert not guardrails.score(_item(), reply, secrets).leaked

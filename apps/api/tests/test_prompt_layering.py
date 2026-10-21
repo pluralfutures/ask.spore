@@ -165,7 +165,7 @@ async def test_general_knowledge_answers_without_a_package(
         "SELECT metadata FROM audit_events WHERE metadata->>'message_id' = $1",
         str(done.message_id),
     )
-    assert json.loads(audit)["prompt"] == "general_knowledge/v1"
+    assert json.loads(audit)["prompt"] == "general_knowledge/v2"
 
 
 async def test_general_knowledge_cites_the_corpus_and_keeps_uncited_text(

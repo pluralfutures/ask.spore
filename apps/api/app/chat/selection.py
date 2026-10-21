@@ -82,13 +82,13 @@ def workspace_default_choice(
 ) -> ModelChoice | None:
     """The workspace's default model and reasoning, if the tenant may use them now.
 
-    Reasoning is dropped for a model without a switch. A default the tenant can no
-    longer use (disabled since, or external without the entitlement) gives way to the
-    EU fallback (findings C1), which is never an external model; None when the tenant
-    has no EU model either.
+    Reasoning is dropped for a model that cannot reason (``CatalogueEntry.can_reason``).
+    A default the tenant can no longer use (disabled since, or external without the
+    entitlement) gives way to the EU fallback (findings C1), which is never an external
+    model; None when the tenant has no EU model either.
     """
     model = catalogue.entry(settings, workspace.model)
-    if model is not None and model.reasoning == "none":
+    if model is not None and not model.can_reason:
         workspace = ModelChoice(workspace.model, False)
     try:
         check_choice(settings, ent, workspace)
@@ -168,7 +168,7 @@ async def choose_for_new_conversation(
             reasoning = default.reasoning  # off when the EU fallback replaced the default
     if reasoning is None:
         entry = catalogue.entry(settings, model)
-        reasoning = workspace_default.reasoning and entry is not None and entry.reasoning != "none"
+        reasoning = workspace_default.reasoning and entry is not None and entry.can_reason
     choice = ModelChoice(model, reasoning)
     checked = check_choice(settings, ent, choice)
     if not (checked.external and await cap_reached(session, settings, tenant_id, ent)):
@@ -179,7 +179,7 @@ async def choose_for_new_conversation(
         fallback_model = catalogue.entry(settings, default.model) if default else None
     if default is None or fallback_model is None:
         raise ModelRefused("spend_cap_reached")
-    fallback = ModelChoice(default.model, choice.reasoning and fallback_model.reasoning != "none")
+    fallback = ModelChoice(default.model, choice.reasoning and fallback_model.can_reason)
     await record(
         session,
         tenant_id=tenant_id,

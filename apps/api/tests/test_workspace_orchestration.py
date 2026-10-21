@@ -10,6 +10,7 @@ import shutil
 import uuid
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -21,7 +22,10 @@ from tests.chat_fixtures import DATASETS, World, chunks_for
 from tests.fakes import FakeRedis, FakeRetriever, delta, sse
 from tests.fakes import OpenAIRecorder as Recorder
 from tests.test_config import ENV
+from tests.test_model_catalogue import DEEPSEEK, QWEN, internal_entitlement
 from tests.test_orchestrator import done_of, orchestrator, run, text_of
+
+__all__ = ["internal_entitlement"]  # fixture reused from the catalogue tests
 
 pytestmark = pytest.mark.usefixtures("database")
 
@@ -156,9 +160,17 @@ async def test_cache_misses_on_a_prompt_version_change(
     ["workspace", "reasoning", "top_k", "similarity_threshold", "max_context_tokens"],
 )
 async def test_cache_misses_when_anything_in_the_key_changes(
-    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis, change: str
+    settings: Settings,
+    engine: AsyncEngine,
+    world: World,
+    redis: FakeRedis,
+    change: str,
+    internal_entitlement: Any,
 ) -> None:
     second_settings = settings
+    if change == "reasoning":  # a model that may reason: DeepSeek offers off only
+        await internal_entitlement([DEEPSEEK, QWEN])
+        world.model = QWEN
     second = await world.new_conversation()
     if change == "workspace":
         # Same tags, same datasets: still a different workspace, so a different answer
@@ -203,8 +215,14 @@ async def test_same_settings_still_hit_the_cache(
 
 
 async def test_audit_and_messages_record_workspace_model_and_reasoning(
-    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+    settings: Settings,
+    engine: AsyncEngine,
+    world: World,
+    redis: FakeRedis,
+    internal_entitlement: Any,
 ) -> None:
+    await internal_entitlement([DEEPSEEK, QWEN])
+    world.model = QWEN  # a model that may reason: DeepSeek offers off only
     workspace = await world.new_workspace(["sample-reports", "sample-analysis"])
     conversation = await world.new_conversation(workspace_id=workspace, reasoning=True)
     events = await run(
@@ -224,7 +242,7 @@ async def test_audit_and_messages_record_workspace_model_and_reasoning(
     )
     assert metadata["workspace_id"] == str(workspace)
     assert metadata["reasoning"] is True
-    assert metadata["model"] == "deepseek-v4.1-flash"  # what the (recorded) provider served
+    assert metadata["model"] == QWEN  # what the (recorded) provider served
     assert metadata["mode"] == "corpus_only"
     rows = await world.admin.fetch(
         "SELECT role, mode, model, reasoning FROM messages WHERE conversation_id = $1 "
@@ -233,7 +251,7 @@ async def test_audit_and_messages_record_workspace_model_and_reasoning(
     )
     assert [tuple(r) for r in rows] == [
         ("user", "corpus_only", None, None),
-        ("assistant", "corpus_only", "deepseek-v4.1-flash", True),
+        ("assistant", "corpus_only", QWEN, True),
     ]
 
 

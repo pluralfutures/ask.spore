@@ -485,7 +485,7 @@ async def test_models_route_lists_usable_models_with_external_flag(
             "id": DEEPSEEK,
             "display_name": "DeepSeek V4.1 Flash",
             "external": False,
-            "reasoning_switch": True,
+            "reasoning_switch": False,  # reasoning off only (owner decision, Oct 21, 2026)
             "default": True,
         },
         {

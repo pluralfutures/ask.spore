@@ -290,8 +290,8 @@ async def test_cap_reached_new_conversation_falls_back_and_audits(
             reasoning=True,
         )
 
-    # The default model, keeping reasoning on (DeepSeek has a thinking switch).
-    assert selection.choice == ModelChoice(DEEPSEEK, True)
+    # The default model; reasoning drops to off, as DeepSeek offers off only.
+    assert selection.choice == ModelChoice(DEEPSEEK, False)
     assert selection.notice == SPEND_CAP_NOTICE
     assert selection.notice_text is not None and "DeepSeek V4.1 Flash" in selection.notice_text
     audit = await world.admin.fetchrow(
@@ -303,7 +303,7 @@ async def test_cap_reached_new_conversation_falls_back_and_audits(
     assert audit is not None and audit["actor_user_id"] == world.user_id
     assert json.loads(audit["metadata"]) == {
         "model": DEEPSEEK,
-        "reasoning": True,
+        "reasoning": False,
         "requested_model": CLAUDE,
         "error_code": "spend_cap_reached",
     }

@@ -116,7 +116,7 @@ class LLMRouter:
         model = catalogue.entry(self._settings, choice.model)
         if model is None or not self.serves(model):
             raise LLMError("model_unavailable")
-        if choice.reasoning and model.reasoning == "none":
+        if choice.reasoning and not model.can_reason:
             raise LLMError("reasoning_unsupported")
         params = reasoning_params(model.reasoning, choice.reasoning, model.reasoning_effort_on)
         max_tokens = answer_max_tokens(choice.reasoning)

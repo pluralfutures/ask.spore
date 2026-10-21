@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import MetaData, text
@@ -52,8 +53,15 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
-def create_engine(database_url: str) -> AsyncEngine:
-    return create_async_engine(database_url, pool_pre_ping=True)
+def create_engine(database_url: str, *, connect_args: dict[str, Any] | None = None) -> AsyncEngine:
+    # hide_parameters: a DBAPIError's message never carries the statement's bound
+    # values, which include message text, feedback comments and prompts (findings §12).
+    return create_async_engine(
+        database_url,
+        pool_pre_ping=True,
+        hide_parameters=True,
+        connect_args=connect_args or {},
+    )
 
 
 def session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:

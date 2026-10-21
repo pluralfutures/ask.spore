@@ -9,8 +9,8 @@ import os
 
 from alembic import context
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import create_async_engine
 
+from app.core.db import create_engine
 from app.models import Base
 
 target_metadata = Base.metadata
@@ -30,7 +30,7 @@ def _run(connection: Connection) -> None:
 
 
 async def _run_async() -> None:
-    engine = create_async_engine(_url())
+    engine = create_engine(_url())  # hide_parameters, as the API's engine
     async with engine.connect() as connection:
         await connection.run_sync(_run)
     await engine.dispose()

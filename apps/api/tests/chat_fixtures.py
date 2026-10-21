@@ -14,11 +14,12 @@ from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.chat.orchestrator import ChatContext
 from app.core import cache
 from app.core.config import DEFAULT_CONFIG_DIR, Settings, load_settings
+from app.core.db import create_engine
 from app.retrieval.types import RetrievedChunk
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.conftest import MigratedDatabase
@@ -41,8 +42,9 @@ def settings() -> Settings:
 
 @pytest.fixture
 async def engine(database: MigratedDatabase) -> AsyncIterator[AsyncEngine]:
-    # The application role, so RLS and grants apply as in production.
-    engine = create_async_engine(
+    # The application role, so RLS and grants apply as in production, and the
+    # production engine options (hide_parameters).
+    engine = create_engine(
         database.sqlalchemy_url, connect_args={"server_settings": {"role": "askspore_app"}}
     )
     yield engine

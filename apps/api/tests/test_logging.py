@@ -38,6 +38,9 @@ def test_allow_list_matches_spec() -> None:
         "document_id",
         "manifest_line",
         "count",
+        "route",
+        "method",
+        "exception",
     }
 
 

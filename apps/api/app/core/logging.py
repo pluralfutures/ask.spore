@@ -41,6 +41,11 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         # Batch ingestion summary (P0-11): manifest line number and a row count.
         "manifest_line",
         "count",
+        # Last-resort error line (findings §12): the route template, never the raw path
+        # (a download path carries a token), the method and the exception class name.
+        "route",
+        "method",
+        "exception",
     }
 )
 

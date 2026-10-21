@@ -102,3 +102,16 @@ def read(root: Path, stored_path: str, sha256: str) -> bytes:
     if hashlib.sha256(content).hexdigest() != sha256:
         raise StoredFileError("hash_mismatch")
     return content
+
+
+def remove(root: Path, relative: str) -> bool:
+    """Delete a staged or stored copy (withdrawal, P1b-03); True when a file was removed."""
+    base = root.resolve()
+    path = (base / relative).resolve()
+    if not path.is_relative_to(base) or path == base:
+        raise StoredFileError("bad_path")
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    return True

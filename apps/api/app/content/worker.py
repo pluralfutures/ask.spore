@@ -6,8 +6,10 @@ concurrency stays as tuned in Phase 1a, findings §9). Each job type has a handl
 
 - ``ingest_source``: ``app.content.ingest.ingest_source`` for an approved source, or
   ``add_tags`` when the payload names tags to add;
-- ``withdraw_source`` and ``crawl_site``: registered by the items that build them; a
-  job of a type without a handler fails with ``unsupported_job_type``.
+- ``withdraw_source``: ``app.content.withdraw.withdraw_source`` (P1b-03), which also
+  purges the tenants' answer caches;
+- ``crawl_site``: registered by the item that builds it (P1b-04); a job of a type
+  without a handler fails with ``unsupported_job_type``.
 
 A handler returns an error code or None; transient RAGFlow failures (timeouts,
 unreachable, 5xx) are retried with backoff until the job's last attempt. While a
@@ -39,6 +41,7 @@ from app.content.ingest import (
 )
 from app.content.jobs import LEASE_SECONDS, ClaimedJob, claim, finish, release, renew
 from app.content.tags import TagConfig
+from app.content.withdraw import withdraw_source
 from app.core.logging import log
 from app.retrieval.ragflow import RagflowClient
 
@@ -122,8 +125,25 @@ def ingest_handler(ctx: Context) -> Handler:
     return handle
 
 
+def withdraw_handler(ctx: Context) -> Handler:
+    async def handle(job: ClaimedJob) -> Outcome:
+        source_id = _source_id(job)
+        if source_id is None:
+            return Outcome("bad_payload")
+        result = await withdraw_source(
+            ctx.factory, ctx.client, source_id, content_root=ctx.content_root
+        )
+        if result.status == "withdrawn":
+            return Outcome(source_id=source_id)
+        code = result.error_code or "failed"
+        retry = code in RETRYABLE or code == "cache_unavailable"
+        return Outcome(code, retry=retry, source_id=source_id)
+
+    return handle
+
+
 def handlers(ctx: Context) -> dict[str, Handler]:
-    return {"ingest_source": ingest_handler(ctx)}
+    return {"ingest_source": ingest_handler(ctx), "withdraw_source": withdraw_handler(ctx)}
 
 
 async def _keep_lease(

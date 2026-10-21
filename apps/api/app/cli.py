@@ -45,6 +45,7 @@ from app.content.ingest import (
     from_fetched,
     load_path,
 )
+from app.content.jobs import wait_for
 from app.content.manifest import (
     ManifestError,
     ManifestRow,
@@ -54,10 +55,18 @@ from app.content.manifest import (
     run_manifest,
     write_summary,
 )
-from app.content.register import RegisterError, approve, reject, retry
+from app.content.register import (
+    RegisterError,
+    approve,
+    record_takedown,
+    reject,
+    request_withdrawal,
+    retry,
+)
 from app.content.roles import RoleError, grant_role, revoke_role, user_by_email
 from app.content.submit import settle, submit
 from app.content.tags import TagConfig, load_tags
+from app.core import cache
 from app.core.config import get_settings
 from app.core.db import create_engine, session_factory
 from app.core.logging import log
@@ -424,7 +433,7 @@ async def _content_roles(args: argparse.Namespace) -> int:
 
 async def _sources(args: argparse.Namespace) -> int:
     """A reviewer's decision on one register row: approve or retry (each queues an
-    ingestion job), or reject."""
+    ingestion job), reject, withdraw (queues the withdrawal job) or record a takedown."""
     settings = get_settings()
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     source_id: UUID = args.source_id
@@ -434,6 +443,33 @@ async def _sources(args: argparse.Namespace) -> int:
         if args.sources_command == "reject":
             await reject(factory, source_id, reviewer_id, note=args.note)
             log("sources.reject", source_id=str(source_id), status="rejected")
+            return 0
+        if args.sources_command == "takedown":
+            await record_takedown(
+                factory,
+                source_id,
+                reviewer_id,
+                reference=args.reference,
+                requested_on=args.requested_on,
+                licence_breach=args.licence_breach,
+            )
+            log("sources.takedown", source_id=str(source_id), status="recorded")
+            return 0
+        if args.sources_command == "withdraw":
+            job_id = await request_withdrawal(factory, source_id, reviewer_id, reason=args.reason)
+            if args.wait:
+                found = await wait_for(factory, [job_id])
+                state = found[job_id]
+                log(
+                    "sources.withdraw",
+                    level="info" if state.status == "succeeded" else "error",
+                    source_id=str(source_id),
+                    job_id=str(job_id),
+                    status=state.status,
+                    error_code=state.error_code,
+                )
+                return 0 if state.status == "succeeded" else 1
+            log("sources.withdraw", source_id=str(source_id), job_id=str(job_id), status="queued")
             return 0
         if args.sources_command == "approve":
             job_id = await approve(
@@ -474,6 +510,8 @@ async def _worker(args: argparse.Namespace) -> int:
     for signum in (signal.SIGTERM, signal.SIGINT):
         with contextlib.suppress(NotImplementedError):  # not on every platform
             loop.add_signal_handler(signum, on_signal)
+    # The withdrawal job purges answer caches (P1b-03), only through app.core.cache.
+    cache.connect(settings.secrets.redis_url.get_secret_value())
     try:
         async with RagflowClient.from_settings(settings) as client:
             context = worker.Context(
@@ -492,6 +530,7 @@ async def _worker(args: argparse.Namespace) -> int:
     except asyncio.CancelledError:
         log("worker.stopped", status="stopped")
     finally:
+        await cache.close()
         await engine.dispose()
     return 0
 
@@ -677,6 +716,29 @@ def build_parser() -> argparse.ArgumentParser:
         if name != "reject":
             source_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
             _wait_flag(source_cmd)
+
+    withdraw_cmd = sources_commands.add_parser(
+        "withdraw",
+        help="withdraw a source everywhere: every dataset, the answer caches, and stored "
+        "citations flagged (P1b-03)",
+    )
+    withdraw_cmd.add_argument("source_id", type=UUID)
+    withdraw_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+    withdraw_cmd.add_argument("--reason", required=True, help="kept on the register row")
+    _wait_flag(withdraw_cmd)
+
+    takedown_cmd = sources_commands.add_parser(
+        "takedown",
+        help="put a source on the takedown queue: due 10 working days after the request, "
+        "or at once for a licence breach we find ourselves",
+    )
+    takedown_cmd.add_argument("source_id", type=UUID)
+    takedown_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+    takedown_cmd.add_argument("--reference", required=True, help="the request's reference")
+    takedown_cmd.add_argument(
+        "--requested-on", type=date.fromisoformat, required=True, help="YYYY-MM-DD"
+    )
+    takedown_cmd.add_argument("--licence-breach", action="store_true")
 
     worker_cmd = commands.add_parser(
         "worker",

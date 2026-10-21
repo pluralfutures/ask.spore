@@ -121,6 +121,9 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
+      # The withdrawal job purges tenants' answer caches (P1b-03).
+      redis:
+        condition: service_healthy
     env_file:
       - path: ../.env
         required: false

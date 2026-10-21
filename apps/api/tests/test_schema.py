@@ -55,7 +55,7 @@ LATER_TENANT_TABLES = (
     "content_roles",
 )
 # Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
-SET_ROLES = {"askspore_auth", "askspore_operator"}
+SET_ROLES = {"askspore_auth", "askspore_operator", "askspore_content"}
 # Tenant tables the application role cannot read (only a SET role does). Since revision
 # 0008 it may INSERT operator notices (P1a-07, and the spend notices of P1a-10, revision
 # 0009), still without reading them.

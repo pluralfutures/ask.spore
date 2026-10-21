@@ -7,12 +7,14 @@ the value lives only for that transaction, so a pooled connection never carries
 one request's tenant into another. With no tenant set, every policy matches zero
 rows (fail closed).
 
-Two narrower paths do not run under a tenant scope, each in a transaction that
+Three narrower paths do not run under a tenant scope, each in a transaction that
 switches to a dedicated NOLOGIN role (``SET LOCAL ROLE``) which ``askspore_app`` can
 assume but does not inherit:
 
 - ``askspore_auth`` (revision 0005): pre-authentication lookups for sign-in links;
-- ``askspore_operator`` (revision 0006): the operator console, outside tenant RLS.
+- ``askspore_operator`` (revision 0006): the operator console, outside tenant RLS;
+- ``askspore_content`` (revision 0015): the withdrawal job, which flags citations in
+  every tenant's history and lists tenants for the answer-cache purge.
 """
 
 from __future__ import annotations
@@ -34,6 +36,7 @@ from sqlalchemy.orm import DeclarativeBase
 APP_ROLE = "askspore_app"
 AUTH_ROLE = "askspore_auth"
 OPERATOR_ROLE = "askspore_operator"
+CONTENT_ROLE = "askspore_content"
 TENANT_SETTING = "app.tenant_id"
 
 NAMING_CONVENTION = {
@@ -46,7 +49,7 @@ NAMING_CONVENTION = {
 
 
 # Roles the API may switch to inside one transaction; never built from input.
-_SET_ROLES = frozenset({AUTH_ROLE, OPERATOR_ROLE})
+_SET_ROLES = frozenset({AUTH_ROLE, OPERATOR_ROLE, CONTENT_ROLE})
 
 
 class Base(DeclarativeBase):

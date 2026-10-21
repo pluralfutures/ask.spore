@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.audit.writer import record
 from app.content.fetch import Fetched, tdm_reserved
+from app.content.jobs import enqueue
 from app.content.models import Dataset, Source
 from app.content.store import StoredFileError, read, relative_path
 from app.content.tags import TagConfig
@@ -306,6 +307,7 @@ async def ingest_source(
                     Source.tags,
                     Source.file_sha256,
                     Source.ragflow_document_ids,
+                    Source.supersedes_id,
                 ).where(Source.id == source_id)
             )
         ).first()
@@ -410,6 +412,14 @@ async def ingest_source(
                 "error_code": result.error_code,
             },
         )
+        if result.status == "ingested" and row.supersedes_id is not None:
+            # P1b-03: the new version is live; withdraw the one it replaces.
+            await enqueue(
+                session,
+                "withdraw_source",
+                {"source_id": str(row.supersedes_id)},
+                created_by=None,
+            )
     return result
 
 

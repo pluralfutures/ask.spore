@@ -247,6 +247,11 @@
             "title": "Source Id",
             "type": "string"
           },
+          "superseded": {
+            "default": false,
+            "title": "Superseded",
+            "type": "boolean"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -254,6 +259,11 @@
           "type": {
             "title": "Type",
             "type": "string"
+          },
+          "withdrawn": {
+            "default": false,
+            "title": "Withdrawn",
+            "type": "boolean"
           }
         },
         "required": [

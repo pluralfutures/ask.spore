@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
@@ -37,6 +38,8 @@ from app.core.db import tenant_session
 from app.tenancy.models import INTERNAL_TENANT_ID
 
 MAX_NOTE_LENGTH = 2000
+MAX_REFERENCE_LENGTH = 128
+TAKEDOWN_WORKING_DAYS = 10  # architecture §6.3: from a valid request
 
 SubmissionOutcome = Literal["proposed", "pending", "duplicate", "retag", "taken_down"]
 
@@ -58,6 +61,7 @@ class Submission:
     outcome: SubmissionOutcome
     status: str
     new_tags: tuple[str, ...] = ()
+    supersedes_id: UUID | None = None  # proposed: the ingested source it will replace
 
 
 class RegisterError(ValueError):
@@ -177,6 +181,20 @@ async def propose(
         waiting = next((r for r in same if r.status in ("proposed", "approved", "failed")), None)
         if waiting is not None:
             return Submission(waiting.id, "pending", waiting.status)
+        # P1b-03: a changed file (new hash) at the canonical link of exactly one ingested
+        # source is its new version; once ingested, it replaces that source.
+        supersedes: UUID | None = None
+        if metadata.canonical_url:
+            linked = (
+                await session.scalars(
+                    select(Source.id).where(
+                        Source.canonical_url == metadata.canonical_url,
+                        Source.status == "ingested",
+                    )
+                )
+            ).all()
+            if len(linked) == 1:
+                supersedes = linked[0]
 
         row = Source(
             type=source.type,
@@ -191,6 +209,7 @@ async def propose(
             stored_path=stored_path,
             downloadable=metadata.downloadable,
             proposed_by=proposer_id,
+            supersedes_id=supersedes,
         )
         session.add(row)
         await session.flush()
@@ -203,7 +222,7 @@ async def propose(
             "proposed",
             method="cli" if proposer_id is None else "editor",
         )
-        return Submission(row.id, "proposed", "proposed")
+        return Submission(row.id, "proposed", "proposed", supersedes_id=supersedes)
 
 
 async def _locked(session: AsyncSession, source_id: UUID) -> Source:
@@ -366,3 +385,149 @@ async def approve_retag(
         if parse_timeout is not None:
             payload["parse_timeout"] = parse_timeout
         return await enqueue(session, "ingest_source", payload, created_by=reviewer_id)
+
+
+def working_days_after(start: date, days: int) -> date:
+    """The date ``days`` working days (Monday to Friday) after ``start``."""
+    current = start
+    while days > 0:
+        current += timedelta(days=1)
+        if current.weekday() < 5:
+            days -= 1
+    return current
+
+
+def takedown_due_on(requested_on: date, *, licence_breach: bool) -> date:
+    """10 working days from a valid request; the same day for a licence breach we find
+    ourselves (architecture §6.3)."""
+    if licence_breach:
+        return requested_on
+    return working_days_after(requested_on, TAKEDOWN_WORKING_DAYS)
+
+
+async def record_takedown(
+    factory: async_sessionmaker[AsyncSession],
+    source_id: UUID,
+    reviewer_id: UUID,
+    *,
+    reference: str,
+    requested_on: date,
+    licence_breach: bool,
+) -> date:
+    """Put a source on the takedown queue with its due date; returns the due date."""
+    reference = reference.strip()
+    if not reference or len(reference) > MAX_REFERENCE_LENGTH:
+        raise RegisterError("bad_reference")
+    due = takedown_due_on(requested_on, licence_breach=licence_breach)
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        roles = await require(session, reviewer_id, REVIEWER)
+        row = await _locked(session, source_id)
+        if row.status == "withdrawn":
+            raise RegisterError("already_withdrawn")
+        before: dict[str, str | int | float | bool | list[str] | None] = {
+            "takedown_reference": row.takedown_reference,
+            "takedown_due_on": row.takedown_due_on.isoformat() if row.takedown_due_on else None,
+        }
+        await session.execute(
+            update(Source)
+            .where(Source.id == source_id)
+            .values(
+                takedown_reference=reference,
+                takedown_requested_on=requested_on,
+                takedown_due_on=due,
+                updated_at=func.now(),
+            )
+        )
+        await record(
+            session,
+            tenant_id=INTERNAL_TENANT_ID,
+            actor_user_id=reviewer_id,
+            event="source.takedown_recorded",
+            metadata={
+                "source_id": str(source_id),
+                "before": before,
+                "after": {"takedown_reference": reference, "takedown_due_on": due.isoformat()},
+                "roles": sorted(roles),
+            },
+        )
+    return due
+
+
+@dataclass(frozen=True)
+class TakedownItem:
+    source_id: UUID
+    status: str
+    reference: str
+    requested_on: date
+    due_on: date
+
+    def working_days_left(self, today: date) -> int:
+        """Working days until the due date; negative when overdue."""
+        if today == self.due_on:
+            return 0
+        step = 1 if self.due_on > today else -1
+        days, current = 0, today
+        while current != self.due_on:
+            current += timedelta(days=step)
+            if current.weekday() < 5:
+                days += step
+        return days
+
+
+async def takedown_queue(session: AsyncSession) -> list[TakedownItem]:
+    """Sources with a takedown request that are not withdrawn yet, soonest due first."""
+    rows = await session.execute(
+        select(
+            Source.id,
+            Source.status,
+            Source.takedown_reference,
+            Source.takedown_requested_on,
+            Source.takedown_due_on,
+        )
+        .where(Source.takedown_due_on.is_not(None), Source.status != "withdrawn")
+        .order_by(Source.takedown_due_on, Source.created_at)
+    )
+    return [
+        TakedownItem(
+            r.id, r.status, r.takedown_reference, r.takedown_requested_on, r.takedown_due_on
+        )
+        for r in rows
+    ]
+
+
+async def request_withdrawal(
+    factory: async_sessionmaker[AsyncSession],
+    source_id: UUID,
+    reviewer_id: UUID,
+    *,
+    reason: str,
+) -> UUID:
+    """A reviewer withdraws a source: records the reason and enqueues the
+    ``withdraw_source`` job, which removes it everywhere (``app.content.withdraw``)."""
+    note = _note(reason, required=True)
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        roles = await require(session, reviewer_id, REVIEWER)
+        row = await _locked(session, source_id)
+        if row.status not in ("ingested", "failed"):
+            raise RegisterError("not_withdrawable")
+        await session.execute(
+            update(Source)
+            .where(Source.id == source_id)
+            .values(withdrawal_reason=note, updated_at=func.now())
+        )
+        job_id = await enqueue(
+            session, "withdraw_source", {"source_id": str(source_id)}, created_by=reviewer_id
+        )
+        await record(
+            session,
+            tenant_id=INTERNAL_TENANT_ID,
+            actor_user_id=reviewer_id,
+            event="source.withdrawal_requested",
+            metadata={
+                "source_id": str(source_id),
+                "before": {"status": row.status},
+                "after": {"status": row.status},
+                "roles": sorted(roles),
+            },
+        )
+    return job_id

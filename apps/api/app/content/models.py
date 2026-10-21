@@ -1,6 +1,7 @@
 """Source register and tag-to-dataset mapping. Shared corpus metadata, not tenant-scoped.
 
-Mirrors alembic revisions 0001, 0003, 0012 and 0013; the migrations are authoritative.
+Mirrors alembic revisions 0001, 0003, 0012, 0013 and 0015; the migrations are
+authoritative.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     Text,
     func,
@@ -53,7 +55,7 @@ class Source(Base):
         ),
         CheckConstraint(
             "status <> 'withdrawn' OR (withdrawn_at IS NOT NULL "
-            "AND length(btrim(withdrawal_reason)) > 0)",
+            "AND length(btrim(coalesce(withdrawal_reason, ''))) > 0)",
             name="withdrawal_recorded",
         ),
         CheckConstraint(
@@ -61,6 +63,15 @@ class Source(Base):
             "licence_file_path ~ '^licences/[0-9a-f]{64}\\.[a-z0-9]{1,8}$'",
             name="licence_file_by_hash",
         ),
+        CheckConstraint("supersedes_id IS DISTINCT FROM id", name="supersedes_another"),
+        CheckConstraint(
+            "(takedown_requested_on IS NULL AND takedown_due_on IS NULL) OR "
+            "(length(btrim(coalesce(takedown_reference, ''))) > 0 "
+            "AND takedown_requested_on IS NOT NULL "
+            "AND takedown_due_on >= takedown_requested_on)",
+            name="takedown_recorded",
+        ),
+        Index(None, "takedown_due_on"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -98,6 +109,14 @@ class Source(Base):
     review_date: Mapped[date | None] = mapped_column(Date)
     licence_file_path: Mapped[str | None] = mapped_column(Text)
     review_note: Mapped[str | None] = mapped_column(Text)
+    # Revision 0015 (P1b-03): the source a re-ingested file replaces, and the takedown
+    # queue's request date and due date (10 working days, or at once for a licence
+    # breach we find ourselves).
+    supersedes_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sources.id")
+    )
+    takedown_requested_on: Mapped[date | None] = mapped_column(Date)
+    takedown_due_on: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

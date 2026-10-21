@@ -93,6 +93,9 @@ CHANGE_FIELDS: Final[frozenset[str]] = frozenset(
         # Operator console (P1a-14): a source's download switch.
         "source_id",
         "downloadable",
+        # Takedown queue (P1b-03): the request's reference and due date.
+        "takedown_reference",
+        "takedown_due_on",
     }
 )
 CHANGE_KEYS: Final = frozenset({"before", "after"})

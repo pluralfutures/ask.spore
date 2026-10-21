@@ -18,7 +18,7 @@ import asyncio
 import hashlib
 import re
 import time
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Container, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -65,9 +65,17 @@ POLL_INTERVAL_SECONDS = 3.0
 PARSE_TIMEOUT_SECONDS = 1800.0
 MAX_ERROR_LENGTH = 2000
 
-# proposed and retag_pending wait for a reviewer (P1b-01); refused: not approved.
+# proposed and retag_pending wait for a reviewer (P1b-01); refused: not approved;
+# queued: approved, with an ingest_source job for the worker (P1b-02).
 Status = Literal[
-    "ingested", "failed", "duplicate", "retagged", "refused", "proposed", "retag_pending"
+    "ingested",
+    "failed",
+    "duplicate",
+    "retagged",
+    "refused",
+    "proposed",
+    "retag_pending",
+    "queued",
 ]
 
 
@@ -111,6 +119,8 @@ class IngestResult:
     error: str | None = None
     document_ids: dict[str, str] = field(default_factory=dict)
     tags_added: tuple[str, ...] = ()  # retagged only
+    job_id: UUID | None = None  # queued, and after waiting for the job
+    seconds: float = 0.0  # the job's run time, after waiting for it
 
 
 class _Failure(Exception):
@@ -199,12 +209,14 @@ async def _upload_and_parse(
     parse_timeout: float,
     sleep: Callable[[float], Awaitable[None]],
     clock: Callable[[], float],
+    on_upload: Callable[[dict[str, str]], Awaitable[None]] | None = None,
 ) -> tuple[dict[str, str], int, _Failure | None]:
     """Upload ``source`` to each tag's dataset and parse it to completion.
 
     Returns ``{dataset_id: document_id}``, the chunk count and the failure, if any. On
     failure the documents uploaded here are deleted; the mapping returned then holds
-    only those whose deletion failed (named in the failure's message).
+    only those whose deletion failed (named in the failure's message). ``on_upload``
+    is told the mapping after each upload, so an interrupted run can be cleaned up.
     """
     uploaded: dict[str, str] = {}  # dataset_id -> document_id
     chunk_count = 0
@@ -215,6 +227,8 @@ async def _upload_and_parse(
             dataset_id = datasets[tag]
             document = await client.upload_document(dataset_id, name, source.content)
             uploaded[dataset_id] = document.id
+            if on_upload is not None:
+                await on_upload(dict(uploaded))
             method = tags_config[tag].chunk_method_for(source.type)
             if method != tags_config[tag].chunk_method:
                 await client.set_document_chunk_method(dataset_id, document.id, method)
@@ -272,17 +286,26 @@ async def ingest_source(
     parse_timeout: float = PARSE_TIMEOUT_SECONDS,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     clock: Callable[[], float] = time.monotonic,
+    retryable: Container[str] = frozenset(),
 ) -> IngestResult:
     """Ingest one approved source into the datasets of its tags.
 
     ``refused`` (nothing touched, no call to RAGFlow) unless the row is ``approved``;
     otherwise the row ends ``ingested`` or ``failed``, audited under the internal tenant.
+    A failure whose code is in ``retryable`` leaves the row ``approved`` (the job queue
+    tries again). Each upload is recorded on the row at once, so a run that was cut off
+    (worker stopped) leaves a mapping the next run deletes from RAGFlow before uploading.
     """
     async with factory() as session:
         row = (
             await session.execute(
                 select(
-                    Source.status, Source.type, Source.title, Source.tags, Source.file_sha256
+                    Source.status,
+                    Source.type,
+                    Source.title,
+                    Source.tags,
+                    Source.file_sha256,
+                    Source.ragflow_document_ids,
                 ).where(Source.id == source_id)
             )
         ).first()
@@ -291,11 +314,30 @@ async def ingest_source(
     if row.status != "approved":
         return IngestResult(source_id=source_id, status="refused", error_code="not_approved")
 
+    async def record_uploads(mapping: dict[str, str]) -> None:
+        async with factory() as session, session.begin():
+            await session.execute(
+                update(Source)
+                .where(Source.id == source_id, Source.status == "approved")
+                .values(ragflow_document_ids=mapping, updated_at=func.now())
+            )
+
     tags = tuple(row.tags)
     uploaded: dict[str, str] = {}
     chunk_count = 0
     failure: _Failure | None = None
     try:
+        leftover: dict[str, str] = dict(row.ragflow_document_ids or {})
+        if leftover:
+            uploaded = dict(leftover)
+            try:
+                for dataset_id, document_id in leftover.items():
+                    await client.delete_documents(dataset_id, [document_id])
+                    del uploaded[dataset_id]
+            except RagflowError as exc:
+                message = f"clean-up of an interrupted run failed: {exc}"
+                raise _Failure(exc.error_code, message) from None
+            await record_uploads({})
         if row.file_sha256 is None:
             raise _Failure("no_file", "the source has no file")
         content = await _staged_content(content_root, row.file_sha256, row.type)
@@ -315,9 +357,22 @@ async def ingest_source(
             parse_timeout=parse_timeout,
             sleep=sleep,
             clock=clock,
+            on_upload=record_uploads,
         )
     except _Failure as exc:
         failure = exc
+
+    if failure is not None and failure.code in retryable:
+        # The row stays approved, mapping only what is left in RAGFlow; no audit event
+        # until the source's state changes.
+        await record_uploads(uploaded)
+        return IngestResult(
+            source_id=source_id,
+            status="failed",
+            error_code=failure.code,
+            error=_short(str(failure)),
+            document_ids=uploaded,
+        )
 
     if failure is not None:
         result = IngestResult(

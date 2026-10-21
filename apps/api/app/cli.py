@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import os
+import signal
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -31,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.auth.authentik import oidc_services
 from app.auth.provider import ProviderError
+from app.content import worker
 from app.content.crawler import crawl, page_markdown, write_pages
 from app.content.datasets import sync_datasets
 from app.content.fetch import FetchError, fetch, http_client
@@ -40,7 +43,6 @@ from app.content.ingest import (
     SourceFile,
     SourceMetadata,
     from_fetched,
-    ingest_source,
     load_path,
 )
 from app.content.manifest import (
@@ -48,12 +50,13 @@ from app.content.manifest import (
     ManifestRow,
     RowOutcome,
     load_manifest,
+    row_outcome,
     run_manifest,
     write_summary,
 )
 from app.content.register import RegisterError, approve, reject, retry
 from app.content.roles import RoleError, grant_role, revoke_role, user_by_email
-from app.content.submit import submit
+from app.content.submit import settle, submit
 from app.content.tags import TagConfig, load_tags
 from app.core.config import get_settings
 from app.core.db import create_engine, session_factory
@@ -127,6 +130,16 @@ async def _load(location: str) -> SourceFile:
     return load_path(Path(location))
 
 
+async def _wait(
+    factory: async_sessionmaker[AsyncSession], results: Sequence[IngestResult], wait: bool
+) -> list[IngestResult]:
+    """With ``--wait``, the results once the worker has run their jobs."""
+    if not wait or not any(r.status == "queued" for r in results):
+        return list(results)
+    log("jobs.waiting", status="waiting", count=sum(r.status == "queued" for r in results))
+    return await settle(factory, results)
+
+
 async def _ingest(args: argparse.Namespace) -> int:
     settings = get_settings()
     tags = load_tags(settings.config_dir)
@@ -145,18 +158,17 @@ async def _ingest(args: argparse.Namespace) -> int:
         factory = session_factory(engine)
         actors = await _actors(factory, args.propose_as, args.approve_as)
         source = await _load(args.location)
-        async with RagflowClient.from_settings(settings) as client:
-            result = await submit(
-                factory,
-                client,
-                tags,
-                source,
-                metadata,
-                content_root=settings.models.files.content_root,
-                proposer_id=actors.proposer_id,
-                reviewer_id=actors.reviewer_id,
-                parse_timeout=args.parse_timeout,
-            )
+        result = await submit(
+            factory,
+            tags,
+            source,
+            metadata,
+            content_root=settings.models.files.content_root,
+            proposer_id=actors.proposer_id,
+            reviewer_id=actors.reviewer_id,
+            parse_timeout=args.parse_timeout,
+        )
+        [result] = await _wait(factory, [result], args.wait)
     except IngestError as exc:
         # Usage problem; nothing recorded. The message names a file, URL or tag only.
         log("ingest.rejected", level="error", status="rejected", error_code=exc.code)
@@ -172,7 +184,6 @@ async def _ingest(args: argparse.Namespace) -> int:
 
 async def _crawl_site(
     tags: Mapping[str, TagConfig],
-    client: RagflowClient,
     factory: async_sessionmaker[AsyncSession],
     *,
     site_url: str,
@@ -185,7 +196,7 @@ async def _crawl_site(
     actors: _Actors,
     content_root: Path,
 ) -> tuple[str, list[IngestResult]]:
-    """Crawl one site and ingest every page; returns the crawl status and the results.
+    """Crawl one site and submit every page; returns the crawl status and the results.
 
     Raises FetchError when the start URL cannot be fetched at all.
     """
@@ -208,7 +219,6 @@ async def _crawl_site(
     for page, path in zip(report.pages, paths, strict=True):
         result = await submit(
             factory,
-            client,
             tags,
             SourceFile(path.name, "markdown", page_markdown(page).encode()),
             SourceMetadata(
@@ -238,21 +248,23 @@ async def _crawl(args: argparse.Namespace) -> int:
     try:
         factory = session_factory(engine)
         actors = await _actors(factory, args.propose_as, args.approve_as)
-        async with RagflowClient.from_settings(settings) as client:
-            status, results = await _crawl_site(
-                tags,
-                client,
-                factory,
-                site_url=args.site_url,
-                tag=args.tag,
-                max_pages=args.max_pages,
-                licence=args.licence,
-                publisher=args.publisher,
-                out_dir=args.out_dir,
-                parse_timeout=args.parse_timeout,
-                actors=actors,
-                content_root=settings.models.files.content_root,
-            )
+        status, results = await _crawl_site(
+            tags,
+            factory,
+            site_url=args.site_url,
+            tag=args.tag,
+            max_pages=args.max_pages,
+            licence=args.licence,
+            publisher=args.publisher,
+            out_dir=args.out_dir,
+            parse_timeout=args.parse_timeout,
+            actors=actors,
+            content_root=settings.models.files.content_root,
+        )
+        if args.wait and results:
+            results = await _wait(factory, results, args.wait)
+            for result in results:
+                _log_ingest(result)
     except FetchError as exc:
         raise SystemExit(f"ask-spore crawl: {exc}") from None
     except (IngestError, RoleError, RegisterError) as exc:
@@ -303,63 +315,81 @@ async def _ingest_manifest(args: argparse.Namespace) -> int:
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     factory = session_factory(engine)
     content_root = settings.models.files.content_root
+    submitted: dict[int, tuple[float, str | None, list[IngestResult]]] = {}
     try:
         try:
             actors = await _actors(factory, args.propose_as, args.approve_as)
         except RoleError as exc:
             log("manifest.rejected", level="error", status="rejected", error_code=exc.code)
             raise SystemExit(f"ask-spore ingest-manifest: {exc.code}") from None
-        async with RagflowClient.from_settings(settings) as client:
 
-            async def ingest_file(row: ManifestRow) -> IngestResult:
-                if row.path is None:
-                    raise AssertionError("validated file rows have a path")
-                try:
-                    result = await submit(
-                        factory,
-                        client,
-                        tags,
-                        load_path(row.path),
-                        row.metadata,
-                        content_root=content_root,
-                        proposer_id=actors.proposer_id,
-                        reviewer_id=actors.reviewer_id,
-                        parse_timeout=args.parse_timeout,
-                    )
-                except IngestError as exc:  # validated, so only no_dataset or I/O
-                    raise SystemExit(f"ask-spore ingest-manifest: line {row.line}: {exc}") from None
-                except (RoleError, RegisterError) as exc:
-                    raise SystemExit(
-                        f"ask-spore ingest-manifest: line {row.line}: {exc.code}"
-                    ) from None
+        async def ingest_file(row: ManifestRow) -> IngestResult:
+            if row.path is None:
+                raise AssertionError("validated file rows have a path")
+            try:
+                result = await submit(
+                    factory,
+                    tags,
+                    load_path(row.path),
+                    row.metadata,
+                    content_root=content_root,
+                    proposer_id=actors.proposer_id,
+                    reviewer_id=actors.reviewer_id,
+                    parse_timeout=args.parse_timeout,
+                )
+            except IngestError as exc:  # validated, so only no_dataset or I/O
+                raise SystemExit(f"ask-spore ingest-manifest: line {row.line}: {exc}") from None
+            except (RoleError, RegisterError) as exc:
+                raise SystemExit(
+                    f"ask-spore ingest-manifest: line {row.line}: {exc.code}"
+                ) from None
+            _log_ingest(result)
+            submitted[row.line] = (0.0, None, [result])
+            return result
+
+        async def crawl_site(row: ManifestRow) -> tuple[str, list[IngestResult]]:
+            if row.url is None:
+                raise AssertionError("validated site rows have a URL")
+            try:
+                status, results = await _crawl_site(
+                    tags,
+                    factory,
+                    site_url=row.url,
+                    tag=row.metadata.tags,
+                    max_pages=row.max_pages,
+                    licence=row.metadata.licence_basis,
+                    publisher=row.metadata.publisher,
+                    out_dir=str(Path(args.crawl_dir) / f"line-{row.line}")
+                    if args.crawl_dir
+                    else None,
+                    parse_timeout=args.parse_timeout,
+                    actors=actors,
+                    content_root=content_root,
+                )
+            except FetchError as exc:
+                log("crawl.failed", level="error", status="failed", error_code=exc.code)
+                status, results = exc.code, []
+            except (IngestError, RoleError, RegisterError) as exc:
+                raise SystemExit(
+                    f"ask-spore ingest-manifest: line {row.line}: {exc.code}"
+                ) from None
+            submitted[row.line] = (0.0, status, results)
+            return status, results
+
+        outcomes = await run_manifest(rows, ingest_file, crawl_site)
+        if args.wait:
+            flat = [r for _, _, results in submitted.values() for r in results]
+            settled = iter(await _wait(factory, flat, args.wait))
+            by_line = {
+                line: [next(settled) for _ in results]
+                for line, (_, _, results) in submitted.items()
+            }
+            outcomes = [
+                row_outcome(row, by_line[row.line], outcome.seconds, submitted[row.line][1])
+                for row, outcome in zip(rows, outcomes, strict=True)
+            ]
+            for result in (r for results in by_line.values() for r in results):
                 _log_ingest(result)
-                return result
-
-            async def crawl_site(row: ManifestRow) -> tuple[str, list[IngestResult]]:
-                if row.url is None:
-                    raise AssertionError("validated site rows have a URL")
-                try:
-                    return await _crawl_site(
-                        tags,
-                        client,
-                        factory,
-                        site_url=row.url,
-                        tag=row.metadata.tags,
-                        max_pages=row.max_pages,
-                        licence=row.metadata.licence_basis,
-                        publisher=row.metadata.publisher,
-                        out_dir=str(Path(args.crawl_dir) / f"line-{row.line}")
-                        if args.crawl_dir
-                        else None,
-                        parse_timeout=args.parse_timeout,
-                        actors=actors,
-                        content_root=content_root,
-                    )
-                except FetchError as exc:
-                    log("crawl.failed", level="error", status="failed", error_code=exc.code)
-                    return exc.code, []
-
-            outcomes = await run_manifest(rows, ingest_file, crawl_site)
     finally:
         await engine.dispose()
     _log_outcomes(outcomes)
@@ -393,7 +423,8 @@ async def _content_roles(args: argparse.Namespace) -> int:
 
 
 async def _sources(args: argparse.Namespace) -> int:
-    """A reviewer's decision on one register row: approve (then ingest), reject, retry."""
+    """A reviewer's decision on one register row: approve or retry (each queues an
+    ingestion job), or reject."""
     settings = get_settings()
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     source_id: UUID = args.source_id
@@ -405,18 +436,13 @@ async def _sources(args: argparse.Namespace) -> int:
             log("sources.reject", source_id=str(source_id), status="rejected")
             return 0
         if args.sources_command == "approve":
-            await approve(factory, source_id, reviewer_id, note=args.note)
-        else:
-            await retry(factory, source_id, reviewer_id)
-        async with RagflowClient.from_settings(settings) as client:
-            result = await ingest_source(
-                factory,
-                client,
-                load_tags(settings.config_dir),
-                source_id,
-                content_root=settings.models.files.content_root,
-                parse_timeout=args.parse_timeout,
+            job_id = await approve(
+                factory, source_id, reviewer_id, note=args.note, parse_timeout=args.parse_timeout
             )
+        else:
+            job_id = await retry(factory, source_id, reviewer_id, parse_timeout=args.parse_timeout)
+        queued = IngestResult(source_id=source_id, status="queued", job_id=job_id)
+        [result] = await _wait(factory, [queued], args.wait)
     except (RoleError, RegisterError) as exc:
         log(
             "sources." + args.sources_command,
@@ -429,7 +455,45 @@ async def _sources(args: argparse.Namespace) -> int:
     finally:
         await engine.dispose()
     _log_ingest(result)
-    return 1 if result.status in ("failed", "refused") else 0
+    return 1 if result.status == "failed" else 0
+
+
+async def _worker(args: argparse.Namespace) -> int:
+    """Run the job queue until stopped (SIGTERM or SIGINT puts the running job back)."""
+    settings = get_settings()
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    task = asyncio.current_task()
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+
+    def on_signal() -> None:
+        stop.set()
+        if task is not None:
+            task.cancel()
+
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        with contextlib.suppress(NotImplementedError):  # not on every platform
+            loop.add_signal_handler(signum, on_signal)
+    try:
+        async with RagflowClient.from_settings(settings) as client:
+            context = worker.Context(
+                factory=session_factory(engine),
+                client=client,
+                tags=load_tags(settings.config_dir),
+                content_root=settings.models.files.content_root,
+            )
+            await worker.run(
+                context.factory,
+                worker.handlers(context),
+                poll_interval=args.poll_interval,
+                stop=stop,
+                once=args.once,
+            )
+    except asyncio.CancelledError:
+        log("worker.stopped", status="stopped")
+    finally:
+        await engine.dispose()
+    return 0
 
 
 async def _operators(args: argparse.Namespace) -> int:
@@ -465,6 +529,14 @@ async def _operators(args: argparse.Namespace) -> int:
     failed = result in ("no_user", "not_operator")
     log("operators." + args.operators_command, level="error" if failed else "info", status=result)
     return 1 if failed else 0
+
+
+def _wait_flag(command: argparse.ArgumentParser) -> None:
+    command.add_argument(
+        "--wait",
+        action="store_true",
+        help="wait for the worker to run the queued jobs and report what they did",
+    )
 
 
 def _actor_flags(command: argparse.ArgumentParser) -> None:
@@ -528,6 +600,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="users may download the file (PDF, DOCX, PPTX); only where the licence permits",
     )
     _actor_flags(ingest_cmd)
+    _wait_flag(ingest_cmd)
 
     crawl_cmd = commands.add_parser(
         "crawl",
@@ -545,6 +618,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     crawl_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
     _actor_flags(crawl_cmd)
+    _wait_flag(crawl_cmd)
 
     manifest_cmd = commands.add_parser(
         "ingest-manifest",
@@ -569,6 +643,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     manifest_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
     _actor_flags(manifest_cmd)
+    _wait_flag(manifest_cmd)
 
     roles = commands.add_parser(
         "content-roles",
@@ -601,6 +676,20 @@ def build_parser() -> argparse.ArgumentParser:
             source_cmd.add_argument("--note", required=name == "reject")
         if name != "reject":
             source_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
+            _wait_flag(source_cmd)
+
+    worker_cmd = commands.add_parser(
+        "worker",
+        help="run the background job queue (P1b-02): ingestion of approved sources",
+        description="Polls the jobs table and runs one job at a time. Runs as the worker "
+        "Compose service, with the API's configuration and secrets.",
+    )
+    worker_cmd.add_argument(
+        "--once", action="store_true", help="run until the queue is empty, then exit"
+    )
+    worker_cmd.add_argument(
+        "--poll-interval", type=float, default=5.0, help="seconds between polls when idle"
+    )
 
     operators = commands.add_parser(
         "operators",
@@ -635,6 +724,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_content_roles(args))
     if args.command == "sources":
         return asyncio.run(_sources(args))
+    if args.command == "worker":
+        return asyncio.run(_worker(args))
     raise AssertionError("unreachable: argparse enforces the commands")
 
 

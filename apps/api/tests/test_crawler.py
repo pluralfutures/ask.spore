@@ -213,7 +213,7 @@ def test_cli_crawl_writes_files_and_ingests_each_page(
     async def fake_crawl(*_: Any) -> CrawlReport:
         return CrawlReport("ok", pages=pages)
 
-    async def fake_ingest(_f: Any, _c: Any, _t: Any, source: Any, metadata: Any, **_: Any) -> Any:
+    async def fake_ingest(_f: Any, _t: Any, source: Any, metadata: Any, **_: Any) -> Any:
         calls.append((source, metadata))
         return IngestResult(source_id=uuid4(), status="ingested", chunk_count=1)
 

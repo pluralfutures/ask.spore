@@ -23,14 +23,18 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app import cli
 from app.content.fetch import Fetched
 from app.content.ingest import (
+    PARSE_TIMEOUT_SECONDS,
     IngestError,
     IngestResult,
     SourceFile,
     SourceMetadata,
+    add_tags,
     from_fetched,
+    ingest_source,
     load_path,
     upload_name,
 )
+from app.content.jobs import claim, finish
 from app.content.submit import submit
 from app.content.tags import load_tags
 from app.core.config import DEFAULT_CONFIG_DIR
@@ -130,23 +134,70 @@ async def env(
     root = tmp_path / "content"
 
     async def run(source: SourceFile, metadata: SourceMetadata, **kwargs: Any) -> IngestResult:
-        kwargs.setdefault("content_root", root)
+        """Submit as the CLI does, then run the queued job as the worker does."""
+        content_root = kwargs.pop("content_root", root)
+        timing = {
+            "poll_interval": kwargs.pop("poll_interval", 3.0),
+            "sleep": fake_sleep,
+            "clock": lambda: now[0],
+        }
         kwargs.setdefault("proposer_id", user_id)
         kwargs.setdefault("reviewer_id", user_id)
-        return await submit(
-            factory,
-            fake,  # type: ignore[arg-type]
-            TAGS,
-            source,
-            metadata,
-            sleep=fake_sleep,
-            clock=lambda: now[0],
-            **kwargs,
+        submitted = await submit(
+            factory, TAGS, source, metadata, content_root=content_root, **kwargs
         )
+        if submitted.status != "queued":
+            return submitted
+        return await run_job(factory, fake, content_root, **timing)
 
+    await reset_jobs(admin_conn)
     yield Env(fake, datasets, user_id, root, factory), run
     await engine.dispose()
     await reset_register(admin_conn)
+    await reset_jobs(admin_conn)
+
+
+async def reset_jobs(admin_conn: asyncpg.Connection) -> None:
+    await admin_conn.execute("DELETE FROM jobs")
+
+
+async def run_job(
+    factory: async_sessionmaker[AsyncSession],
+    fake: FakeRagflow,
+    content_root: Path,
+    **timing: Any,
+) -> IngestResult:
+    """Claim the next job and run it with the worker's ingestion functions, keeping the
+    full result (document IDs, error text) for the assertions."""
+    job = await claim(factory)
+    assert job is not None and job.type == "ingest_source"
+    source_id = UUID(job.payload["source_id"])
+    parse_timeout = float(job.payload.get("parse_timeout") or PARSE_TIMEOUT_SECONDS)
+    if job.payload.get("add_tags"):
+        result = await add_tags(
+            factory,
+            fake,  # type: ignore[arg-type]
+            TAGS,
+            source_id,
+            job.payload["add_tags"],
+            downloadable=job.payload["downloadable"],
+            content_root=content_root,
+            parse_timeout=parse_timeout,
+            **timing,
+        )
+    else:
+        result = await ingest_source(
+            factory,
+            fake,  # type: ignore[arg-type]
+            TAGS,
+            source_id,
+            content_root=content_root,
+            parse_timeout=parse_timeout,
+            **timing,
+        )
+    ok = result.status in ("ingested", "retagged", "duplicate")
+    await finish(factory, job, error_code=None if ok else result.error_code)
+    return result
 
 
 async def source_row(admin_conn: asyncpg.Connection, source_id: UUID) -> asyncpg.Record:

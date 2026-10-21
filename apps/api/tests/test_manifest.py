@@ -343,7 +343,7 @@ class _Client:
 def cli_env(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, Any]]:
     calls: list[tuple[Any, Any]] = []
 
-    async def fake_ingest(_f: Any, _c: Any, _t: Any, source: Any, metadata: Any, **kw: Any) -> Any:
+    async def fake_ingest(_f: Any, _t: Any, source: Any, metadata: Any, **kw: Any) -> Any:
         calls.append((source, metadata))
         assert kw["content_root"] == Path("/srv/ask-spore/content")  # [files] content_root
         return IngestResult(source_id=uuid4(), status="ingested", chunk_count=2)
@@ -492,3 +492,38 @@ def test_cli_passes_the_downloadable_flag(cli_env: list[tuple[Any, Any]], corpus
     manifest = write(corpus, PDF_ROW + ",", DOCX_ROW + ",yes", header=HEADER + ",downloadable")
     assert cli.main(["ingest-manifest", str(manifest)]) == 0
     assert [m.downloadable for _, m in cli_env] == [False, True]
+
+
+def test_cli_reports_queued_rows_and_settles_them_with_wait(
+    cli_env: list[tuple[Any, Any]],
+    corpus: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P1b-02: the CLI is a client of the queue; --wait reports what the jobs did."""
+    job_ids: list[Any] = []
+
+    async def queued(*_: Any, **__: Any) -> IngestResult:
+        job_ids.append(uuid4())
+        return IngestResult(source_id=uuid4(), status="queued", job_id=job_ids[-1])
+
+    async def settled(_f: Any, results: Any) -> list[IngestResult]:
+        assert [r.job_id for r in results] == job_ids
+        return [
+            IngestResult(r.source_id, "ingested", chunk_count=5, job_id=r.job_id, seconds=9.0)
+            for r in results
+        ]
+
+    monkeypatch.setattr(cli, "submit", queued)
+    monkeypatch.setattr(cli, "settle", settled)
+    manifest = str(write(corpus, PDF_ROW, DOCX_ROW))
+    assert cli.main(["ingest-manifest", manifest]) == 0
+    logged = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert {line["status"] for line in logged if line["event"] == "manifest.row"} == {"queued"}
+
+    job_ids.clear()
+    assert cli.main(["ingest-manifest", manifest, "--wait"]) == 0
+    logged = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    rows = [line for line in logged if line["event"] == "manifest.row"]
+    assert [(r["status"], r["chunk_count"]) for r in rows] == [("ingested", 5), ("ingested", 5)]
+    assert all(r["latency_ms"] >= 9000 for r in rows)  # the job's run time

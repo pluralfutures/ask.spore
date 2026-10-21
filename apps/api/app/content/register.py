@@ -6,6 +6,9 @@ without an approved row (architecture §6.1): ``propose`` only records the row a
 stages the file under ``[files] content_root``; ingestion (``app.content.ingest``)
 refuses a source that is not ``approved``.
 
+Approval (and a retry) enqueues one ``ingest_source`` job in the same transaction
+(P1b-02), so a committed approval always has its job; the worker does the rest.
+
 Every transition takes the acting internal user, checks their content role inside
 the same transaction, and writes an audit event under the internal tenant with the
 status before and after. An approval also names the reviewer's roles and whether
@@ -25,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.audit.writer import AuditValue, record
 from app.content.ingest import IngestError, SourceFile, SourceMetadata
+from app.content.jobs import enqueue
 from app.content.models import Dataset, Source
 from app.content.roles import EDITOR, REVIEWER, require
 from app.content.store import STORABLE_TYPES, stage
@@ -227,7 +231,10 @@ async def _review(
     to: str,
     event: str,
     note: str | None,
-) -> None:
+    parse_timeout: float | None = None,
+) -> UUID | None:
+    """The transition; the ``ingest_source`` job's ID when the row becomes approved."""
+    job_id: UUID | None = None
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
@@ -240,6 +247,11 @@ async def _review(
         if note is not None:
             values["review_note"] = note
         await session.execute(update(Source).where(Source.id == source_id).values(**values))
+        if to == "approved":
+            payload: dict[str, str | float] = {"source_id": str(source_id)}
+            if parse_timeout is not None:
+                payload["parse_timeout"] = parse_timeout
+            job_id = await enqueue(session, "ingest_source", payload, created_by=reviewer_id)
         self_approval = row.proposed_by == reviewer_id
         await _audit(
             session,
@@ -251,6 +263,7 @@ async def _review(
             roles=sorted(roles),
             self_approval=self_approval,
         )
+    return job_id
 
 
 async def approve(
@@ -259,9 +272,11 @@ async def approve(
     reviewer_id: UUID,
     *,
     note: str | None = None,
-) -> None:
-    """``proposed -> approved``. The reviewer may be the proposer (audited as such)."""
-    await _review(
+    parse_timeout: float | None = None,
+) -> UUID:
+    """``proposed -> approved``; returns the ``ingest_source`` job it enqueued. The
+    reviewer may be the proposer (audited as such)."""
+    job_id = await _review(
         factory,
         source_id,
         reviewer_id,
@@ -269,7 +284,11 @@ async def approve(
         to="approved",
         event="source.approved",
         note=_note(note, required=False),
+        parse_timeout=parse_timeout,
     )
+    if job_id is None:
+        raise AssertionError("an approval always enqueues a job")
+    return job_id
 
 
 async def reject(
@@ -288,10 +307,15 @@ async def reject(
 
 
 async def retry(
-    factory: async_sessionmaker[AsyncSession], source_id: UUID, reviewer_id: UUID
-) -> None:
-    """``failed -> approved``: the reviewer sends a failed source back for ingestion."""
-    await _review(
+    factory: async_sessionmaker[AsyncSession],
+    source_id: UUID,
+    reviewer_id: UUID,
+    *,
+    parse_timeout: float | None = None,
+) -> UUID:
+    """``failed -> approved``: the reviewer sends a failed source back for ingestion;
+    returns the ``ingest_source`` job it enqueued."""
+    job_id = await _review(
         factory,
         source_id,
         reviewer_id,
@@ -299,7 +323,11 @@ async def retry(
         to="approved",
         event="source.retried",
         note=None,
+        parse_timeout=parse_timeout,
     )
+    if job_id is None:
+        raise AssertionError("an approval always enqueues a job")
+    return job_id
 
 
 async def approve_retag(
@@ -307,8 +335,12 @@ async def approve_retag(
     source_id: UUID,
     reviewer_id: UUID,
     new_tags: Sequence[str],
-) -> None:
-    """A reviewer approves linking an ingested source into more tags' datasets."""
+    *,
+    downloadable: bool,
+    parse_timeout: float | None = None,
+) -> UUID:
+    """A reviewer approves linking an ingested source into more tags' datasets, with the
+    request's download flag; returns the ``ingest_source`` job (with ``add_tags``)."""
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
@@ -326,3 +358,11 @@ async def approve_retag(
                 "roles": sorted(roles),
             },
         )
+        payload: dict[str, str | float | bool | list[str]] = {
+            "source_id": str(source_id),
+            "add_tags": list(dict.fromkeys(new_tags)),
+            "downloadable": downloadable,
+        }
+        if parse_timeout is not None:
+            payload["parse_timeout"] = parse_timeout
+        return await enqueue(session, "ingest_source", payload, created_by=reviewer_id)

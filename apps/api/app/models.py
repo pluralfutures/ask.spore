@@ -3,7 +3,8 @@
 from app.audit.models import AuditEvent
 from app.auth.models import RevokedSession, SignInLink
 from app.chat.models import Citation, Conversation, Feedback, Message
-from app.content.models import Dataset, Source
+from app.content.jobs import Job
+from app.content.models import ContentRole, Dataset, Source
 from app.core.db import Base
 from app.files.models import Download
 from app.operator.models import Operator, OperatorNotice
@@ -15,10 +16,12 @@ __all__ = [
     "AuditEvent",
     "Base",
     "Citation",
+    "ContentRole",
     "Conversation",
     "Dataset",
     "Download",
     "Feedback",
+    "Job",
     "Message",
     "Operator",
     "OperatorNotice",

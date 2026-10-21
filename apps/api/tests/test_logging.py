@@ -41,6 +41,9 @@ def test_allow_list_matches_spec() -> None:
         "route",
         "method",
         "exception",
+        "job_id",
+        "job_type",
+        "attempts",
     }
 
 

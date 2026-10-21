@@ -54,6 +54,9 @@ a live instance, findings A7). Names must match `[auth.authentik]` in
    ```
 5. **Provider** `ask-spore` (OAuth2/OpenID): confidential client, client ID
    `ask-spore`, redirect URI `https://ask-spore.invalid/auth/callback` (strict),
+   grant types exactly `["authorization_code"]` (an empty list, the API's default when
+   the field is omitted, refuses every authorize request with "Invalid grant_type for
+   provider"; found in the live sign-in test, Oct 21, 2026),
    authorization flow *implicit consent*, signing key: a certificate (RS256; the API
    refuses HS256), scopes `openid email profile ask_spore`, access token validity
    `hours=8`, subject mode "Based on the User's hashed ID". The client secret goes in the

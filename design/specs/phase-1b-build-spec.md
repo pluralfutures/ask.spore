@@ -1,0 +1,90 @@
+# Phase 1b Build Spec — Content Operations, Client SSO, First-Tenant Documents
+
+Oct 21, 2026 · Status: draft for owner review · Target duration: 6–8 weeks · Starts after Phase 1a closed (findings §12, Oct 21, 2026)
+
+Source decisions: architecture document §4.3, §6, §7.2 to §7.4 and §14.4; the compliance guide's "before first client login" checklist; `backlog.md` items tagged Phase 1 and Phase 1b; the owner's priorities of Oct 21, 2026 (priority 1: content console and approval flow, client SSO connectors, the document set; priority 2: platform mail, operator console and spend, items carried from Phase 1a; priority 3: retention jobs, eval tooling; backlog: two-host deployment).
+
+## Goal
+
+Make the platform operable for more than one client without the engineering team in the loop: content goes through a console with an approval step and a takedown path; clients sign in with their own identity provider; the legal and policy documents a client's IT and legal departments ask for exist; and the platform sends its own mail. Everything stays on the single Instance with Caddy TLS.
+
+Exit criteria (all must hold):
+
+- A content editor registers a third-party PDF, an own analysis and a website in the console; nothing reaches RAGFlow before a reviewer approves; a takedown withdraws a document from every dataset, the cache and stored citations within the SLA, with an audit trail (tests for each).
+- A test tenant signs in through Microsoft Entra ID and through Google Workspace, and a third through a generic OIDC source, each provisioned just-in-time only for its verified domain; a user of tenant A can never land in tenant B (test); sign-in links can be switched off per tenant by the operator.
+- The first-tenant document set is drafted, reviewed by counsel where marked, and filed; the first-login consent gate shows the notice and records acceptance.
+- Invitations and operator notices are sent by the platform over Scaleway Transactional Email; no recipient address or body in logs (test).
+- Operators see one tenant per page and its month-to-date spend by model.
+- The retention purge job deletes expired conversations and messages, and the "no history" setting works (tests).
+- Eval set v1 and the guardrail eval show no regression against the Phase 1a baselines (`corpus_only/v5`, `general_knowledge/v2`); the eval harness runs under OIDC.
+
+## Not in this phase
+
+Binding. Record ideas in `backlog.md`.
+
+- Two-host deployment, monitoring stack, Secret Manager, Object Storage for the content store (backlog by owner decision Oct 21, 2026). One Instance stays. See the open item on backups.
+- Web-search mode (Phase 2).
+- User-edited workspace prompts with versioning (Phase 2).
+- Tenant self-service SSO configuration (Phase 3); the operator configures SSO with the client's IT contact.
+- Tenant admin dashboard, shared conversations, briefs, alerts, tenant API (Phases 2 and 3).
+- Search or filters on the workspace file list; source filters on queries (Phase 2).
+- Trust page, status page, help centre (Phase 2).
+- External models for the test client until the P1a-15 paperwork gate is done (P1b-13 carries the gate; enabling is an operator action after it).
+
+## Deployment target
+
+The Phase 1a Instance (shared 8 vCPU, 32 GB, 100 GB Block Storage) with Compose, Caddy TLS, Authentik and RAGFlow on the Compose network. A background worker service is added to Compose (architecture §4.5). RAGFlow stays internal.
+
+## Work items
+
+Build in this order; items in a group can be parallelised. Every tenant-scoped table gets `tenant_id`, an RLS policy and a `tenant_id`-first index in its first migration. The source register and datasets are operator-owned shared tables, as in Phase 0, and stay outside tenant RLS; access to them is operator-role only.
+
+### Group A — Content operations console (priority 1)
+
+**P1b-01 Source register states and roles.** `sources.status` becomes `proposed → approved → ingested → withdrawn` (plus `failed`, retryable), with `proposed_by`, `approved_by`, `approved_at`, `withdrawn_at`, `withdrawal_reason`, `takedown_reference`, `review_date` and `licence_file_path` (a licence or permission letter stored under `[files] content_root`, never in RAGFlow). Two content roles on internal-tenant users, in a new `content_roles` table: `content_editor` (propose, upload, register sites) and `content_reviewer` (approve, reject, withdraw). The same person may hold both, but a reviewer cannot approve their own proposal (test). Every transition writes an audit event with before and after. The manifest CLI (P0-11) creates `proposed` rows and, with `--approve-as <reviewer email>` for our own corpus, approves them in the same run, audited.
+
+**P1b-02 Ingestion worker and queue.** A `worker` Compose service runs jobs from a `jobs` table (type, payload without document contents, status, attempts, error_code, timestamps): `ingest_source`, `withdraw_source`, `crawl_site`. Approval enqueues `ingest_source`; the worker does what the P0-09 CLI does today (upload to each tag's dataset, parse with the per-type method, record document IDs and chunk counts, store the file copy) and sets `ingested` or `failed`. The CLI stays as a thin client that enqueues and waits. Tests: approval enqueues exactly one job; a failed job records an error code and no body; a job for an unapproved source is refused.
+
+**P1b-03 Re-ingestion and withdrawal.** Re-ingesting a changed file (new hash, same canonical link) creates a new parse: new document IDs and chunks, the old document withdrawn from every dataset, and stored citations pointing at old chunk IDs shown as "superseded" in the chat history (`citations.superseded_at`). Withdrawal (`withdraw_source` job): delete the document from every RAGFlow dataset it is in, purge the tenant answer caches that cite it (cache entries record their source IDs from P1b-03 on), mark the register row withdrawn with reason and date, flag citations in stored history as withdrawn. Takedown queue: rows with `takedown_reference` and a due date, 10 working days from the request, immediate for licence breaches we find ourselves; the console shows the timer. Tests: withdrawal removes from all datasets and the cache; a superseded citation renders as such; the SLA due date is computed over working days.
+
+**P1b-04 Crawl management.** Sites in a `sites` table: start URL, scope rules (path allow and deny patterns), schedule (none, weekly, monthly), max pages, per-site allow decision from robots.txt and the TDM reservation header, last crawl, page count, blocked pages with reasons. The `crawl_site` job re-crawls on schedule, detects changed pages by hash and re-ingests them, withdraws removed pages, stores the raw HTML snapshot and fetch date per page under `content_root` for provenance, takes publication dates from explicit page metadata only, skips pages matching special-category patterns unless a reviewer whitelists the path, and rate-limits per host. Each crawled page is a register row with the page URL as canonical link. Tests: robots and TDM honoured per site; scope rules enforced; a changed page produces a re-ingestion; a removed page is withdrawn; a special-category page is skipped and listed.
+
+**P1b-05 Content console pages.** Operator-side web pages (internal tenant, content roles): register list with filters by status, tag, type and publisher; source detail with history and the licence file; propose form (file upload or URL, metadata as in the manifest, tags, downloadable flag with the licence basis required when set); approve and reject with a note; ingestion status and errors per source with a link to the private RAGFlow UI for chunk spot-checks; takedown queue; sites list and site detail; tag management showing the tag-to-dataset mapping (tags stay in `config/tags.toml`; the page shows and syncs, it does not edit the file). No document text is shown in the console beyond title and metadata. Tests: a tenant admin or user cannot reach any content route; an editor cannot approve; actions are audited.
+
+### Group B — Client SSO connectors (priority 1)
+
+**P1b-06 Login policy and tenant discovery.** `tenant_login_policy(tenant_id, sign_in_links_enabled, sso_source_kind in {none, entra, google, oidc, saml}, sso_source_config (non-secret fields), jit_provisioning_enabled, admin_mfa_required)`; the entitlement flag `sign_in_links_enabled` moves here. The login page asks for an email address; the domain resolves to the tenant (`verified_domains`, one tenant per domain, already enforced) and to that tenant's allowed methods; an unknown domain gets the same neutral response as an unknown user (no enumeration). Tests: domain-to-tenant resolution; a domain of tenant A never offers tenant B's methods; links refused for a tenant with links off.
+
+**P1b-07 Authentik sources per tenant.** The operator console's login-policy page configures, through Authentik's API, one source per tenant: Microsoft Entra ID (OIDC, the client's Entra tenant ID pinned in the issuer, group claims optionally mapped to `tenant_admin`), Google Workspace (OIDC with the hosted-domain `hd` claim checked against the verified domains), generic OIDC, and SAML 2.0 (metadata upload). Client secrets and SAML keys are stored in Authentik only; the platform keeps non-secret configuration. Users arriving from a source are provisioned just-in-time only when the email domain is verified for that tenant and JIT is on; otherwise the sign-in is refused unless the user was invited. The `ask_spore_tenant` attribute is set at provisioning from the source's tenant, never from a claim. Audit events for login, logout, failed login and source changes. Tests with a fake IdP: a token from a source bound to tenant A cannot act in tenant B; an unverified domain is refused; the `hd` mismatch is refused; the tenant admin page shows the configured source read-only.
+
+**P1b-08 Sign-in hardening carried from P1a-02.** Per-IP rate limit on `POST /auth/link` at the API (Caddy's limit as a second layer); session refresh before the access token expires (provider validity 8 hours); the Authentik access token revoked on sign-out, verified live; the landing page's `no_binding` message made explicit ("open this link in the same browser window where you asked for it"); MFA requirement for tenant admins enforced through an Authentik authenticator validation stage bound to the admin group; an Authentik blueprint that reproduces the Phase 1a manual configuration (stages, flow, scope mapping, provider, application, provisioner) so a new environment is configured from a file. Tests: rate limit returns 429 without sending; refresh keeps the session; revocation makes the old token fail; blueprint applies to an empty Authentik in CI.
+
+### Group C — First-tenant documents and consent (priority 1)
+
+**P1b-09 Document set.** Drafted by Claude sessions for owner and counsel review, filed under `design/compliance/` as in P1a-15, each marked DRAFT with the placeholders listed at the top: public privacy notice including the GDPR Art. 14 section for people named in indexed sources; terms of service / MSA with an order form (package, seats, modes, models, retention, support); SOC 2 policy set (information security, access control, change management, incident response, vendor management, data retention and disposal, business continuity); records of processing (Art. 30); DPIA for the platform; legitimate-interest assessment for the public-source corpus; incident runbook with the breach-notification template and the DPA notification window; risk register; EU AI Act technical documentation and a transparency note for users; onboarding pack (IT and SSO setup sheet with the mail-scanner note, invitation and sign-in email templates, admin MFA guidance, pre-filled security questionnaire); offboarding pack (termination and deletion procedure with the export window, certificate of deletion template, user deactivation notice). The paperwork checklist gains one row per document with owner, counsel review and filing columns.
+
+**P1b-10 First-login consent gate.** On a user's first sign-in, the app shows the use and privacy notice in full legal wording with a short plain-language summary and requires acceptance before the first conversation; `users.consent_version` and `consented_at` record it; a new notice version re-prompts. The audit log records acceptance. Tests: no conversation route works before acceptance; a new version re-prompts; the tenant admin audit export includes acceptance events.
+
+### Group D — Platform mail, operator console, carried items (priority 2)
+
+**P1b-11 Platform transactional mail.** `app.core.mail` over the Scaleway Transactional Email HTTP API (fr-par; host and API version in `config/models.toml` under the EU allow-list; one `httpx` client; Mailgun EU as the configured backup, one provider active at a time by configuration): invitations (tenant admin invites, first-admin invite from the operator), operator notices (spend 80 and 100 percent, tenant-name flags), consent-version notices, and the templates in P1b-09. No recipient address, subject or body in logs; a test proves the log line carries neither. Sending is a `send_mail` job on the P1b-02 queue with retries. Tests: template rendering has no identifiers beyond the recipient's own; provider failure yields an error code; the backup provider is used only when configured.
+
+**P1b-12 Operator console: one tenant per page, spend and usage.** The console shows one tenant at a time (tenant picker, then tabs: entitlements, login policy, workspaces, users, spend); workspace tag pickers offer only that tenant's tags plus shared tags; month-to-date external spend and token usage by model per tenant from `usage_ledger`, and the two notice thresholds shown against the cap; cross-tenant aggregates on a separate page with no query text. Tests: an entitlement save carries the tenant ID of the page it was made on; spend figures match the ledger; no per-tenant query text anywhere.
+
+**P1b-13 Items carried from Phase 1a (owner decisions of Oct 21, 2026).** (a) Live sign-in-link test against the client's actual mail client and link scanner once the client's IT contact names them, before the first `customculinary.com` user is invited; recorded in findings. (b) The P1a-15 paperwork gate for external models: checklist items 1 to 5, 7, 8, 10 to 13; the two OpenRouter verification calls (`anthropic/claude-opus-5.5`, `openai/gpt-6.1-sol`) with the provider metadata recorded (C32); only then the operator enables external models for `cc` with the EUR 30 cap and the acceptance reference. (c) Branch protection on `main` with the CI and Guardrails checks required. (d) `cc-shared` content: decide which files carry the shared tag; until then it stays empty. (e) A deploy version in the answer cache key, or a per-tenant cache clear on deploy (findings §10 F10). (f) The flaky Playwright test fixed or made deterministic.
+
+### Group E — Retention jobs and eval tooling (priority 3)
+
+**P1b-14 Retention purge job.** A scheduled job deletes conversations and messages past `expires_at`, `revoked_sessions` rows past their token's expiry, and `downloads` rows past a retention set by the owner (default 90 days; the `download` audit events stay); the tenant retention setting allows 0 ("no history": the conversation is kept only while the answer streams, then deleted); a per-tenant purge procedure for termination that deletes history and account data and produces the certificate of deletion from P1b-09. Read-time expiry stays as the second layer. Tests: purge deletes exactly the expired rows and only for the right tenant; 0 retention leaves no rows after the answer; the termination purge leaves no rows and writes the certificate's figures.
+
+**P1b-15 Eval and quality tooling.** An eval harness path under `[auth] mode = "oidc"` (a test-only service identity on the internal tenant, never a bearer token in production config); the eval gate in CI against the last committed baseline (metrics only, per the committed-results rule), blocking on regression; a separate pinned `judge_model`; reasoning tokens recorded in the usage ledger and the answer's metadata line as counts; `vector_similarity_weight` moved to `[chat]` config and tuned on eval set v1; the 4-characters-per-token estimate replaced by the provider's tokenizer for the history and context caps; container images pinned by digest. Tests: the OIDC eval path runs in CI against a mocked provider; a regression fails the job.
+
+**P1b-16 Release checks.** Eval set v1 and the guardrail eval on the Phase 1b code against the Phase 1a baselines, no regression; isolation tests extended for the new tables (content roles, login policy, jobs, sites, consent) and reviewed independently as in Phase 1a §12; a live SSO sign-in per connector kind with a test tenant; the takedown drill end to end on a synthetic source; findings file `phase-1b-findings.md` with the signed review.
+
+## Open items for the owner
+
+- **Backups.** Two-host deployment is in the backlog, but a nightly encrypted backup of the PostgreSQL and RAGFlow volumes to Scaleway Object Storage in Paris (object lock, 30-day retention) costs little and is the only protection against disk loss on the single Instance. Recommendation: add it as a small Group D item. Decision needed.
+- **SSO order (owner, Oct 21, 2026: no second client in sight yet).** All three connector kinds are specified; build Entra first, Google second, generic OIDC/SAML third, each verified with a test tenant on a trial IdP tenant rather than a client's.
+- **Document set authorship (owner, Oct 21, 2026):** drafted by Claude sessions for counsel, as in P1a-15. Counsel review and filing are the owner's.
+- **Downloads retention** for P1b-14 (default 90 days proposed).
+- **Content roles.** Assumed: the owner holds both editor and reviewer roles at first; the no-self-approval rule then needs a second internal user for third-party sources, or an explicit owner override that is audited. Decision needed.

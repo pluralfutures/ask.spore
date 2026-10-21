@@ -2,7 +2,7 @@ import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { discoverMethods } from "../api/client";
-import { EmailSignIn } from "./EmailSignIn";
+import { EmailSignIn, failureText } from "./EmailSignIn";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -16,6 +16,13 @@ describe("EmailSignIn", () => {
     expect(html).toContain('type="email"');
     expect(html).toContain("Continue");
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("failureText", () => {
+  it("says when the network is rate limited", () => {
+    expect(failureText(true)).toContain("Too many sign-in attempts");
+    expect(failureText(false)).toBe("Something went wrong. Try again.");
   });
 });
 

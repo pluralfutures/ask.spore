@@ -13,6 +13,7 @@ the cookie and revokes the token (``app.auth.sessions``).
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any, Literal
 from urllib.parse import parse_qsl
@@ -33,6 +34,7 @@ from app.auth import sso
 from app.auth.links import SignInRefused, complete_link, new_binding, request_link
 from app.auth.middleware import SESSION_COOKIE, presented_token
 from app.auth.provider import ProviderError
+from app.auth.ratelimit import IpRateLimiter, client_ip
 from app.auth.sessions import revoke
 from app.core.logging import log
 from app.tenancy.login_policy import discover
@@ -49,6 +51,29 @@ def _require_oidc(request: Request) -> Any:
     if settings.models.auth.mode != "oidc":
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="not_found")
     return settings
+
+
+def _limit(request: Request, route: str) -> None:
+    """Per-client-IP limit of the public sign-in routes (P1b-08): 429 before anything
+    else, so nothing is looked up, set or sent."""
+    state = request.app.state
+    limiters: dict[str, IpRateLimiter] | None = getattr(state, "ip_limiters", None)
+    if limiters is None:
+        limiters = state.ip_limiters = {}
+    limiter = limiters.get(route)
+    if limiter is None:
+        config = state.settings.models.auth
+        limiter = limiters[route] = IpRateLimiter(
+            config.ip_requests_per_window, config.ip_window_seconds
+        )
+    address = client_ip(request)
+    if not limiter.allow(address):
+        log("auth.ip_rate_limited", route=route, status=429)
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="rate_limited",
+            headers={"Retry-After": str(limiter.retry_after(address))},
+        )
 
 
 def _cookie(response: Response, name: str, value: str, *, max_age: int, path: str) -> None:
@@ -68,6 +93,7 @@ async def discover_methods(body: DiscoverIn, request: Request) -> DiscoverOut:
     only, so it says nothing about whether the address belongs to a user; an unknown
     domain gets the links-only answer, like any domain without SSO."""
     _require_oidc(request)
+    _limit(request, "discover")
     methods, kind = (await discover(request.app.state.db_factory, body.email)).public()
     return DiscoverOut(methods=list(methods), sso_kind=kind)
 
@@ -77,6 +103,7 @@ async def request_sign_in_link(
     body: LinkRequestIn, request: Request, response: Response, background: BackgroundTasks
 ) -> LinkRequestOut:
     settings = _require_oidc(request)
+    _limit(request, "link")
     binding = new_binding()
     ttl = settings.models.auth.link_ttl_seconds
     _cookie(response, BINDING_COOKIE, binding, max_age=ttl, path=BINDING_PATH)
@@ -102,10 +129,14 @@ async def complete_sign_in_link(body: LinkCompleteIn, request: Request) -> Respo
             token=body.token,
             binding=request.cookies.get(BINDING_COOKIE),
         )
-    except SignInRefused:
+    except SignInRefused as exc:
+        # P1b-08: a link opened in another browser is told so (the landing page says
+        # where to open it). That is decided before anything is looked up, so it says
+        # nothing about the address; every other refusal is the same.
+        detail = "no_binding" if exc.error_code == "no_binding" else "sign_in_failed"
         refused = Response(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            content=b'{"detail":"sign_in_failed"}',
+            content=json.dumps({"detail": detail}).encode(),
             media_type="application/json",
         )
         refused.delete_cookie(BINDING_COOKIE, path=BINDING_PATH)
@@ -136,6 +167,7 @@ async def start_sso(body: DiscoverIn, request: Request, response: Response) -> S
     """Start a sign-in through the address's tenant's source. An unknown domain and a
     domain without SSO get the same 409: discovery already tells the page which."""
     _require_oidc(request)
+    _limit(request, "sso_start")
     try:
         started = await sso.start(
             factory=request.app.state.db_factory,

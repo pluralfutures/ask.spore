@@ -136,17 +136,21 @@ export async function authMode(): Promise<AuthMode> {
 }
 
 // The emailed link's landing page (P1a-02) calls this, and only from its button.
+// "no_binding" (P1b-08): this browser did not ask for the link, so it cannot finish it.
+export type SignInResult = "ok" | "no_binding" | "failed";
+
 export async function completeSignIn(
   token: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<boolean> {
+): Promise<SignInResult> {
   const response = await fetchImpl(`${BASE}/auth/link/complete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
     credentials: "same-origin",
   });
-  return response.ok;
+  if (response.ok) return "ok";
+  return (await errorCode(response)) === "no_binding" ? "no_binding" : "failed";
 }
 
 // Tenant discovery (P1b-06): the methods the address's domain allows. Any unknown domain

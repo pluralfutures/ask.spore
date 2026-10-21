@@ -39,7 +39,7 @@ describe("FinishSignIn", () => {
 describe("completeSignIn", () => {
   it("POSTs the token once, as JSON, with same-origin cookies", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
-    expect(await completeSignIn("abc", fetchImpl)).toBe(true);
+    expect(await completeSignIn("abc", fetchImpl)).toBe("ok");
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("/api/v1/auth/link/complete");
@@ -50,6 +50,13 @@ describe("completeSignIn", () => {
 
   it("reports a refused link", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
-    expect(await completeSignIn("used", fetchImpl)).toBe(false);
+    expect(await completeSignIn("used", fetchImpl)).toBe("failed");
+  });
+
+  it("tells a link opened in another browser apart (P1b-08)", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(Response.json({ detail: "no_binding" }, { status: 401 }));
+    expect(await completeSignIn("abc", fetchImpl)).toBe("no_binding");
   });
 });

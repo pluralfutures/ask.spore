@@ -272,6 +272,11 @@ class AuthConfig(_Strict):
     link_ttl_seconds: int = Field(default=900, ge=60, le=900)
     # At most this many links per user per link lifetime; further requests send nothing.
     links_per_window: int = Field(default=5, ge=1, le=20)
+    # P1b-08: per client IP, at most this many sign-in requests (link, discovery, SSO
+    # start, each counted on its own) per window; more get 429 and nothing is sent.
+    # Caddy's limit would be a second layer (findings 1b B11).
+    ip_requests_per_window: int = Field(default=10, ge=1, le=1000)
+    ip_window_seconds: int = Field(default=600, ge=60, le=3600)
     authentik: AuthentikConfig | None = None
 
 

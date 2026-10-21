@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 
-import { discoverMethods, requestSignInLink, startSso } from "../api/client";
+import { ApiError, discoverMethods, requestSignInLink, startSso } from "../api/client";
 import type { DiscoverOut } from "../api/types";
 import { ssoButtonLabel } from "../lib/sso";
 
@@ -15,14 +15,21 @@ export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<Step>({ kind: "email" });
   const [failed, setFailed] = useState(false);
+  const [limited, setLimited] = useState(false);
+
+  // P1b-08: too many sign-in requests from this network get 429.
+  function fail(error: unknown) {
+    setLimited(error instanceof ApiError && error.status === 429);
+    setFailed(true);
+  }
 
   async function sendLink() {
     setFailed(false);
     try {
       await requestSignInLink(email.trim());
       setStep({ kind: "sent" });
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      fail(error);
     }
   }
 
@@ -32,8 +39,8 @@ export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
       const url = await startSso(email.trim());
       if (url === null) setFailed(true);
       else window.location.assign(url);
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      fail(error);
     }
   }
 
@@ -43,8 +50,8 @@ export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
     let found: DiscoverOut;
     try {
       found = await discoverMethods(email.trim());
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      fail(error);
       return;
     }
     if (found.methods.includes("sso")) {
@@ -81,7 +88,7 @@ export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
             Email me a sign-in link instead
           </button>
         )}
-        {failed && <p className="text-sm text-red-700">Something went wrong. Try again.</p>}
+        {failed && <p className="text-sm text-red-700">{failureText(limited)}</p>}
       </main>
     );
   }
@@ -108,7 +115,13 @@ export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
           account can use ask.spore.
         </p>
       )}
-      {failed && <p className="text-sm text-red-700">Something went wrong. Try again.</p>}
+      {failed && <p className="text-sm text-red-700">{failureText(limited)}</p>}
     </form>
   );
+}
+
+export function failureText(limited: boolean): string {
+  return limited
+    ? "Too many sign-in attempts from this network. Wait a few minutes and try again."
+    : "Something went wrong. Try again.";
 }

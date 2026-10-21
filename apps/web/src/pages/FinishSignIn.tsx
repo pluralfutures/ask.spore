@@ -20,7 +20,7 @@ function takeToken(): string | null {
   return taken;
 }
 
-type State = "ready" | "working" | "failed";
+type State = "ready" | "working" | "failed" | "no_binding";
 
 export function FinishSignIn({
   initialToken,
@@ -37,17 +37,20 @@ export function FinishSignIn({
   async function finish() {
     if (token === null || state === "working") return;
     setState("working");
-    if (await completeSignIn(token)) {
-      onSignedIn();
-    } else {
-      setState("failed");
-    }
+    const result = await completeSignIn(token);
+    if (result === "ok") onSignedIn();
+    else setState(result);
   }
 
   return (
     <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
       <h1 className="text-xl font-semibold">ask.spore</h1>
-      {token === null || state === "failed" ? (
+      {state === "no_binding" ? (
+        <p className="text-sm">
+          Open this link in the same browser window where you asked for it. A link works only there,
+          once, for 15 minutes. <a href="/">Ask for a new link</a> from the browser you want to use.
+        </p>
+      ) : token === null || state === "failed" ? (
         <p className="text-sm">
           This sign-in link cannot be used. Links work once, in the browser where you asked for
           them, for 15 minutes. <a href="/">Ask for a new link</a>.

@@ -258,11 +258,13 @@ async def test_second_post_with_the_same_token_is_refused(auth: Auth) -> None:
 
     again = await auth.complete(browser, token)
     assert again.status_code == 401
-    assert again.json() == {"detail": "sign_in_failed"}
+    # Success cleared this browser's binding cookie, so it now holds none (P1b-08).
+    assert again.json() == {"detail": "no_binding"}
     # Another browser that requested its own link cannot replay it either.
     other = auth.browser()
     await auth.request_link(other, t.email)
-    assert (await auth.complete(other, token)).status_code == 401
+    replay = await auth.complete(other, token)
+    assert (replay.status_code, replay.json()) == (401, {"detail": "sign_in_failed"})
     assert auth.idp.redeemed == [token]  # refused by us, never resubmitted to the provider
     # The first browser's binding cookie was cleared on success; the replay from the
     # other browser is recognised by the token itself.
@@ -290,6 +292,8 @@ async def test_link_opened_in_another_browser_is_refused_and_not_spent(auth: Aut
     scanner = auth.browser()  # no binding cookie
     response = await auth.complete(scanner, token)
     assert response.status_code == 401
+    # P1b-08: the landing page can say where to open the link; decided before any lookup.
+    assert response.json() == {"detail": "no_binding"}
     assert auth.idp.redeemed == []
     failure = await auth.audit("auth.login_failed", INTERNAL_TENANT_ID)
     assert failure[-1]["error_code"] == "no_binding"

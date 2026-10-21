@@ -35,7 +35,7 @@ from app.core.config import MistralConfig
 Role = Literal["user", "assistant"]
 
 ANSWER_TEMPERATURE = 0.2
-ANSWER_MAX_TOKENS = 1500
+ANSWER_MAX_TOKENS = 1800  # +20% from 1500, owner decision Oct 21, 2026
 REWRITE_TEMPERATURE = 0.0
 REWRITE_MAX_TOKENS = 128
 MAX_REWRITE_LENGTH = 500

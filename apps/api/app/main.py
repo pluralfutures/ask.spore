@@ -1,10 +1,14 @@
 """FastAPI application entry point."""
 
+import json
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI
+from sqlalchemy.exc import SQLAlchemyError
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.api.admin import router as api_admin
 from app.api.auth import router as api_auth
@@ -23,6 +27,64 @@ from app.llm import catalogue
 from app.llm.factory import create_llm_router
 from app.retrieval.protocol import Retriever
 from app.retrieval.ragflow import RagflowRetriever
+
+
+class ErrorBoundary:
+    """Outermost application middleware: no exception leaves the app (findings §12).
+
+    uvicorn logs an exception that escapes the app with its traceback on stderr, and a
+    database error's message can quote request text. Here every exception becomes one
+    allow-listed log line (route template, method, exception class name, request ID)
+    and a JSON error code: ``database_error`` for SQLAlchemy errors, else
+    ``internal_error``. Nothing from the exception's message is logged or returned. If
+    the response has already started (a stream), it is ended instead.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        started = False
+
+        async def tracked(message: Message) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, tracked)
+        except Exception as exc:  # the boundary: reported by class name only
+            error_code = "database_error" if isinstance(exc, SQLAlchemyError) else "internal_error"
+            request_id = str(uuid.uuid4())
+            log(
+                "api.error",
+                level="error",
+                request_id=request_id,
+                route=getattr(scope.get("route"), "path", None),
+                method=scope.get("method"),
+                exception=type(exc).__name__,
+                status=500,
+                error_code=error_code,
+            )
+            if started:
+                await send({"type": "http.response.body", "body": b"", "more_body": False})
+                return
+            body = json.dumps({"detail": error_code, "request_id": request_id}).encode()
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 500,
+                    "headers": [
+                        (b"content-type", b"application/json"),
+                        (b"content-length", str(len(body)).encode()),
+                    ],
+                }
+            )
+            await send({"type": "http.response.body", "body": body})
 
 
 def create_app(retriever: Retriever | None = None) -> FastAPI:
@@ -68,6 +130,8 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
     app = FastAPI(title="ask.spore API", version="0.0.0", lifespan=lifespan)
     # [auth] mode: the Phase 0 shared token (eval harness) or Authentik OIDC (P1a-02).
     app.add_middleware(AuthMiddleware)
+    # Added last, so it wraps every route and the auth middleware (findings §12).
+    app.add_middleware(ErrorBoundary)
     app.include_router(api_auth)
     app.include_router(api_v1)
     app.include_router(api_operator)

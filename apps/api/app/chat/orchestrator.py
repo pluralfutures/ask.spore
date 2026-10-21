@@ -36,7 +36,7 @@ from datetime import UTC, date, datetime
 from typing import Any, Literal
 
 from sqlalchemy import func, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.audit.writer import record
@@ -506,6 +506,12 @@ class Orchestrator:
         except IntegrityError:
             # The conversation was deleted while the answer streamed.
             async for event in self._fail(run, "conversation_gone", audit=False):
+                yield event
+            return
+        except SQLAlchemyError:
+            # Any other database failure: an error code only. The exception's message can
+            # quote the answer or question, so it is neither logged nor raised (§12).
+            async for event in self._fail(run, "database_error", audit=False):
                 yield event
             return
         log(

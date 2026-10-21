@@ -27,6 +27,8 @@ ENV = {
     "DATABASE_URL": "postgresql+asyncpg://u:p@127.0.0.1:1/none",  # never connected
     "REDIS_URL": "redis://localhost:6379/0",
     "PHASE0_BEARER_TOKEN": "test-bearer-token-0123456789abcdef",
+    "AUTHENTIK_CLIENT_SECRET": "test-authentik-client-secret",
+    "AUTHENTIK_API_TOKEN": "test-authentik-api-token",
 }
 TAGS = load_tags(DEFAULT_CONFIG_DIR)
 

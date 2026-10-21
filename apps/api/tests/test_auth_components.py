@@ -278,8 +278,9 @@ def test_oidc_mode_needs_authentik_secrets_not_the_phase0_token(tmp_path: Path) 
     settings = load_settings(environ=OIDC_ENV, config_dir=write_config(tmp_path, OIDC_TOML))
     assert settings.models.auth.mode == "oidc"
     assert settings.secrets.phase0_bearer_token is None
+    phase0_env = {k: v for k, v in ENV.items() if not k.startswith("AUTHENTIK_")}
     with pytest.raises(ConfigError) as excinfo:
-        load_settings(environ=ENV, config_dir=write_config(tmp_path, OIDC_TOML))
+        load_settings(environ=phase0_env, config_dir=write_config(tmp_path, OIDC_TOML))
     assert "AUTHENTIK_CLIENT_SECRET, AUTHENTIK_API_TOKEN" in str(excinfo.value)
 
 

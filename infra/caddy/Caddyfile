@@ -33,7 +33,13 @@ askspore.myceliumgastronomy.com {
 		@pages not path /assets/*
 		header @assets Cache-Control "public, max-age=31536000, immutable"
 		header @pages Cache-Control "no-cache"
-		try_files {path} /index.html
-		file_server
+		# A missing asset is a 404, never index.html under an immutable cache header.
+		handle @assets {
+			file_server
+		}
+		handle {
+			try_files {path} /index.html
+			file_server
+		}
 	}
 }

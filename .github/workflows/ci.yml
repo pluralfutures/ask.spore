@@ -110,6 +110,59 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
 
+  authentik-blueprint:
+    # P1b-08: the blueprint applies to an empty Authentik of the pinned version and gives
+    # what the API relies on. A throwaway instance: secrets generated here, nothing kept.
+    name: Authentik blueprint (empty instance)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: infra/authentik
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Throwaway secrets
+        run: |
+          db="$(openssl rand -hex 24)"
+          {
+            echo "POSTGRES_PASSWORD=${db}"
+            echo "AUTHENTIK_POSTGRESQL__PASSWORD=${db}"
+            echo "AUTHENTIK_SECRET_KEY=$(openssl rand -hex 32)"
+          } > .env
+      - name: Start Authentik
+        run: docker compose --profile auth up -d authentik-postgresql authentik-server authentik-worker
+      - name: Wait until Authentik is ready
+        run: |
+          for _ in $(seq 1 90); do
+            if curl -fsS -o /dev/null http://127.0.0.1:9000/-/health/ready/; then exit 0; fi
+            sleep 5
+          done
+          echo "Authentik did not become ready"; exit 1
+      - name: Wait for Authentik's own blueprints (ours depends on three)
+        run: |
+          check='import sys
+          from authentik.blueprints.models import BlueprintInstance
+          names = ["Default - Provider authorization flow (implicit consent)",
+                   "Default - Provider invalidation flow", "System - OAuth2 Provider - Scopes"]
+          done = BlueprintInstance.objects.filter(name__in=names, status="successful").count()
+          sys.exit(0 if done == len(names) else 1)'
+          for _ in $(seq 1 60); do
+            if docker compose --profile auth exec -T authentik-worker ak manage shell -c "$check"; then exit 0; fi
+            sleep 5
+          done
+          echo "Authentik's default blueprints were not applied"; exit 1
+      - name: Validate the blueprint (dry run)
+        run: docker compose --profile auth exec -T authentik-worker ak manage apply_blueprint --dry-run custom/ask-spore.yaml
+      - name: Apply the blueprint
+        run: docker compose --profile auth exec -T authentik-worker ak manage apply_blueprint custom/ask-spore.yaml
+      - name: Apply it again (idempotent)
+        run: docker compose --profile auth exec -T authentik-worker ak manage apply_blueprint custom/ask-spore.yaml
+      - name: Check the result
+        run: docker compose --profile auth exec -T authentik-worker ak manage shell < blueprints/verify_blueprint.py
+      - name: Authentik logs on failure
+        if: failure()
+        run: docker compose --profile auth logs --tail 200 authentik-server authentik-worker
+
   compose:
     name: Compose config
     runs-on: ubuntu-24.04

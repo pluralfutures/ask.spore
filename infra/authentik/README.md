@@ -17,6 +17,7 @@ branch. Differences, to re-apply on upgrade:
 | Secrets read from `./.env` as container environment, not Compose interpolation; services behind the `auth` profile | The Phase 0 stack must keep starting without Authentik secrets; without `.env` the containers refuse to start |
 | SMTP over STARTTLS on port 587; host, port and credentials in `.env` | Stack decision (Oct 20, 2026): Scaleway Transactional Email (fr-par, `smtp.tem.scw.cloud`) is the primary relay, Mailgun EU (`smtp.eu.mailgun.org`) the optional backup; Authentik's email stage only speaks SMTP |
 | Update check, error reporting and startup analytics off | No calls home |
+| `./blueprints` mounted read-only at `/blueprints/custom` (P1b-08) | Our configuration is applied from a file |
 
 ## First run (dev or the Instance)
 
@@ -29,9 +30,9 @@ open http://127.0.0.1:9000/if/flow/initial-setup/       # create the admin accou
 
 ## Configuration the API relies on
 
-Done once in the admin interface (no blueprint yet: the flow has not been run against
-a live instance, findings A7). Names must match `[auth.authentik]` in
-`config/models.toml`.
+From P1b-08 the blueprint `blueprints/ask-spore.yaml` does all of this (see
+"Blueprint" below); the steps stay here as what it does and why. Names must match
+`[auth.authentik]` in `config/models.toml`.
 
 1. **Email template.** `templates/ask-spore-sign-in.html` links to the public host,
    `askspore.myceliumgastronomy.com` (owner, Oct 20, 2026; P1a-16). A second host
@@ -106,6 +107,39 @@ a live instance, findings A7). Names must match `[auth.authentik]` in
    ```
    The operator then signs in with a link and opens `/operator`. Require a hardware key
    for operators in Authentik (an authenticator validation stage bound to them).
+
+## Blueprint (P1b-08)
+
+`blueprints/ask-spore.yaml` reproduces steps 2 to 7a: the three link-flow stages and the
+flow, the admin second factor (group, TOTP setup, validation stage bound to the group), the
+source flows, the `ask_spore` scope mapping, the provider (with `offline_access` and the
+`refresh_token` grant) and the application, and the provisioner: service account
+`ask-spore-provisioner`, role `ask-spore-provisioner` with exactly the permissions the API
+uses, and an API token. It holds no secret: Authentik generates the provider's client secret
+and the token's key; copy them to `AUTHENTIK_CLIENT_SECRET` and `AUTHENTIK_API_TOKEN` in the
+root `.env` (admin interface: Applications → Providers → ask-spore, and Directory → Tokens).
+Step 1 (the template) is the mounted `templates/` folder; steps 8 and 9 stay manual.
+
+The worker applies it on start and when it changes. CI applies it to an empty Authentik of
+the pinned version, twice (idempotent), and checks the result with
+`blueprints/verify_blueprint.py` (job `authentik-blueprint`). On an Instance configured by
+hand it adopts the existing objects by name or slug and changes only what differs (from
+P1b-08: the `refresh_token` grant, `offline_access`, the refresh validity and the MFA
+stage). There, after pulling this code and before restarting the auth profile (which
+applies it), run a dry run in a one-off container (the image's entrypoint is `ak`), then
+check the result once it is applied:
+
+```
+docker compose -f infra/compose.dev.yml --profile auth run --rm authentik-worker \
+  manage apply_blueprint --dry-run custom/ask-spore.yaml
+docker compose -f infra/compose.dev.yml --profile auth up -d
+docker compose -f infra/compose.dev.yml --profile auth exec -T authentik-worker \
+  ak manage shell < infra/authentik/blueprints/verify_blueprint.py
+```
+
+The live Instance's provisioner may have another username; the blueprint then adds
+`ask-spore-provisioner` beside it, and the old account can be removed once its token is
+replaced.
 
 ## Tenant SSO sources (P1b-07)
 

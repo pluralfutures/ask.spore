@@ -72,6 +72,8 @@ services:
     volumes:
       - authentik_data:/data
       - ./templates:/templates:ro
+      # P1b-08: our configuration as a blueprint, applied on start (README, "Blueprint").
+      - ./blueprints:/blueprints/custom:ro
     networks:
       - authentik
     restart: unless-stopped
@@ -91,6 +93,8 @@ services:
     volumes:
       - authentik_data:/data
       - ./templates:/templates:ro
+      # P1b-08: our configuration as a blueprint, applied on start (README, "Blueprint").
+      - ./blueprints:/blueprints/custom:ro
     networks:
       - authentik
     restart: unless-stopped

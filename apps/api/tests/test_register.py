@@ -309,6 +309,8 @@ async def test_status_and_record_constraints(
         "UPDATE sources SET status = 'ingesting' WHERE id = $1",
         "UPDATE sources SET status = 'approved' WHERE id = $1",  # no approved_at
         "UPDATE sources SET status = 'withdrawn', approved_at = now() WHERE id = $1",  # no reason
+        "UPDATE sources SET status = 'withdrawn', approved_at = now(), withdrawn_at = now() "
+        "WHERE id = $1",  # a date but no reason
         "UPDATE sources SET licence_file_path = '../letter.pdf' WHERE id = $1",
     ):
         with pytest.raises(asyncpg.CheckViolationError):

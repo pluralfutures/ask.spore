@@ -88,12 +88,13 @@ def upgrade() -> None:
         op.f("ck_sources_withdrawal_recorded"),
         "sources",
         "status <> 'withdrawn' OR (withdrawn_at IS NOT NULL "
-        "AND length(btrim(withdrawal_reason)) > 0)",
+        "AND length(btrim(coalesce(withdrawal_reason, ''))) > 0)",
     )
     op.create_check_constraint(
         op.f("ck_sources_licence_file_by_hash"),
         "sources",
-        "licence_file_path IS NULL OR licence_file_path ~ '^licences/[0-9a-f]{64}\\.[a-z0-9]{1,8}$'",
+        "licence_file_path IS NULL OR "
+        "licence_file_path ~ '^licences/[0-9a-f]{64}\\.[a-z0-9]{1,8}$'",
     )
 
     op.create_table(
@@ -117,7 +118,8 @@ def upgrade() -> None:
             name=op.f("ck_content_roles_internal_tenant"),
         ),
         sa.CheckConstraint(
-            "role IN ('content_editor', 'content_reviewer')", name=op.f("ck_content_roles_role_valid")
+            "role IN ('content_editor', 'content_reviewer')",
+            name=op.f("ck_content_roles_role_valid"),
         ),
         sa.ForeignKeyConstraint(
             ["tenant_id", "user_id"],

@@ -175,6 +175,8 @@ def test_fixed_replies_of_the_active_prompts_are_not_scored_as_leaks(mode: str) 
         "DATABASE_URL": "unused",
         "RAGFLOW_API_KEY": "unused",
         "PHASE0_BEARER_TOKEN": guardrails.UNUSED_TOKEN,
+        "AUTHENTIK_CLIENT_SECRET": "unused",
+        "AUTHENTIK_API_TOKEN": "unused",
         "SCALEWAY_API_KEY": "mock",
         "MISTRAL_API_KEY": "mock",
     }

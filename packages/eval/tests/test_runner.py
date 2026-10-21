@@ -23,6 +23,9 @@ ENV = {
     "RAGFLOW_API_KEY": "k",
     "DATABASE_URL": "postgresql+asyncpg://u:p@localhost/db",
     "PHASE0_BEARER_TOKEN": "t" * 32,
+    # The repository config runs [auth] mode = "oidc" (findings section 10, F9).
+    "AUTHENTIK_CLIENT_SECRET": "k",
+    "AUTHENTIK_API_TOKEN": "k",
 }
 
 

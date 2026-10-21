@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.chat.orchestrator import (
     ABSTENTION_TEXT,
+    WITHHELD_TEXT,
     ChatContext,
     ChatEvent,
     CitationsEvent,
@@ -221,10 +222,72 @@ async def test_answer_without_valid_citation_is_flagged_unsupported(
     done = done_of(events)
     assert done.unsupported and not done.abstained
     assert citations_of(events).citations == []
-    outcome = await world.admin.fetchval(
-        "SELECT outcome FROM messages WHERE id = $1", done.message_id
+    row = await world.admin.fetchrow(
+        "SELECT outcome, content FROM messages WHERE id = $1", done.message_id
     )
-    assert outcome == "unsupported"
+    assert dict(row) == {"outcome": "unsupported", "content": WITHHELD_TEXT}
+
+
+# --- corpus-only citation check (findings section 11, G6) ------------------------------
+
+
+async def test_uncited_corpus_only_reply_is_never_shown_stored_or_cached(
+    settings: Settings,
+    engine: AsyncEngine,
+    world: World,
+    redis: FakeRedis,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # A workspace block told the model to drop citations; it obeyed.
+    recorder = Recorder(sse(delta("Capacity grew by 12 percent "), delta("in 2025.", USAGE)))
+    events = await run(
+        orchestrator(settings, engine, FakeRetriever(chunks_for(world)), recorder), world, "Q?"
+    )
+    tokens = [e.text for e in events if isinstance(e, TokenEvent)]
+    assert tokens == [WITHHELD_TEXT]  # no model text reached the client
+    done = done_of(events)
+    assert done.unsupported and done.tokens_out == USAGE["completion_tokens"]
+    stored = await world.admin.fetch(
+        "SELECT content FROM messages WHERE conversation_id = $1 AND role = 'assistant'",
+        world.conversation_id,
+    )
+    assert [r["content"] for r in stored] == [WITHHELD_TEXT]
+    assert "12 percent" not in json.dumps(redis.store)
+    logged = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line]
+    assert [(line["status"], line["error_code"]) for line in logged] == [
+        ("unsupported", "answer_withheld")
+    ]
+
+
+async def test_corpus_only_text_is_held_until_the_first_citation(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    recorder = Recorder(
+        sse(delta("Capacity "), delta("grew [1]"), delta(" and prices fell [2]."), delta("", USAGE))
+    )
+    events = await run(
+        orchestrator(settings, engine, FakeRetriever(chunks_for(world)), recorder), world, "Q?"
+    )
+    tokens = [e.text for e in events if isinstance(e, TokenEvent)]
+    assert tokens == ["Capacity grew [1]", " and prices fell [2]."]
+    assert not done_of(events).unsupported
+
+
+async def test_withheld_reply_is_answered_afresh_and_left_out_of_history(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    recorder = Recorder(
+        sse(delta("No sources here.")),
+        completion("Capacity question?"),  # rewrite of the follow-up
+        sse(delta("Capacity grew [1].")),
+        sse(delta("Capacity grew [1] again.")),
+    )
+    orch = orchestrator(settings, engine, FakeRetriever(chunks_for(world)), recorder)
+    assert done_of(await run(orch, world, "Q?")).unsupported
+    second = await run(orch, world, "Q?")
+    assert not done_of(second).unsupported and not done_of(second).cached
+    rewrite_messages = json.dumps(recorder.bodies()[1]["messages"])
+    assert WITHHELD_TEXT not in rewrite_messages and "No sources here" not in rewrite_messages
 
 
 # --- cache -----------------------------------------------------------------------------

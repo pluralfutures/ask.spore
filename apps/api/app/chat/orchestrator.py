@@ -11,8 +11,10 @@ model and reasoning (P1a-04); the workspace fixes the package (P1a-05):
 4. retrieve from every dataset of the conversation's workspace (``top_k``, threshold);
 5. abstain, without any LLM call, when nothing passes the threshold;
 6. de-duplicate and cap context tokens; assemble the prompt;
-7. stream the answer, dropping dangling ``[n]`` markers as it streams;
-8. map markers to chunks; no valid citation means "unsupported";
+7. stream the answer, dropping dangling ``[n]`` markers as it streams; in corpus-only
+   mode nothing is shown until the answer cites a passage;
+8. map markers to chunks; no valid citation means "unsupported", and in corpus-only
+   mode the uncited text is withheld and replaced by ``WITHHELD_TEXT``;
 9. persist both messages, citations and usage; write an audit event; cache.
 
 No database transaction is held open while waiting on retrieval or the model.
@@ -61,6 +63,13 @@ Outcome = Literal["answered", "unsupported", "abstained"]
 
 # User-facing text, not prompt text: shown when nothing in the package is relevant.
 ABSTENTION_TEXT = "Nothing relevant was found in your research package for this question."
+# Shown instead of a corpus-only answer that cites no passage (findings section 11, G6):
+# the prompt asks for citations, and this check holds even when an instruction or the
+# model drops them.
+WITHHELD_TEXT = (
+    "No answer is shown because the reply cited none of your sources. "
+    "Try asking again or rephrasing the question."
+)
 EXCERPT_MAX_CHARS = 1200
 TITLE_MAX_CHARS = 80
 _SPACE = re.compile(r"\s+")
@@ -275,8 +284,8 @@ class Orchestrator:
         turns: list[Turn] = []
         budget = self._chat.history_max_tokens
         for role, content, outcome in rows:
-            if outcome == "abstained":
-                continue  # canned text, not model output
+            if outcome in ("abstained", "unsupported"):
+                continue  # canned text, not model output (an uncited reply is withheld)
             text = strip_markers(content) if role == "assistant" else content
             budget -= estimate_tokens(text)
             if budget < 0:
@@ -350,6 +359,8 @@ class Orchestrator:
         # 3. Answer cache.
         key = self._cache_key(run, f"{template.ref}+instructions/{run.instructions.version}")
         cached = await self._cache_get(run.ctx.tenant_id, key)
+        if cached is not None and cached["outcome"] == "unsupported" and not general:
+            cached = None  # cached before uncited replies were withheld: answer afresh
         if cached is not None:
             run.cache_hit = True
             run.model = cached["model"]
@@ -398,9 +409,11 @@ class Orchestrator:
                 yield event
             return
 
-        # 7. Generation, streamed through the marker filter.
+        # 7. Generation, streamed through the marker filter. In corpus-only mode the text
+        # is held back until it cites a passage, so an uncited reply is never shown.
         markers = MarkerFilter(len(context))
         parts: list[str] = []
+        held = not general
         try:
             stream = await self._llm.answer(
                 system,
@@ -414,11 +427,16 @@ class Orchestrator:
                 out = markers.feed(delta)
                 if out:
                     parts.append(out)
-                    yield TokenEvent(out)
+                    if held and markers.cited:
+                        held = False
+                        out = "".join(parts)  # everything held so far, in one event
+                    if not held:
+                        yield TokenEvent(out)
             tail = markers.flush()
             if tail:
                 parts.append(tail)
-                yield TokenEvent(tail)
+                if not held:
+                    yield TokenEvent(tail)
             run.add_usage(stream.usage, stream.model)
         except LLMError as exc:
             async for event in self._fail(run, exc.error_code):
@@ -441,11 +459,15 @@ class Orchestrator:
         citations = [_citation(n, context[n - 1]) for n in markers.cited]
         # An uncited general-knowledge answer is expected, not unsupported (architecture §5.1).
         outcome: Outcome = "answered" if citations or general else "unsupported"
+        withheld = outcome == "unsupported"
+        if withheld:
+            answer = WITHHELD_TEXT  # the uncited reply is neither shown nor stored
+            yield TokenEvent(answer)
         yield CitationsEvent(citations)
 
         # 9. Cache, then persist and audit (cached first: the client may leave after done).
-        # A cut-off answer is not cached, so asking again gets a fresh one.
-        if not truncated:
+        # A cut-off or withheld answer is not cached, so asking again gets a fresh one.
+        if not truncated and not withheld:
             await self._cache_set(
                 run.ctx.tenant_id,
                 key,
@@ -456,7 +478,9 @@ class Orchestrator:
                     "citations": [asdict(c) for c in citations],
                 },
             )
-        async for event in self._finish(run, answer, citations, outcome, truncated=truncated):
+        async for event in self._finish(
+            run, answer, citations, outcome, truncated=truncated, withheld=withheld
+        ):
             yield event
 
     async def _abstain(self, run: _Run) -> AsyncIterator[ChatEvent]:
@@ -473,6 +497,7 @@ class Orchestrator:
         outcome: Outcome,
         *,
         truncated: bool = False,
+        withheld: bool = False,
     ) -> AsyncIterator[ChatEvent]:
         message_id = uuid.uuid4()
         latency = run.latency_ms()
@@ -497,7 +522,9 @@ class Orchestrator:
             model=run.model,
             status=outcome,
             chunk_count=run.context,
-            error_code="answer_truncated" if truncated else None,
+            error_code=(
+                "answer_withheld" if withheld else "answer_truncated" if truncated else None
+            ),
         )
         yield DoneEvent(
             message_id=message_id,

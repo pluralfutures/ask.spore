@@ -120,6 +120,8 @@ async def invite_user(
         await provider.provision_user(
             email=email, display_name=user.display_name, tenant_id=admin.tenant_id
         )
+        if body.role == "tenant_admin" and await _admin_mfa_required(session):
+            await provider.set_admin_mfa(email, True)  # P1b-08
     except ProviderError as exc:
         # The transaction rolls back: no users row without its Authentik user.
         log("tenant_admin.invite_failed", tenant_id=str(admin.tenant_id), error_code=exc.error_code)
@@ -138,10 +140,16 @@ async def invite_user(
     return out
 
 
+async def _admin_mfa_required(session: AsyncSession) -> bool:
+    required = await session.scalar(select(TenantLoginPolicy.admin_mfa_required))
+    return required is not False  # no row: the default, required
+
+
 @router.patch("/users/{user_id}", response_model=AdminUserOut)
 async def change_user(
     user_id: UUID,
     body: UserChangeIn,
+    request: Request,
     admin: RequestContext = Depends(require_tenant_admin),
     session: AsyncSession = Depends(db_session),
 ) -> AdminUserOut:
@@ -154,7 +162,20 @@ async def change_user(
     if user.id == admin.user_id:
         raise _unprocessable("cannot_change_self")
     before = _user_values(user)
-    if body.role is not None:
+    if body.role is not None and body.role != user.role:
+        # P1b-08: an admin's sign-in links ask for a second factor; a user's do not.
+        provider: SignInLinkProvider | None = getattr(request.app.state, "sign_in_provider", None)
+        if provider is not None:
+            required = body.role == "tenant_admin" and await _admin_mfa_required(session)
+            try:
+                await provider.set_admin_mfa(user.email, required)
+            except ProviderError as exc:
+                log(
+                    "tenant_admin.mfa_sync_failed",
+                    tenant_id=str(admin.tenant_id),
+                    error_code=exc.error_code,
+                )
+                raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="mfa_not_updated") from None
         user.role = body.role
     if body.status == "deactivated":
         user.status = "deactivated"

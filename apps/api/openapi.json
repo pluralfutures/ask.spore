@@ -1309,6 +1309,62 @@
         "title": "MessageOut",
         "type": "object"
       },
+      "MfaCodeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[0-9]{6,8}$",
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "MfaCodeIn",
+        "type": "object"
+      },
+      "MfaRequiredOut": {
+        "description": "The sign-in waits for the tenant admin's second factor (P1b-08): their TOTP code,\nor first enrolling an authenticator app with ``setup_uri`` (``otpauth://``).",
+        "properties": {
+          "failed": {
+            "title": "Failed",
+            "type": "boolean"
+          },
+          "setup_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setup Uri"
+          },
+          "stage": {
+            "enum": [
+              "validate",
+              "setup"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "status": {
+            "const": "mfa_required",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "stage",
+          "setup_uri",
+          "failed"
+        ],
+        "title": "MfaRequiredOut",
+        "type": "object"
+      },
       "ModelOptionOut": {
         "description": "A model the signed-in user may pick for a new conversation (P1a-09).\n\n``external``: served outside the EU (compliance addendum, Oct 18-19, 2026); the\nmodel picker says so. ``reasoning_switch``: reasoning can be turned on.",
         "properties": {
@@ -2594,6 +2650,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaRequiredOut"
+                }
+              }
+            },
+            "description": "A second factor is needed"
+          },
           "204": {
             "description": "Successful Response"
           },
@@ -2621,6 +2687,48 @@
           }
         },
         "summary": "Logout"
+      }
+    },
+    "/api/v1/auth/mfa": {
+      "post": {
+        "description": "The tenant admin's code for the second factor of a sign-in link (P1b-08), from the\nbrowser that POSTed the link. A wrong code asks again (at most 5 in 5 minutes).",
+        "operationId": "answer_mfa_api_v1_auth_mfa_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaCodeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaRequiredOut"
+                }
+              }
+            },
+            "description": "The code was not accepted"
+          },
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Answer Mfa"
       }
     },
     "/api/v1/auth/mode": {

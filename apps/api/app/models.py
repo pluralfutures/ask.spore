@@ -1,7 +1,7 @@
 """Import every ORM module so ``Base.metadata`` describes the whole schema."""
 
 from app.audit.models import AuditEvent
-from app.auth.models import RevokedSession, SignInLink, SsoAttempt
+from app.auth.models import MfaChallenge, RevokedSession, SignInLink, SsoAttempt
 from app.chat.models import Citation, Conversation, Feedback, Message
 from app.content.models import Dataset, Source
 from app.core.db import Base
@@ -21,6 +21,7 @@ __all__ = [
     "Download",
     "Feedback",
     "Message",
+    "MfaChallenge",
     "Operator",
     "OperatorNotice",
     "RevokedSession",

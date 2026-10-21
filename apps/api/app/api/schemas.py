@@ -249,6 +249,20 @@ class LinkCompleteIn(_In):
     token: str = Field(min_length=1, max_length=512)
 
 
+class MfaRequiredOut(BaseModel):
+    """The sign-in waits for the tenant admin's second factor (P1b-08): their TOTP code,
+    or first enrolling an authenticator app with ``setup_uri`` (``otpauth://``)."""
+
+    status: Literal["mfa_required"]
+    stage: Literal["validate", "setup"]
+    setup_uri: str | None
+    failed: bool  # the last code was not accepted
+
+
+class MfaCodeIn(_In):
+    code: str = Field(pattern=r"^[0-9]{6,8}$")
+
+
 class MeOut(BaseModel):
     email: str
     display_name: str

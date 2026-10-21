@@ -262,6 +262,9 @@ class AuthentikConfig(_Strict):
     source_pre_authentication_flow: str = Field(
         default="ask-spore-source-pre-authentication", pattern=r"^[a-z0-9][a-z0-9-]*$"
     )
+    # P1b-08: the group the sign-in-link flow's authenticator validation stage is bound
+    # to. The API keeps tenant admins of tenants that require a second factor in it.
+    admin_mfa_group: str = Field(default="ask-spore-tenant-admins", pattern=r"^[a-z0-9][a-z0-9-]*$")
 
 
 class AuthConfig(_Strict):

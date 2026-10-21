@@ -264,10 +264,14 @@ async def invite_admin(
     provider: SignInLinkProvider | None = getattr(request.app.state, "sign_in_provider", None)
     if provider is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="no_identity_provider")
+    policy = await session.get(TenantLoginPolicy, tenant_id)
     try:
         await provider.provision_user(
             email=email, display_name=user.display_name, tenant_id=tenant_id
         )
+        # P1b-08: Authentik asks the admin group for a second factor on sign-in links.
+        if policy is None or policy.admin_mfa_required:
+            await provider.set_admin_mfa(email, True)
     except ProviderError as exc:
         # The transaction rolls back: no users row without its Authentik user.
         log("operator.invite_failed", tenant_id=str(tenant_id), error_code=exc.error_code)
@@ -371,6 +375,25 @@ async def set_login_policy(
     if row is None:
         raise NOT_FOUND
     before = _policy_values(row)
+    if body.admin_mfa_required != row.admin_mfa_required:
+        # P1b-08: the tenant's admins join or leave the group Authentik's second factor is
+        # bound to. Nothing is saved unless Authentik took every change.
+        provider: SignInLinkProvider | None = getattr(request.app.state, "sign_in_provider", None)
+        if provider is None:
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="no_identity_provider")
+        admins = await session.scalars(
+            select(User.email).where(
+                User.tenant_id == tenant_id,
+                User.role == "tenant_admin",
+                User.status != "deactivated",
+            )
+        )
+        try:
+            for email in admins:
+                await provider.set_admin_mfa(email, body.admin_mfa_required)
+        except ProviderError as exc:
+            log("operator.mfa_sync_failed", tenant_id=str(tenant_id), error_code=exc.error_code)
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="mfa_not_updated") from None
     row.sign_in_links_enabled = body.sign_in_links_enabled
     row.jit_provisioning_enabled = body.jit_provisioning_enabled
     row.admin_mfa_required = body.admin_mfa_required

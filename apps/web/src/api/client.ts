@@ -17,6 +17,7 @@ import type {
   EntitlementsOut,
   LoginPolicyIn,
   LoginPolicyOut,
+  MfaRequiredOut,
   SsoSourceIn,
   SsoStartOut,
   Me,
@@ -137,7 +138,14 @@ export async function authMode(): Promise<AuthMode> {
 
 // The emailed link's landing page (P1a-02) calls this, and only from its button.
 // "no_binding" (P1b-08): this browser did not ask for the link, so it cannot finish it.
-export type SignInResult = "ok" | "no_binding" | "failed";
+// A tenant admin's link may first ask for a second factor (P1b-08): the challenge.
+export type SignInResult = "ok" | "no_binding" | "failed" | MfaRequiredOut;
+
+async function signInResult(response: Response): Promise<SignInResult> {
+  if (response.status === 200) return (await response.json()) as MfaRequiredOut;
+  if (response.ok) return "ok";
+  return (await errorCode(response)) === "no_binding" ? "no_binding" : "failed";
+}
 
 export async function completeSignIn(
   token: string,
@@ -149,8 +157,21 @@ export async function completeSignIn(
     body: JSON.stringify({ token }),
     credentials: "same-origin",
   });
-  if (response.ok) return "ok";
-  return (await errorCode(response)) === "no_binding" ? "no_binding" : "failed";
+  return signInResult(response);
+}
+
+// The admin's code for the pending second factor, from the same browser (P1b-08).
+export async function answerMfa(
+  code: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<SignInResult> {
+  const response = await fetchImpl(`${BASE}/auth/mfa`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+    credentials: "same-origin",
+  });
+  return signInResult(response);
 }
 
 // Tenant discovery (P1b-06): the methods the address's domain allows. Any unknown domain

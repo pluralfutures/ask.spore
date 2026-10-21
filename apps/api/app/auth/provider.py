@@ -49,6 +49,21 @@ class IssuedTokens:
     # P1b-08: with the ``offline_access`` scope, to renew the session before the access
     # token (8 hours) expires. Kept in an HttpOnly cookie for the refresh route only.
     refresh_token: str | None = None
+    # P1b-08: the flow included a second factor the user answered (relayed by the API).
+    mfa: bool = False
+
+
+@dataclass(frozen=True)
+class MfaRequired:
+    """The sign-in-link flow stopped at a second factor (P1b-08): the user's TOTP code
+    (``validate``), or enrolling an authenticator first (``setup``, with the
+    ``otpauth://`` URI the user adds to their app). ``resume`` is the provider's pending
+    state, kept in the browser's cookie only; ``failed``: the last code was wrong."""
+
+    stage: Literal["validate", "setup"]
+    resume: str
+    setup_uri: str | None = None
+    failed: bool = False
 
 
 @dataclass(frozen=True)
@@ -105,8 +120,17 @@ class SignInLinkProvider(Protocol):
         """Email ``email`` a single-use link to the landing page (token in the fragment)."""
         ...
 
-    async def redeem_sign_in_link(self, token: str) -> IssuedTokens:
-        """Complete the sign-in flow with ``token``; raise LinkRefused if it is not valid."""
+    async def redeem_sign_in_link(self, token: str) -> IssuedTokens | MfaRequired:
+        """Complete the sign-in flow with ``token``; raise LinkRefused if it is not valid.
+        A tenant admin's flow stops at the second factor (P1b-08)."""
+        ...
+
+    async def answer_mfa(self, resume: str, code: str) -> IssuedTokens | MfaRequired:
+        """Answer the pending second factor; a wrong code gives ``failed`` (P1b-08)."""
+        ...
+
+    async def set_admin_mfa(self, email: str, required: bool) -> None:
+        """Put the user in (or take them out of) the group the second factor is bound to."""
         ...
 
     async def provision_user(self, *, email: str, display_name: str, tenant_id: UUID) -> None:

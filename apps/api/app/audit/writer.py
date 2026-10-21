@@ -36,8 +36,9 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "tokens_out",
         "latency_ms",
         "rating",
-        # Sign-in (P1a-02): how the user authenticated.
+        # Sign-in (P1a-02): how the user authenticated; with a second factor (P1b-08).
         "method",
+        "mfa",
         # Operator console (P1a-03): who acted, what changed, and the client's
         # acceptance of external models when they are enabled.
         "operator_id",

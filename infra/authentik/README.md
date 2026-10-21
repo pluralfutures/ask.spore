@@ -45,9 +45,21 @@ a live instance, findings A7). Names must match `[auth.authentik]` in
      subject "Sign in to ask.spore", "Activate pending user on success" off.
    - User login stage `ask-spore-login`: session duration `hours=8`.
 3. **Flow** `ask-spore-sign-in-link`, designation *Authentication*, with the three
-   stages in that order. Authentik inserts its own one-time consent stage in front of a
+   stages in that order, and from P1b-08 a fourth between the email stage and the login
+   stage (see 3a). Authentik inserts its own one-time consent stage in front of a
    plan restored from an email token (`EmailTokenRevocationConsentStageView`); the API
    answers it.
+3a. **Second factor for tenant admins** (P1b-08). Group `ask-spore-tenant-admins` (the
+   API adds and removes tenant admins of tenants whose login policy requires it). TOTP
+   setup stage `ask-spore-admin-totp-setup` (6 digits); authenticator validation stage
+   `ask-spore-admin-mfa`: device classes *TOTP* only, "not configured" action *configure*
+   with that setup stage, last-validation threshold `seconds=0`. Bind it in
+   `ask-spore-sign-in-link` at order 25 (identification 10, email 20, login 30) with
+   "evaluate when the flow is planned" off and "evaluate when the stage is run" on, and
+   bind the group to that stage binding, so only its members are asked. The API relays the
+   challenge to the browser holding the link (`POST /api/v1/auth/mfa`) and refuses a tenant
+   admin who got through without it. WebAuthn cannot be relayed (the browser never talks
+   to Authentik), so it is not offered here.
 4. **Scope mapping** `ask_spore` (OAuth2/OpenID scope mapping, scope name `ask_spore`):
    ```python
    return {

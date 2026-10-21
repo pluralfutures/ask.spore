@@ -29,10 +29,21 @@ from app.api.schemas import (
     LinkCompleteIn,
     LinkRequestIn,
     LinkRequestOut,
+    MfaCodeIn,
+    MfaRequiredOut,
     SsoStartOut,
 )
 from app.auth import sessions, sso
-from app.auth.links import SignedIn, SignInRefused, complete_link, new_binding, request_link
+from app.auth.links import (
+    MFA_TTL,
+    MfaPending,
+    SignedIn,
+    SignInRefused,
+    complete_link,
+    complete_mfa,
+    new_binding,
+    request_link,
+)
 from app.auth.middleware import SESSION_COOKIE, presented_token
 from app.auth.provider import ProviderError
 from app.auth.ratelimit import IpRateLimiter, client_ip
@@ -135,7 +146,11 @@ async def request_sign_in_link(
     return LinkRequestOut(status="sent_if_known")
 
 
-@router.post("/link/complete", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/link/complete",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={200: {"model": MfaRequiredOut, "description": "A second factor is needed"}},
+)
 async def complete_sign_in_link(body: LinkCompleteIn, request: Request) -> Response:
     _require_oidc(request)
     try:
@@ -158,10 +173,76 @@ async def complete_sign_in_link(body: LinkCompleteIn, request: Request) -> Respo
         )
         refused.delete_cookie(BINDING_COOKIE, path=BINDING_PATH)
         return refused
-    response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    _session_cookies(request, response, signed_in)
+    response = _signed_in_or_mfa(request, signed_in)
     response.delete_cookie(BINDING_COOKIE, path=BINDING_PATH)
     return response
+
+
+# --- the second factor for tenant admins (P1b-08) -----------------------------------------
+
+MFA_BINDING_COOKIE = "askspore_mfa_binding"
+MFA_STATE_COOKIE = "askspore_mfa_state"
+MFA_PATH = "/api/v1/auth/mfa"
+
+
+def _signed_in_or_mfa(request: Request, outcome: SignedIn | MfaPending) -> Response:
+    """204 with the session cookies, or 200 asking for the code with the MFA cookies."""
+    if isinstance(outcome, SignedIn):
+        response = Response(status_code=status.HTTP_204_NO_CONTENT)
+        _session_cookies(request, response, outcome)
+        _clear_mfa(response)
+        return response
+    challenge = outcome.challenge
+    body = MfaRequiredOut(
+        status="mfa_required",
+        stage=challenge.stage,
+        setup_uri=challenge.setup_uri,
+        failed=challenge.failed,
+    )
+    response = Response(
+        status_code=status.HTTP_200_OK,
+        content=body.model_dump_json().encode(),
+        media_type="application/json",
+        headers={"Cache-Control": "no-store"},  # the setup URI carries the TOTP secret
+    )
+    ttl = int(MFA_TTL.total_seconds())
+    _cookie(response, MFA_BINDING_COOKIE, outcome.binding, max_age=ttl, path=MFA_PATH)
+    _cookie(response, MFA_STATE_COOKIE, challenge.resume, max_age=ttl, path=MFA_PATH)
+    return response
+
+
+def _clear_mfa(response: Response) -> None:
+    for name in (MFA_BINDING_COOKIE, MFA_STATE_COOKIE):
+        response.delete_cookie(name, path=MFA_PATH, secure=True, httponly=True, samesite="strict")
+
+
+@router.post(
+    "/mfa",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={200: {"model": MfaRequiredOut, "description": "The code was not accepted"}},
+)
+async def answer_mfa(body: MfaCodeIn, request: Request) -> Response:
+    """The tenant admin's code for the second factor of a sign-in link (P1b-08), from the
+    browser that POSTed the link. A wrong code asks again (at most 5 in 5 minutes)."""
+    _require_oidc(request)
+    try:
+        outcome = await complete_mfa(
+            factory=request.app.state.db_factory,
+            provider=request.app.state.sign_in_provider,
+            validator=request.app.state.token_validator,
+            binding=request.cookies.get(MFA_BINDING_COOKIE),
+            resume=request.cookies.get(MFA_STATE_COOKIE),
+            code=body.code,
+        )
+    except SignInRefused:
+        refused = Response(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content=b'{"detail":"sign_in_failed"}',
+            media_type="application/json",
+        )
+        _clear_mfa(refused)
+        return refused
+    return _signed_in_or_mfa(request, outcome)
 
 
 # --- SSO through the tenant's source (P1b-07) ---------------------------------------------

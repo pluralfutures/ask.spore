@@ -22,7 +22,7 @@ import secrets
 import time
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -34,6 +34,7 @@ from pydantic import SecretStr
 from app.auth.provider import (
     IssuedTokens,
     LinkRefused,
+    MfaRequired,
     ProviderError,
     SourceSpec,
     SsoRedirect,
@@ -43,6 +44,9 @@ from app.auth.tokens import SSO_CLAIM, TENANT_CLAIM, JwksTokenValidator
 from app.tenancy.login_policy import SsoKind
 
 ISSUER = "http://authentik-server:9000/application/o/ask-spore/"
+# P1b-08: the one TOTP code the fake's authenticator accepts.
+TOTP_CODE = "135790"
+SETUP_URI = "otpauth://totp/ask.spore:synthetic?secret=SYNTHETICSECRET&issuer=ask.spore"
 CLIENT_ID = "ask-spore"
 KID = "test-key-1"
 
@@ -116,6 +120,13 @@ class FakeSignInLinks:
     refresh_tokens: dict[str, dict[str, Any]] = field(default_factory=dict)
     # Simulate an Authentik that does not honour RFC 7009 revocation of refresh tokens.
     ignore_refresh_revocation: bool = False
+    # P1b-08: the admin group the link flow's second factor is bound to, who has enrolled
+    # an authenticator, and link flows waiting for a code (resume -> token claims).
+    mfa_group: set[str] = field(default_factory=set)
+    totp_enrolled: set[str] = field(default_factory=set)
+    mfa_pending: dict[str, dict[str, Any]] = field(default_factory=dict)
+    mfa_sync: list[tuple[str, bool]] = field(default_factory=list)
+    fail_mfa_sync: bool = False
     # Make the next redeem return a token for a different identity (identity check).
     impersonate: tuple[str, uuid.UUID] | None = None
     # P1b-07: sources by slug, pending IdP round trips, and what each IdP answered.
@@ -136,7 +147,7 @@ class FakeSignInLinks:
         self.links[token] = _Link(email=email, expires_at=time.monotonic() + self.link_ttl)
         self.outbox.append((email, token))
 
-    async def redeem_sign_in_link(self, token: str) -> IssuedTokens:
+    async def redeem_sign_in_link(self, token: str) -> IssuedTokens | MfaRequired:
         self.redeemed.append(token)
         link = self.links.get(token)
         if link is None or link.used:
@@ -145,7 +156,37 @@ class FakeSignInLinks:
             raise LinkRefused("refused_by_provider")
         link.used = True
         email, tenant_id = self.impersonate or (link.email, self.users[link.email][0])
-        return self._issue({"email": email, "tenant_id": tenant_id})
+        claims = {"email": email, "tenant_id": tenant_id}
+        if link.email in self.mfa_group:
+            # The validation stage bound to the admin group: the flow waits for a code.
+            resume = secrets.token_urlsafe(24)
+            self.mfa_pending[resume] = claims
+            return self._challenge(link.email, resume, failed=False)
+        return self._issue(claims)
+
+    def _challenge(self, email: str, resume: str, *, failed: bool) -> MfaRequired:
+        if email in self.totp_enrolled:
+            return MfaRequired(stage="validate", resume=resume, failed=failed)
+        return MfaRequired(stage="setup", resume=resume, setup_uri=SETUP_URI, failed=failed)
+
+    async def answer_mfa(self, resume: str, code: str) -> IssuedTokens | MfaRequired:
+        claims = self.mfa_pending.get(resume)
+        if claims is None:
+            raise LinkRefused("refused_by_provider")
+        if code != TOTP_CODE:
+            return self._challenge(claims["email"], resume, failed=True)
+        del self.mfa_pending[resume]
+        self.totp_enrolled.add(claims["email"])
+        return replace(self._issue(claims), mfa=True)
+
+    async def set_admin_mfa(self, email: str, required: bool) -> None:
+        if self.fail_mfa_sync:
+            raise ProviderError("mfa_group_not_updated")
+        self.mfa_sync.append((email, required))
+        if required:
+            self.mfa_group.add(email)
+        else:
+            self.mfa_group.discard(email)
 
     def _issue(self, claims: dict[str, Any], lifetime: int = 3600) -> IssuedTokens:
         # A distinct token per sign-in, as Authentik issues (two in one second differ).

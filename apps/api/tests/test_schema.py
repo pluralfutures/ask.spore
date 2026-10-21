@@ -54,6 +54,7 @@ LATER_TENANT_TABLES = (
     "downloads",
     "tenant_login_policy",
     "sso_attempts",
+    "mfa_challenges",
 )
 # One row per tenant, created with the tenant (revision 0020's trigger): another tenant
 # sees its own row only.
@@ -63,7 +64,13 @@ SET_ROLES = {"askspore_auth", "askspore_operator"}
 # Tenant tables the application role cannot read (only a SET role does). Since revision
 # 0008 it may INSERT operator notices (P1a-07, and the spend notices of P1a-10, revision
 # 0009), still without reading them.
-NO_APP_ACCESS = {"sign_in_links", "operators", "operator_notices", "sso_attempts"}
+NO_APP_ACCESS = {
+    "sign_in_links",
+    "operators",
+    "operator_notices",
+    "sso_attempts",
+    "mfa_challenges",
+}
 TENANT_TABLES: tuple[str, ...] = (*_migration().TENANT_TABLES, *LATER_TENANT_TABLES)
 ALL_SCOPED = (*TENANT_TABLES, "tenants")
 

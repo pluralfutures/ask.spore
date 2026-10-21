@@ -208,6 +208,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/auth/mfa": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Answer Mfa
+     * @description The tenant admin's code for the second factor of a sign-in link (P1b-08), from the
+     *     browser that POSTed the link. A wrong code asks again (at most 5 in 5 minutes).
+     */
+    post: operations["answer_mfa_api_v1_auth_mfa_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/auth/mode": {
     parameters: {
       query?: never;
@@ -1311,6 +1332,32 @@ export interface components {
       /** Unsupported */
       unsupported: boolean;
     };
+    /** MfaCodeIn */
+    MfaCodeIn: {
+      /** Code */
+      code: string;
+    };
+    /**
+     * MfaRequiredOut
+     * @description The sign-in waits for the tenant admin's second factor (P1b-08): their TOTP code,
+     *     or first enrolling an authenticator app with ``setup_uri`` (``otpauth://``).
+     */
+    MfaRequiredOut: {
+      /** Failed */
+      failed: boolean;
+      /** Setup Uri */
+      setup_uri: string | null;
+      /**
+       * Stage
+       * @enum {string}
+       */
+      stage: "validate" | "setup";
+      /**
+       * Status
+       * @constant
+       */
+      status: "mfa_required";
+    };
     /**
      * ModelOptionOut
      * @description A model the signed-in user may pick for a new conversation (P1a-09).
@@ -1995,6 +2042,15 @@ export interface operations {
       };
     };
     responses: {
+      /** @description A second factor is needed */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MfaRequiredOut"];
+        };
+      };
       /** @description Successful Response */
       204: {
         headers: {
@@ -2028,6 +2084,46 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  answer_mfa_api_v1_auth_mfa_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MfaCodeIn"];
+      };
+    };
+    responses: {
+      /** @description The code was not accepted */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MfaRequiredOut"];
+        };
+      };
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
       };
     };
   };

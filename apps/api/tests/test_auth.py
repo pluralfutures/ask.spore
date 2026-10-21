@@ -196,6 +196,10 @@ async def test_links_per_window_are_capped(auth: Auth) -> None:
 
 async def test_post_from_the_requesting_browser_signs_in(auth: Auth) -> None:
     t = await auth.tenant(user_status="invited", role="tenant_admin")
+    # The second factor for admins (P1b-08) is tested in test_admin_mfa.
+    await auth.admin.execute(
+        "UPDATE tenant_login_policy SET admin_mfa_required = false WHERE tenant_id = $1", t.id
+    )
     browser = auth.browser()
     await auth.request_link(browser, t.email)
     response = await auth.complete(browser, auth.idp.last_token())
@@ -224,7 +228,7 @@ async def test_post_from_the_requesting_browser_signs_in(auth: Auth) -> None:
     assert (user["status"], user["last_login_method"]) == ("active", "sign_in_link")
     assert user["last_login_at"] is not None
     assert await auth.audit("auth.login", t.id) == [
-        {"actor": t.user_id, "method": "sign_in_link", "status": "ok"}
+        {"actor": t.user_id, "method": "sign_in_link", "status": "ok", "mfa": False}
     ]
 
 

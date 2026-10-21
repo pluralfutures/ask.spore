@@ -1,9 +1,9 @@
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { completeSignIn } from "../api/client";
+import { answerMfa, completeSignIn } from "../api/client";
 import { tokenFromFragment } from "../lib/fragment";
-import { FinishSignIn } from "./FinishSignIn";
+import { FinishSignIn, SecondFactor } from "./FinishSignIn";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -58,5 +58,33 @@ describe("completeSignIn", () => {
       .fn()
       .mockResolvedValue(Response.json({ detail: "no_binding" }, { status: 401 }));
     expect(await completeSignIn("abc", fetchImpl)).toBe("no_binding");
+  });
+});
+
+describe("second factor (P1b-08)", () => {
+  const challenge = {
+    status: "mfa_required" as const,
+    stage: "setup" as const,
+    setup_uri: "otpauth://totp/ask.spore:x?secret=JBSWY3DPEHPK3PXP",
+    failed: false,
+  };
+
+  it("passes the challenge on from the link POST", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(Response.json(challenge, { status: 200 }));
+    expect(await completeSignIn("abc", fetchImpl)).toEqual(challenge);
+  });
+
+  it("shows the enrolment key and asks for the code", () => {
+    const html = renderToString(<SecondFactor challenge={challenge} onResult={() => {}} />);
+    expect(html).toContain("JBSW Y3DP EHPK 3PXP");
+    expect(html).toContain("one-time-code");
+  });
+
+  it("POSTs the code to the MFA route", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    expect(await answerMfa("123456", fetchImpl)).toBe("ok");
+    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/auth/mfa");
+    expect(JSON.parse(init.body as string)).toEqual({ code: "123456" });
   });
 });

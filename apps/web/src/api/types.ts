@@ -45,6 +45,8 @@ export type SsoSourceIn =
   | Schemas["OidcSourceIn"]
   | Schemas["SamlSourceIn"];
 export type SsoStartOut = Schemas["SsoStartOut"];
+// Second factor for tenant admins (P1b-08).
+export type MfaRequiredOut = Schemas["MfaRequiredOut"];
 
 export type ChatStreamEvent =
   | { event: "token"; data: TokenData }

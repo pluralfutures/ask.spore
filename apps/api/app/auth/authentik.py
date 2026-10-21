@@ -55,6 +55,7 @@ from pydantic import SecretStr
 from app.auth.provider import (
     IssuedTokens,
     LinkRefused,
+    MfaRequired,
     ProviderError,
     SourceSpec,
     SsoRedirect,
@@ -76,6 +77,9 @@ MAPPINGS: Final = {
 }
 KEYPAIRS: Final = "/api/v3/crypto/certificatekeypairs/"
 PROVIDER_TYPES: Final = {"entra": "entraid", "google": "google", "oidc": "openidconnect"}
+# P1b-08: the stages of the second factor Authentik asks tenant admins for.
+TOTP_SETUP: Final = "ak-stage-authenticator-totp"
+MFA_COMPONENTS: Final = frozenset({"ak-stage-authenticator-validate", TOTP_SETUP})
 SAML_EMAIL_NAME_ID: Final = "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
 SSO_USER_PATH: Final = "ask-spore/sso"
 ENTRA_GROUPS_SCOPE: Final = "https://graph.microsoft.com/GroupMember.Read.All"
@@ -156,21 +160,25 @@ def mapping_expression(spec: SourceSpec) -> str:
     )
 
 
-def _encode_resume(cookies: Mapping[str, str]) -> str:
-    raw = json.dumps(dict(cookies), separators=(",", ":")).encode("utf-8")
+def _encode_resume(cookies: Mapping[str, str], query: str = "") -> str:
+    """Authentik's pending session (its cookies) and the flow query, for a cookie."""
+    raw = json.dumps({"c": dict(cookies), "q": query}, separators=(",", ":")).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("ascii")
 
 
-def _decode_resume(resume: str) -> dict[str, str]:
+def _decode_resume(resume: str) -> tuple[dict[str, str], str]:
     try:
         value = json.loads(base64.urlsafe_b64decode(resume.encode("ascii")))
     except (binascii.Error, ValueError, UnicodeError):
         raise LinkRefused("bad_resume") from None
-    if not isinstance(value, dict) or not all(
-        isinstance(k, str) and isinstance(v, str) for k, v in value.items()
+    cookies, query = (value.get("c"), value.get("q")) if isinstance(value, dict) else (None, None)
+    if (
+        not isinstance(cookies, dict)
+        or not isinstance(query, str)
+        or not all(isinstance(k, str) and isinstance(v, str) for k, v in cookies.items())
     ):
         raise LinkRefused("bad_resume")
-    return value
+    return cookies, query
 
 
 def _pkce() -> tuple[str, str]:
@@ -243,7 +251,7 @@ class AuthentikProvider:
             if sent.get("component") != "ak-stage-email":
                 raise ProviderError("link_not_sent")
 
-    async def redeem_sign_in_link(self, token: str) -> IssuedTokens:
+    async def redeem_sign_in_link(self, token: str) -> IssuedTokens | MfaRequired:
         flow = self._config.sign_in_flow
         query = urlencode({"flow_token": token})
         async with self._client() as http:
@@ -254,9 +262,58 @@ class AuthentikProvider:
             done = await self._challenge(
                 http, flow, query, {"component": "ak-stage-consent", "token": consent["token"]}
             )
-            if done.get("component") != "xak-flow-redirect":
+            return await self._after_stage(http, query, done, mfa=False)
+
+    async def _after_stage(
+        self, http: httpx.AsyncClient, query: str, challenge: dict[str, Any], *, mfa: bool
+    ) -> IssuedTokens | MfaRequired:
+        """Where the link flow stands: a second factor to relay (P1b-08), or done."""
+        component = challenge.get("component")
+        if component in MFA_COMPONENTS:
+            setup_uri = challenge.get("config_url") if component == TOTP_SETUP else None
+            return MfaRequired(
+                stage="setup" if component == TOTP_SETUP else "validate",
+                resume=_encode_resume(dict(http.cookies), query),
+                setup_uri=setup_uri if isinstance(setup_uri, str) else None,
+                failed=bool(challenge.get("response_errors")),
+            )
+        if component != "xak-flow-redirect":
+            raise LinkRefused("refused_by_provider")
+        issued = await self._authorize(http)
+        return IssuedTokens(
+            access_token=issued.access_token, refresh_token=issued.refresh_token, mfa=mfa
+        )
+
+    async def answer_mfa(self, resume: str, code: str) -> IssuedTokens | MfaRequired:
+        """POST the code to the stage the flow stopped at (validation or TOTP setup)."""
+        cookies, query = _decode_resume(resume)
+        async with self._client() as http:
+            http.cookies.update(cookies)
+            current = await self._challenge(http, self._config.sign_in_flow, query)
+            component = current.get("component")
+            if component not in MFA_COMPONENTS:
                 raise LinkRefused("refused_by_provider")
-            return await self._authorize(http)
+            answered = await self._challenge(
+                http, self._config.sign_in_flow, query, {"component": component, "code": code}
+            )
+            return await self._after_stage(http, query, answered, mfa=True)
+
+    async def set_admin_mfa(self, email: str, required: bool) -> None:
+        """Membership of the group the link flow's validation stage is bound to."""
+        try:
+            user = await self._find("/api/v3/core/users/", username=email)
+            if user is None:
+                return  # no sign-in-link user in Authentik: nothing to challenge
+            group = await self._find("/api/v3/core/groups/", name=self._config.admin_mfa_group)
+            if group is None:
+                raise ProviderError("mfa_group_missing")
+            action = "add_user" if required else "remove_user"
+            response = await self._api.post(
+                f"/api/v3/core/groups/{group['pk']}/{action}/", json={"pk": user["pk"]}
+            )
+            response.raise_for_status()
+        except (httpx.HTTPError, ValueError, KeyError):
+            raise ProviderError("mfa_group_not_updated") from None
 
     # --- OIDC authorization code with PKCE, in the session the flow just signed in ----
 
@@ -379,7 +436,7 @@ class AuthentikProvider:
     async def finish_sso(
         self, kind: SsoKind, slug: str, params: Mapping[str, str], resume: str
     ) -> IssuedTokens:
-        cookies = _decode_resume(resume)
+        cookies, _ = _decode_resume(resume)
         async with self._client() as http:
             http.cookies.update(cookies)
             try:

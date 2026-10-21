@@ -19,7 +19,7 @@ from app.core.db import session_factory
 from app.operator.grants import grant_operator, revoke_operator
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.conftest import MigratedDatabase
-from tests.fake_idp import sign
+from tests.fake_idp import TOTP_CODE, sign
 from tests.test_auth import Auth, auth  # noqa: F401 - fixture
 from tests.test_tenancy import Tenant
 
@@ -261,10 +261,16 @@ async def test_invited_first_admin_signs_in_with_a_link(console: Console) -> Non
     assert event["after"] == {"user_id": str(user_id), "role": "tenant_admin", "status": "invited"}
     assert email not in json.dumps(event)  # the audit row names the user, not the address
 
-    # The admin signs in from their own browser and becomes active.
+    # Provisioned into the group Authentik's second factor is bound to (P1b-08).
+    assert console.auth.idp.mfa_sync == [(email, True)]
+
+    # The admin signs in from their own browser, with a second factor, and becomes active.
     browser = console.auth.browser()
     await console.auth.request_link(browser, email)
-    assert (await console.auth.complete(browser, console.auth.idp.last_token())).status_code == 204
+    pending = await console.auth.complete(browser, console.auth.idp.last_token())
+    assert (pending.status_code, pending.json()["stage"]) == (200, "setup")
+    answered = await browser.post("/api/v1/auth/mfa", json={"code": TOTP_CODE})
+    assert answered.status_code == 204
     me = (await browser.get("/api/v1/me")).json()
     assert (me["role"], me["tenant_display_name"]) == ("tenant_admin", "Synthetic Co")
     assert (

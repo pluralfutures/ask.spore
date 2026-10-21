@@ -277,6 +277,10 @@ class AuthConfig(_Strict):
     # Caddy's limit would be a second layer (findings 1b B11).
     ip_requests_per_window: int = Field(default=10, ge=1, le=1000)
     ip_window_seconds: int = Field(default=600, ge=60, le=3600)
+    # P1b-08: how long the refresh cookie lives; matches the Authentik provider's
+    # refresh_token_validity (infra/authentik/blueprints). The session is renewed before
+    # the access token (8 hours) expires, at most this long after the last renewal.
+    refresh_token_ttl_seconds: int = Field(default=86_400, ge=3_600, le=7 * 86_400)
     authentik: AuthentikConfig | None = None
 
 

@@ -64,6 +64,7 @@ class SignedIn:
     context: RequestContext
     access_token: str
     expires_at: datetime
+    refresh_token: str | None = None  # P1b-08
 
 
 def new_binding() -> str:
@@ -279,6 +280,7 @@ async def complete_link(
         ),
         access_token=issued.access_token,
         expires_at=identity.expires_at,
+        refresh_token=issued.refresh_token,
     )
 
 

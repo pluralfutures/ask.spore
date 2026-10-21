@@ -33,6 +33,7 @@ PUBLIC_PATHS = frozenset(
         "/api/v1/auth/link",
         "/api/v1/auth/link/complete",
         "/api/v1/auth/logout",
+        "/api/v1/auth/refresh",
         "/api/v1/auth/sso/start",
     }
 )

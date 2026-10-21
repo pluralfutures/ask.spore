@@ -52,12 +52,20 @@ from uuid import UUID
 import httpx
 from pydantic import SecretStr
 
-from app.auth.provider import IssuedTokens, LinkRefused, ProviderError, SourceSpec, SsoRedirect
+from app.auth.provider import (
+    IssuedTokens,
+    LinkRefused,
+    ProviderError,
+    SourceSpec,
+    SsoRedirect,
+    TokenKind,
+)
 from app.auth.tokens import SSO_CLAIM, TENANT_CLAIM, JwksTokenValidator
 from app.core.config import AuthentikConfig, ConfigError, Settings
 from app.tenancy.login_policy import SsoKind
 
-SCOPES = "openid email profile ask_spore"
+# offline_access (P1b-08): a refresh token, so the session is renewed before it expires.
+SCOPES = "openid email profile ask_spore offline_access"
 MAX_REDIRECTS = 5
 
 # P1b-07: Authentik's API paths for the two source families, and its OAuth source types.
@@ -115,6 +123,17 @@ return {{
     }},
 }}
 """
+
+
+def _tokens(response: httpx.Response, error_code: str) -> IssuedTokens:
+    try:
+        body = response.json()
+        access_token, refresh_token = body["access_token"], body.get("refresh_token")
+    except (ValueError, KeyError, AttributeError):
+        raise ProviderError(error_code) from None
+    if not isinstance(access_token, str) or not isinstance(refresh_token, str | None):
+        raise ProviderError(error_code)
+    return IssuedTokens(access_token=access_token, refresh_token=refresh_token)
 
 
 def family(kind: SsoKind) -> str:
@@ -293,22 +312,42 @@ class AuthentikProvider:
                 },
             )
             response.raise_for_status()
-            access_token = response.json()["access_token"]
-        except (httpx.HTTPError, ValueError, KeyError):
+        except httpx.HTTPError:
             raise ProviderError("token_exchange_failed") from None
-        if not isinstance(access_token, str):
-            raise ProviderError("token_exchange_failed")
-        return IssuedTokens(access_token=access_token)
+        return _tokens(response, "token_exchange_failed")
 
-    async def revoke_token(self, access_token: str) -> None:
+    async def refresh_session(self, refresh_token: str) -> IssuedTokens:
+        """The refresh-token grant (P1b-08). Authentik rotates the refresh token: the one
+        presented is revoked and a new one returned (desk-checked, ``TokenView``)."""
+        try:
+            async with self._client() as http:
+                response = await http.post(
+                    "/application/o/token/",
+                    data={
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token,
+                        "client_id": self._config.client_id,
+                        "client_secret": self._client_secret.get_secret_value(),
+                        "scope": SCOPES,
+                    },
+                )
+        except httpx.HTTPError:
+            raise ProviderError("authentik_unavailable") from None
+        if response.status_code in (400, 401):
+            raise LinkRefused("refresh_refused")  # expired, revoked or already used
+        if response.is_error:
+            raise ProviderError("refresh_failed")
+        return _tokens(response, "refresh_failed")
+
+    async def revoke_token(self, token: str, kind: TokenKind) -> None:
         """RFC 7009 revocation at Authentik's OAuth2 provider (P1a-02, desk-checked)."""
         try:
             async with self._client() as http:
                 response = await http.post(
                     "/application/o/revoke/",
                     data={
-                        "token": access_token,
-                        "token_type_hint": "access_token",
+                        "token": token,
+                        "token_type_hint": kind,
                         "client_id": self._config.client_id,
                         "client_secret": self._client_secret.get_secret_value(),
                     },

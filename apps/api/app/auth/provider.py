@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID
 
 from pydantic import SecretStr
@@ -39,9 +39,16 @@ class ProviderError(Exception):
         super().__init__(error_code)
 
 
+# RFC 7009 token_type_hint values.
+TokenKind = Literal["access_token", "refresh_token"]
+
+
 @dataclass(frozen=True)
 class IssuedTokens:
     access_token: str
+    # P1b-08: with the ``offline_access`` scope, to renew the session before the access
+    # token (8 hours) expires. Kept in an HttpOnly cookie for the refresh route only.
+    refresh_token: str | None = None
 
 
 @dataclass(frozen=True)
@@ -106,8 +113,13 @@ class SignInLinkProvider(Protocol):
         """Create or update the provider's user, carrying ``tenant_id`` into its tokens."""
         ...
 
-    async def revoke_token(self, access_token: str) -> None:
-        """Revoke an access token at the provider on sign-out (P1a-02, best effort)."""
+    async def refresh_session(self, refresh_token: str) -> IssuedTokens:
+        """New tokens for a refresh token (rotated: the old one is spent); LinkRefused if
+        the provider will not (P1b-08)."""
+        ...
+
+    async def revoke_token(self, token: str, kind: TokenKind) -> None:
+        """Revoke a token at the provider on sign-out (P1a-02, P1b-08; best effort)."""
         ...
 
     async def aclose(self) -> None: ...

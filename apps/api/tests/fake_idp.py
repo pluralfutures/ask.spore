@@ -31,7 +31,14 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pydantic import SecretStr
 
-from app.auth.provider import IssuedTokens, LinkRefused, ProviderError, SourceSpec, SsoRedirect
+from app.auth.provider import (
+    IssuedTokens,
+    LinkRefused,
+    ProviderError,
+    SourceSpec,
+    SsoRedirect,
+    TokenKind,
+)
 from app.auth.tokens import SSO_CLAIM, TENANT_CLAIM, JwksTokenValidator
 from app.tenancy.login_policy import SsoKind
 
@@ -104,7 +111,11 @@ class FakeSignInLinks:
     outbox: list[tuple[str, str]] = field(default_factory=list)  # (email, link token)
     links: dict[str, _Link] = field(default_factory=dict)
     redeemed: list[str] = field(default_factory=list)  # every token the API submitted
-    revoked: list[str] = field(default_factory=list)  # access tokens revoked on sign-out
+    revoked: list[str] = field(default_factory=list)  # tokens revoked, either kind
+    # P1b-08: refresh token -> the claims its renewals carry; spent ones are removed.
+    refresh_tokens: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Simulate an Authentik that does not honour RFC 7009 revocation of refresh tokens.
+    ignore_refresh_revocation: bool = False
     # Make the next redeem return a token for a different identity (identity check).
     impersonate: tuple[str, uuid.UUID] | None = None
     # P1b-07: sources by slug, pending IdP round trips, and what each IdP answered.
@@ -134,15 +145,28 @@ class FakeSignInLinks:
             raise LinkRefused("refused_by_provider")
         link.used = True
         email, tenant_id = self.impersonate or (link.email, self.users[link.email][0])
+        return self._issue({"email": email, "tenant_id": tenant_id})
+
+    def _issue(self, claims: dict[str, Any], lifetime: int = 3600) -> IssuedTokens:
         # A distinct token per sign-in, as Authentik issues (two in one second differ).
-        token = sign(self.key, email=email, tenant_id=tenant_id, jti=secrets.token_hex(8))
-        return IssuedTokens(access_token=token)
+        token = sign(self.key, **claims, lifetime=lifetime, jti=secrets.token_hex(8))
+        refresh = secrets.token_urlsafe(32)
+        self.refresh_tokens[refresh] = claims
+        return IssuedTokens(access_token=token, refresh_token=refresh)
+
+    async def refresh_session(self, refresh_token: str) -> IssuedTokens:
+        claims = self.refresh_tokens.pop(refresh_token, None)  # rotated: spent once
+        if claims is None:
+            raise LinkRefused("refresh_refused")
+        return self._issue(claims)
 
     async def provision_user(self, *, email: str, display_name: str, tenant_id: uuid.UUID) -> None:
         self.users[email] = (tenant_id, display_name)
 
-    async def revoke_token(self, access_token: str) -> None:
-        self.revoked.append(access_token)
+    async def revoke_token(self, token: str, kind: TokenKind) -> None:
+        self.revoked.append(token)
+        if kind == "refresh_token" and not self.ignore_refresh_revocation:
+            self.refresh_tokens.pop(token, None)
 
     async def aclose(self) -> None:
         return None
@@ -203,21 +227,18 @@ class FakeSignInLinks:
         answer = found[1]
         source = self.sources[slug].spec
         admin_groups = source.config.get("admin_group_ids", [])
-        token = sign(
-            self.key,
-            email=answer.email,
-            tenant_id=self.mint_tenant or source.tenant_id,
-            jti=secrets.token_hex(8),
-            **{
+        return self._issue(
+            {
+                "email": answer.email,
+                "tenant_id": self.mint_tenant or source.tenant_id,
                 SSO_CLAIM: {
                     "source": self.mint_source or slug,
                     "hd": answer.hd or "",
                     "email_verified": answer.email_verified,
                     "admin": bool(set(answer.groups) & set(admin_groups)),
-                }
-            },
+                },
+            }
         )
-        return IssuedTokens(access_token=token)
 
     def expire_all(self) -> None:
         for link in self.links.values():

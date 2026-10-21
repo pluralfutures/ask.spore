@@ -8,7 +8,8 @@ every address; the lookup and the email run after the response. ``POST
 landing page's button calls it: there is no GET that consumes anything. On success
 the Authentik access token is set as the ``askspore_session`` cookie (HttpOnly,
 Secure, SameSite=Strict) and never returned in a body. ``POST /auth/logout`` clears
-the cookie and revokes the token (``app.auth.sessions``).
+the cookies and revokes the tokens, and ``POST /auth/refresh`` renews the session from the
+refresh cookie (``app.auth.sessions``, P1b-08).
 """
 
 from __future__ import annotations
@@ -30,18 +31,20 @@ from app.api.schemas import (
     LinkRequestOut,
     SsoStartOut,
 )
-from app.auth import sso
-from app.auth.links import SignInRefused, complete_link, new_binding, request_link
+from app.auth import sessions, sso
+from app.auth.links import SignedIn, SignInRefused, complete_link, new_binding, request_link
 from app.auth.middleware import SESSION_COOKIE, presented_token
 from app.auth.provider import ProviderError
 from app.auth.ratelimit import IpRateLimiter, client_ip
-from app.auth.sessions import revoke
 from app.core.logging import log
 from app.tenancy.login_policy import discover
 
 router = APIRouter(prefix="/api/v1/auth")
 
 BINDING_COOKIE = "askspore_link_binding"
+# P1b-08: the refresh token, sent only to the auth routes (refresh and sign-out).
+REFRESH_COOKIE = "askspore_refresh"
+REFRESH_PATH = "/api/v1/auth"
 # The binding cookie is sent only to the completion route, never to anything else.
 BINDING_PATH = "/api/v1/auth/link"
 
@@ -80,6 +83,20 @@ def _cookie(response: Response, name: str, value: str, *, max_age: int, path: st
     response.set_cookie(
         name, value, max_age=max_age, path=path, secure=True, httponly=True, samesite="strict"
     )
+
+
+def _session_cookies(request: Request, response: Response, signed_in: SignedIn) -> None:
+    """The access token for every route, and the refresh token for the auth routes."""
+    lifetime = int((signed_in.expires_at - datetime.now(UTC)).total_seconds())
+    _cookie(response, SESSION_COOKIE, signed_in.access_token, max_age=max(lifetime, 0), path="/")
+    if signed_in.refresh_token:
+        ttl = request.app.state.settings.models.auth.refresh_token_ttl_seconds
+        _cookie(response, REFRESH_COOKIE, signed_in.refresh_token, max_age=ttl, path=REFRESH_PATH)
+
+
+def _clear_session(response: Response) -> None:
+    for name, path in ((SESSION_COOKIE, "/"), (REFRESH_COOKIE, REFRESH_PATH)):
+        response.delete_cookie(name, path=path, secure=True, httponly=True, samesite="strict")
 
 
 @router.get("/mode", response_model=AuthModeOut)
@@ -142,8 +159,7 @@ async def complete_sign_in_link(body: LinkCompleteIn, request: Request) -> Respo
         refused.delete_cookie(BINDING_COOKIE, path=BINDING_PATH)
         return refused
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    lifetime = int((signed_in.expires_at - datetime.now(UTC)).total_seconds())
-    _cookie(response, SESSION_COOKIE, signed_in.access_token, max_age=max(lifetime, 0), path="/")
+    _session_cookies(request, response, signed_in)
     response.delete_cookie(BINDING_COOKIE, path=BINDING_PATH)
     return response
 
@@ -211,10 +227,7 @@ async def _finish_sso(
             resume=request.cookies.get(SSO_STATE_COOKIE),
         )
         response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
-        lifetime = int((signed_in.expires_at - datetime.now(UTC)).total_seconds())
-        _cookie(
-            response, SESSION_COOKIE, signed_in.access_token, max_age=max(lifetime, 0), path="/"
-        )
+        _session_cookies(request, response, signed_in)
     except SignInRefused:
         response = RedirectResponse(SSO_FAILED_REDIRECT, status_code=status.HTTP_303_SEE_OTHER)
     for name in (SSO_BINDING_COOKIE, SSO_STATE_COOKIE):
@@ -253,19 +266,51 @@ async def sso_saml_callback(slug: str, request: Request) -> Response:
     return await _finish_sso(request, "saml", slug, params)
 
 
+@router.post("/refresh", status_code=status.HTTP_204_NO_CONTENT)
+async def refresh_session(request: Request) -> Response:
+    """Renew the session before the access token expires (P1b-08). Needs the refresh
+    cookie; the previous access and refresh tokens are revoked, so only the new ones
+    work. A refused refresh clears both cookies (the user signs in again)."""
+    state = request.app.state
+    _require_oidc(request)
+    try:
+        signed_in = await sessions.refresh(
+            factory=state.db_factory,
+            validator=state.token_validator,
+            provider=state.sign_in_provider,
+            refresh_token=request.cookies.get(REFRESH_COOKIE),
+            current_token=presented_token(request.scope),
+            refresh_ttl_seconds=state.settings.models.auth.refresh_token_ttl_seconds,
+        )
+    except SignInRefused:
+        refused = Response(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content=b'{"detail":"refresh_refused"}',
+            media_type="application/json",
+        )
+        _clear_session(refused)
+        return refused
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _session_cookies(request, response, signed_in)
+    return response
+
+
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(request: Request) -> Response:
-    """Clear the session cookie and revoke the session server-side (P1a-02): the token
-    is listed in ``revoked_sessions``, so a copy of the old cookie is refused."""
+    """Clear the session cookies and revoke the session server-side (P1a-02, P1b-08): the
+    access and refresh tokens are listed in ``revoked_sessions`` and revoked at
+    Authentik, so a copy of either old cookie is refused."""
     state = request.app.state
     token = presented_token(request.scope)
     if state.settings.models.auth.mode == "oidc" and token is not None:
-        await revoke(
+        await sessions.revoke(
             state.db_factory,
             state.token_validator,
             getattr(state, "sign_in_provider", None),
             token,
+            refresh_token=request.cookies.get(REFRESH_COOKIE),
+            refresh_ttl_seconds=state.settings.models.auth.refresh_token_ttl_seconds,
         )
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    response.delete_cookie(SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="strict")
+    _clear_session(response)
     return response

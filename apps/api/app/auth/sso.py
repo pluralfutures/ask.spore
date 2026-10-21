@@ -262,6 +262,7 @@ async def complete(
         ),
         access_token=issued.access_token,
         expires_at=identity.expires_at,
+        refresh_token=issued.refresh_token,
     )
 
 

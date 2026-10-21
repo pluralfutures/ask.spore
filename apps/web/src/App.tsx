@@ -6,6 +6,7 @@ import {
   authMode,
   currentUser,
   loadCredentials,
+  refreshSession,
   setUnauthorizedHandler,
   signOut,
   type Credentials,
@@ -16,6 +17,7 @@ import { EmailSignIn } from "./components/EmailSignIn";
 import { SignIn } from "./components/SignIn";
 import { Chat } from "./pages/Chat";
 import { ConversationList } from "./pages/ConversationList";
+import { renewalDelay } from "./lib/session";
 import { FinishSignIn } from "./pages/FinishSignIn";
 import { NewConversation } from "./pages/NewConversation";
 import { OperatorConsole } from "./pages/OperatorConsole";
@@ -62,6 +64,7 @@ export function App({ initialMode = null }: { initialMode?: AuthMode | null } = 
   const [credentials, setCredentials] = useState<Credentials | null>(loadCredentials);
   // OIDC mode: null until GET /me answers.
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const path = currentPath();
 
   useEffect(() => {
@@ -70,9 +73,27 @@ export function App({ initialMode = null }: { initialMode?: AuthMode | null } = 
 
   useEffect(() => {
     if (mode === "oidc" && path !== FINISH_PATH) {
-      void currentUser().then((me) => setSignedIn(me !== null));
+      void currentUser().then((me) => {
+        setSignedIn(me !== null);
+        setExpiresAt(me?.session_expires_at ?? null);
+      });
     }
   }, [mode, path]);
+
+  // P1b-08: renew the session before it expires; if renewal is refused, the next request
+  // gets 401 and the sign-in page shows.
+  useEffect(() => {
+    const delay = signedIn ? renewalDelay(expiresAt) : null;
+    if (delay === null) return;
+    const timer = window.setTimeout(() => {
+      void refreshSession().then(async (renewed) => {
+        if (!renewed) return;
+        const me = await currentUser();
+        setExpiresAt(me?.session_expires_at ?? null);
+      });
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [signedIn, expiresAt]);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {

@@ -197,8 +197,9 @@ export interface paths {
     put?: never;
     /**
      * Logout
-     * @description Clear the session cookie and revoke the session server-side (P1a-02): the token
-     *     is listed in ``revoked_sessions``, so a copy of the old cookie is refused.
+     * @description Clear the session cookies and revoke the session server-side (P1a-02, P1b-08): the
+     *     access and refresh tokens are listed in ``revoked_sessions`` and revoked at
+     *     Authentik, so a copy of either old cookie is refused.
      */
     post: operations["logout_api_v1_auth_logout_post"];
     delete?: never;
@@ -218,6 +219,28 @@ export interface paths {
     get: operations["auth_mode_api_v1_auth_mode_get"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Refresh Session
+     * @description Renew the session before the access token expires (P1b-08). Needs the refresh
+     *     cookie; the previous access and refresh tokens are revoked, so only the new ones
+     *     work. A refused refresh clears both cookies (the user signs in again).
+     */
+    post: operations["refresh_session_api_v1_auth_refresh_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1251,6 +1274,8 @@ export interface components {
        * @enum {string}
        */
       role: "user" | "tenant_admin";
+      /** Session Expires At */
+      session_expires_at?: string | null;
       /** Tenant Display Name */
       tenant_display_name: string;
     };
@@ -2023,6 +2048,24 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["AuthModeOut"];
         };
+      };
+    };
+  };
+  refresh_session_api_v1_auth_refresh_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

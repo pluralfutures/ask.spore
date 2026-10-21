@@ -254,6 +254,8 @@ class MeOut(BaseModel):
     display_name: str
     role: Literal["user", "tenant_admin"]
     tenant_display_name: str
+    # P1b-08: the session's access token expiry (OIDC mode); renew before it.
+    session_expires_at: datetime | None = None
 
 
 class ModelOptionOut(BaseModel):

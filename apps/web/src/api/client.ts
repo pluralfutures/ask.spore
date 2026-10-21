@@ -190,6 +190,15 @@ export async function requestSignInLink(email: string): Promise<void> {
   if (!response.ok) throw new ApiError(response.status);
 }
 
+// P1b-08: renew the session from the refresh cookie before the access token expires.
+export async function refreshSession(): Promise<boolean> {
+  const response = await fetch(`${BASE}/auth/refresh`, {
+    method: "POST",
+    credentials: "same-origin",
+  });
+  return response.ok;
+}
+
 export async function signOut(): Promise<void> {
   await fetch(`${BASE}/auth/logout`, { method: "POST", credentials: "same-origin" });
 }

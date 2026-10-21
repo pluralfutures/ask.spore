@@ -48,6 +48,8 @@ from app.api.schemas import (
     WorkspacePromptOut,
 )
 from app.audit.writer import AuditValue, record
+from app.auth.middleware import IDENTITY_KEY
+from app.auth.tokens import Identity
 from app.chat.models import Citation, Conversation, Feedback, Message
 from app.chat.orchestrator import (
     ChatContext,
@@ -116,11 +118,14 @@ async def me(request: Request, session: AsyncSession = Depends(db_session)) -> M
             .where(User.id == current_user_id(request))
         )
     ).one()
+    identity = getattr(request.state, IDENTITY_KEY, None)
     return MeOut(
         email=row.email,
         display_name=row.display_name,
         role="tenant_admin" if row.role == "tenant_admin" else "user",
         tenant_display_name=row.tenant,
+        # P1b-08: when the access token expires; the web app renews the session before.
+        session_expires_at=identity.expires_at if isinstance(identity, Identity) else None,
     )
 
 

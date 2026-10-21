@@ -59,12 +59,15 @@ a live instance, findings A7). Names must match `[auth.authentik]` in
    which source, and what the IdP said (hosted domain, address verified, admin group).
 5. **Provider** `ask-spore` (OAuth2/OpenID): confidential client, client ID
    `ask-spore`, redirect URI `https://ask-spore.invalid/auth/callback` (strict),
-   grant types exactly `["authorization_code"]` (an empty list, the API's default when
+   grant types `["authorization_code"]` at least (an empty list, the API's default when
    the field is omitted, refuses every authorize request with "Invalid grant_type for
    provider"; found in the live sign-in test, Oct 21, 2026),
    authorization flow *implicit consent*, signing key: a certificate (RS256; the API
-   refuses HS256), scopes `openid email profile ask_spore`, access token validity
-   `hours=8`, subject mode "Based on the User's hashed ID". The client secret goes in the
+   refuses HS256), scopes `openid email profile ask_spore offline_access`, access token
+   validity `hours=8`, subject mode "Based on the User's hashed ID". From P1b-08 the grant
+   types are `["authorization_code", "refresh_token"]` and the refresh token validity is
+   `hours=24` (`[auth] refresh_token_ttl_seconds`): the web app renews the session five
+   minutes before the access token expires; Authentik rotates the refresh token. The client secret goes in the
    root `.env` as `AUTHENTIK_CLIENT_SECRET`.
 6. **Application** `ask-spore` bound to that provider.
 7. **API token** for a service account allowed to view, add and change users; it goes in

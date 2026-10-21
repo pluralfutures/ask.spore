@@ -207,7 +207,11 @@ async def test_post_from_the_requesting_browser_signs_in(auth: Auth) -> None:
         assert attribute in session
     me = await browser.get("/api/v1/me")
     assert me.status_code == 200
-    assert me.json() == {
+    # P1b-08: the session's expiry, so the web app can renew it in time.
+    assert me.json().pop("session_expires_at").endswith("Z")
+    body = me.json()
+    body.pop("session_expires_at")
+    assert body == {
         "email": t.email,
         "display_name": "Synthetic User",
         "role": "tenant_admin",
@@ -494,6 +498,7 @@ async def test_old_cookie_is_refused_after_logout(auth: Auth) -> None:
     browser = auth.browser()
     await auth.sign_in(browser, a)
     old = browser.cookies[SESSION]
+    old_refresh = browser.cookies["askspore_refresh"]
     assert (await browser.get("/api/v1/me")).status_code == 200
     assert (await browser.post("/api/v1/auth/logout")).status_code == 204
 
@@ -502,15 +507,16 @@ async def test_old_cookie_is_refused_after_logout(auth: Auth) -> None:
     assert (await replay.get("/api/v1/me")).status_code == 401
     bearer = await auth.browser().get("/api/v1/me", headers={"Authorization": f"Bearer {old}"})
     assert bearer.status_code == 401
-    assert auth.idp.revoked == [old]
+    # P1b-08: the refresh token is revoked with it, at Authentik and in our list.
+    assert auth.idp.revoked == [old, old_refresh]
     assert await auth.audit("auth.signed_out", a.id) == [{"actor": a.user_id, "status": "revoked"}]
     stored = await auth.admin.fetch(
         "SELECT token_sha256, user_id FROM revoked_sessions WHERE tenant_id = $1", a.id
     )
-    # Only the hash is kept, never the token.
-    assert [(r["token_sha256"], r["user_id"]) for r in stored] == [
-        (hashlib.sha256(old.encode()).hexdigest(), a.user_id)
-    ]
+    # Only the hashes are kept, never the tokens.
+    assert sorted((r["token_sha256"], r["user_id"]) for r in stored) == sorted(
+        (hashlib.sha256(token.encode()).hexdigest(), a.user_id) for token in (old, old_refresh)
+    )
     # A second sign-out with the same token revokes nothing new.
     again = auth.browser()
     again.cookies.set(SESSION, old)

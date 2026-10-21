@@ -1204,6 +1204,18 @@
             "title": "Role",
             "type": "string"
           },
+          "session_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Expires At"
+          },
           "tenant_display_name": {
             "title": "Tenant Display Name",
             "type": "string"
@@ -2601,7 +2613,7 @@
     },
     "/api/v1/auth/logout": {
       "post": {
-        "description": "Clear the session cookie and revoke the session server-side (P1a-02): the token\nis listed in ``revoked_sessions``, so a copy of the old cookie is refused.",
+        "description": "Clear the session cookies and revoke the session server-side (P1a-02, P1b-08): the\naccess and refresh tokens are listed in ``revoked_sessions`` and revoked at\nAuthentik, so a copy of either old cookie is refused.",
         "operationId": "logout_api_v1_auth_logout_post",
         "responses": {
           "204": {
@@ -2627,6 +2639,18 @@
           }
         },
         "summary": "Auth Mode"
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "description": "Renew the session before the access token expires (P1b-08). Needs the refresh\ncookie; the previous access and refresh tokens are revoked, so only the new ones\nwork. A refused refresh clears both cookies (the user signs in again).",
+        "operationId": "refresh_session_api_v1_auth_refresh_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Refresh Session"
       }
     },
     "/api/v1/auth/sso/start": {

@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Owner legal entity name], [security lead name], [date] |
+| Placeholders | [security lead name], [date] |
 | To finalise, the owner must | (1) turn on branch protection on `main` (P1b-13c) and record the date; (2) decide who reviews pull requests while there is one internal person (see §3); (3) approve and sign. |
 
 ---
@@ -51,4 +51,4 @@ The owner is the only internal person and approves changes. Pull requests are re
 
 Reviewed once a year. Next review: [date].
 
-Approved by: [security lead name], for [Owner legal entity name], date [date].
+Approved by: [security lead name], for Estefania Simon-Sasyk y Otro CB, date [date].

@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Owner legal entity name], [registered address], [DPO or privacy contact name], [privacy contact email], [security contact email], [takedown contact email], [incident lead phone], [counsel name and contact], [Client], [Client incident contact], [supervisory authority], [document store], [date] |
+| Placeholders | [registered address], [DPO or privacy contact name], [privacy contact email], [security contact email], [takedown contact email], [incident lead phone], [counsel name and contact], [Client], [Client incident contact], [supervisory authority], [document store], [date] |
 | To finalise, the owner must | (1) name the incident lead and deputy and fill in the contacts; (2) confirm the DPA notification window (clause 9.1, [48] hours) with counsel; (3) identify our lead [supervisory authority] and its notification form; (4) collect each client's incident contact at onboarding (`onboarding-pack.md`); (5) run the first tabletop and record it; (6) have counsel review the templates in §7. |
 
 This runbook implements `policy-incident-response.md`.
@@ -85,7 +85,7 @@ Kept at [document store]/incidents/log. One row per incident:
 
 ### 7a. Processor notice to a client
 
-> Subject: Security incident notice — [Product name] — INC-[ ]
+> Subject: Security incident notice — SporeBot — INC-[ ]
 >
 > Dear [Client incident contact],
 >
@@ -102,13 +102,13 @@ Kept at [document store]/incidents/log. One row per incident:
 >
 > As controller, you decide whether to notify your supervisory authority and the people concerned. We will give you the information and help you need for that.
 >
-> [Owner legal entity name]
+> Estefania Simon-Sasyk y Otro CB
 
 ### 7b. Controller notification to the supervisory authority (summary to transfer into the authority's form)
 
 | Field | Entry |
 | --- | --- |
-| Controller | [Owner legal entity name], [registered address]; contact [DPO or privacy contact name], [privacy contact email] |
+| Controller | Estefania Simon-Sasyk y Otro CB, [registered address]; contact [DPO or privacy contact name], [privacy contact email] |
 | Nature of the breach | Confidentiality / integrity / availability; [description] |
 | Data subjects | Categories (for example people named in corpus sources; our operators) and approximate number |
 | Records | Categories and approximate number |
@@ -123,7 +123,7 @@ Kept at [document store]/incidents/log. One row per incident:
 
 > Subject: Important information about your personal data
 >
-> We are writing because of an incident that affected personal data about you held by [Owner legal entity name], which runs [Product name].
+> We are writing because of an incident that affected personal data about you held by Estefania Simon-Sasyk y Otro CB, which runs SporeBot.
 >
 > **What happened:** [plain description].
 > **What data was involved:** [ ].
@@ -170,7 +170,7 @@ Secrets are not yet in Scaleway Secret Manager (backlog); after an incident, che
 
 ### 8.4 Model provider outage (SEV2)
 
-- Scaleway Generative APIs down: no answers are possible today. The Mistral provider is configured but inactive and has no DPA in force, so it is not a fallback. Show the outage to users; follow Scaleway's status page.
+- Scaleway Generative APIs down: no answers are possible today. The Mistral provider is configured but inactive and has no DPA in force, so it is not a fallback. Show the outage to users; follow Scaleway's status page. The owner chose OpenRouter, routed only to EU-served models with zero data retention, as the future backup (Oct 21, 2026); it is not built and needs the design and contract changes listed in `policy-business-continuity.md` before it may be used for a tenant without the external-models entitlement.
 - External model unavailable or spend cap reached: new conversations fall back to the workspace default EU model with a notice (`model.fallback` audit event). No action unless it persists.
 - Do not switch to a provider that is not on the allow-list or in `sub-processors.md`.
 

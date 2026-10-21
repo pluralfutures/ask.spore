@@ -7,16 +7,16 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Product name], [Owner legal entity name], [privacy contact email], [link to privacy notice], [date] |
+| Placeholders | [privacy contact email], [link to privacy notice], [date] |
 | To finalise, the owner must | (1) fill in the placeholders; (2) confirm the model list matches the catalogue at publication (`config/models.toml`); (3) remove the external-models paragraph's "not enabled" sentence once a tenant is enabled; (4) link this note from the in-app AI notice and the consent gate (P1b-10); (5) have counsel check it against EU AI Act Art. 50 (ai-act-technical-documentation.md §3). |
 
 Plain text below the line is the note shown to users.
 
 ---
 
-## About the answers in [Product name]
+## About the answers in SporeBot
 
-**You are using an AI system.** Answers in [Product name] are written by an AI language model, not by a person. Every answer carries the notice "AI-generated, verify against cited sources."
+**You are using an AI system.** Answers in SporeBot are written by an AI language model, not by a person. Every answer carries the notice "AI-generated, verify against cited sources."
 
 ### How an answer is made
 
@@ -48,4 +48,4 @@ Some models can "reason" before answering. If you switch reasoning on, the answe
 
 More in our privacy notice: [link to privacy notice]. Questions: [privacy contact email].
 
-[Owner legal entity name] · Last updated [date]
+Estefania Simon-Sasyk y Otro CB · Last updated [date]

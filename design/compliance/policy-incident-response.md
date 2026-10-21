@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Owner legal entity name], [security lead name], [security contact email], [privacy contact email], [lead supervisory authority], [48] (DPA notification window, hours), [document store], [date] |
+| Placeholders | [security lead name], [security contact email], [privacy contact email], [lead supervisory authority], [48] (DPA notification window, hours), [document store], [date] |
 | To finalise, the owner must | (1) confirm the client notification window with counsel (the DPA draft says [48] hours); (2) name the lead supervisory authority; (3) schedule the first tabletop; (4) approve and sign. |
 
 ---
@@ -49,4 +49,4 @@ The owner is incident lead, communications lead and decision-maker. Counsel advi
 
 Reviewed once a year and after every Sev 1. Next review: [date].
 
-Approved by: [security lead name], for [Owner legal entity name], date [date].
+Approved by: [security lead name], for Estefania Simon-Sasyk y Otro CB, date [date].

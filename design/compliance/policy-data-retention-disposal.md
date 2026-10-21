@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Owner legal entity name], [security lead name], [document store], [log rotation period], [period] (licence files after a source is removed; usage ledger), [date]; "[confirm]" marks a fact to check |
+| Placeholders | [security lead name], [document store], [log rotation period], [period] (licence files after a source is removed; usage ledger), [date]; "[confirm]" marks a fact to check |
 | To finalise, the owner must | (1) decide the disposal procedure for audit events older than 12 months (§4); (2) confirm the Docker log rotation setting on the Instance; (3) confirm the backup retention once backups run; (4) approve and sign. |
 
 ---
@@ -65,4 +65,4 @@ The audit table is write-once by design. The owner must choose one of: (a) a dat
 
 Reviewed once a year. Next review: [date].
 
-Approved by: [security lead name], for [Owner legal entity name], date [date].
+Approved by: [security lead name], for Estefania Simon-Sasyk y Otro CB, date [date].

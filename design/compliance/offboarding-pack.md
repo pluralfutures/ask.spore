@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Owner legal entity name], [Product name], [Client], [Client legal name], [app hostname], [support email], [privacy contact email], [security contact email], [termination date], [notice date], [export window days], [backup retention days], [certificate number], [signatory name], [signatory title], [recipient first name], [admin name], [Services Agreement], [export format], [secure transfer method], [n] (counts), [date] |
+| Placeholders | [Client], [Client legal name], [support email], [privacy contact email], [security contact email], [termination date], [notice date], [export window days], [backup retention days], [certificate number], [signatory name], [signatory title], [recipient first name], [admin name], [Services Agreement], [export format], [secure transfer method], [n] (counts), [date] |
 | To finalise, the owner must | (1) fill in the placeholders; set [export window days] (proposed 30) and [backup retention days] (30, matching the owner-run backup retention) and check both against `terms-of-service.md` and DPA clause 10.5; (2) decide the manual export format (section 1, step 3) until an export tool exists; (3) until P1b-14 passes its tests, use the manual purge in section 1.4 and the "manual" wording of the certificate; (4) decide how the 12-month audit retention is ended for a terminated tenant, since the audit table refuses deletion by design (open question); (5) have counsel check the certificate wording and the exit emails against the DPA. |
 
 ---
@@ -29,7 +29,7 @@ Applies when [Client]'s agreement ends, by expiry or by notice. Roles: the **ope
 
 ### 1.2 Export
 
-Conversations are never more than 30 days old (fewer if the client shortened retention), so there is little to export. There is **no self-service or automated export** in [Product name] today; conversation export is not built. On request, the operator produces an export of the tenant's user list (email, name, role, status, last sign-in) and current conversations (questions, answers, citations) in [export format, for example JSON or Markdown] as a manual, audited step, and delivers it to the client's named administrator by [secure transfer method]. Nothing exported is kept by us after delivery. Send email 3.3 when it is ready.
+Conversations are never more than 30 days old (fewer if the client shortened retention), so there is little to export. There is **no self-service or automated export** in SporeBot today; conversation export is not built. On request, the operator produces an export of the tenant's user list (email, name, role, status, last sign-in) and current conversations (questions, answers, citations) in [export format, for example JSON or Markdown] as a manual, audited step, and delivers it to the client's named administrator by [secure transfer method]. Nothing exported is kept by us after delivery. Send email 3.3 when it is ready.
 
 ### 1.3 Suspension
 
@@ -64,7 +64,7 @@ Model providers hold nothing to delete: prompts are processed under zero-retenti
 
 > **Certificate of Deletion** · No. [certificate number]
 >
-> [Owner legal entity name] ("Provider") confirms to **[Client legal name]** ("Client") that, following the end of the [Services Agreement] on [termination date], it has deleted the Client Personal Data it processed in [Product name], as required by clause 10.5 of the Data Processing Agreement.
+> Estefania Simon-Sasyk y Otro CB ("Provider") confirms to **[Client legal name]** ("Client") that, following the end of the [Services Agreement] on [termination date], it has deleted the Client Personal Data it processed in SporeBot, as required by clause 10.5 of the Data Processing Agreement.
 >
 > | | |
 > | --- | --- |
@@ -86,7 +86,7 @@ Model providers hold nothing to delete: prompts are processed under zero-retenti
 >
 > The Client uploaded no documents to the Service, so no document content was held. Language-model providers processed requests under zero-data-retention terms and hold no Client data.
 >
-> Signed for [Owner legal entity name]: [signatory name], [signatory title], [date]
+> Signed for Estefania Simon-Sasyk y Otro CB: [signatory name], [signatory title], [date]
 
 The counts are the figures written by the P1b-14 purge (or recorded by hand under the manual procedure). They are counts only; the certificate lists no names or addresses.
 
@@ -100,25 +100,25 @@ Same rules as the onboarding templates (`onboarding-pack.md` section 2): sent ov
 
 Sent by the tenant administrator, or by the platform from Phase 1b (P1b-11). Deactivation is already built: the tenant administrator deactivates a user on the admin page, the user's next request is refused, and the change is audited.
 
-Subject: Your [Product name] access has ended
+Subject: Your SporeBot access has ended
 
 > Hello [recipient first name],
 >
-> Your organisation's administrator has ended your access to [Product name]. You can no longer sign in.
+> Your organisation's administrator has ended your access to SporeBot. You can no longer sign in.
 >
 > Your conversations are no longer available to you. They are removed when your organisation's retention period ends, at most 30 days after each conversation started. A record that you used the service (sign-ins and similar events, without the content of your questions) is kept for 12 months for security reasons.
 >
 > If you think this is a mistake, contact your administrator, [admin name]. For questions about your data: [privacy contact email].
 >
-> [Product name] · [Owner legal entity name]
+> SporeBot · Estefania Simon-Sasyk y Otro CB
 
 ### 3.2 Termination confirmation (to the client's administrator)
 
-Subject: Confirmation: [Product name] service for [Client] ends on [termination date]
+Subject: Confirmation: SporeBot service for [Client] ends on [termination date]
 
 > Hello [recipient first name],
 >
-> We confirm that [Client]'s use of [Product name] ends on [termination date].
+> We confirm that [Client]'s use of SporeBot ends on [termination date].
 >
 > - Until then the service works as usual.
 > - If you would like an export of your user list and current conversations, ask us by [date] ([export window days] days before the end date). Conversations are at most 30 days old, so an export holds only recent material.
@@ -126,37 +126,37 @@ Subject: Confirmation: [Product name] service for [Client] ends on [termination 
 >
 > Contact: [support email]
 >
-> [Product name] · [Owner legal entity name]
+> SporeBot · Estefania Simon-Sasyk y Otro CB
 
 ### 3.3 Export ready
 
-Subject: Your [Product name] export is ready
+Subject: Your SporeBot export is ready
 
 > Hello [recipient first name],
 >
 > The export you asked for is ready. It contains [your user list and current conversations] as of [date]. We will send it by [secure transfer method]; it will not be sent as an email attachment. We do not keep a copy after delivery.
 >
-> [Product name] · [Owner legal entity name]
+> SporeBot · Estefania Simon-Sasyk y Otro CB
 
 ### 3.4 Deletion complete
 
-Subject: [Product name]: deletion of [Client]'s data is complete
+Subject: SporeBot: deletion of [Client]'s data is complete
 
 > Hello [recipient first name],
 >
-> We have deleted [Client]'s users, conversations and settings from [Product name]. Your certificate of deletion (No. [certificate number]) is attached.
+> We have deleted [Client]'s users, conversations and settings from SporeBot. Your certificate of deletion (No. [certificate number]) is attached.
 >
 > As the certificate states, audit records without question or answer text are kept until 12 months after each was created, and encrypted backups made before the deletion are overwritten by [date].
 >
-> Thank you for using [Product name].
+> Thank you for using SporeBot.
 >
-> [Product name] · [Owner legal entity name] · [privacy contact email]
+> SporeBot · Estefania Simon-Sasyk y Otro CB · [privacy contact email]
 
 ---
 
 ## 4. Staff and operator offboarding checklist
 
-For anyone at [Owner legal entity name] who leaves or no longer needs access. Complete within **24 hours** of the departure or role change (`policy-access-control.md`).
+For anyone at Estefania Simon-Sasyk y Otro CB who leaves or no longer needs access. Complete within **24 hours** of the departure or role change (`policy-access-control.md`).
 
 | # | Step | Evidence |
 | --- | --- | --- |

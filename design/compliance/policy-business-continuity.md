@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Owner legal entity name], [security lead name], [RTO], [RPO], [deputy contact], [Scaleway support plan], [document store], [date] |
+| Placeholders | [security lead name], [RTO], [RPO], [deputy contact], [Scaleway support plan], [document store], [date] |
 | To finalise, the owner must | (1) set the recovery time and point objectives; (2) run and record the first restore test; (3) name a deputy who can act if the owner is unavailable; (4) approve and sign. |
 
 ---
@@ -20,7 +20,7 @@ How the service keeps running, or comes back, after an outage of the host, a pro
 
 - **One Instance**, shared 8 vCPU, 32 GB RAM, 100 GB Block Storage, in Paris. No high availability and no second host (two-host deployment in backlog by owner decision Oct 21, 2026).
 - **Backups** are run by the owner outside the build spec: nightly encrypted backup of the PostgreSQL and RAGFlow volumes to Scaleway Object Storage in Paris, object lock, 30-day retention (recommended). The restore test is pending and will be recorded in the Phase 1b findings.
-- **Models**: Scaleway Generative APIs (`deepseek-v4.1-flash`, `qwen3.8-27b`). Mistral is configured but inactive. There is no automatic provider failover; the operator changes the workspace default model or the `[llm] provider` setting by hand.
+- **Models**: Scaleway Generative APIs (`deepseek-v4.1-flash`, `qwen3.8-27b`). Mistral is configured but inactive. There is no automatic provider failover; the operator changes the workspace default model or the `[llm] provider` setting by hand. **Owner decision, Oct 21, 2026: the backup inference provider is OpenRouter**, routed only to models served in the EU with zero data retention. Not built and not yet allowed: the CLAUDE.md rule and the allow-list let OpenRouter be called only for a tenant with the external-models entitlement, so using it as a fallback for every tenant needs a design change first (architecture §14, the Stack Decision, CLAUDE.md), a verified way to pin EU-served upstream providers (the same open verification as findings C32), and an update to the client DPA (clause 6.1 says the default sends prompts only to Scaleway), the sub-processor list with notice to clients, and the transfer impact assessment (OpenRouter is a US company). Until then a Scaleway inference outage means no answers.
 - **Email**: Scaleway Transactional Email; Mailgun EU backup only after its DPA is filed.
 
 ## 3. Rules
@@ -29,7 +29,7 @@ How the service keeps running, or comes back, after an outage of the host, a pro
 2. **Restore test** at least every quarter, and after any change to the backup method. A backup that has never been restored is not counted.
 3. **Rebuild from the repository.** Compose files, Caddy config, the pinned RAGFlow and Authentik versions and (from Phase 1b, P1b-08) an Authentik blueprint allow a new Instance to be built. Secrets are kept in [document store] outside the Instance so a rebuild does not depend on it.
 4. **Corpus recovery.** If the RAGFlow index is lost and the backup fails, re-ingest from the manifests and the content store; this is slow (findings §9 throughput) and is the fallback, not the plan.
-5. **Provider outage.** Switch to the other Scaleway model; tell tenant admins if answers change. External models fall back to the workspace default model by design.
+5. **Provider outage.** Switch to the other Scaleway model (this does not help if Generative APIs as a whole is down; the planned OpenRouter EU backup above is not available yet); tell tenant admins if answers change. External models fall back to the workspace default model by design.
 6. **Chat history is not restored beyond its retention**: a restore must not bring back conversations already past 30 days or deleted by users; restored data is re-purged before the service reopens (from Phase 1b, P1b-14).
 7. **Clients are told** of an outage longer than [RTO] through their tenant admin contact.
 8. **Key person.** The owner is the only operator. A sealed access procedure for [deputy contact] is kept in [document store].
@@ -54,4 +54,4 @@ The owner holds every role. [deputy contact] is the fallback for account access 
 
 Reviewed once a year and after every major outage. Next review: [date].
 
-Approved by: [security lead name], for [Owner legal entity name], date [date]. Scaleway support: [Scaleway support plan].
+Approved by: [security lead name], for Estefania Simon-Sasyk y Otro CB, date [date]. Scaleway support: [Scaleway support plan].

@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Owner legal entity name], [security lead name], [document store], [30] (sub-processor notice period, days), [date] |
+| Placeholders | [security lead name], [document store], [30] (sub-processor notice period, days), [date] |
 | To finalise, the owner must | (1) file the vendor documents listed in `paperwork-checklist.md` items 1 to 3 and 13; (2) collect Scaleway's SOC 2 or ISO 27001 evidence; (3) approve and sign. |
 
 ---
@@ -51,4 +51,4 @@ The owner holds the security lead role and signs vendor contracts. Counsel revie
 
 Reviewed once a year. Next review: [date].
 
-Approved by: [security lead name], for [Owner legal entity name], date [date].
+Approved by: [security lead name], for Estefania Simon-Sasyk y Otro CB, date [date].

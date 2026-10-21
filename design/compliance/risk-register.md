@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Owner legal entity name], [security lead name], [date]; "[confirm]" marks a fact to check |
+| Placeholders | [security lead name], [date]; "[confirm]" marks a fact to check |
 | To finalise, the owner must | (1) confirm or change each likelihood and impact; (2) accept the residual risks marked "accept?" or plan a treatment; (3) set the review date; (4) sign. |
 
 ---
@@ -48,5 +48,6 @@ Scale: likelihood and impact are Low, Medium or High, judged for the current pla
 | R-30 | **No vulnerability scanning or pentest**; images not pinned by digest | Medium | Medium | Pinned image tags; only Caddy exposed | Digest pins (P1b-15); scanning and pentest — not scheduled | Owner | [date] |
 | R-31 | **No monitoring or alerting** of auth anomalies or outages | High | Medium | Metadata logs on stdout | Monitoring stack in backlog | Owner | [date] |
 | R-32 | **Encryption at rest unconfirmed** for Instance volumes | Low | Medium | Scaleway hosting in Paris | Confirm with Scaleway **[confirm]** | Owner | [date] |
+| R-33 | **No inference fallback**: a Scaleway Generative APIs outage stops all answers | Low | High | Two Scaleway models; spend-cap fallback only for external models | Owner decision Oct 21, 2026: OpenRouter routed to EU-served models with ZDR as backup; needs the CLAUDE.md entitlement rule, DPA clause 6.1, sub-processor notice and TIA changed first (`policy-business-continuity.md`) | Owner | [date] |
 
-Approved by: [security lead name], for [Owner legal entity name], date [date].
+Approved by: [security lead name], for Estefania Simon-Sasyk y Otro CB, date [date].

@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Owner legal entity name], [registered address], [company number], [DPO or privacy contact name], [privacy contact email], [takedown contact email], [Client], [Client legal name], [Client address], [date], [SCC module], [document store], [representative, if any] |
+| Placeholders | [registered address], [DPO or privacy contact name], [privacy contact email], [takedown contact email], [Client], [Client legal name], [Client address], [date], [SCC module], [document store], [representative, if any] |
 | To finalise, the owner must | (1) fill in the entity, contact and DPO placeholders; (2) decide whether a DPO is required (see open-questions.md) or name a privacy contact; (3) confirm the reasoning on the usage ledger in Part 1, row C5; (4) confirm the retention periods marked [confirm]; (5) add one Part 2 sheet per client at signature, starting with [Client]; (6) have counsel review; (7) review every six months and on every change to `sub-processors.md`. |
 
 ---
@@ -27,7 +27,7 @@ Where a measure is not built yet, the row says so and names the spec item.
 
 | | |
 | --- | --- |
-| Controller | [Owner legal entity name], [registered address], company number [company number] |
+| Controller | Estefania Simon-Sasyk y Otro CB, comunidad de bienes trading as Mycelium Gastronomy Network, NIF E19824093, [registered address] |
 | Privacy contact / DPO | [DPO or privacy contact name], [privacy contact email] |
 | Takedown and data-subject requests about the corpus | [takedown contact email] |
 | Representative in the EU (Art. 27) | [representative, if any] — not needed if the entity is established in the EU |
@@ -160,7 +160,7 @@ One sheet per client. The first is [Client].
 | Field | Entry |
 | --- | --- |
 | Controller | [Client legal name], [Client address]; privacy contact [ ] |
-| Processor | [Owner legal entity name]; [DPO or privacy contact name], [privacy contact email] |
+| Processor | Estefania Simon-Sasyk y Otro CB; [DPO or privacy contact name], [privacy contact email] |
 | Contract | Client DPA (`client-dpa-draft.md`), dated [date]; part of the agreement in `terms-of-service.md` |
 | Categories of processing | (1) Authenticating users with emailed sign-in links (SSO from Phase 1b, P1b-07); (2) storing questions, answers, citations and feedback for the retention period; (3) sending prompts to language models to answer; (4) serving the workspace file list and licence-gated downloads; (5) recording the audit trail of [Client]'s users and administrators; (6) applying administrators' settings (users, retention, workspace defaults, additional instructions) |
 | Data subjects | [Client]'s employees and contractors invited as users; [Client]'s administrators |

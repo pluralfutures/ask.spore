@@ -7,16 +7,16 @@
 | Status | **DRAFT — not for signature. Counsel must review before it is sent to [Client] or signed.** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Product name], [Owner legal entity name], [legal form], [registered address], [company number], [Client], [Client legal name], [date], [price], [currency], [term], [notice period], [liability cap], [Member State], [courts], [privacy contact email], [security contact email], [support email], [support hours], [response time], [payment days], [seats], [workspace name], [tag], [spend cap], [acceptance reference] |
+| Placeholders | [registered address], [Client], [Client legal name], [date], [price], [currency], [term], [notice period], [liability cap], [Member State], [courts], [privacy contact email], [security contact email], [support email], [support hours], [response time], [payment days], [seats], [workspace name], [tag], [spend cap], [acceptance reference] |
 | To finalise, the owner must | (1) fill in the placeholders, in particular prices, liability cap, governing law and support terms; (2) decide the open points in "Notes for the owner"; (3) have counsel review, especially §8 (output disclaimer), §11 (liability) and §13 (termination); (4) attach the signed DPA (`client-dpa-draft.md`) and the order form (Annex A); (5) check every statement in Annex A against what is enabled in the operator console at signature. |
 
 ---
 
-These terms ("**Agreement**") are between **[Owner legal entity name]**, [legal form], [registered address], company number [company number] ("**Provider**", "**we**"), and the customer named in the order form ("**Customer**"). The Agreement consists of these terms, the order form (Annex A) and the Data Processing Agreement ("**DPA**"). If they conflict: the DPA wins on data protection, then the order form, then these terms.
+These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, [registered address] ("**Provider**", "**we**"), and the customer named in the order form ("**Customer**"). The Agreement consists of these terms, the order form (Annex A) and the Data Processing Agreement ("**DPA**"). If they conflict: the DPA wins on data protection, then the order form, then these terms.
 
 ## 1. The service
 
-1.1 [Product name] (the "**Service**") is an online research assistant. It answers questions from a curated library of published third-party sources and the Provider's own analysis (the "**Library**") and cites the passages it used.
+1.1 SporeBot (the "**Service**") is an online research assistant. It answers questions from a curated library of published third-party sources and the Provider's own analysis (the "**Library**") and cites the passages it used.
 
 1.2 Customer does not upload documents. The Library is selected, licensed and maintained by the Provider.
 
@@ -138,7 +138,7 @@ The Provider may suspend a user or the Customer, with notice where practical, if
 | | |
 | --- | --- |
 | Customer | [Client legal name], [registered address], company number [ ] |
-| Provider | [Owner legal entity name] |
+| Provider | Estefania Simon-Sasyk y Otro CB |
 | Start date / term | [date] / [term] |
 | Administrator(s) | [name, email] |
 | IT contact (SSO, mail) | [name, email] |
@@ -209,7 +209,7 @@ Chat-history retention: [30] days (maximum 30; the Customer's administrators may
 
 Signed for [Client]: name [ ], title [ ], date [ ]
 
-Signed for [Owner legal entity name]: name [ ], title [ ], date [ ]
+Signed for Estefania Simon-Sasyk y Otro CB: name [ ], title [ ], date [ ]
 
 ---
 

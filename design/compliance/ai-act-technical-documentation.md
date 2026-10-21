@@ -7,14 +7,14 @@
 | Status | **DRAFT** (internal; not published) |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Product name], [Owner legal entity name], [AI literacy owner], [document store], [date], [review date] |
+| Placeholders | [AI literacy owner], [document store], [date], [review date] |
 | To finalise, the owner must | (1) have counsel confirm the classification in §2 and the role in §2.3; (2) decide the Art. 50(2) marking question in §3 (open-questions.md); (3) name who owns AI literacy (§4) and record the training; (4) set a review date; (5) re-run §2 whenever a reassessment trigger in §2.4 occurs. |
 
 ---
 
 ## 1. Scope
 
-This file records how [Product name] is classified under Regulation (EU) 2024/1689 (the "**AI Act**"), which duties follow, and the technical documentation we keep to show we meet them. The Compliance & Privacy Design Guide asks for "technical documentation of model, provider, sources and evaluation" (§"EU AI Act") even where the Act does not strictly require a formal file; this is that document.
+This file records how SporeBot is classified under Regulation (EU) 2024/1689 (the "**AI Act**"), which duties follow, and the technical documentation we keep to show we meet them. The Compliance & Privacy Design Guide asks for "technical documentation of model, provider, sources and evaluation" (§"EU AI Act") even where the Act does not strictly require a formal file; this is that document.
 
 ## 2. Classification
 
@@ -37,7 +37,7 @@ Result: **limited-risk AI system** with Art. 50 transparency duties, plus the ge
 ### 2.3 Our role
 
 - **Not a GPAI model provider.** We do not train, fine-tune or otherwise modify any model. We call third-party models through APIs: DeepSeek V4.1 Flash and Qwen 3.8 27B hosted by Scaleway, and optionally Claude Opus 5.5 (Anthropic) and GPT-6.1 Sol (OpenAI) through OpenRouter. Their developers carry the Chapter V GPAI obligations.
-- **Provider of an AI system.** We integrate those models into [Product name] and offer it under our own name, so we are the provider of the AI system for Art. 50 purposes.
+- **Provider of an AI system.** We integrate those models into SporeBot and offer it under our own name, so we are the provider of the AI system for Art. 50 purposes.
 - **Deployer** for our own internal use (content operations, evaluation).
 - **Customers are deployers** of the system for their users.
 

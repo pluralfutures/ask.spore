@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Product name], [Owner legal entity name], [legal form], [registered address], [company number], [DPO or privacy contact name], [privacy contact email], [security contact email], [takedown contact email], [website address], [supervisory authority], [Member State], [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
+| Placeholders | [registered address], [DPO or privacy contact name], [privacy contact email], [security contact email], [takedown contact email], [website address], [supervisory authority], [Member State], [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
 | To finalise, the owner must | (1) fill in the entity, contacts and supervisory authority; (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) confirm the website and contact-form processing in §3 matches what the public website actually does (analytics, cookies); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records. |
 
 Plain text below the line is the notice.
@@ -16,22 +16,22 @@ Plain text below the line is the notice.
 
 ## About this notice
 
-[Product name] is a research assistant. It answers questions from a curated library of published reports, public websites and our own analysis, and shows the sources for every answer. It is run by **[Owner legal entity name]**, [legal form], [registered address], company number [company number] ("**we**").
+SporeBot is a research assistant. It answers questions from a curated library of published reports, public websites and our own analysis, and shows the sources for every answer. It is run by **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, [registered address] ("**we**").
 
 This notice explains what personal data we handle and why. It has two parts:
 
-- **Part A** is for people who use [Product name] through their employer, and for people who contact us.
+- **Part A** is for people who use SporeBot through their employer, and for people who contact us.
 - **Part B** is for people who are named or quoted in the public sources in our library (GDPR Article 14).
 
 Privacy contact: [DPO or privacy contact name], [privacy contact email].
 
 Version [version], last updated [date].
 
-## Part A — Users of [Product name] and people who contact us
+## Part A — Users of SporeBot and people who contact us
 
 ### 1. Who decides about your data
 
-If you use [Product name], your employer (our customer) signed up for it and invited you. **Your employer is the controller** of your account, your sign-in events, your questions and your conversations. We process that data **on your employer's behalf and on its instructions**, under a data processing agreement. For requests about that data (access, correction, deletion), contact your employer first; we will help them answer.
+If you use SporeBot, your employer (our customer) signed up for it and invited you. **Your employer is the controller** of your account, your sign-in events, your questions and your conversations. We process that data **on your employer's behalf and on its instructions**, under a data processing agreement. For requests about that data (access, correction, deletion), contact your employer first; we will help them answer.
 
 **We are the controller** only for:
 
@@ -128,7 +128,7 @@ You can also complain to a supervisory authority (section 5).
 
 ## Contact
 
-[Owner legal entity name], [registered address]
+Estefania Simon-Sasyk y Otro CB, [registered address]
 
 - Privacy: [privacy contact email]
 - Removal of content or personal data from our library: [takedown contact email]

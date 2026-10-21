@@ -18,12 +18,14 @@ Only the owner or counsel can answer these. Duplicates across the documents are 
 
 | # | Question | Files | Answer |
 | --- | --- | --- | --- |
-| A1 | Legal entity name, form, address and company number of the contracting party (Plural Futures or Mycelium Gastronomy?) | all | |
+| A1 | Legal entity name, form, address and company number of the contracting party (Plural Futures or Mycelium Gastronomy?) | all || **Answered Oct 21, 2026:** Estefania Simon-Sasyk y Otro CB (comunidad de bienes), trading as Mycelium Gastronomy Network, NIF E19824093. Filled into every draft; the registered address is still open. See A7 and A8 |
 | A2 | **C** Is a DPO required, or is a named privacy contact enough? Who is it? | privacy-notice, records-of-processing | |
 | A3 | Lead supervisory authority and Member State | privacy-notice, dpia, incident-runbook, policy-incident-response | |
 | A4 | Contact addresses: privacy, security, takedown, support; incident lead phone, a deputy, counsel contact | privacy-notice, incident-runbook, policy-business-continuity, onboarding-pack | |
 | A5 | Named security lead, given the owner holds every internal role today | policy-information-security, policy-* | |
-| A6 | Client-facing product name and hostname: the sign-in template hard-codes "ask.spore" and `askspore.myceliumgastronomy.com` | onboarding-pack, trust page | |
+| A6 | Client-facing product name and hostname: the sign-in template hard-codes "ask.spore" and `askspore.myceliumgastronomy.com` | onboarding-pack, trust page || **Answered Oct 21, 2026:** SporeBot at `askspore.myceliumgastronomy.com`. Filled in; the Authentik template and email subject still say "ask.spore" and must change before the first client invite (infra change) |
+| A7 | Registered address of the CB, for the notice, terms, DPA and records | all | |
+| A8 | **C** A comunidad de bienes has no legal personality separate from its members (the comuneros), who answer for its debts. Is the CB the right contracting party for client contracts and the controller named in the notice, or should a company be formed first? Who signs for it? Follows from this: the lead supervisory authority is likely the AEPD (Spain) and Spanish law and courts the likely default (A3, B3); confirm | terms-of-service, privacy-notice, client-dpa-draft, records-of-processing | |
 
 ## B. Contract terms (C for all)
 
@@ -50,7 +52,7 @@ Only the owner or counsel can answer these. Duplicates across the documents are 
 | C5 | **Suspension** exists in the schema but has no console or CLI action (schema owner only). Add an audited action? | offboarding-pack | |
 | C6 | Until P1b-14 ships: who writes and approves the manual per-tenant purge, and may a certificate of deletion say "manual procedure"? **C** Is the certificate's retained-items list (audit 12 months, backups 30 days, billing records) consistent with DPA clause 10.5? | offboarding-pack | |
 | C7 | Until P1b-03 and P1b-04 ship: can the 30-day erasure window and 10-working-day takedown be met by hand? Are new crawled sites added only after a manual reviewer check, or held? Does [Client] go live before P1b-03 and P1b-14, accepting medium residual risk (DPIA R2, R8)? | privacy-notice, legitimate-interest-assessment, dpia | |
-| C8 | Do sign-in links stay on for [Client] once SSO is live? | dpia, onboarding-pack | |
+| C8 | Do sign-in links stay on for [Client] once SSO is live? | dpia, onboarding-pack || **Answered Oct 21, 2026:** no. Links are switched off for a tenant once its SSO is live, unless the operator specifically enables them for that tenant (dpia, onboarding-pack updated) |
 
 ## D. Facts to confirm on the Instance and with vendors
 
@@ -62,7 +64,8 @@ Only the owner or counsel can answer these. Duplicates across the documents are 
 | D4 | Backups: retention (30 days recommended), first restore test date; RTO and RPO; Scaleway support plan; deputy for emergency account access | policy-business-continuity, incident-runbook, offboarding-pack, security-questionnaire | |
 | D5 | Scaleway DPA reference, security evidence to file (SOC 2 or ISO 27001), expected date of the zero-retention letter (M2) | policy-vendor-management, security-questionnaire | |
 | D6 | Mailbox provider and accounting tools used by the owner, and their location (records of processing) | records-of-processing | |
-| D7 | With Mistral inactive and no DPA in force, a Scaleway inference outage means no answers. Accept, or contract a second EU provider? | incident-runbook, policy-business-continuity | |
+| D7 | With Mistral inactive and no DPA in force, a Scaleway inference outage means no answers. Accept, or contract a second EU provider? | incident-runbook, policy-business-continuity || **Answered Oct 21, 2026:** backup is OpenRouter, routed only to EU-served models with zero data retention. Recorded as planned, not built; see D8 |
+| D8 | OpenRouter as the inference backup for every tenant conflicts with the CLAUDE.md rule (OpenRouter only for tenants with the external-models entitlement) and DPA clause 6.1 (default Scaleway only). Should it (a) be a backup only for tenants that have accepted external models, which the current rules already allow, or (b) cover every tenant, which needs the rule, architecture §14 and Stack Decision changed, a verified EU-only routing pin (as C32), DPA clause 6, sub-processor notice to clients and a TIA update (OpenRouter is a US company)? | policy-business-continuity, incident-runbook, risk-register R-33 | |
 
 ## E. Retention values
 

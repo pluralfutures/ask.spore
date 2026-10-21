@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Owner legal entity name], [security lead name], [document store], [date] |
+| Placeholders | [security lead name], [document store], [date] |
 | To finalise, the owner must | (1) confirm that operator accounts use hardware-key MFA in Authentik and record the check; (2) set the dates of the first quarterly access review; (3) approve and sign. |
 
 ---
@@ -55,4 +55,4 @@ The owner holds the operator, content editor, content reviewer and security lead
 
 Reviewed once a year and whenever a role, identity provider or login method changes. Next review: [date].
 
-Approved by: [security lead name], for [Owner legal entity name], date [date].
+Approved by: [security lead name], for Estefania Simon-Sasyk y Otro CB, date [date].

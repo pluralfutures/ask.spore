@@ -331,7 +331,7 @@ async def test_corpus_change_invalidates_the_cache(
     await run(orch, world, "Capacity?")
     await world.admin.execute(
         "UPDATE sources SET ragflow_document_ids = ragflow_document_ids || '[]'::jsonb, "
-        "status = 'ingesting' WHERE id = $1",
+        "status = 'approved' WHERE id = $1",
         next(iter(world.sources.values())),
     )
     events = await run(orch, world, "Capacity?", await world.new_conversation())
@@ -509,9 +509,10 @@ async def test_log_lines_carry_no_question_answer_or_chunk_text(
 async def _add_source(world: World, kind: str, mapping: dict[str, str]) -> uuid.UUID:
     source_id: uuid.UUID = await world.admin.fetchval(
         "INSERT INTO sources (type, title, publisher, published_on, canonical_url, "
-        "licence_basis, tags, status, ragflow_document_ids) "
+        "licence_basis, tags, status, ragflow_document_ids, approved_at) "
         "VALUES ($1, 'Synthetic Note', 'Our Analysis Team', '2026-03-01', "
-        "'https://example.org/note', 'synthetic', $2, 'ingested', $3::jsonb) RETURNING id",
+        "'https://example.org/note', 'synthetic', $2, 'ingested', $3::jsonb, now()) "
+        "RETURNING id",
         kind,
         list(DATASETS),
         json.dumps(mapping),

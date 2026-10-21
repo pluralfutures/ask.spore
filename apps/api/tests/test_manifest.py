@@ -349,7 +349,7 @@ def cli_env(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, Any]]:
         return IngestResult(source_id=uuid4(), status="ingested", chunk_count=2)
 
     monkeypatch.setattr(cli, "get_settings", lambda: load_settings(environ=ENV))
-    monkeypatch.setattr(cli, "ingest", fake_ingest)
+    monkeypatch.setattr(cli, "submit", fake_ingest)
     monkeypatch.setattr(cli.RagflowClient, "from_settings", staticmethod(lambda _: _Client()))
     return calls
 
@@ -426,7 +426,7 @@ def test_cli_summary_counts_retagged_rows_separately(
             source_id=uuid4(), status=status, chunk_count=3 * (status == "retagged")
         )
 
-    monkeypatch.setattr(cli, "ingest", fake_ingest)
+    monkeypatch.setattr(cli, "submit", fake_ingest)
     assert cli.main(["ingest-manifest", str(write(corpus, PDF_ROW, DOCX_ROW))]) == 0
     logged = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     totals = {

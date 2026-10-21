@@ -59,6 +59,10 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "count",
         # Downloads (P1a-14): which register source was downloaded or toggled.
         "source_id",
+        # Source register (P1b-01): the acting user's content roles, and whether a
+        # reviewer approves their own proposal (allowed and audited, owner decision).
+        "roles",
+        "self_approval",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.

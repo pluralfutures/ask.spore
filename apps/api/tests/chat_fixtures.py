@@ -153,9 +153,9 @@ async def world(admin_conn: asyncpg.Connection) -> AsyncIterator[World]:
         mapping = {DATASETS[tag]: doc} if as_object else [doc]
         sources[doc] = await admin_conn.fetchval(
             "INSERT INTO sources (type, title, publisher, published_on, canonical_url, "
-            "licence_basis, tags, status, ragflow_document_ids) "
+            "licence_basis, tags, status, ragflow_document_ids, approved_at) "
             "VALUES ($1, $2, $3, '2026-03-01', 'https://example.org/report', 'synthetic', "
-            "ARRAY[$4], 'ingested', $5::jsonb) RETURNING id",
+            "ARRAY[$4], 'ingested', $5::jsonb, now()) RETURNING id",
             kind,
             title,
             publisher,

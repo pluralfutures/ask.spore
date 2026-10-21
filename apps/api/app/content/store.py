@@ -8,7 +8,11 @@ log line carries a client document's name. ``sources.stored_path`` records the r
 path (a check constraint ties it to ``file_sha256``). Reading checks that the path stays
 under the root and that the bytes still hash to ``file_sha256``.
 
-Pages (HTML, Markdown) are never stored: they are not downloadable.
+Pages (HTML, Markdown) are never downloadable, so they never get a ``stored_path``.
+Since P1b-02 every proposed file, pages included, is also *staged* here by the same
+naming rule (``stage``): the ingestion worker runs in its own container and reads the
+file from this store, so a job's payload never carries document contents. A licence or
+permission letter (P1b-01) is kept as ``licences/<sha256>.<ext>`` (``store_licence``).
 """
 
 from __future__ import annotations
@@ -20,7 +24,10 @@ import tempfile
 from pathlib import Path
 
 STORABLE_TYPES = ("pdf", "docx", "pptx")
+STAGED_TYPES = ("pdf", "docx", "pptx", "html", "markdown")
+LICENCE_DIR = "licences"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_EXTENSION = re.compile(r"^[a-z0-9]{1,8}$")
 
 
 class StoredFileError(Exception):
@@ -32,25 +39,17 @@ class StoredFileError(Exception):
 
 
 def relative_path(sha256: str, source_type: str) -> str:
-    if not _SHA256.fullmatch(sha256) or source_type not in STORABLE_TYPES:
+    if not _SHA256.fullmatch(sha256) or source_type not in STAGED_TYPES:
         raise ValueError("not a storable file")
     return f"{sha256[:2]}/{sha256}.{source_type}"
 
 
-def store(root: Path, sha256: str, source_type: str, content: bytes) -> str | None:
-    """Write ``content`` under ``root`` once; return its relative path.
-
-    None for a type that is not stored. Writes to a temporary file and renames it, so a
-    reader never sees a partial file; an existing copy with the same name is kept.
-    """
-    if source_type not in STORABLE_TYPES:
-        return None
-    if hashlib.sha256(content).hexdigest() != sha256:
-        raise ValueError("content does not match its hash")
-    relative = relative_path(sha256, source_type)
+def _write_once(root: Path, relative: str, content: bytes) -> None:
+    """Write to a temporary file and rename it, so a reader never sees a partial file;
+    an existing copy with the same name is kept."""
     target = root / relative
     if target.is_file():
-        return relative
+        return
     target.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(dir=target.parent, prefix=".incoming-")
     try:
@@ -60,6 +59,33 @@ def store(root: Path, sha256: str, source_type: str, content: bytes) -> str | No
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
+
+
+def stage(root: Path, sha256: str, source_type: str, content: bytes) -> str:
+    """Write a proposed file of any source type under ``root``; return its relative path."""
+    if hashlib.sha256(content).hexdigest() != sha256:
+        raise ValueError("content does not match its hash")
+    relative = relative_path(sha256, source_type)
+    _write_once(root, relative, content)
+    return relative
+
+
+def store(root: Path, sha256: str, source_type: str, content: bytes) -> str | None:
+    """Write ``content`` under ``root`` once; return its relative path for downloads.
+
+    None for a type that is not downloadable (the file is still staged).
+    """
+    relative = stage(root, sha256, source_type, content)
+    return relative if source_type in STORABLE_TYPES else None
+
+
+def store_licence(root: Path, content: bytes, extension: str) -> str:
+    """Keep a licence or permission letter as ``licences/<sha256>.<ext>``; return the path."""
+    extension = extension.lower().lstrip(".")
+    if not _EXTENSION.fullmatch(extension) or not content:
+        raise ValueError("not a licence file")
+    relative = f"{LICENCE_DIR}/{hashlib.sha256(content).hexdigest()}.{extension}"
+    _write_once(root, relative, content)
     return relative
 
 

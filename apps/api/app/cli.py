@@ -1,5 +1,10 @@
-"""``ask-spore`` command line for content operations (P0-08 to P0-11) and for granting
-the operator role (P1a-03, ``operators grant|revoke``, as the schema owner).
+"""``ask-spore`` command line for content operations (P0-08 to P0-11, P1b-01) and for
+granting the operator role (P1a-03, ``operators grant|revoke``) and the content roles
+(P1b-01, ``content-roles grant|revoke``), both as the schema owner.
+
+Every file goes through the source register (P1b-01): it is proposed, and ingested only
+once a reviewer approves it, either in the same run (``--approve-as <reviewer email>``)
+or later (``sources approve``).
 
 Runs where the API runs (inside the Compose network, e.g.
 ``docker compose -f infra/compose.dev.yml run --rm api ask-spore datasets sync``):
@@ -15,9 +20,11 @@ import asyncio
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
+from uuid import UUID
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -33,7 +40,7 @@ from app.content.ingest import (
     SourceFile,
     SourceMetadata,
     from_fetched,
-    ingest,
+    ingest_source,
     load_path,
 )
 from app.content.manifest import (
@@ -44,6 +51,9 @@ from app.content.manifest import (
     run_manifest,
     write_summary,
 )
+from app.content.register import RegisterError, approve, reject, retry
+from app.content.roles import RoleError, grant_role, revoke_role, user_by_email
+from app.content.submit import submit
 from app.content.tags import TagConfig, load_tags
 from app.core.config import get_settings
 from app.core.db import create_engine, session_factory
@@ -76,6 +86,24 @@ async def _datasets_sync() -> int:
             dataset_id=result.dataset_id,
         )
     return 1 if any(result.failed for result in results) else 0
+
+
+@dataclass(frozen=True)
+class _Actors:
+    """Who proposes and who approves in this run (internal users), from the flags."""
+
+    proposer_id: UUID | None
+    reviewer_id: UUID | None
+
+
+async def _actors(
+    factory: async_sessionmaker[AsyncSession], propose_as: str | None, approve_as: str | None
+) -> _Actors:
+    """``--propose-as`` defaults to ``--approve-as``: whoever approves a run of our own
+    corpus also proposed it (self-approval, audited). Roles are checked when used."""
+    reviewer_id = await user_by_email(factory, approve_as) if approve_as else None
+    proposer_id = await user_by_email(factory, propose_as) if propose_as else reviewer_id
+    return _Actors(proposer_id, reviewer_id)
 
 
 def _log_ingest(result: IngestResult) -> None:
@@ -114,21 +142,28 @@ async def _ingest(args: argparse.Namespace) -> int:
     )
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     try:
+        factory = session_factory(engine)
+        actors = await _actors(factory, args.propose_as, args.approve_as)
         source = await _load(args.location)
         async with RagflowClient.from_settings(settings) as client:
-            result = await ingest(
-                session_factory(engine),
+            result = await submit(
+                factory,
                 client,
                 tags,
                 source,
                 metadata,
-                parse_timeout=args.parse_timeout,
                 content_root=settings.models.files.content_root,
+                proposer_id=actors.proposer_id,
+                reviewer_id=actors.reviewer_id,
+                parse_timeout=args.parse_timeout,
             )
     except IngestError as exc:
         # Usage problem; nothing recorded. The message names a file, URL or tag only.
         log("ingest.rejected", level="error", status="rejected", error_code=exc.code)
         raise SystemExit(f"ask-spore ingest: {exc}") from None
+    except (RoleError, RegisterError) as exc:
+        log("ingest.rejected", level="error", status="rejected", error_code=exc.code)
+        raise SystemExit(f"ask-spore ingest: {exc.code}") from None
     finally:
         await engine.dispose()
     _log_ingest(result)
@@ -147,6 +182,8 @@ async def _crawl_site(
     publisher: str | None,
     out_dir: str | None,
     parse_timeout: float,
+    actors: _Actors,
+    content_root: Path,
 ) -> tuple[str, list[IngestResult]]:
     """Crawl one site and ingest every page; returns the crawl status and the results.
 
@@ -169,7 +206,7 @@ async def _crawl_site(
     publisher = publisher or (urlsplit(site_url).hostname or site_url)
     results: list[IngestResult] = []
     for page, path in zip(report.pages, paths, strict=True):
-        result = await ingest(
+        result = await submit(
             factory,
             client,
             tags,
@@ -181,6 +218,9 @@ async def _crawl_site(
                 licence_basis=licence,
                 canonical_url=page.url,
             ),
+            content_root=content_root,
+            proposer_id=actors.proposer_id,
+            reviewer_id=actors.reviewer_id,
             parse_timeout=parse_timeout,
         )
         _log_ingest(result)
@@ -196,11 +236,13 @@ async def _crawl(args: argparse.Namespace) -> int:
         raise SystemExit(f"ask-spore crawl: tags not in config/tags.toml: {', '.join(unknown)}")
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     try:
+        factory = session_factory(engine)
+        actors = await _actors(factory, args.propose_as, args.approve_as)
         async with RagflowClient.from_settings(settings) as client:
             status, results = await _crawl_site(
                 tags,
                 client,
-                session_factory(engine),
+                factory,
                 site_url=args.site_url,
                 tag=args.tag,
                 max_pages=args.max_pages,
@@ -208,9 +250,14 @@ async def _crawl(args: argparse.Namespace) -> int:
                 publisher=args.publisher,
                 out_dir=args.out_dir,
                 parse_timeout=args.parse_timeout,
+                actors=actors,
+                content_root=settings.models.files.content_root,
             )
     except FetchError as exc:
         raise SystemExit(f"ask-spore crawl: {exc}") from None
+    except (IngestError, RoleError, RegisterError) as exc:
+        log("crawl.rejected", level="error", status="rejected", error_code=exc.code)
+        raise SystemExit(f"ask-spore crawl: {exc.code}") from None
     finally:
         await engine.dispose()
     return 1 if status != "ok" or any(r.status == "failed" for r in results) else 0
@@ -255,24 +302,36 @@ async def _ingest_manifest(args: argparse.Namespace) -> int:
 
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     factory = session_factory(engine)
+    content_root = settings.models.files.content_root
     try:
+        try:
+            actors = await _actors(factory, args.propose_as, args.approve_as)
+        except RoleError as exc:
+            log("manifest.rejected", level="error", status="rejected", error_code=exc.code)
+            raise SystemExit(f"ask-spore ingest-manifest: {exc.code}") from None
         async with RagflowClient.from_settings(settings) as client:
 
             async def ingest_file(row: ManifestRow) -> IngestResult:
                 if row.path is None:
                     raise AssertionError("validated file rows have a path")
                 try:
-                    result = await ingest(
+                    result = await submit(
                         factory,
                         client,
                         tags,
                         load_path(row.path),
                         row.metadata,
+                        content_root=content_root,
+                        proposer_id=actors.proposer_id,
+                        reviewer_id=actors.reviewer_id,
                         parse_timeout=args.parse_timeout,
-                        content_root=settings.models.files.content_root,
                     )
                 except IngestError as exc:  # validated, so only no_dataset or I/O
                     raise SystemExit(f"ask-spore ingest-manifest: line {row.line}: {exc}") from None
+                except (RoleError, RegisterError) as exc:
+                    raise SystemExit(
+                        f"ask-spore ingest-manifest: line {row.line}: {exc.code}"
+                    ) from None
                 _log_ingest(result)
                 return result
 
@@ -293,6 +352,8 @@ async def _ingest_manifest(args: argparse.Namespace) -> int:
                         if args.crawl_dir
                         else None,
                         parse_timeout=args.parse_timeout,
+                        actors=actors,
+                        content_root=content_root,
                     )
                 except FetchError as exc:
                     log("crawl.failed", level="error", status="failed", error_code=exc.code)
@@ -305,6 +366,70 @@ async def _ingest_manifest(args: argparse.Namespace) -> int:
     if args.summary:
         write_summary(outcomes, Path(args.summary))
     return 1 if any(o.status == "failed" for o in outcomes) else 0
+
+
+async def _content_roles(args: argparse.Namespace) -> int:
+    """Grant or revoke a content role, as the owner (MIGRATIONS_DATABASE_URL)."""
+    owner_url = os.environ.get("MIGRATIONS_DATABASE_URL", "").strip()
+    if not owner_url:
+        log("content_roles.failed", level="error", error_code="no_owner_database_url")
+        return 1
+    engine = create_engine(owner_url)
+    try:
+        factory = session_factory(engine)
+        if args.content_roles_command == "grant":
+            result: str = await grant_role(factory, email=args.email, role=args.role)
+        else:
+            result = await revoke_role(factory, email=args.email, role=args.role)
+    finally:
+        await engine.dispose()
+    failed = result in ("no_user", "not_granted")
+    log(
+        "content_roles." + args.content_roles_command,
+        level="error" if failed else "info",
+        status=result,
+    )
+    return 1 if failed else 0
+
+
+async def _sources(args: argparse.Namespace) -> int:
+    """A reviewer's decision on one register row: approve (then ingest), reject, retry."""
+    settings = get_settings()
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    source_id: UUID = args.source_id
+    try:
+        factory = session_factory(engine)
+        reviewer_id = await user_by_email(factory, args.reviewer)
+        if args.sources_command == "reject":
+            await reject(factory, source_id, reviewer_id, note=args.note)
+            log("sources.reject", source_id=str(source_id), status="rejected")
+            return 0
+        if args.sources_command == "approve":
+            await approve(factory, source_id, reviewer_id, note=args.note)
+        else:
+            await retry(factory, source_id, reviewer_id)
+        async with RagflowClient.from_settings(settings) as client:
+            result = await ingest_source(
+                factory,
+                client,
+                load_tags(settings.config_dir),
+                source_id,
+                content_root=settings.models.files.content_root,
+                parse_timeout=args.parse_timeout,
+            )
+    except (RoleError, RegisterError) as exc:
+        log(
+            "sources." + args.sources_command,
+            level="error",
+            source_id=str(source_id),
+            status="refused",
+            error_code=exc.code,
+        )
+        return 1
+    finally:
+        await engine.dispose()
+    _log_ingest(result)
+    return 1 if result.status in ("failed", "refused") else 0
 
 
 async def _operators(args: argparse.Namespace) -> int:
@@ -340,6 +465,20 @@ async def _operators(args: argparse.Namespace) -> int:
     failed = result in ("no_user", "not_operator")
     log("operators." + args.operators_command, level="error" if failed else "info", status=result)
     return 1 if failed else 0
+
+
+def _actor_flags(command: argparse.ArgumentParser) -> None:
+    command.add_argument(
+        "--approve-as",
+        metavar="EMAIL",
+        help="a content reviewer (internal user) who approves the proposals in this run, "
+        "audited; without it they wait for a reviewer",
+    )
+    command.add_argument(
+        "--propose-as",
+        metavar="EMAIL",
+        help="the content editor proposing (default: the --approve-as user)",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -388,6 +527,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="users may download the file (PDF, DOCX, PPTX); only where the licence permits",
     )
+    _actor_flags(ingest_cmd)
 
     crawl_cmd = commands.add_parser(
         "crawl",
@@ -404,6 +544,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--out-dir", help="directory for the rendered Markdown files (default: a new temp dir)"
     )
     crawl_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
+    _actor_flags(crawl_cmd)
 
     manifest_cmd = commands.add_parser(
         "ingest-manifest",
@@ -427,6 +568,39 @@ def build_parser() -> argparse.ArgumentParser:
         "--crawl-dir", help="directory for crawled Markdown, one sub-folder per site row"
     )
     manifest_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
+    _actor_flags(manifest_cmd)
+
+    roles = commands.add_parser(
+        "content-roles",
+        help="grant or revoke a content role (P1b-01)",
+        description="Runs as the schema owner (MIGRATIONS_DATABASE_URL). content_editor "
+        "proposes sources; content_reviewer approves, rejects, retries and withdraws them. "
+        "The user must exist in the internal tenant.",
+    )
+    roles_commands = roles.add_subparsers(dest="content_roles_command", required=True)
+    for name in ("grant", "revoke"):
+        role_cmd = roles_commands.add_parser(name, help=f"{name} a content role")
+        role_cmd.add_argument("--email", required=True)
+        role_cmd.add_argument(
+            "--role", required=True, choices=["content_editor", "content_reviewer"]
+        )
+
+    sources = commands.add_parser(
+        "sources", help="a reviewer's decision on one source register row (P1b-01)"
+    )
+    sources_commands = sources.add_subparsers(dest="sources_command", required=True)
+    for name, text in (
+        ("approve", "approve a proposed source and ingest it"),
+        ("reject", "reject a proposed source, with a note"),
+        ("retry", "send a failed source back for ingestion"),
+    ):
+        source_cmd = sources_commands.add_parser(name, help=text)
+        source_cmd.add_argument("source_id", type=UUID)
+        source_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+        if name != "retry":
+            source_cmd.add_argument("--note", required=name == "reject")
+        if name != "reject":
+            source_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
 
     operators = commands.add_parser(
         "operators",
@@ -457,6 +631,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_ingest_manifest(args))
     if args.command == "operators":
         return asyncio.run(_operators(args))
+    if args.command == "content-roles":
+        return asyncio.run(_content_roles(args))
+    if args.command == "sources":
+        return asyncio.run(_sources(args))
     raise AssertionError("unreachable: argparse enforces the commands")
 
 

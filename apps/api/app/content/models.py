@@ -1,6 +1,6 @@
 """Source register and tag-to-dataset mapping. Shared corpus metadata, not tenant-scoped.
 
-Mirrors alembic revisions 0001, 0003 and 0012; the migrations are authoritative.
+Mirrors alembic revisions 0001, 0003, 0012 and 0013; the migrations are authoritative.
 """
 
 from __future__ import annotations
@@ -9,14 +9,29 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Integer, Text, func, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
+from app.tenancy.models import INTERNAL_TENANT_ID
 
 SOURCE_TYPES = ("pdf", "docx", "pptx", "html", "markdown")
-SOURCE_STATUSES = ("registered", "ingesting", "ingested", "failed", "withdrawn")
+# P1b-01: proposed -> approved -> ingested -> withdrawn; failed is retryable (back to
+# approved); rejected ends a proposal a reviewer declined.
+SOURCE_STATUSES = ("proposed", "approved", "ingested", "failed", "withdrawn", "rejected")
+CONTENT_ROLES = ("content_editor", "content_reviewer")
 
 
 class Source(Base):
@@ -32,6 +47,20 @@ class Source(Base):
             "substr(file_sha256, 1, 2) || '/' || file_sha256 || '.' || type)",
             name="stored_path_by_hash",
         ),
+        CheckConstraint(
+            "status IN ('proposed', 'rejected') OR approved_at IS NOT NULL",
+            name="approval_recorded",
+        ),
+        CheckConstraint(
+            "status <> 'withdrawn' OR (withdrawn_at IS NOT NULL "
+            "AND length(btrim(withdrawal_reason)) > 0)",
+            name="withdrawal_recorded",
+        ),
+        CheckConstraint(
+            "licence_file_path IS NULL OR "
+            "licence_file_path ~ '^licences/[0-9a-f]{64}\\.[a-z0-9]{1,8}$'",
+            name="licence_file_by_hash",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -44,7 +73,7 @@ class Source(Base):
     canonical_url: Mapped[str | None] = mapped_column(Text)
     licence_basis: Mapped[str] = mapped_column(Text)
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'::text[]"))
-    status: Mapped[str] = mapped_column(Text, server_default=text("'registered'"))
+    status: Mapped[str] = mapped_column(Text, server_default=text("'proposed'"))
     file_sha256: Mapped[str | None] = mapped_column(Text)
     # {ragflow_dataset_id: ragflow_document_id}, one entry per tag the source is in.
     ragflow_document_ids: Mapped[dict[str, Any]] = mapped_column(
@@ -57,6 +86,18 @@ class Source(Base):
     # (``app.content.store``), relative to ``[files] content_root``.
     downloadable: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     stored_path: Mapped[str | None] = mapped_column(Text)
+    # Revision 0013 (P1b-01): who proposed and approved it (internal users, no foreign
+    # key, like audit actors), withdrawal, takedown and review metadata, and the licence
+    # or permission letter under ``[files] content_root`` (never in RAGFlow).
+    proposed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    withdrawal_reason: Mapped[str | None] = mapped_column(Text)
+    takedown_reference: Mapped[str | None] = mapped_column(Text)
+    review_date: Mapped[date | None] = mapped_column(Date)
+    licence_file_path: Mapped[str | None] = mapped_column(Text)
+    review_note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -66,3 +107,26 @@ class Dataset(Base):
 
     tag: Mapped[str] = mapped_column(Text, primary_key=True)
     ragflow_dataset_id: Mapped[str] = mapped_column(Text, unique=True)
+
+
+class ContentRole(Base):
+    """A content role held by a user of the internal tenant (P1b-01, revision 0013)."""
+
+    __tablename__ = "content_roles"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], ondelete="CASCADE"
+        ),
+        CheckConstraint(f"tenant_id = '{INTERNAL_TENANT_ID}'::uuid", name="internal_tenant"),
+        CheckConstraint(f"role IN {CONTENT_ROLES}", name="role_valid"),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        primary_key=True,
+        server_default=text(f"'{INTERNAL_TENANT_ID}'::uuid"),
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    role: Mapped[str] = mapped_column(Text, primary_key=True)
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

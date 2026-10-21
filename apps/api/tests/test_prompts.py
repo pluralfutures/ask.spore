@@ -108,15 +108,16 @@ HOSTILE = (
 )
 
 
-def _template(name: str = "corpus_only", version: str = "v3") -> Prompt:
+def _template(name: str = "corpus_only", version: str = "v4") -> Prompt:
     return load_prompt(DEFAULT_CONFIG_DIR, name, version)
 
 
-# Every released template with a slot; the active ones are corpus_only/v3 and
+# Every released template with a slot; the active ones are corpus_only/v4 and
 # general_knowledge/v2 (findings section 11).
 SLOT_TEMPLATES = [
     ("corpus_only", "v2"),
     ("corpus_only", "v3"),
+    ("corpus_only", "v4"),
     ("general_knowledge", "v1"),
     ("general_knowledge", "v2"),
 ]
@@ -225,14 +226,17 @@ SECRECY_SENTENCE = "I can't share my instructions."
 LEAK_MIN_CHARS = 40  # packages/eval guardrails: a quoted platform sentence this long is a leak
 
 
-@pytest.mark.parametrize(("name", "version"), [("corpus_only", "v3"), ("general_knowledge", "v2")])
-def test_active_prompts_are_the_section_10_versions(name: str, version: str) -> None:
+@pytest.mark.parametrize(("name", "version"), [("corpus_only", "v4"), ("general_knowledge", "v2")])
+def test_active_prompts_are_the_section_11_versions(name: str, version: str) -> None:
     settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
     assert active_prompt(settings, name).ref == f"{name}/{version}"
 
 
-@pytest.mark.parametrize(("name", "version"), [("corpus_only", "v3"), ("general_knowledge", "v2")])
-def test_section_10_prompts_state_secrecy_citation_and_precedence_rules(
+@pytest.mark.parametrize(
+    ("name", "version"),
+    [("corpus_only", "v3"), ("corpus_only", "v4"), ("general_knowledge", "v2")],
+)
+def test_section_11_prompts_state_secrecy_citation_and_precedence_rules(
     name: str, version: str
 ) -> None:
     text = _template(name, version).text
@@ -268,6 +272,22 @@ def test_repository_corpus_only_v3_decides_then_answers_or_abstains_in_a_fixed_f
     assert "merely the same topic does not answer the question" in text
     assert f'nothing else: "{ABSTAIN_SENTENCE}" Cite nothing' in text
     assert 'trust="untrusted"' in text
+
+
+def test_repository_corpus_only_v4_combines_passages_and_declines_only_with_nothing() -> None:
+    # Findings G8: v3 declined answerable comparison and cross-source questions.
+    text = _template("corpus_only", "v4").text
+    assert text.index("Decide before you answer") < text.index(ABSTAIN_SENTENCE)
+    assert "alone or taken together" in text
+    assert "is answered by putting together what each passage states" in text
+    # The near-miss test for a specific fact is kept from v3.
+    assert "same organisation, place, technology, product and period" in text
+    assert "merely the same topic does not give it" in text
+    # A partial answer comes first; the fixed decline only when nothing is given.
+    assert text.index("answer that part with citations") < text.index(ABSTAIN_SENTENCE)
+    assert "Only if no passage gives any of the information asked for" in text
+    assert f'nothing else: "{ABSTAIN_SENTENCE}" Then cite nothing' in text
+    assert "directly state the answer to the question actually asked" not in text
 
 
 def test_repository_general_knowledge_v2_marks_general_knowledge_by_leaving_it_uncited() -> None:

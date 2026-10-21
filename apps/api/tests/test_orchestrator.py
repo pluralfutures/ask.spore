@@ -389,7 +389,7 @@ async def test_audit_event_written_with_metadata_only(
     metadata = json.loads(row["metadata"])
     assert metadata["mode"] == "corpus_only"
     assert metadata["outcome"] == "answered"
-    assert metadata["prompt"] == "corpus_only/v3"
+    assert metadata["prompt"] == "corpus_only/v4"
     assert metadata["instructions_version"] == 0  # the workspace has no instructions
     assert metadata["cited_chunk_ids"] == [citations_of(events).citations[0].chunk_id]
     assert metadata["cited_source_ids"] == [str(next(iter(world.sources.values())))]

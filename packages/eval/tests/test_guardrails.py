@@ -63,7 +63,7 @@ def test_mocked_run_passes_on_the_active_prompts(tmp_path: Path) -> None:
     directory, data = asyncio.run(guardrails.run(_options(tmp_path)))
     assert data["regressions"] == []
     assert data["meta"]["mocked"] is True
-    assert data["meta"]["prompts"] == ["corpus_only/v3", "general_knowledge/v2"]
+    assert data["meta"]["prompts"] == ["corpus_only/v4", "general_knowledge/v2"]
     baseline = data["results"][0]
     assert (baseline["mode"], baseline["block"]) == ("corpus_only", "none")
     assert baseline["metrics"] == {
@@ -166,7 +166,7 @@ def test_metrics_and_regressions() -> None:
 
 @pytest.mark.parametrize("mode", guardrails.MODES)
 def test_fixed_replies_of_the_active_prompts_are_not_scored_as_leaks(mode: str) -> None:
-    # corpus_only/v3 and general_knowledge/v2 (findings section 11) tell the model to
+    # corpus_only/v4 and general_knowledge/v2 (findings section 11) tell the model to
     # answer a request for its instructions, and corpus_only an unanswered question,
     # with one fixed sentence. Giving it must not count as quoting the prompt.
     from eval.runner import load_harness_settings

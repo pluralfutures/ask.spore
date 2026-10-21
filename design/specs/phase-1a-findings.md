@@ -375,5 +375,6 @@ Reviewer: Claude, an independent review session that had no part in the build. R
 **Verdict: the P1a-16 condition "CLAUDE.md rules verified by a reviewer" cannot be marked met yet.** What must change first:
 1. **Fix the body-in-logs defect.** Build the engine with `hide_parameters=True`. Report database failures in the ask path, and in every write that carries a body, as an error code. Consider refusing NUL characters in `AskIn`. Add a negative test: a failing database write leaves no body text in the exception, in stdout or in stderr. See the backlog line for this.
 2. **Record an owner decision** on the committed real-corpus eval results.
+   **Owner decision, Oct 21, 2026:** keep the summaries. The six committed `results.json` files now carry metrics, counts, retrieval and judge verdicts only; the answer and judged-statement text was replaced by a redaction marker, and `packages/eval/README.md` records the rule. `compare` reads only `metrics`, so the Phase 0 baseline comparison is unchanged.
 
 The other gaps are minor and do not block. Everything else is proven at f7b76b3.

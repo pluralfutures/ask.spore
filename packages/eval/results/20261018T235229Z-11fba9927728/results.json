@@ -44,7 +44,8 @@
     },
     "corpus_version": "781336a85136b182",
     "package_datasets": 3,
-    "warnings": []
+    "warnings": [],
+    "redaction": "Answer and judged-statement text removed on Oct 21, 2026 (owner decision); metrics, counts, retrieval and judge verdicts unchanged."
   },
   "metrics": {
     "hit_at_5": 85.4,
@@ -175,7 +176,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The guide projects **1.1% overall industry projected real growth** for healthcare foodservice between 2025 and 2026, where \"projected growth\" is defined as the real growth rate adjusted for inflation [1].\n\nHowever, the context does not provide separate projected **consumer spend** and **operator spend** figures — those headings appear on the page, but no numeric values are given for them in the passage [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -196,14 +197,14 @@
       "judge": {
         "statements": [
           {
-            "text": "The guide projects **1.1% overall industry projected real growth** for healthcare foodservice between 2025 and 2026, where \"projected growth\" is defined as the real growth rate adjusted for inflation.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "However, the context does not provide separate projected **consumer spend** and **operator spend** figures — those headings appear on the page, but no numeric values are given for them in the passage.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -276,7 +277,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "According to the PULSE 2026 Hospital chapter:\n\n- **Contract managed:** 42% of hospital foodservice operations are contract managed [3].\n- **GPO penetration:** current penetration is characterized as **very high** [3].\n- **GPO future potential:** characterized as **low** [3].\n\nNote that the chapter states contract managed percentage and GPO usage are estimations of the industry overall, not of the operators surveyed [3].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 3,
@@ -297,33 +298,33 @@
       "judge": {
         "statements": [
           {
-            "text": "According to the PULSE 2026 Hospital chapter:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Contract managed:** 42% of hospital foodservice operations are contract managed.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "**GPO penetration:** current penetration is characterized as **very high**.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "**GPO future potential:** characterized as **low**.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "Note that the chapter states contract managed percentage and GPO usage are estimations of the industry overall, not of the operators surveyed.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
@@ -431,7 +432,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The PULSE 2026 LTC chapter gives a daily cost per person of **$5–$7** for long-term care [1].\n\nOn GPO usage, the chapter describes current penetration as **moderate**, with future potential also rated **moderate** [3]. It also lists \"growing GPO use\" as one of the segment's defining characteristics [1]. Note that the report states contract-managed percentage and GPO usage are estimates of the industry overall, not of the operators surveyed [3].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -461,28 +462,28 @@
       "judge": {
         "statements": [
           {
-            "text": "The PULSE 2026 LTC chapter gives a daily cost per person of **$5–$7** for long-term care.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "On GPO usage, the chapter describes current penetration as **moderate**, with future potential also rated **moderate**.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "It also lists \"growing GPO use\" as one of the segment's defining characteristics.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Note that the report states contract-managed percentage and GPO usage are estimates of the industry overall, not of the operators surveyed.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
@@ -577,7 +578,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "In the PULSE 2026 Hospital chapter, 30% of hospital operators say they are more likely to purchase from a supplier that \"practices sustainability\" [2].\n\nThat is well below the top-ranked attribute: \"has exceptional quality standards,\" selected by 65% of operators [2]. So sustainability ranks roughly half as high as the leading attribute, and it sits in a tie with \"is constantly innovating/making improvements,\" also at 30% [2].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 2,
@@ -598,21 +599,21 @@
       "judge": {
         "statements": [
           {
-            "text": "In the PULSE 2026 Hospital chapter, 30% of hospital operators say they are more likely to purchase from a supplier that \"practices sustainability\".",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "That is well below the top-ranked attribute: \"has exceptional quality standards,\" selected by 65% of operators.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "So sustainability ranks roughly half as high as the leading attribute, and it sits in a tie with \"is constantly innovating/making improvements,\" also at 30%.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
@@ -721,7 +722,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "**Sustainability-related attributes (LTC, PULSE 2026):**\n\n- \"Cares about the environment\" — 17% [1]\n- \"Practices sustainability\" — 16% [1]\n\n**Top attribute on the LTC list:** \"A good reputation in the market,\" at 59% [1]. It is followed by \"Follows rigorous food safety measures\" (52%) and \"Has exceptional quality standards\" (50%) [1].\n\nNote: these figures are from the LTC supplier-relationships question asking operators to select their top-5 attributes (n=61) [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -742,40 +743,40 @@
       "judge": {
         "statements": [
           {
-            "text": "**Sustainability-related attributes (LTC, PULSE 2026):**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "\"Cares about the environment\" — 17%",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "\"Practices sustainability\" — 16%",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Top attribute on the LTC list:** \"A good reputation in the market,\" at 59%.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "It is followed by \"Follows rigorous food safety measures\" (52%) and \"Has exceptional quality standards\" (50%).",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Note: these figures are from the LTC supplier-relationships question asking operators to select their top-5 attributes (n=61).",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -883,7 +884,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The context does not contain enough information to answer this precisely. Passage [1] reports a \"High Priority\" figure of 52% for on-sites, but the corresponding figures for restaurants and FSR are not given as high-priority shares — the numbers shown alongside them (36% for restaurants, 20% for FSR) are not labelled in the passage, so I cannot confirm what they represent [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -904,12 +905,12 @@
       "judge": {
         "statements": [
           {
-            "text": "The context does not contain enough information to answer this precisely.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Passage reports a \"High Priority\" figure of 52% for on-sites, but the corresponding figures for restaurants and FSR are not given as high-priority shares — the numbers shown alongside them (36% for restaurants, 20% for FSR) are not labelled in the passage, so I cannot confirm what they represent.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -1017,7 +1018,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "According to the report, donating excess food to charities is the single sustainability initiative most likely to drive visits: 81% of consumers say they are more likely to visit places that donate excess food [7]. This is echoed on the ranking slide, which notes that aside from food donations, recycling or local ingredients are best at driving traffic [1], and by generation, where food donations score highest across all groups (76%–86%) [4].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 7,
@@ -1056,14 +1057,14 @@
       "judge": {
         "statements": [
           {
-            "text": "According to the report, donating excess food to charities is the single sustainability initiative most likely to drive visits: 81% of consumers say they are more likely to visit places that donate excess food.",
+            "text": "[redacted]",
             "markers": [
               7
             ],
             "verdict": "supported"
           },
           {
-            "text": "This is echoed on the ranking slide, which notes that aside from food donations, recycling or local ingredients are best at driving traffic, and by generation, where food donations score highest across all groups (76%–86%).",
+            "text": "[redacted]",
             "markers": [
               1,
               4
@@ -1116,7 +1117,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Under Sodexo's Better Tomorrow 2028 roadmap, 70% of main dish recipes must be \"good for the planet\" by 2030. Such a dish is defined as a low-carbon meal with less than 0.9 kg CO2 per dish, measured by third-party solutions such as Eaternity [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1137,12 +1138,12 @@
       "judge": {
         "statements": [
           {
-            "text": "Under Sodexo's Better Tomorrow 2028 roadmap, 70% of main dish recipes must be \"good for the planet\" by 2030.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Such a dish is defined as a low-carbon meal with less than 0.9 kg CO2 per dish, measured by third-party solutions such as Eaternity.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -1203,7 +1204,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "According to Aramark's SASB index, 76% of eggs originated from a cage-free environment in the U.S., and 68% globally; group-housed pork was 91% for the U.S. [1][2]\n\nNote: the passages give the pork figure as \"group-housed pork was 9l% for the U.s.\" [1][2], which appears to be a typo for 91%. Also, the cage-free egg figure is described as covering the U.S. and global operations, while the responsible sourcing data note states that all responsible sourcing data is for the U.S. except for the global cage-free egg percentage [3].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1242,7 +1243,7 @@
       "judge": {
         "statements": [
           {
-            "text": "According to Aramark's SASB index, 76% of eggs originated from a cage-free environment in the U.S., and 68% globally; group-housed pork was 91% for the U.S.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -1250,7 +1251,7 @@
             "verdict": "supported"
           },
           {
-            "text": "Note: the passages give the pork figure as \"group-housed pork was 9l% for the U.s.\", which appears to be a typo for 91%.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -1258,17 +1259,17 @@
             "verdict": "unsupported"
           },
           {
-            "text": "Also, the cage-free egg figure is described as covering the U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "and global operations, while the responsible sourcing data note states that all responsible sourcing data is for the U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "except for the global cage-free egg percentage.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
@@ -1377,7 +1378,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "**Reduction from the FY2015 baseline:** Aramark reports that it had maintained a **69% reduction** in back-of-house food waste (U.S.) from its FY2015 baseline, keeping it ahead of its commitment as a USDA Food Loss and Waste Champion to cut food loss and waste in U.S. operations by 50% by 2030 from a 2015 baseline [2]. The 2025 Progress Report also states that during fiscal year 2025 Aramark again exceeded this target [1].\n\n**Why the 2025 figure is not comparable to prior years:** Aramark says it revised its food waste tracking and measurement methodology in 2025, and as a result the 2025 results are not directly comparable to prior years [5].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 2,
@@ -1416,26 +1417,26 @@
       "judge": {
         "statements": [
           {
-            "text": "**Reduction from the FY2015 baseline:** Aramark reports that it had maintained a **69% reduction** in back-of-house food waste (U.S.) from its FY2015 baseline, keeping it ahead of its commitment as a USDA Food Loss and Waste Champion to cut food loss and waste in U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "operations by 50% by 2030 from a 2015 baseline.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "The 2025 Progress Report also states that during fiscal year 2025 Aramark again exceeded this target.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Why the 2025 figure is not comparable to prior years:** Aramark says it revised its food waste tracking and measurement methodology in 2025, and as a result the 2025 results are not directly comparable to prior years.",
+            "text": "[redacted]",
             "markers": [
               5
             ],
@@ -1501,7 +1502,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Responsible sourcing accounted for **24% of total U.S. vendor spend in 2025**, up from **18% in 2024** [1]. Of that, **more than $1.6 billion** was directed to small, local, and underrepresented suppliers [1][2].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1531,19 +1532,19 @@
       "judge": {
         "statements": [
           {
-            "text": "Responsible sourcing accounted for **24% of total U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "vendor spend in 2025**, up from **18% in 2024**.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Of that, **more than $1.6 billion** was directed to small, local, and underrepresented suppliers.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -1603,7 +1604,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "In 2025, Aramark achieved 100% renewable electricity in the U.S. and Canada for the first time, through the purchase of renewable energy certificates (RECs), which significantly reduced total Scope 1 and 2 emissions [1].\n\nIts stated commitment is to reduce U.S. food-related emissions 25% by 2030 [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1624,24 +1625,24 @@
       "judge": {
         "statements": [
           {
-            "text": "In 2025, Aramark achieved 100% renewable electricity in the U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "and Canada for the first time, through the purchase of renewable energy certificates (RECs), which significantly reduced total Scope 1 and 2 emissions.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Its stated commitment is to reduce U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "food-related emissions 25% by 2030.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -1750,7 +1751,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Based on the context provided:\n\n**Scope 1 (gross global):** The reporting-year figure appears as **40,497.71 metric tons CO2e** in the consolidated accounting group table [10], and as **40,497.7** in the emissions-target table [8]. The Scope 1 question itself is posed at [3], and a related table shows a reporting-year value of 40,498 with a prior-year value of 39,348 [1].\n\n**Scope 2 (gross global):** The context does not give a single gross global Scope 2 total. The question is posed at [2], but no consolidated total is stated. What is available is a breakdown by business division [4]:\n\n| Business division | Scope 2, location-based (t CO2e) | Scope 2, market-based (t CO2e) |\n|---|---|---|\n| Food and Support Services United States | 22,821.61 | 22,816.5 |\n| Food and Support Services International | 2,288.85 | 2,288.85 |\n\nA separate figure of 25,105.35 t CO2e appears as \"Scope 2 emissions in reporting year covered by target\" [8], but that is a target-coverage figure, not necessarily the gross global total. The consolidated accounting group table leaves the Scope 2 location-based and market-based cells blank [10].\n\nSo: Scope 1 for the reporting year is reported as 40,497.71 t CO2e [10] (40,497.7 in [8]), while the context does not contain a stated gross global Scope 2 total for the reporting year — only divisional breakdowns [4] and a target-related figure [8].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 10,
@@ -1816,12 +1817,12 @@
       "judge": {
         "statements": [
           {
-            "text": "Based on the context provided:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Scope 1 (gross global):** The reporting-year figure appears as **40,497.71 metric tons CO2e** in the consolidated accounting group table, and as **40,497.7** in the emissions-target table.",
+            "text": "[redacted]",
             "markers": [
               10,
               8
@@ -1829,7 +1830,7 @@
             "verdict": "supported"
           },
           {
-            "text": "The Scope 1 question itself is posed at, and a related table shows a reporting-year value of 40,498 with a prior-year value of 39,348.",
+            "text": "[redacted]",
             "markers": [
               3,
               1
@@ -1837,55 +1838,55 @@
             "verdict": "supported"
           },
           {
-            "text": "**Scope 2 (gross global):** The context does not give a single gross global Scope 2 total.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The question is posed at, but no consolidated total is stated.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "What is available is a breakdown by business division:",
+            "text": "[redacted]",
             "markers": [
               4
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "| Business division | Scope 2, location-based (t CO2e) | Scope 2, market-based (t CO2e) |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Food and Support Services United States | 22,821.61 | 22,816.5 |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Food and Support Services International | 2,288.85 | 2,288.85 |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "A separate figure of 25,105.35 t CO2e appears as \"Scope 2 emissions in reporting year covered by target\", but that is a target-coverage figure, not necessarily the gross global total.",
+            "text": "[redacted]",
             "markers": [
               8
             ],
             "verdict": "supported"
           },
           {
-            "text": "The consolidated accounting group table leaves the Scope 2 location-based and market-based cells blank.",
+            "text": "[redacted]",
             "markers": [
               10
             ],
             "verdict": "supported"
           },
           {
-            "text": "So: Scope 1 for the reporting year is reported as 40,497.71 t CO2e (40,497.7 in ), while the context does not contain a stated gross global Scope 2 total for the reporting year — only divisional breakdowns and a target-related figure.",
+            "text": "[redacted]",
             "markers": [
               10,
               8,
@@ -1939,7 +1940,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Elior North America's fourth annual Doing Good Social & Environmental Responsibility report covers 2025 progress [1]. The headline results you asked about:\n\n| Area | Reported result |\n|---|---|\n| Food waste | Reduced food waste by 57.7%; doubled the amount of food waste going to compost versus 2024 and donated 59% more meals [1] |\n| Carbon footprint | 16% year-over-year reduction across North American operations, contributing to Elior Group's global goal of a 25% reduction by 2030 [1] |\n| Sustainable seafood | 58.9% of seafood sourced met sustainable standards, a 27% increase over FY24 [1] |\n| Plant-based entrées | 50% of all newly developed entrées in 2025 were plant-based [2] |\n\nThe report also cited an A+ Protein Sustainability Grade from Humane World for Animals, a 37% increase in cage-free egg use over FY24, and $1.1 million invested in locally sourced produce [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -1969,52 +1970,52 @@
       "judge": {
         "statements": [
           {
-            "text": "Elior North America's fourth annual Doing Good Social & Environmental Responsibility report covers 2025 progress.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "The headline results you asked about:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Area | Reported result |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Food waste | Reduced food waste by 57.7%; doubled the amount of food waste going to compost versus 2024 and donated 59% more meals |",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "| Carbon footprint | 16% year-over-year reduction across North American operations, contributing to Elior Group's global goal of a 25% reduction by 2030 |",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "| Sustainable seafood | 58.9% of seafood sourced met sustainable standards, a 27% increase over FY24 |",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "| Plant-based entrées | 50% of all newly developed entrées in 2025 were plant-based |",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "The report also cited an A+ Protein Sustainability Grade from Humane World for Animals, a 37% increase in cage-free egg use over FY24, and $1.1 million invested in locally sourced produce.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -2108,7 +2109,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Vizient's product database includes **77 category-specific sustainable attributes**, spanning cleaning chemicals and janitorial, electronic equipment, food products and serviceware, medical-surgical and laboratory [1]. More than **60% of Vizient contracts** have at least one product with at least one sustainable attribute [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2129,14 +2130,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Vizient's product database includes **77 category-specific sustainable attributes**, spanning cleaning chemicals and janitorial, electronic equipment, food products and serviceware, medical-surgical and laboratory.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "More than **60% of Vizient contracts** have at least one product with at least one sustainable attribute.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -2181,7 +2182,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Vizient has committed to reducing its operational Scope 1 (direct) and Scope 2 (indirect) greenhouse gas emissions by 50% by 2030, and to reaching net zero for those emissions by 2050 [1]. It is a signatory of the White House and U.S. Department of Health and Human Services Climate Pledge, along with 88 of its leading clients [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2202,19 +2203,19 @@
       "judge": {
         "statements": [
           {
-            "text": "Vizient has committed to reducing its operational Scope 1 (direct) and Scope 2 (indirect) greenhouse gas emissions by 50% by 2030, and to reaching net zero for those emissions by 2050.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "It is a signatory of the White House and U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Department of Health and Human Services Climate Pledge, along with 88 of its leading clients.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -2301,7 +2302,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The award rankings rest on two components: **Sustainability Program Maturity** and **Environmentally Preferred Purchasing (EPP)** [1].\n\n- **Sustainability Program Maturity** is evaluated on whether there is a formal sustainability program, enterprise-level goals and objectives, and an appointed sustainability leader [1].\n- **EPP** is assessed by the share of Vizient spend on products meeting Vizient's Environmentally Preferred Purchasing Standard [1].\n\nTo qualify as **\"optimal\"** under that standard, a product must meet **all** Vizient-identified chemical safety attributes **and at least two** waste reduction attributes [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2322,28 +2323,28 @@
       "judge": {
         "statements": [
           {
-            "text": "The award rankings rest on two components: **Sustainability Program Maturity** and **Environmentally Preferred Purchasing (EPP)**.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Sustainability Program Maturity** is evaluated on whether there is a formal sustainability program, enterprise-level goals and objectives, and an appointed sustainability leader.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**EPP** is assessed by the share of Vizient spend on products meeting Vizient's Environmentally Preferred Purchasing Standard.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "To qualify as **\"optimal\"** under that standard, a product must meet **all** Vizient-identified chemical safety attributes **and at least two** waste reduction attributes.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -2395,7 +2396,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Premier's Environmentally Preferred Purchasing (EPP) program has been running since 2001 [1]. The EPP information in Premier's technology covers more than 200,000 products and nearly 400 suppliers [2].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2425,14 +2426,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Premier's Environmentally Preferred Purchasing (EPP) program has been running since 2001.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "The EPP information in Premier's technology covers more than 200,000 products and nearly 400 suppliers.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
@@ -2505,7 +2506,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The total purchasing volume by all GPO members was more than $87 billion for CY2024 [5].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 5,
@@ -2526,7 +2527,7 @@
       "judge": {
         "statements": [
           {
-            "text": "The total purchasing volume by all GPO members was more than $87 billion for CY2024.",
+            "text": "[redacted]",
             "markers": [
               5
             ],
@@ -2599,7 +2600,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Based on the context passages:\n\n**Greenhouse gas and energy intensity commitments**\n\n- Mayo Clinic committed to cutting certain greenhouse gas emissions by 50% and reducing energy use by 20% within 10 years, as part of the Department of Energy's Better Climate Challenge [2].\n- More specifically, Mayo Clinic's stated commitments are to reduce greenhouse gas emissions intensity (scopes 1, 2) by 50% by 2032 and to reduce energy use intensity by 20% by 2032 [4].\n\n**Share of waste stream recycled**\n\n- More than 31% of Mayo Clinic's overall waste stream is currently recycled [1].\n\nNote: The two passages describing the reduction targets frame them slightly differently — one as a 10-year commitment made in 2022 [2], the other as targets with a 2032 deadline [4] — but the percentages (50% emissions, 20% energy) are consistent.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 2,
@@ -2638,43 +2639,43 @@
       "judge": {
         "statements": [
           {
-            "text": "Based on the context passages:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Greenhouse gas and energy intensity commitments**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Mayo Clinic committed to cutting certain greenhouse gas emissions by 50% and reducing energy use by 20% within 10 years, as part of the Department of Energy's Better Climate Challenge.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "More specifically, Mayo Clinic's stated commitments are to reduce greenhouse gas emissions intensity (scopes 1, 2) by 50% by 2032 and to reduce energy use intensity by 20% by 2032.",
+            "text": "[redacted]",
             "markers": [
               4
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Share of waste stream recycled**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "More than 31% of Mayo Clinic's overall waste stream is currently recycled.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Note: The two passages describing the reduction targets frame them slightly differently — one as a 10-year commitment made in 2022, the other as targets with a 2032 deadline — but the percentages (50% emissions, 20% energy) are consistent.",
+            "text": "[redacted]",
             "markers": [
               2,
               4
@@ -2727,7 +2728,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Cleveland Clinic's 2017 goals and its prior-decade results, per the source:\n\n**New goals set in 2017**\n- Become **carbon-neutral within 10 years**, achieved by expanding energy-saving strategies, purchasing renewable energy (wind and solar) from the power grid, and implementing on-site energy systems where it makes sense [1].\n- Raise **waste diversion from landfill** from the current 38 percent of nonregulated waste to **100 percent in 10 years**, by encouraging staff recycling and increasing use of recyclable packaging with suppliers' help [2].\n- Reduce **water consumption by 10 percent** through low-flow showers and faucets in new construction and existing buildings over time, plus optimizing cooling-tower water use; total savings estimated at about $1 million annually [2].\n\n**Savings already achieved over the prior decade**\n- About **$50 million in energy costs** and **$30 million in materials purchased** [1].\n- More than **100,000 tons of material diverted from landfills** and more than **600,000 trees saved** [1].\n\n**Supporting energy measures mentioned**\n- More than 400,000 LED tubes installed, saving over $3 million in energy costs annually; LED lighting to be used in all new construction and existing fixtures retrofitted by the third quarter of 2018 [1][2].\n- Operating room setbacks (reduced air exchanges when ORs are unused), HVAC and chiller optimization, and the \"Energy Savings & You\" program engaging 51,000 staff and contractors [2].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2757,62 +2758,62 @@
       "judge": {
         "statements": [
           {
-            "text": "Cleveland Clinic's 2017 goals and its prior-decade results, per the source:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**New goals set in 2017**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Become **carbon-neutral within 10 years**, achieved by expanding energy-saving strategies, purchasing renewable energy (wind and solar) from the power grid, and implementing on-site energy systems where it makes sense.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Raise **waste diversion from landfill** from the current 38 percent of nonregulated waste to **100 percent in 10 years**, by encouraging staff recycling and increasing use of recyclable packaging with suppliers' help.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "Reduce **water consumption by 10 percent** through low-flow showers and faucets in new construction and existing buildings over time, plus optimizing cooling-tower water use; total savings estimated at about $1 million annually.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Savings already achieved over the prior decade**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "About **$50 million in energy costs** and **$30 million in materials purchased**.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "More than **100,000 tons of material diverted from landfills** and more than **600,000 trees saved**.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Supporting energy measures mentioned**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "More than 400,000 LED tubes installed, saving over $3 million in energy costs annually; LED lighting to be used in all new construction and existing fixtures retrofitted by the third quarter of 2018.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -2820,7 +2821,7 @@
             "verdict": "supported"
           },
           {
-            "text": "Operating room setbacks (reduced air exchanges when ORs are unused), HVAC and chiller optimization, and the \"Energy Savings & You\" program engaging 51,000 staff and contractors.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
@@ -2865,7 +2866,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Gundersen Health System's Dietary department began using the LeanPath® tracking program in July 2010. Its baseline results showed that about half a ton of food waste was thrown away every week — roughly 24 tons a year [1].\n\nUsing the data from the program, the department made adjustments (such as changing how much soup was warmed up at certain times and training staff to prepare vegetables with less scrap waste). From July 2010 through January 2015, food waste decreased by approximately 850 pounds per week, an 80 percent improvement from baseline, equating to average cost savings of about $30,000 [1].\n\nA byproduct of the program was a food donation program for the Salvation Army in La Crosse, Wis., with Gundersen donating more than 500 meals a month [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2886,31 +2887,31 @@
       "judge": {
         "statements": [
           {
-            "text": "Gundersen Health System's Dietary department began using the LeanPath® tracking program in July 2010.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Its baseline results showed that about half a ton of food waste was thrown away every week — roughly 24 tons a year.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Using the data from the program, the department made adjustments (such as changing how much soup was warmed up at certain times and training staff to prepare vegetables with less scrap waste).",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "From July 2010 through January 2015, food waste decreased by approximately 850 pounds per week, an 80 percent improvement from baseline, equating to average cost savings of about $30,000.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "A byproduct of the program was a food donation program for the Salvation Army in La Crosse, Wis., with Gundersen donating more than 500 meals a month.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -2956,7 +2957,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The context only partially answers this.\n\n**Surplus food and organic waste diverted in 2025**\n\n- Organic waste: 42,000 pounds was collected for offsite composting, following expansion of the composting program from the central kitchen to the back of house at the Cafeteria and Room 500 [1].\n- Surplus food: the passage mentions that Rush \"collected and donated 21,500 pounds of surplus\" but the sentence is cut off, so the material and the full figure are not stated [1].\n\n**Food-related purchasing commitments**\n\nThe context does not contain any information about food-related purchasing commitments Rush has signed.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -2977,36 +2978,36 @@
       "judge": {
         "statements": [
           {
-            "text": "The context only partially answers this.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Surplus food and organic waste diverted in 2025**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Organic waste: 42,000 pounds was collected for offsite composting, following expansion of the composting program from the central kitchen to the back of house at the Cafeteria and Room 500.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Surplus food: the passage mentions that Rush \"collected and donated 21,500 pounds of surplus\" but the sentence is cut off, so the material and the full figure are not stated.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Food-related purchasing commitments**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The context does not contain any information about food-related purchasing commitments Rush has signed.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           }
@@ -3098,7 +3099,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "According to the context, BMC's natural gas-fired cogeneration plant generates 43% of the hospital's electricity and 30% of its heat, with reduced carbon emissions [1].\n\nOn the savings figure, the passages differ slightly in wording:\n\n- One passage states that Biggio estimates BMC's sustainability efforts save $8 million–$10 million annually [1].\n- Other passages state that sustainability efforts have reduced BMC's utility bills by $8 million per year [2][3].\n\nSo the context supports an annual saving of roughly $8 million, with one source giving a range of $8 million–$10 million [1][2][3].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -3137,26 +3138,26 @@
       "judge": {
         "statements": [
           {
-            "text": "According to the context, BMC's natural gas-fired cogeneration plant generates 43% of the hospital's electricity and 30% of its heat, with reduced carbon emissions.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "On the savings figure, the passages differ slightly in wording:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "One passage states that Biggio estimates BMC's sustainability efforts save $8 million–$10 million annually.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Other passages state that sustainability efforts have reduced BMC's utility bills by $8 million per year.",
+            "text": "[redacted]",
             "markers": [
               2,
               3
@@ -3164,7 +3165,7 @@
             "verdict": "supported"
           },
           {
-            "text": "So the context supports an annual saving of roughly $8 million, with one source giving a range of $8 million–$10 million.",
+            "text": "[redacted]",
             "markers": [
               1,
               2,
@@ -3274,7 +3275,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "AdventHealth has committed, as a signatory of the U.S. Department of Health and Human Services (HHS) Health Sector Climate Pledge, to reducing its carbon emissions by 50 percent by 2030 and reaching net-zero emissions by 2050 [2]. The pledge also includes developing a climate resilience plan, which AdventHealth describes as critical to equitably providing whole-person care [2].\n\nOn size, the context states that AdventHealth operates more than 50 hospitals plus numerous additional facilities [3].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 2,
@@ -3304,26 +3305,26 @@
       "judge": {
         "statements": [
           {
-            "text": "AdventHealth has committed, as a signatory of the U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Department of Health and Human Services (HHS) Health Sector Climate Pledge, to reducing its carbon emissions by 50 percent by 2030 and reaching net-zero emissions by 2050.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "The pledge also includes developing a climate resilience plan, which AdventHealth describes as critical to equitably providing whole-person care.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "On size, the context states that AdventHealth operates more than 50 hospitals plus numerous additional facilities.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
@@ -3375,7 +3376,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "**At the time of review**, the organization must have baseline emissions data for three GHG emission sources and an action plan to reduce them [1]. It must also be a hospital or critical access hospital in the United States (or operated by the U.S. government or under a charter of Congress) and compliant with applicable federal laws, including Medicare Conditions of Participation [1].\n\n**Emission sources it can choose from** — organizations must collect data on 3 of the following [1]:\n\n- Energy use (fuel combustion)\n- Purchased electricity (purchased grid electricity, district steam, chilled and hot water)\n- Anesthetic gas use, including volatile agents and nitrous oxide\n- Pressurized metered-dose inhaler use\n- Fleet vehicle carbon-based fuel use (from organization-owned vehicles)\n- Waste disposal\n\nCertified organizations convert these measurements to metric tons of carbon dioxide equivalents (MTCO2e) [1]. For recertification, the organization needs 24 months of data and must demonstrate a reduction across three GHG emission sources [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -3396,70 +3397,70 @@
       "judge": {
         "statements": [
           {
-            "text": "**At the time of review**, the organization must have baseline emissions data for three GHG emission sources and an action plan to reduce them.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "It must also be a hospital or critical access hospital in the United States (or operated by the U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "government or under a charter of Congress) and compliant with applicable federal laws, including Medicare Conditions of Participation.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Emission sources it can choose from** — organizations must collect data on 3 of the following:",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Energy use (fuel combustion)",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Purchased electricity (purchased grid electricity, district steam, chilled and hot water)",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Anesthetic gas use, including volatile agents and nitrous oxide",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Pressurized metered-dose inhaler use",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Fleet vehicle carbon-based fuel use (from organization-owned vehicles)",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Waste disposal",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Certified organizations convert these measurements to metric tons of carbon dioxide equivalents (MTCO2e).",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "For recertification, the organization needs 24 months of data and must demonstrate a reduction across three GHG emission sources.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -3567,7 +3568,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Under Practice Greenhealth's standardized environmental criteria, a supplier product must meet **all 11 chemical criteria** and **at least two of the nine waste criteria** [1]. The criteria are aligned with **Kaiser Permanente's environmentally preferred purchasing standard** [1].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -3588,14 +3589,14 @@
       "judge": {
         "statements": [
           {
-            "text": "Under Practice Greenhealth's standardized environmental criteria, a supplier product must meet **all 11 chemical criteria** and **at least two of the nine waste criteria**.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "The criteria are aligned with **Kaiser Permanente's environmentally preferred purchasing standard**.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -3704,7 +3705,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "**National goal:** The Strategy aims to prevent food loss and waste, increase recycling of food and other organic materials to support a more circular economy, reduce GHG emissions, save households and businesses money, and build cleaner, healthier communities [6]. Its actions are meant to help the U.S. meet its National Food Loss and Waste Reduction Goal — to halve food loss and waste by 2030 — and contribute to the National Recycling Goal of a 50% recycling rate by 2030, as well as UN SDG Target 12.3 [6]. The 50%-by-2030 goal was jointly announced by EPA and USDA in 2015, and in 2021 EPA aligned the food waste portion with SDG Target 12.3 [8].\n\n**Food's share of landfilled MSW and landfill methane:**\n- Food is the single most common material in landfills, making up **24% of municipal solid waste in landfills** [9].\n- Food waste is responsible for **58% of landfill methane emissions** released to the atmosphere [8]. Separately, the Strategy states that **61% of methane generated by landfilled food waste is not captured** by landfill gas collection systems and is released to the atmosphere [9].\n\nNote that the 58% figure refers to food waste's share of landfill methane emissions, while the 61% figure refers to the uncaptured portion of methane generated by landfilled food waste — these are distinct measures [8][9].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 6,
@@ -3743,59 +3744,59 @@
       "judge": {
         "statements": [
           {
-            "text": "**National goal:** The Strategy aims to prevent food loss and waste, increase recycling of food and other organic materials to support a more circular economy, reduce GHG emissions, save households and businesses money, and build cleaner, healthier communities.",
+            "text": "[redacted]",
             "markers": [
               6
             ],
             "verdict": "supported"
           },
           {
-            "text": "Its actions are meant to help the U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "meet its National Food Loss and Waste Reduction Goal — to halve food loss and waste by 2030 — and contribute to the National Recycling Goal of a 50% recycling rate by 2030, as well as UN SDG Target 12.3.",
+            "text": "[redacted]",
             "markers": [
               6
             ],
             "verdict": "supported"
           },
           {
-            "text": "The 50%-by-2030 goal was jointly announced by EPA and USDA in 2015, and in 2021 EPA aligned the food waste portion with SDG Target 12.3.",
+            "text": "[redacted]",
             "markers": [
               8
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Food's share of landfilled MSW and landfill methane:**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Food is the single most common material in landfills, making up **24% of municipal solid waste in landfills**.",
+            "text": "[redacted]",
             "markers": [
               9
             ],
             "verdict": "supported"
           },
           {
-            "text": "Food waste is responsible for **58% of landfill methane emissions** released to the atmosphere.",
+            "text": "[redacted]",
             "markers": [
               8
             ],
             "verdict": "supported"
           },
           {
-            "text": "Separately, the Strategy states that **61% of methane generated by landfilled food waste is not captured** by landfill gas collection systems and is released to the atmosphere.",
+            "text": "[redacted]",
             "markers": [
               9
             ],
             "verdict": "supported"
           },
           {
-            "text": "Note that the 58% figure refers to food waste's share of landfill methane emissions, while the 61% figure refers to the uncaptured portion of methane generated by landfilled food waste — these are distinct measures.",
+            "text": "[redacted]",
             "markers": [
               8,
               9
@@ -3907,7 +3908,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "According to the PULSE 2026 data in the context, the purchasing split by category is reported for LTC and for Hospital separately:\n\n**Long-Term Care (LTC)** — share of food, non-alcoholic beverage and related product spend [1]:\n- Food: 72%\n- Non-alcoholic beverages: 15%\n- Packaging/disposables: 10%\n- Other: 3%\n\n**Hospital** — purchasing by category [7]:\n- Food: 64%\n- Non-alcoholic beverages: 18%\n- Packaging/disposables: 14%\n- Other: 4%\n\nNote that the LTC figures come from the LTC market overview [1], while the hospital figures come from the Hospital market overview [7]; the context does not provide a single combined PULSE 2026 table covering both segments.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -3937,66 +3938,66 @@
       "judge": {
         "statements": [
           {
-            "text": "According to the PULSE 2026 data in the context, the purchasing split by category is reported for LTC and for Hospital separately:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Long-Term Care (LTC)** — share of food, non-alcoholic beverage and related product spend:",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "Food: 72%",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Non-alcoholic beverages: 15%",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Packaging/disposables: 10%",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Other: 3%",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "**Hospital** — purchasing by category:",
+            "text": "[redacted]",
             "markers": [
               7
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "Food: 64%",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Non-alcoholic beverages: 18%",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Packaging/disposables: 14%",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Other: 4%",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Note that the LTC figures come from the LTC market overview, while the hospital figures come from the Hospital market overview; the context does not provide a single combined PULSE 2026 table covering both segments.",
+            "text": "[redacted]",
             "markers": [
               1,
               7
@@ -4045,7 +4046,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "I can only partially answer this from the supplied context.\n\n**What the context does support**\n\n- The healthcare segment covers hospitals and long-term care (LTC), where dining services \"almost always includes patient feeding,\" and can also include staff and visitor options such as cafeterias, restaurants and retail/snack shops. Some senior living operators provide the bulk of meals to all residents, while others only provide food at restaurants serving the community, visitors or special events [1].\n- The context distinguishes two sub-segments: independents/small chains versus large chains/national accounts [1].\n- **GPOs:** Larger healthcare operators may belong to a Group Purchasing Organization to negotiate better food and beverage product specifications, given their larger purchasing potential — especially since many already use GPOs for non-food purchases like medical supplies [1]. Contract management companies, because they buy in larger quantities, collaborate with subsidiary or independent GPOs (Avendra, Entegra, Foodbuy, Premier, etc.) to negotiate food and beverage specifications [1].\n- **Contract-management companies:** Most locations are part of a healthcare group that contracts with a contract feeder (Aramark, Sodexo, Compass, etc.) to run dining and other hospital services [1].\n- **Purchasing structure differs by sub-segment:** For large chains/national accounts, purchasing is very centralized with little local decision-making, mostly from a preferred or approved list of products and vendors under set specifications, and distribution is typically a mix of national broadline, regional and local distributors [1]. For independents/small chains, purchasing is very decentralized, with decision makers being dietitians and/or a foodservice director/manager working independently or together depending on operation size, and distribution spread across national broadliners plus regional and local distributors [1].\n- Both sub-segments are described as rarely having specific nutritional guidelines, though local, state or federal regulations for patient safety may apply, and operators likely work with specific diets under medical direction or guidance [1].\n\n**What the context does not support**\n\n- It gives **no figure** for the share of the segment that is contract-managed versus self-operated.\n- It contains only a **single source**, so there is no basis for flagging where sources define the segment differently from one another.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -4066,88 +4067,88 @@
       "judge": {
         "statements": [
           {
-            "text": "I can only partially answer this from the supplied context.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**What the context does support**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The healthcare segment covers hospitals and long-term care (LTC), where dining services \"almost always includes patient feeding,\" and can also include staff and visitor options such as cafeterias, restaurants and retail/snack shops.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Some senior living operators provide the bulk of meals to all residents, while others only provide food at restaurants serving the community, visitors or special events.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "The context distinguishes two sub-segments: independents/small chains versus large chains/national accounts.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**GPOs:** Larger healthcare operators may belong to a Group Purchasing Organization to negotiate better food and beverage product specifications, given their larger purchasing potential — especially since many already use GPOs for non-food purchases like medical supplies.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Contract management companies, because they buy in larger quantities, collaborate with subsidiary or independent GPOs (Avendra, Entegra, Foodbuy, Premier, etc.) to negotiate food and beverage specifications.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Contract-management companies:** Most locations are part of a healthcare group that contracts with a contract feeder (Aramark, Sodexo, Compass, etc.) to run dining and other hospital services.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Purchasing structure differs by sub-segment:** For large chains/national accounts, purchasing is very centralized with little local decision-making, mostly from a preferred or approved list of products and vendors under set specifications, and distribution is typically a mix of national broadline, regional and local distributors.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "For independents/small chains, purchasing is very decentralized, with decision makers being dietitians and/or a foodservice director/manager working independently or together depending on operation size, and distribution spread across national broadliners plus regional and local distributors.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Both sub-segments are described as rarely having specific nutritional guidelines, though local, state or federal regulations for patient safety may apply, and operators likely work with specific diets under medical direction or guidance.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**What the context does not support**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "It gives **no figure** for the share of the segment that is contract-managed versus self-operated.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "It contains only a **single source**, so there is no basis for flagging where sources define the segment differently from one another.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           }
@@ -4185,7 +4186,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -4243,7 +4244,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "I can only partly answer this from the supplied context.\n\n**What the context does contain**\n\n- Long-term care (LTC) operators: \"Practices sustainability\" appears in the list of supplier attributes that make them more likely to purchase from a supplier, at **16%** (selecting among their top-5 attributes), with **n=61** [1]. The same passage notes that the \"I am more likely to…\" data is from 2025 (n=58) [1].\n- On-site operators' priorities: the Selling Sustainability material states that operators are right to prioritise sustainability because such efforts drive traffic and check size, and that sustainability is important in consumers' daily lives [3]. It also notes that for most operators sustainability initiatives cost money and many must be selective, and that operators can at best pay slightly more for such items [3].\n\n**What the context does not contain**\n\nThere is no figure in the context for how much \"practicing sustainability\" moves the purchase decision for **hospital** operators, and no sample size for a hospital-operator sustainability attribute. Passage [1] covers long-term care only, and passage [3] reports operator/consumer findings without a hospital-specific percentage or sample note. So the hospital-versus-LTC comparison cannot be made from these passages.\n\n**On reconciling the two**\n\nThe context does not offer an explicit reconciliation, and I won't construct one from outside knowledge. What can be said is that the two sources measure different things: [1] ranks sustainability low among many competing supplier attributes in LTC (16%, near the bottom of the list, alongside \"Is American\" at 17% and \"Gives back to their local communities\" at 14%), while [3] frames sustainability as a priority for operators generally because it drives traffic and check size, while acknowledging cost constraints and the need to be selective [1][3]. Passage [2] adds a health-care-sector perspective — that sustainable procurement can reduce costs, support operations, attract and retain staff, and address supply-chain inequities, with over 70% of a health system's greenhouse gas emissions embedded in purchased products and services — but it gives no operator survey figures [2].\n\nTo answer the hospital-versus-LTC question with figures and sample notes, you would need a hospital-operator passage that isn't in this context.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -4282,55 +4283,55 @@
       "judge": {
         "statements": [
           {
-            "text": "I can only partly answer this from the supplied context.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**What the context does contain**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Long-term care (LTC) operators: \"Practices sustainability\" appears in the list of supplier attributes that make them more likely to purchase from a supplier, at **16%** (selecting among their top-5 attributes), with **n=61**.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "The same passage notes that the \"I am more likely to…\" data is from 2025 (n=58).",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "On-site operators' priorities: the Selling Sustainability material states that operators are right to prioritise sustainability because such efforts drive traffic and check size, and that sustainability is important in consumers' daily lives.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "It also notes that for most operators sustainability initiatives cost money and many must be selective, and that operators can at best pay slightly more for such items.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "**What the context does not contain**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "There is no figure in the context for how much \"practicing sustainability\" moves the purchase decision for **hospital** operators, and no sample size for a hospital-operator sustainability attribute.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Passage covers long-term care only, and passage reports operator/consumer findings without a hospital-specific percentage or sample note.",
+            "text": "[redacted]",
             "markers": [
               1,
               3
@@ -4338,22 +4339,22 @@
             "verdict": "unsupported"
           },
           {
-            "text": "So the hospital-versus-LTC comparison cannot be made from these passages.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**On reconciling the two**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The context does not offer an explicit reconciliation, and I won't construct one from outside knowledge.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "What can be said is that the two sources measure different things: ranks sustainability low among many competing supplier attributes in LTC (16%, near the bottom of the list, alongside \"Is American\" at 17% and \"Gives back to their local communities\" at 14%), while frames sustainability as a priority for operators generally because it drives traffic and check size, while acknowledging cost constraints and the need to be selective.",
+            "text": "[redacted]",
             "markers": [
               1,
               3
@@ -4361,14 +4362,14 @@
             "verdict": "unsupported"
           },
           {
-            "text": "Passage adds a health-care-sector perspective — that sustainable procurement can reduce costs, support operations, attract and retain staff, and address supply-chain inequities, with over 70% of a health system's greenhouse gas emissions embedded in purchased products and services — but it gives no operator survey figures.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "To answer the hospital-versus-LTC question with figures and sample notes, you would need a hospital-operator passage that isn't in this context.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           }
@@ -4428,7 +4429,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "I can't answer this from the supplied context. The question asks about Sodexo statements, but none of the three passages are from Sodexo — they are from Elior North America [1] and Aramark [2][3]. So there is no Sodexo material here to compare, and I can't say what any Sodexo statements say or whether they agree on a target year.\n\nFor the parts that are covered:\n\n- **Elior North America** reports a 57.7% reduction in food waste, doubled compost diversion versus 2024, and 59% more meals donated [1].\n- **Aramark** states it has maintained a 69% reduction in back-of-house U.S. food waste against an FY2015 baseline, keeping it ahead of its commitment as a USDA Food Loss and Waste Champion to cut U.S. food loss and waste 50% by 2030 from a 2015 baseline; it notes total pounds may have risen from FY2023 to FY2024 [3].\n\nThese two are not directly comparable as stated: Elior gives a reduction figure without a baseline year [1], while Aramark gives both a baseline (FY2015) and a target year (2030) [3].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -4467,12 +4468,12 @@
       "judge": {
         "statements": [
           {
-            "text": "I can't answer this from the supplied context.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The question asks about Sodexo statements, but none of the three passages are from Sodexo — they are from Elior North America and Aramark.",
+            "text": "[redacted]",
             "markers": [
               1,
               2,
@@ -4481,41 +4482,41 @@
             "verdict": "supported"
           },
           {
-            "text": "So there is no Sodexo material here to compare, and I can't say what any Sodexo statements say or whether they agree on a target year.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "For the parts that are covered:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Elior North America** reports a 57.7% reduction in food waste, doubled compost diversion versus 2024, and 59% more meals donated.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Aramark** states it has maintained a 69% reduction in back-of-house U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "food waste against an FY2015 baseline, keeping it ahead of its commitment as a USDA Food Loss and Waste Champion to cut U.S.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "food loss and waste 50% by 2030 from a 2015 baseline; it notes total pounds may have risen from FY2023 to FY2024.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "These two are not directly comparable as stated: Elior gives a reduction figure without a baseline year, while Aramark gives both a baseline (FY2015) and a target year (2030).",
+            "text": "[redacted]",
             "markers": [
               1,
               3
@@ -4581,7 +4582,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Based only on the supplied passages, two organizations are described as engaging with the HHS climate pledge:\n\n| Organization | Commitment described | Citation |\n|---|---|---|\n| AdventHealth | Became an HHS Climate Pledge signatory; set an emissions-reduction target aligned with the HHS Health Sector Climate Pledge, and its annual sustainability report details a strategy to achieve a 50 percent reduction in organizational emissions by 2030. | [1] |\n| Premier Inc. | Committed to join the HHS effort to reduce GHG emissions in healthcare, pledging to reduce GHG emissions by 50 percent by 2030 and achieve net zero emissions by 2050. | [2] |\n\nNote on distinguishing programs: AdventHealth's participation in **SolarTogether**, a community solar program run by Florida Power and Light, is separate from the HHS pledge — it is described as one of AdventHealth's energy consumption efforts, not as a climate pledge [1]. The passages do not state that Gundersen Health System signed the HHS pledge; its described affiliations are energy independence, net zero building goals, and being invited to the Paris Climate Accord [3].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -4620,43 +4621,43 @@
       "judge": {
         "statements": [
           {
-            "text": "Based only on the supplied passages, two organizations are described as engaging with the HHS climate pledge:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Organization | Commitment described | Citation |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| AdventHealth | Became an HHS Climate Pledge signatory; set an emissions-reduction target aligned with the HHS Health Sector Climate Pledge, and its annual sustainability report details a strategy to achieve a 50 percent reduction in organizational emissions by 2030.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "| Premier Inc.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Committed to join the HHS effort to reduce GHG emissions in healthcare, pledging to reduce GHG emissions by 50 percent by 2030 and achieve net zero emissions by 2050.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "Note on distinguishing programs: AdventHealth's participation in **SolarTogether**, a community solar program run by Florida Power and Light, is separate from the HHS pledge — it is described as one of AdventHealth's energy consumption efforts, not as a climate pledge.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "The passages do not state that Gundersen Health System signed the HHS pledge; its described affiliations are energy independence, net zero building goals, and being invited to the Paris Climate Accord.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
@@ -4762,7 +4763,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "I can only partly answer this, because the context contains nothing from Premier.\n\n**Vizient**\n\n- Vizient's Environmentally Preferred Purchasing (EPP) Standard defines an \"optimal\" product as one meeting all Vizient-identified chemical safety attributes plus at least two waste reduction attributes [3].\n- Vizient began by identifying 23 standard chemical and environmental attributes for medical-surgical products; its product database now holds 77 category-specific sustainable attributes across cleaning chemicals and janitorial, electronic equipment, food products and serviceware, medical-surgical and laboratory [2].\n- More than 60% of Vizient contracts have at least one product with at least one sustainable attribute [2].\n- Vizient collects these attributes through supplier requests for proposals and surveys in the national bid process; supplier reporting rose from 8% in 2017 to between 91–98% today, feeding a digital contract catalog and dashboard [6].\n- Vizient's Environmental Sustainability Designated portfolio requires contracted suppliers and products to meet all general and category-specific environmental criteria, provide approved third-party certification, and report differentiated conventional and environmentally preferred spend [4].\n\n**Practice Greenhealth**\n\n- Its standardized environmental criteria address two impact areas: chemicals of concern and waste reduction, providing industry-wide expectations where existing standards or criteria are unavailable [1].\n- Supplier products must meet all 11 chemical criteria and at least two of the nine waste criteria, with \"yes\" as the preferred answer for each [1].\n- The criteria are aligned with Kaiser Permanente's environmentally preferred purchasing standard and have been in use since 2017 by several large health care organizations, with earlier versions since 2011 [1].\n- Practice Greenhealth's affiliated organization, Greenhealth Approved, uses the same criteria to award a seal to products verified free of chemicals of concern [8].\n\n**Where the definitions line up**\n\nThe two schemes use the same structure: a product must satisfy *all* chemical criteria and *at least two* waste criteria [1][3]. The difference is in the chemical threshold — Practice Greenhealth specifies 11 chemical criteria and nine waste criteria [1], whereas Vizient refers to \"all Vizient-identified chemical safety attributes\" and \"at least two waste reduction attributes\" without stating a number in these passages [3].\n\n**Premier**\n\nThe context contains no passages from Premier, so I cannot describe how Premier defines or collects environmentally preferred product data.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 3,
@@ -4828,90 +4829,90 @@
       "judge": {
         "statements": [
           {
-            "text": "I can only partly answer this, because the context contains nothing from Premier.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Vizient**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Vizient's Environmentally Preferred Purchasing (EPP) Standard defines an \"optimal\" product as one meeting all Vizient-identified chemical safety attributes plus at least two waste reduction attributes.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "Vizient began by identifying 23 standard chemical and environmental attributes for medical-surgical products; its product database now holds 77 category-specific sustainable attributes across cleaning chemicals and janitorial, electronic equipment, food products and serviceware, medical-surgical and laboratory.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "More than 60% of Vizient contracts have at least one product with at least one sustainable attribute.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "Vizient collects these attributes through supplier requests for proposals and surveys in the national bid process; supplier reporting rose from 8% in 2017 to between 91–98% today, feeding a digital contract catalog and dashboard.",
+            "text": "[redacted]",
             "markers": [
               6
             ],
             "verdict": "supported"
           },
           {
-            "text": "Vizient's Environmental Sustainability Designated portfolio requires contracted suppliers and products to meet all general and category-specific environmental criteria, provide approved third-party certification, and report differentiated conventional and environmentally preferred spend.",
+            "text": "[redacted]",
             "markers": [
               4
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Practice Greenhealth**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Its standardized environmental criteria address two impact areas: chemicals of concern and waste reduction, providing industry-wide expectations where existing standards or criteria are unavailable.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Supplier products must meet all 11 chemical criteria and at least two of the nine waste criteria, with \"yes\" as the preferred answer for each.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "The criteria are aligned with Kaiser Permanente's environmentally preferred purchasing standard and have been in use since 2017 by several large health care organizations, with earlier versions since 2011.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Practice Greenhealth's affiliated organization, Greenhealth Approved, uses the same criteria to award a seal to products verified free of chemicals of concern.",
+            "text": "[redacted]",
             "markers": [
               8
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Where the definitions line up**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The two schemes use the same structure: a product must satisfy *all* chemical criteria and *at least two* waste criteria.",
+            "text": "[redacted]",
             "markers": [
               1,
               3
@@ -4919,7 +4920,7 @@
             "verdict": "supported"
           },
           {
-            "text": "The difference is in the chemical threshold — Practice Greenhealth specifies 11 chemical criteria and nine waste criteria, whereas Vizient refers to \"all Vizient-identified chemical safety attributes\" and \"at least two waste reduction attributes\" without stating a number in these passages.",
+            "text": "[redacted]",
             "markers": [
               1,
               3
@@ -4927,12 +4928,12 @@
             "verdict": "supported"
           },
           {
-            "text": "**Premier**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The context contains no passages from Premier, so I cannot describe how Premier defines or collects environmentally preferred product data.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           }
@@ -4978,7 +4979,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The context contains only one passage, about Gundersen Health System, so I can only report what that single document says — not what \"the hospital documents in the Corpus\" as a whole report.\n\n**Gundersen Health System (La Crosse, Wis.)** [1]\n\n- **Tracking:** In July 2010 the Dietary department began using a tracking program called LeanPath®. Staff weigh discarded food and enter a code; the software identifies patterns such as time of day, day of week, or food type most often wasted [1].\n- **Baseline and results:** Baseline waste was about half a ton per week, or 24 tons a year. From July 2010 through January 2015, food waste fell by roughly 850 pounds per week — an 80 percent improvement — equating to average cost savings of about $30,000 [1].\n- **Donation:** A food donation program to the Salvation Army in La Crosse was created as a byproduct; food still safe to eat but not servable in the hospital is packaged, labelled and collected for the soup kitchen. Gundersen donates more than 500 meals a month [1].\n- **Composting and digestion:** The passage does not mention composting or anaerobic digestion [1].\n\nThe passage also gives broader energy figures — a 54% improvement in conservation with cumulative savings over $28 million, and a carbon footprint reduction of more than 80 percent since 2008 through wind, solar and biomass projects [1] — but these are energy, not food waste, figures.\n\nBecause only one hospital's document is present, I cannot compare mechanisms or figures across multiple hospitals.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -4999,69 +5000,69 @@
       "judge": {
         "statements": [
           {
-            "text": "The context contains only one passage, about Gundersen Health System, so I can only report what that single document says — not what \"the hospital documents in the Corpus\" as a whole report.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Gundersen Health System (La Crosse, Wis.)**",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Tracking:** In July 2010 the Dietary department began using a tracking program called LeanPath®.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Staff weigh discarded food and enter a code; the software identifies patterns such as time of day, day of week, or food type most often wasted.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Baseline and results:** Baseline waste was about half a ton per week, or 24 tons a year.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "From July 2010 through January 2015, food waste fell by roughly 850 pounds per week — an 80 percent improvement — equating to average cost savings of about $30,000.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Donation:** A food donation program to the Salvation Army in La Crosse was created as a byproduct; food still safe to eat but not servable in the hospital is packaged, labelled and collected for the soup kitchen.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Gundersen donates more than 500 meals a month.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Composting and digestion:** The passage does not mention composting or anaerobic digestion.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "The passage also gives broader energy figures — a 54% improvement in conservation with cumulative savings over $28 million, and a carbon footprint reduction of more than 80 percent since 2008 through wind, solar and biomass projects — but these are energy, not food waste, figures.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "Because only one hospital's document is present, I cannot compare mechanisms or figures across multiple hospitals.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           }
@@ -5098,7 +5099,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -5135,7 +5136,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -5207,7 +5208,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "# Scratch vs. pre-made in LTC, and what it means for a sauces/bases/soups supplier\n\n## What the context actually supports\n\n**Important limitation:** The PULSE 2026 data in the context is labelled **LTC only** (n=61) [1]. There is **no hospital-level breakdown** of scratch vs. pre-made reasons in the supplied passages. So a true hospital-vs-LTC comparison of those reasons cannot be made from this context — I can only report the LTC figures and note that the hospital equivalent is absent.\n\n## LTC reasons for scratch cooking [1]\n\nTop-3 benefits selected among those offering scratch items:\n\n| Reason | % |\n|---|---|\n| Lower food costs | 59% |\n| Better quality/tasting end product | 49% |\n| Same ingredients across applications | 38% |\n| Dishes are fresher | 38% |\n| Higher customer satisfaction | 31% |\n| Less wastage | 21% |\n| Healthier ingredients | 16% |\n| Signature flavours/items | 15% |\n| More creative dishes | 13% |\n| More local ingredients | 11% |\n| Fewer availability issues | 8% |\n\n## LTC reasons for pre-made products [1]\n\n| Reason | % |\n|---|---|\n| Consistent quality/taste time after time | 51% |\n| Less culinary skill required of staff | 46% |\n| Able to serve items difficult to make | 39% |\n| Staff has more time for other tasks | 30% |\n| Easy to customise/\"signaturise\" | 28% |\n| Less wastage | 25% |\n| Better portion control | 25% |\n| Less equipment/space needed | 21% |\n| Lower costs | 16% |\n| Reduced number of products purchased | 15% |\n\nNote the tension: **cost** is the leading scratch driver (59%) but a weak pre-made driver (16%); **consistency** and **skill avoidance** dominate the pre-made case (51%, 46%) [1].\n\n## How this relates to the Segment Guide\n\n- Prep in healthcare \"tends to be more focused on scratch,\" because kitchens manage multiple specific diets and are less able to rely on prepared or semi-prepared items that may not meet nutritional or ingredient guidelines [2].\n- Culinary skill is described as **moderate**; hospital and LTC menus are generally simple and limited, so most hospital and LTC kitchens \"don't need high levels of culinary skill\" [2]. Limited culinary skill also appears as an operator pain point [3].\n- For hospitals and LTC the priority is serving relatively healthful food to many patients/residents in a short window; **ease of prep** matters, as do dishes that hold well over long journeys from kitchen to room [2].\n- Consumer expectations lean toward fresh/made-to-order (LTC 69%) and catering to specific diets (LTC 69%), with variety at 71% [5].\n\nThe two sources are consistent rather than contradictory: scratch is the default posture, driven by diet specificity and cost, while pre-made is valued for consistency and for compensating for moderate skill and time pressure [1][2].\n\n## Implication for a supplier of sauces, bases and soups\n\n- **Position as scratch-enabling, not scratch-replacing.** The scratch case rests on cost, quality and cross-application use [1], and the segment's stated reason for scratch is diet compliance [2]. A base or soup that lets a moderate-skill kitchen finish a dish itself speaks to both.\n- **Lead with consistency and labour savings.** These are the two strongest pre-made drivers (51% and 46%) [1] and map directly onto the documented moderate culinary skill and ease-of-prep priority [2][3].\n- **Address diet specificity head-on.** Because operators avoid prepared items that may not meet nutritional or ingredient guidelines [2], formulations and documentation around low-sodium, diabetic-friendly and similar diets are the key barrier to overcome.\n- **Sell hold time and speed of service.** Dishes must hold well over the journey from kitchen to patient room and be served to many people in a short window [2].\n- **Sauces, gravies and soups are named menu parts in the PULSE scratch-usage breakdown** [1], so they sit precisely where the scratch/pre-made decision is being made.\n- **Expect price sensitivity.** Cost is the top scratch benefit [1] and affordability is a top consumer want across facility types (LTC 70%) [5], so value framing matters.\n\n**Caveat:** the context gives no hospital-specific scratch/pre-made reason data, no purchase-volume data for sauces/bases/soups, and no operator willingness-to-pay figures, so the commercial sizing of this opportunity cannot be assessed from these passages.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -5255,225 +5256,225 @@
       "judge": {
         "statements": [
           {
-            "text": "Scratch vs.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "pre-made in LTC, and what it means for a sauces/bases/soups supplier",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "What the context actually supports",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Important limitation:** The PULSE 2026 data in the context is labelled **LTC only** (n=61).",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "There is **no hospital-level breakdown** of scratch vs.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "pre-made reasons in the supplied passages.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "So a true hospital-vs-LTC comparison of those reasons cannot be made from this context — I can only report the LTC figures and note that the hospital equivalent is absent.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "LTC reasons for scratch cooking",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "Top-3 benefits selected among those offering scratch items:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Reason | % |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Lower food costs | 59% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Better quality/tasting end product | 49% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Same ingredients across applications | 38% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Dishes are fresher | 38% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Higher customer satisfaction | 31% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Less wastage | 21% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Healthier ingredients | 16% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Signature flavours/items | 15% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| More creative dishes | 13% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| More local ingredients | 11% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Fewer availability issues | 8% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "LTC reasons for pre-made products",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "no_claim"
           },
           {
-            "text": "| Reason | % |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Consistent quality/taste time after time | 51% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Less culinary skill required of staff | 46% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Able to serve items difficult to make | 39% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Staff has more time for other tasks | 30% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Easy to customise/\"signaturise\" | 28% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Less wastage | 25% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Better portion control | 25% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Less equipment/space needed | 21% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Lower costs | 16% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "| Reduced number of products purchased | 15% |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Note the tension: **cost** is the leading scratch driver (59%) but a weak pre-made driver (16%); **consistency** and **skill avoidance** dominate the pre-made case (51%, 46%).",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "How this relates to the Segment Guide",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Prep in healthcare \"tends to be more focused on scratch,\" because kitchens manage multiple specific diets and are less able to rely on prepared or semi-prepared items that may not meet nutritional or ingredient guidelines.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "Culinary skill is described as **moderate**; hospital and LTC menus are generally simple and limited, so most hospital and LTC kitchens \"don't need high levels of culinary skill\".",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "Limited culinary skill also appears as an operator pain point.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "For hospitals and LTC the priority is serving relatively healthful food to many patients/residents in a short window; **ease of prep** matters, as do dishes that hold well over long journeys from kitchen to room.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "Consumer expectations lean toward fresh/made-to-order (LTC 69%) and catering to specific diets (LTC 69%), with variety at 71%.",
+            "text": "[redacted]",
             "markers": [
               5
             ],
             "verdict": "supported"
           },
           {
-            "text": "The two sources are consistent rather than contradictory: scratch is the default posture, driven by diet specificity and cost, while pre-made is valued for consistency and for compensating for moderate skill and time pressure.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -5481,12 +5482,12 @@
             "verdict": "unsupported"
           },
           {
-            "text": "Implication for a supplier of sauces, bases and soups",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Position as scratch-enabling, not scratch-replacing.** The scratch case rests on cost, quality and cross-application use, and the segment's stated reason for scratch is diet compliance.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -5494,12 +5495,12 @@
             "verdict": "unsupported"
           },
           {
-            "text": "A base or soup that lets a moderate-skill kitchen finish a dish itself speaks to both.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Lead with consistency and labour savings.** These are the two strongest pre-made drivers (51% and 46%) and map directly onto the documented moderate culinary skill and ease-of-prep priority.",
+            "text": "[redacted]",
             "markers": [
               1,
               2,
@@ -5508,28 +5509,28 @@
             "verdict": "unsupported"
           },
           {
-            "text": "**Address diet specificity head-on.** Because operators avoid prepared items that may not meet nutritional or ingredient guidelines, formulations and documentation around low-sodium, diabetic-friendly and similar diets are the key barrier to overcome.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Sell hold time and speed of service.** Dishes must hold well over the journey from kitchen to patient room and be served to many people in a short window.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Sauces, gravies and soups are named menu parts in the PULSE scratch-usage breakdown**, so they sit precisely where the scratch/pre-made decision is being made.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Expect price sensitivity.** Cost is the top scratch benefit and affordability is a top consumer want across facility types (LTC 70%), so value framing matters.",
+            "text": "[redacted]",
             "markers": [
               1,
               5
@@ -5537,7 +5538,7 @@
             "verdict": "unsupported"
           },
           {
-            "text": "**Caveat:** the context gives no hospital-specific scratch/pre-made reason data, no purchase-volume data for sauces/bases/soups, and no operator willingness-to-pay figures, so the commercial sizing of this opportunity cannot be assessed from these passages.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           }
@@ -5625,7 +5626,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "I can only partly answer this from the supplied context.\n\n**Relationship between Aramark and Avendra International**\n\n- Aramark offers supply chain management solutions through Avendra International, which is described as a group purchasing organization [2][3][4][5][6].\n- Avendra International is characterised as a purchasing partner whose operations are distinct from Aramark's managed services activities, and it is stated to be outside the scope of Aramark's sustainability reporting [2][3][4][5][6].\n- Aramark's references to its purchasing policies apply specifically to products within Aramark's controlled spend, i.e. products sourced from authorised, contracted suppliers [2][3][4][5][6].\n- Separately, Avendra describes its own Responsible Sourcing team as helping clients pursue environmental and social goals, and reports that as of fiscal year 2024 its global supplier network included nearly 1,000 suppliers engaged in its sustainability assessment survey [7].\n\n**Inclusive-sourcing spend figures**\n\nThe context does not allow this reconciliation. There is no \"Dual National Honors\" article among the passages, and none of the passages contains inclusive-sourcing spend figures for either Aramark or Avendra. The only sourcing statistics present are from an AHLA finding cited in the Avendra article — that 99.1% of hotels source at least one product sustainably and roughly half purchase at least 50% of food and beverage from fair trade sources [1] — and these are industry-wide hotel figures, not Aramark or Avendra spend figures.\n\nSo I cannot compare or reconcile the two sets of figures you mention; the relevant passages are not in the context provided.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 2,
@@ -5700,17 +5701,17 @@
       "judge": {
         "statements": [
           {
-            "text": "I can only partly answer this from the supplied context.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Relationship between Aramark and Avendra International**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Aramark offers supply chain management solutions through Avendra International, which is described as a group purchasing organization.",
+            "text": "[redacted]",
             "markers": [
               2,
               3,
@@ -5721,7 +5722,7 @@
             "verdict": "supported"
           },
           {
-            "text": "Avendra International is characterised as a purchasing partner whose operations are distinct from Aramark's managed services activities, and it is stated to be outside the scope of Aramark's sustainability reporting.",
+            "text": "[redacted]",
             "markers": [
               2,
               3,
@@ -5732,12 +5733,12 @@
             "verdict": "supported"
           },
           {
-            "text": "Aramark's references to its purchasing policies apply specifically to products within Aramark's controlled spend, i.e.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "products sourced from authorised, contracted suppliers.",
+            "text": "[redacted]",
             "markers": [
               2,
               3,
@@ -5748,36 +5749,36 @@
             "verdict": "unsupported"
           },
           {
-            "text": "Separately, Avendra describes its own Responsible Sourcing team as helping clients pursue environmental and social goals, and reports that as of fiscal year 2024 its global supplier network included nearly 1,000 suppliers engaged in its sustainability assessment survey.",
+            "text": "[redacted]",
             "markers": [
               7
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Inclusive-sourcing spend figures**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The context does not allow this reconciliation.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "There is no \"Dual National Honors\" article among the passages, and none of the passages contains inclusive-sourcing spend figures for either Aramark or Avendra.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "The only sourcing statistics present are from an AHLA finding cited in the Avendra article — that 99.1% of hotels source at least one product sustainably and roughly half purchase at least 50% of food and beverage from fair trade sources — and these are industry-wide hotel figures, not Aramark or Avendra spend figures.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "So I cannot compare or reconcile the two sets of figures you mention; the relevant passages are not in the context provided.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           }
@@ -5817,7 +5818,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -5909,7 +5910,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "# Supplier Support Services and Information: PULSE 2026 vs. Selling Sustainability\n\n## LTC operators (PULSE 2026)\n\n**Supplier services used** — the most widely used services are nutritional information/labeling on products (75%), recipe ideas/menu suggestions (61%), and product comparison tools (57%). Most of these are accessed via distributor rather than manufacturer (e.g. 52% vs. 23% for nutritional information) [2].\n\n**Desired insights** — the top wants are commodity prices (39%), consumer trends (33%), and flavor trends (28%); menu trends (13%) and industry/traffic trends (10%) rank lowest [2].\n\n**Desired supplier attributes** — operators say they are more likely to buy from a supplier with a good market reputation (59%), rigorous food safety measures (52%), exceptional quality standards (50%), and product guarantees (48%). Lower-ranked attributes include environmental care (17%), sustainability practices (16%), and community giving (14%) [1].\n\n**Year-over-year shifts** — LTC use of supplier services has risen sharply versus 2024, led by recipe ideas/menu suggestions (+28%), product comparison tools (+19%), and menu analysis and costing (+17%). Demand for commodity price and flavor trend insights is also up (+10% each), while nutritional information/labeling and inventory management tools have declined in importance (−15% each) [3].\n\n## Hospital operators (PULSE 2026)\n\nThe Hospital chapter in the context covers operator sentiment, costs, sales drivers, challenges, and sourcing, but it does **not** report supplier support services or desired insights for hospitals [5]. So no hospital-specific comparison on services/insights is possible from the supplied passages.\n\n## Sustainability information (Selling Sustainability)\n\n- **What would help most:** manufacturers can support operators by providing sustainable packaging and by listing detailed ingredients including sources. This was cited by 57% of FSR and 51% of mixed-cuisine operators for one item, and 56% of FSR / 55% of FSR for another, with on-sites at 58% and 59% [4].\n- **Where operators get sustainability information:** trade shows, peers, online sources, and distributors are the main channels. Figures include 38% for on-sites, 29% for FSR, 35% for restaurants and 43% for FSR, 33% for on-sites, 32% for restaurants, 29% for mixed-cuisine places, and 23% for restaurants (twice) [6].\n\n## Comparison\n\n| Dimension | PULSE 2026 (LTC) | Selling Sustainability |\n|---|---|---|\n| Top service needs | Nutritional labeling, recipe/menu ideas, product comparison tools [2] | Sustainable packaging and detailed ingredient sourcing information [4] |\n| Top information wants | Commodity prices, consumer trends, flavor trends [2] | Trade shows, peers, online, distributors as information channels [6] |\n| Sustainability as a purchase driver | Ranks low: environment 17%, sustainability 16%, community 14% [1] | Treated as a distinct information/support need, with manufacturers seen as a key source [4] |\n\n**Key contrast:** PULSE 2026 frames supplier value mainly around operational and cost-related support (nutritional data, menu/recipe help, comparison tools, commodity price insight) [2][3], and sustainability attributes rank near the bottom of LTC purchase drivers [1]. Selling Sustainability, by contrast, focuses on sustainability-specific support — sustainable packaging and ingredient sourcing transparency — and on trade shows, peers, online sources, and distributors as the routes by which operators learn about sustainability [4][6].\n\n**Note on scope:** the two sources use different samples and question framings (LTC operators in PULSE 2026 vs. a total operator sample of n=402 in Selling Sustainability) [1][2][4][6], and the Hospital chapter does not address supplier services or insights [5], so direct numerical comparison across the two studies is not possible.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 2,
@@ -5975,131 +5976,131 @@
       "judge": {
         "statements": [
           {
-            "text": "Supplier Support Services and Information: PULSE 2026 vs.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Selling Sustainability",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "LTC operators (PULSE 2026)",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Supplier services used** — the most widely used services are nutritional information/labeling on products (75%), recipe ideas/menu suggestions (61%), and product comparison tools (57%).",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Most of these are accessed via distributor rather than manufacturer (e.g.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "52% vs.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "23% for nutritional information).",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Desired insights** — the top wants are commodity prices (39%), consumer trends (33%), and flavor trends (28%); menu trends (13%) and industry/traffic trends (10%) rank lowest.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Desired supplier attributes** — operators say they are more likely to buy from a supplier with a good market reputation (59%), rigorous food safety measures (52%), exceptional quality standards (50%), and product guarantees (48%).",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Lower-ranked attributes include environmental care (17%), sustainability practices (16%), and community giving (14%).",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Year-over-year shifts** — LTC use of supplier services has risen sharply versus 2024, led by recipe ideas/menu suggestions (+28%), product comparison tools (+19%), and menu analysis and costing (+17%).",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Demand for commodity price and flavor trend insights is also up (+10% each), while nutritional information/labeling and inventory management tools have declined in importance (−15% each).",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "Hospital operators (PULSE 2026)",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The Hospital chapter in the context covers operator sentiment, costs, sales drivers, challenges, and sourcing, but it does **not** report supplier support services or desired insights for hospitals.",
+            "text": "[redacted]",
             "markers": [
               5
             ],
             "verdict": "supported"
           },
           {
-            "text": "So no hospital-specific comparison on services/insights is possible from the supplied passages.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Sustainability information (Selling Sustainability)",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**What would help most:** manufacturers can support operators by providing sustainable packaging and by listing detailed ingredients including sources.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "This was cited by 57% of FSR and 51% of mixed-cuisine operators for one item, and 56% of FSR / 55% of FSR for another, with on-sites at 58% and 59%.",
+            "text": "[redacted]",
             "markers": [
               4
             ],
             "verdict": "unsupported"
           },
           {
-            "text": "**Where operators get sustainability information:** trade shows, peers, online sources, and distributors are the main channels.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "unsupported"
           },
           {
-            "text": "Figures include 38% for on-sites, 29% for FSR, 35% for restaurants and 43% for FSR, 33% for on-sites, 32% for restaurants, 29% for mixed-cuisine places, and 23% for restaurants (twice).",
+            "text": "[redacted]",
             "markers": [
               6
             ],
             "verdict": "unsupported"
           },
           {
-            "text": "Comparison",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Dimension | PULSE 2026 (LTC) | Selling Sustainability |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Top service needs | Nutritional labeling, recipe/menu ideas, product comparison tools | Sustainable packaging and detailed ingredient sourcing information |",
+            "text": "[redacted]",
             "markers": [
               2,
               4
@@ -6107,7 +6108,7 @@
             "verdict": "unsupported"
           },
           {
-            "text": "| Top information wants | Commodity prices, consumer trends, flavor trends | Trade shows, peers, online, distributors as information channels |",
+            "text": "[redacted]",
             "markers": [
               2,
               6
@@ -6115,7 +6116,7 @@
             "verdict": "unsupported"
           },
           {
-            "text": "| Sustainability as a purchase driver | Ranks low: environment 17%, sustainability 16%, community 14% | Treated as a distinct information/support need, with manufacturers seen as a key source |",
+            "text": "[redacted]",
             "markers": [
               1,
               4
@@ -6123,7 +6124,7 @@
             "verdict": "unsupported"
           },
           {
-            "text": "**Key contrast:** PULSE 2026 frames supplier value mainly around operational and cost-related support (nutritional data, menu/recipe help, comparison tools, commodity price insight), and sustainability attributes rank near the bottom of LTC purchase drivers.",
+            "text": "[redacted]",
             "markers": [
               2,
               3,
@@ -6132,7 +6133,7 @@
             "verdict": "unsupported"
           },
           {
-            "text": "Selling Sustainability, by contrast, focuses on sustainability-specific support — sustainable packaging and ingredient sourcing transparency — and on trade shows, peers, online sources, and distributors as the routes by which operators learn about sustainability.",
+            "text": "[redacted]",
             "markers": [
               4,
               6
@@ -6140,12 +6141,12 @@
             "verdict": "unsupported"
           },
           {
-            "text": "**Note on scope:** the two sources use different samples and question framings (LTC operators in PULSE 2026 vs.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "a total operator sample of n=402 in Selling Sustainability), and the Hospital chapter does not address supplier services or insights, so direct numerical comparison across the two studies is not possible.",
+            "text": "[redacted]",
             "markers": [
               1,
               2,
@@ -6212,7 +6213,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "Based only on the supplied passages, there is no regulation described that *requires* hospital or LTC foodservice operators to meet sustainability standards. What the context contains is a voluntary certification framework and general references to existing regulations that are not sustainability standards.\n\n**Voluntary certification (not regulation)**\n\n- The Joint Commission's Sustainable Healthcare Certification is explicitly described as a **voluntary** certification that any hospital or critical access hospital may apply for, subject to eligibility requirements (e.g., U.S.-based, compliant with applicable federal laws including Medicare Conditions of Participation, baseline emissions data for three GHG sources plus a reduction action plan, and 24 months of data with demonstrated reductions at recertification) [1][3].\n- Certified organizations must track three of six listed GHG emission categories (energy use/fuel combustion, purchased electricity, anesthetic gases, metered-dose inhalers, fleet fuel, waste disposal) and convert measurements to MTCO2e [1].\n- The stated benefits are reputational, financial and clinical — cost savings, reputation and community engagement, improved health outcomes, resilience — rather than regulatory compliance with a sustainability mandate [3].\n\n**Regulation referenced in the context (not sustainability regulation)**\n\n- For healthcare foodservice, the Datassential guide states that although there are rarely specific nutritional guidelines, there **may be local, state, or federal regulations to ensure patient safety**, and operators likely must work with specific diets under medical direction or guidance [2]. This is a patient-safety/dietary regulation, not a sustainability standard, and it is framed as a possibility rather than a definite requirement.\n\n**Pledges and national goals**\n\n- The context does not contain any pledge or national sustainability goal for hospital or LTC foodservice. The closest material is the certification's framing as a framework to expand or continue decarbonization efforts and gain public recognition, and its emphasis on sector-wide collaboration among employers, regulators and community organizations [1][3]. No pledge or national target is named in these passages.\n\n**Sources named**\n\n| Source | What it provides |\n|---|---|\n| The Joint Commission, *Sustainable Healthcare Certification* (2026-08-27), pp. 1, 3 [1][3] | Voluntary certification, eligibility, emissions tracking, benefits |\n| Datassential, *Healthcare Segment Guide – 2026 Forecast* (2025-09-17), p. 15 [2] | Healthcare/LTC foodservice purchasing structure; possible patient-safety regulations, no sustainability requirement |\n\nIn short: the sustainability instrument in this corpus is a voluntary certification, not a regulation, and the only regulatory content mentioned for foodservice concerns patient safety and therapeutic diets [1][2][3].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -6251,22 +6252,22 @@
       "judge": {
         "statements": [
           {
-            "text": "Based only on the supplied passages, there is no regulation described that *requires* hospital or LTC foodservice operators to meet sustainability standards.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "What the context contains is a voluntary certification framework and general references to existing regulations that are not sustainability standards.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Voluntary certification (not regulation)**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The Joint Commission's Sustainable Healthcare Certification is explicitly described as a **voluntary** certification that any hospital or critical access hospital may apply for, subject to eligibility requirements (e.g., U.S.-based, compliant with applicable federal laws including Medicare Conditions of Participation, baseline emissions data for three GHG sources plus a reduction action plan, and 24 months of data with demonstrated reductions at recertification).",
+            "text": "[redacted]",
             "markers": [
               1,
               3
@@ -6274,48 +6275,48 @@
             "verdict": "supported"
           },
           {
-            "text": "Certified organizations must track three of six listed GHG emission categories (energy use/fuel combustion, purchased electricity, anesthetic gases, metered-dose inhalers, fleet fuel, waste disposal) and convert measurements to MTCO2e.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "The stated benefits are reputational, financial and clinical — cost savings, reputation and community engagement, improved health outcomes, resilience — rather than regulatory compliance with a sustainability mandate.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Regulation referenced in the context (not sustainability regulation)**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "For healthcare foodservice, the Datassential guide states that although there are rarely specific nutritional guidelines, there **may be local, state, or federal regulations to ensure patient safety**, and operators likely must work with specific diets under medical direction or guidance.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "This is a patient-safety/dietary regulation, not a sustainability standard, and it is framed as a possibility rather than a definite requirement.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Pledges and national goals**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The context does not contain any pledge or national sustainability goal for hospital or LTC foodservice.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The closest material is the certification's framing as a framework to expand or continue decarbonization efforts and gain public recognition, and its emphasis on sector-wide collaboration among employers, regulators and community organizations.",
+            "text": "[redacted]",
             "markers": [
               1,
               3
@@ -6323,27 +6324,27 @@
             "verdict": "supported"
           },
           {
-            "text": "No pledge or national target is named in these passages.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Sources named**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Source | What it provides |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| The Joint Commission, *Sustainable Healthcare Certification* (2026-08-27), pp.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "1, 3 | Voluntary certification, eligibility, emissions tracking, benefits |",
+            "text": "[redacted]",
             "markers": [
               1,
               3
@@ -6351,19 +6352,19 @@
             "verdict": "supported"
           },
           {
-            "text": "| Datassential, *Healthcare Segment Guide – 2026 Forecast* (2025-09-17), p.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "15 | Healthcare/LTC foodservice purchasing structure; possible patient-safety regulations, no sustainability requirement |",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "In short: the sustainability instrument in this corpus is a voluntary certification, not a regulation, and the only regulatory content mentioned for foodservice concerns patient safety and therapeutic diets.",
+            "text": "[redacted]",
             "markers": [
               1,
               2,
@@ -6407,7 +6408,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -6471,7 +6472,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "I can only partly answer this from the supplied context.\n\n**Who hospital patrons are**\n\nThe context does not give a demographic or descriptive profile of hospital foodservice patrons. What it does say is that hospital foodservice serves patients, visitors and employees [1][3], and that hospitals' focus is on serving relatively healthful food to many patients in a short time window, with ease of prep and dishes that hold well over the journey from kitchen to room [1]. Consumer-facing data for hospitals is reported alongside LTC and senior living, but no separate patron description is provided [3][4].\n\n**Trends with a figure for the hospital segment**\n\nOnly two of the five trends you list are evidenced with a hospital-specific figure in the context:\n\n| Trend | Figure (hospital) | Source | Purchasing decision it moves |\n|---|---|---|---|\n| Health and wellness | Healthy/better-for-you foods: 64% (top-2, 5-pt scale) | [4] | Supports scratch-oriented prep and products meeting specific nutritional/ingredient guidelines, since kitchens manage multiple specific diets (e.g. diabetic-friendly, low-sodium) and cannot rely on prepared items that may not comply [1] |\n| Value | Low cost/inexpensive/affordable: 68% (top-2, 5-pt scale) | [4] | Reinforces affordability as a purchase criterion; the guide frames food quality and affordability as the segment's biggest opportunity [3] |\n| Convenience | No hospital-specific figure in the context | — | — |\n| Sustainability | No figure in the context | — | — |\n| Transparency | No figure in the context | — | — |\n\n**What the context does not support**\n\n- Convenience, sustainability and transparency: the context contains no hospital-segment figure for any of these. The closest items are \"Convenient/available quickly\" at 65% for hospitals [4], which is a convenience-adjacent attribute but not one of the five trends as named, and no sustainability or transparency data appears at all.\n- I have not imported figures from LTC or senior living, as instructed; those figures exist in [4] but belong to other segments.\n- The operator purchasing guidance in [1] is general to healthcare and is not broken out by trend, so the \"purchasing decision it moves\" column above is my reading of how the cited material connects, not a figure the source states.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -6510,22 +6511,22 @@
       "judge": {
         "statements": [
           {
-            "text": "I can only partly answer this from the supplied context.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Who hospital patrons are**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The context does not give a demographic or descriptive profile of hospital foodservice patrons.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "What it does say is that hospital foodservice serves patients, visitors and employees, and that hospitals' focus is on serving relatively healthful food to many patients in a short time window, with ease of prep and dishes that hold well over the journey from kitchen to room.",
+            "text": "[redacted]",
             "markers": [
               1,
               3
@@ -6533,7 +6534,7 @@
             "verdict": "supported"
           },
           {
-            "text": "Consumer-facing data for hospitals is reported alongside LTC and senior living, but no separate patron description is provided.",
+            "text": "[redacted]",
             "markers": [
               3,
               4
@@ -6541,36 +6542,36 @@
             "verdict": "unsupported"
           },
           {
-            "text": "**Trends with a figure for the hospital segment**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Only two of the five trends you list are evidenced with a hospital-specific figure in the context:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Trend | Figure (hospital) | Source | Purchasing decision it moves |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Health and wellness | Healthy/better-for-you foods: 64% (top-2, 5-pt scale) | | Supports scratch-oriented prep and products meeting specific nutritional/ingredient guidelines, since kitchens manage multiple specific diets (e.g.",
+            "text": "[redacted]",
             "markers": [
               4
             ],
             "verdict": "unsupported"
           },
           {
-            "text": "diabetic-friendly, low-sodium) and cannot rely on prepared items that may not comply |",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "| Value | Low cost/inexpensive/affordable: 68% (top-2, 5-pt scale) | | Reinforces affordability as a purchase criterion; the guide frames food quality and affordability as the segment's biggest opportunity |",
+            "text": "[redacted]",
             "markers": [
               4,
               3
@@ -6578,46 +6579,46 @@
             "verdict": "supported"
           },
           {
-            "text": "| Convenience | No hospital-specific figure in the context | — | — |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Sustainability | No figure in the context | — | — |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Transparency | No figure in the context | — | — |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**What the context does not support**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Convenience, sustainability and transparency: the context contains no hospital-segment figure for any of these.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The closest items are \"Convenient/available quickly\" at 65% for hospitals, which is a convenience-adjacent attribute but not one of the five trends as named, and no sustainability or transparency data appears at all.",
+            "text": "[redacted]",
             "markers": [
               4
             ],
             "verdict": "supported"
           },
           {
-            "text": "I have not imported figures from LTC or senior living, as instructed; those figures exist in but belong to other segments.",
+            "text": "[redacted]",
             "markers": [
               4
             ],
             "verdict": "unsupported"
           },
           {
-            "text": "The operator purchasing guidance in is general to healthcare and is not broken out by trend, so the \"purchasing decision it moves\" column above is my reading of how the cited material connects, not a figure the source states.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -6706,7 +6707,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "# Hospital vs. Long-Term Care: Market Sentiment Heading into 2026\n\n**Sales strength**\n- Hospital: sales strength declined (-7%) compared to 2025 [2].\n- LTC: sales strength increased (+5%) compared to 2025 [1].\n\n**Sales optimism**\n- Hospital: operators are less optimistic (-8%) about sales moving forward [2].\n- LTC: market sentiment has relatively held steady, though operators feel slightly better about sales in 2026 [1].\n\n**Expected food cost changes**\n- Hospital: food costs are expected to increase significantly (+11%) into the next year, along with labor costs (+17%) [2].\n- LTC: operators expect food costs to increase a lot (+6%) over the next year [1].\n\n**Main cost-cutting methods**\n- Hospital: increases in cost-cutting methods such as reducing staff hours (+7%); however, they are less likely to buy in bulk (-14%) or maximize ingredients (-9%) [2].\n- LTC: more likely to use cost-cutting methods such as removing menu items (+13%), price shopping (+12%), and using low-cost ingredients (+11%) [1].\n\n**Summary table**\n\n| Dimension | Hospital | Long-Term Care |\n|---|---|---|\n| Sales strength | -7% [2] | +5% [1] |\n| Sales optimism | -8% (less optimistic) [2] | Held relatively steady / slightly better [1] |\n| Expected food costs | +11% [2] | +6% [1] |\n| Cost-cutting methods | Reducing staff hours (+7%); less bulk buying (-14%), less ingredient maximizing (-9%) [2] | Removing menu items (+13%), price shopping (+12%), low-cost ingredients (+11%) [1] |\n\nNote: the two segments' figures come from separate segment reports, so the percentages are directional shifts within each segment rather than directly comparable head-to-head measures [1][2].",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 2,
@@ -6736,103 +6737,103 @@
       "judge": {
         "statements": [
           {
-            "text": "Hospital vs.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Long-Term Care: Market Sentiment Heading into 2026",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Sales strength**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Hospital: sales strength declined (-7%) compared to 2025.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "LTC: sales strength increased (+5%) compared to 2025.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Sales optimism**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Hospital: operators are less optimistic (-8%) about sales moving forward.",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "LTC: market sentiment has relatively held steady, though operators feel slightly better about sales in 2026.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Expected food cost changes**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Hospital: food costs are expected to increase significantly (+11%) into the next year, along with labor costs (+17%).",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "LTC: operators expect food costs to increase a lot (+6%) over the next year.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Main cost-cutting methods**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Hospital: increases in cost-cutting methods such as reducing staff hours (+7%); however, they are less likely to buy in bulk (-14%) or maximize ingredients (-9%).",
+            "text": "[redacted]",
             "markers": [
               2
             ],
             "verdict": "supported"
           },
           {
-            "text": "LTC: more likely to use cost-cutting methods such as removing menu items (+13%), price shopping (+12%), and using low-cost ingredients (+11%).",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Summary table**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Dimension | Hospital | Long-Term Care |",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "| Sales strength | -7% | +5% |",
+            "text": "[redacted]",
             "markers": [
               2,
               1
@@ -6840,7 +6841,7 @@
             "verdict": "supported"
           },
           {
-            "text": "| Sales optimism | -8% (less optimistic) | Held relatively steady / slightly better |",
+            "text": "[redacted]",
             "markers": [
               2,
               1
@@ -6848,7 +6849,7 @@
             "verdict": "supported"
           },
           {
-            "text": "| Expected food costs | +11% | +6% |",
+            "text": "[redacted]",
             "markers": [
               2,
               1
@@ -6856,7 +6857,7 @@
             "verdict": "supported"
           },
           {
-            "text": "| Cost-cutting methods | Reducing staff hours (+7%); less bulk buying (-14%), less ingredient maximizing (-9%) | Removing menu items (+13%), price shopping (+12%), low-cost ingredients (+11%) |",
+            "text": "[redacted]",
             "markers": [
               2,
               1
@@ -6864,7 +6865,7 @@
             "verdict": "supported"
           },
           {
-            "text": "Note: the two segments' figures come from separate segment reports, so the percentages are directional shifts within each segment rather than directly comparable head-to-head measures.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -6907,7 +6908,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -6941,7 +6942,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -6993,7 +6994,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The context does not contain a PULSE 2026 Senior Living chapter. The only PULSE 2026 passage supplied is the Long-Term Care market overview [1], and it does not report GPO usage or contract management figures for senior living operators — it only notes that contract-managed percentage and GPO usage are industry-wide estimates rather than figures for surveyed operators, with GPO penetration and future potential both described as \"moderate\" [1].\n\nThe Healthcare Segment Guide passages discuss GPOs and contract management generally, but for healthcare overall rather than senior living specifically: large chains and national accounts tend to be part of a healthcare group that contracts with a contract feeder, and contract management companies work with subsidiary or independent GPOs to negotiate product specifications [3]. Senior living is mentioned only in terms of meal provision models, not GPO or contract-management rates [3].\n\nSo the specific question about a PULSE 2026 Senior Living chapter cannot be answered from the supplied context.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -7023,33 +7024,33 @@
       "judge": {
         "statements": [
           {
-            "text": "The context does not contain a PULSE 2026 Senior Living chapter.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The only PULSE 2026 passage supplied is the Long-Term Care market overview, and it does not report GPO usage or contract management figures for senior living operators — it only notes that contract-managed percentage and GPO usage are industry-wide estimates rather than figures for surveyed operators, with GPO penetration and future potential both described as \"moderate\".",
+            "text": "[redacted]",
             "markers": [
               1
             ],
             "verdict": "supported"
           },
           {
-            "text": "The Healthcare Segment Guide passages discuss GPOs and contract management generally, but for healthcare overall rather than senior living specifically: large chains and national accounts tend to be part of a healthcare group that contracts with a contract feeder, and contract management companies work with subsidiary or independent GPOs to negotiate product specifications.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "Senior living is mentioned only in terms of meal provision models, not GPO or contract-management rates.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
             "verdict": "supported"
           },
           {
-            "text": "So the specific question about a PULSE 2026 Senior Living chapter cannot be answered from the supplied context.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           }
@@ -7080,7 +7081,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -7110,7 +7111,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -7140,7 +7141,7 @@
       "pipeline": {
         "outcome": "abstained",
         "error_code": null,
-        "answer": "Nothing relevant was found in your research package for this question.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [],
         "citation_precision": null,
         "cached": false,
@@ -7241,7 +7242,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The context does not contain a fiscal 2026 Be Well. Do Well. report. The Be Well. Do Well. materials supplied are the **2025** Progress Report and the 2025 ESG Performance Data Table, which cover the fiscal year ended October 3, 2025 [7]. I can summarise what those 2025 documents say about food waste and responsible sourcing if that would help, but I cannot report on a fiscal 2026 report from the passages provided.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 7,
@@ -7262,39 +7263,39 @@
       "judge": {
         "statements": [
           {
-            "text": "The context does not contain a fiscal 2026 Be Well.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Do Well.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "report.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The Be Well.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Do Well.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "materials supplied are the **2025** Progress Report and the 2025 ESG Performance Data Table, which cover the fiscal year ended October 3, 2025.",
+            "text": "[redacted]",
             "markers": [
               7
             ],
             "verdict": "unsupported"
           },
           {
-            "text": "I can summarise what those 2025 documents say about food waste and responsible sourcing if that would help, but I cannot report on a fiscal 2026 report from the passages provided.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           }
@@ -7340,7 +7341,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The supplied context does not contain enough information to answer this question. Neither passage mentions Entegra or Foodbuy, and neither discusses programs offered specifically to healthcare clients. The passages cover Avendra International's responsible sourcing initiatives [1] and Sodexo's \"Better Tomorrow 2028\" sustainability commitment [2], but not the companies you asked about.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -7370,17 +7371,17 @@
       "judge": {
         "statements": [
           {
-            "text": "The supplied context does not contain enough information to answer this question.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "Neither passage mentions Entegra or Foodbuy, and neither discusses programs offered specifically to healthcare clients.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The passages cover Avendra International's responsible sourcing initiatives and Sodexo's \"Better Tomorrow 2028\" sustainability commitment, but not the companies you asked about.",
+            "text": "[redacted]",
             "markers": [
               1,
               2
@@ -7423,7 +7424,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The context does not contain enough information to answer this question. The only passage provided describes the study's objectives and method (1,508 consumers and 402 operators, split into 200 restaurant and 202 on-site operators) [1], but it gives no figures on how K-12 school foodservice operators rate sustainability as a priority.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -7444,12 +7445,12 @@
       "judge": {
         "statements": [
           {
-            "text": "The context does not contain enough information to answer this question.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The only passage provided describes the study's objectives and method (1,508 consumers and 402 operators, split into 200 restaurant and 202 on-site operators), but it gives no figures on how K-12 school foodservice operators rate sustainability as a priority.",
+            "text": "[redacted]",
             "markers": [
               1
             ],
@@ -7527,7 +7528,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The context does not contain a 2024 ESG report. The passages supplied are from Brookdale Senior Living's **2023 ESG Report** (dated 2024-04-01), so I can only report the figures given there.\n\nFrom the 2023 ESG Report:\n\n**Energy consumption**\n- In 2023, Brookdale reduced energy consumption by 5.2 million kilowatt-hours compared to 2021 and by 13.6 million kilowatt-hours compared to 2022, after completing major LED upgrade projects at 13 communities [5].\n- It maintained Energy Star Certification at 23 communities, and 279 communities maintained an Energy Star score of 75 or above [5].\n\n**Water savings**\n- In 2023, water conservation projects were implemented at 13 communities, reducing water consumption by 153 million gallons compared to 2021 and by 66 million gallons compared to 2022 [5].\n- The Aqua Mizer program, piloted in 2022, was expanded to nine additional communities in 2023 because water-use reduction exceeded expectations [6].\n\n**Related capital investment**\n- More than $3.7 million was invested in newer, more energy-efficient HVAC equipment, including cooling towers, higher-output HVAC systems, PTACs and water heaters [6].\n\nIf you have the 2024 ESG report, I'd be happy to work from those passages instead.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 5,
@@ -7557,72 +7558,72 @@
       "judge": {
         "statements": [
           {
-            "text": "The context does not contain a 2024 ESG report.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The passages supplied are from Brookdale Senior Living's **2023 ESG Report** (dated 2024-04-01), so I can only report the figures given there.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "supported"
           },
           {
-            "text": "From the 2023 ESG Report:",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "**Energy consumption**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "In 2023, Brookdale reduced energy consumption by 5.2 million kilowatt-hours compared to 2021 and by 13.6 million kilowatt-hours compared to 2022, after completing major LED upgrade projects at 13 communities.",
+            "text": "[redacted]",
             "markers": [
               5
             ],
             "verdict": "supported"
           },
           {
-            "text": "It maintained Energy Star Certification at 23 communities, and 279 communities maintained an Energy Star score of 75 or above.",
+            "text": "[redacted]",
             "markers": [
               5
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Water savings**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "In 2023, water conservation projects were implemented at 13 communities, reducing water consumption by 153 million gallons compared to 2021 and by 66 million gallons compared to 2022.",
+            "text": "[redacted]",
             "markers": [
               5
             ],
             "verdict": "supported"
           },
           {
-            "text": "The Aqua Mizer program, piloted in 2022, was expanded to nine additional communities in 2023 because water-use reduction exceeded expectations.",
+            "text": "[redacted]",
             "markers": [
               6
             ],
             "verdict": "supported"
           },
           {
-            "text": "**Related capital investment**",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "More than $3.7 million was invested in newer, more energy-efficient HVAC equipment, including cooling towers, higher-output HVAC systems, PTACs and water heaters.",
+            "text": "[redacted]",
             "markers": [
               6
             ],
             "verdict": "supported"
           },
           {
-            "text": "If you have the 2024 ESG report, I'd be happy to work from those passages instead.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           }
@@ -7704,7 +7705,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The context does not contain enough information to answer this question. The HealthTrust Performance Group passage [3] discusses decarbonization resources and strategies it offers to healthcare providers, but it does not state a greenhouse gas reduction target for HealthTrust's own operations or a target year.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 3,
@@ -7725,12 +7726,12 @@
       "judge": {
         "statements": [
           {
-            "text": "The context does not contain enough information to answer this question.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The HealthTrust Performance Group passage discusses decarbonization resources and strategies it offers to healthcare providers, but it does not state a greenhouse gas reduction target for HealthTrust's own operations or a target year.",
+            "text": "[redacted]",
             "markers": [
               3
             ],
@@ -7772,7 +7773,7 @@
       "pipeline": {
         "outcome": "answered",
         "error_code": null,
-        "answer": "The context does not contain that information. The passage discusses general purchasing patterns in healthcare foodservice (for example, that hospitals spend most of their purchase dollars on food [1]), but it gives no dollar figures for annual purchases through Vizient contracts.",
+        "answer": "[redacted: answer text removed from the repository, Oct 21, 2026; metrics and judgements kept]",
         "citations": [
           {
             "marker": 1,
@@ -7793,12 +7794,12 @@
       "judge": {
         "statements": [
           {
-            "text": "The context does not contain that information.",
+            "text": "[redacted]",
             "markers": [],
             "verdict": "no_claim"
           },
           {
-            "text": "The passage discusses general purchasing patterns in healthcare foodservice (for example, that hospitals spend most of their purchase dollars on food ), but it gives no dollar figures for annual purchases through Vizient contracts.",
+            "text": "[redacted]",
             "markers": [
               1
             ],

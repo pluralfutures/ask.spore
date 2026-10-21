@@ -295,6 +295,41 @@ async def test_delete_is_a_hard_delete(api: Harness) -> None:
     assert (await api.request("DELETE", f"/conversations/{conversation}")).status_code == 404
 
 
+async def test_conversation_older_than_30_days_is_not_returned_by_any_read_route(
+    api: Harness,
+) -> None:
+    """P1a-16: read-time expiry, pending the Phase 1b purge job. A conversation with a
+    message, a citation and feedback, aged past 30 days, is gone from every route that
+    reads conversations or messages, though its rows are still in the database."""
+    conversation = await api.conversation()
+    events = await api.ask(conversation, "Q?", "Grew [1].")
+    message_id = events[-1][1]["message_id"]
+    rated = await api.request("POST", f"/messages/{message_id}/feedback", json={"rating": "up"})
+    assert rated.status_code == 200
+    assert (await api.request("GET", f"/conversations/{conversation}")).status_code == 200
+
+    admin = api.world.admin
+    await admin.execute(
+        "UPDATE conversations SET created_at = now() - interval '31 days', "
+        "expires_at = now() - interval '1 day' WHERE id = $1",
+        uuid.UUID(conversation),
+    )
+
+    listed = await api.request("GET", "/conversations")
+    assert conversation not in [c["id"] for c in listed.json()]
+    assert (await api.request("GET", f"/conversations/{conversation}")).status_code == 404
+    asked = await api.request(
+        "POST", f"/conversations/{conversation}/messages", json={"question": "Q?"}
+    )
+    assert asked.status_code == 404
+    rated = await api.request("POST", f"/messages/{message_id}/feedback", json={"rating": "down"})
+    assert rated.status_code == 404
+    count = await admin.fetchval(
+        "SELECT count(*) FROM messages WHERE conversation_id = $1", uuid.UUID(conversation)
+    )
+    assert count == 2  # hidden at read time, not purged
+
+
 def _no_commit_on_dependency_exit(app: FastAPI) -> None:
     """Swap ``db_session`` for one whose exit rolls back instead of committing, so a
     write is visible afterwards only if the handler committed it itself (C5)."""

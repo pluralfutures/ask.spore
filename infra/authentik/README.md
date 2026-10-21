@@ -33,9 +33,9 @@ Done once in the admin interface (no blueprint yet: the flow has not been run ag
 a live instance, findings A7). Names must match `[auth.authentik]` in
 `config/models.toml`.
 
-1. **Email template.** Replace `__ASK_SPORE_PUBLIC_HOST__` in
-   `templates/ask-spore-sign-in.html` with the public hostname before starting the
-   containers. The link carries Authentik's flow token in the *fragment* of our landing
+1. **Email template.** `templates/ask-spore-sign-in.html` links to the public host,
+   `askspore.myceliumgastronomy.com` (owner, Oct 20, 2026; P1a-16). A second host
+   (Phase 1b) needs its own template or a render step. The link carries Authentik's flow token in the *fragment* of our landing
    page (`/auth/finish#token=…`); never Authentik's own `{{ url }}`.
 2. **Stages.**
    - Identification stage `ask-spore-identification`: user field *email* only, no

@@ -22,19 +22,24 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.policy import policy_out
 from app.api.schemas import (
     AdminInvitedOut,
     AdminInviteIn,
     EntitlementsIn,
     EntitlementsOut,
+    EntraSourceIn,
+    GoogleSourceIn,
     LoginPolicyIn,
     LoginPolicyOut,
     NoticeOut,
+    OidcSourceIn,
     OperatorMeOut,
     OperatorOptionsOut,
     OperatorSourceOut,
     OperatorWorkspaceOut,
     SourceDownloadableIn,
+    SsoSourceIn,
     TenantCreateIn,
     TenantOut,
     WorkspaceCreateIn,
@@ -42,7 +47,17 @@ from app.api.schemas import (
 )
 from app.audit.writer import AuditValue, Change, record
 from app.auth.links import normalise_email
-from app.auth.provider import ProviderError, SignInLinkProvider
+from app.auth.provider import ProviderError, SignInLinkProvider, SourceAdmin
+from app.auth.sources import (
+    SourceRefused,
+    config_digest,
+    entra_config,
+    google_config,
+    oidc_config,
+    parse_idp_metadata,
+    saml_config,
+    spec_for,
+)
 from app.content.models import Source
 from app.content.store import STORABLE_TYPES
 from app.content.tags import load_tags
@@ -99,7 +114,7 @@ def _policy_values(row: TenantLoginPolicy) -> Change:
     }
 
 
-async def _tenant_out(session: AsyncSession, tenant: Tenant) -> TenantOut:
+async def _tenant_out(request: Request, session: AsyncSession, tenant: Tenant) -> TenantOut:
     entitlements = await session.get(TenantEntitlements, tenant.id)
     policy = await session.get(TenantLoginPolicy, tenant.id)
     if entitlements is None or policy is None:
@@ -118,7 +133,7 @@ async def _tenant_out(session: AsyncSession, tenant: Tenant) -> TenantOut:
         created_at=tenant.created_at,
         admins=admins or 0,
         entitlements=EntitlementsOut.model_validate(entitlements),
-        login_policy=LoginPolicyOut.model_validate(policy),
+        login_policy=policy_out(request, policy),
     )
 
 
@@ -144,9 +159,11 @@ async def operator_options(request: Request) -> OperatorOptionsOut:
 
 
 @router.get("/tenants", response_model=list[TenantOut])
-async def list_tenants(session: AsyncSession = Depends(operator_session)) -> list[TenantOut]:
+async def list_tenants(
+    request: Request, session: AsyncSession = Depends(operator_session)
+) -> list[TenantOut]:
     tenants = (await session.scalars(select(Tenant).order_by(Tenant.created_at))).all()
-    return [await _tenant_out(session, tenant) for tenant in tenants]
+    return [await _tenant_out(request, session, tenant) for tenant in tenants]
 
 
 @router.post("/tenants", status_code=status.HTTP_201_CREATED, response_model=TenantOut)
@@ -205,7 +222,7 @@ async def create_tenant(
         },
     )
     log("operator.tenant_created", tenant_id=str(tenant.id), user_id=str(operator.user_id))
-    return await _tenant_out(session, tenant)
+    return await _tenant_out(request, session, tenant)
 
 
 @router.post(
@@ -332,21 +349,22 @@ async def set_entitlements(
 
 @router.get("/tenants/{tenant_id}/login-policy", response_model=LoginPolicyOut)
 async def get_login_policy(
-    tenant_id: UUID, session: AsyncSession = Depends(operator_session)
-) -> TenantLoginPolicy:
+    tenant_id: UUID, request: Request, session: AsyncSession = Depends(operator_session)
+) -> LoginPolicyOut:
     row = await session.get(TenantLoginPolicy, tenant_id)
     if row is None:
         raise NOT_FOUND
-    return row
+    return policy_out(request, row)
 
 
 @router.put("/tenants/{tenant_id}/login-policy", response_model=LoginPolicyOut)
 async def set_login_policy(
     tenant_id: UUID,
     body: LoginPolicyIn,
+    request: Request,
     operator: OperatorContext = Depends(require_operator),
     session: AsyncSession = Depends(operator_session),
-) -> TenantLoginPolicy:
+) -> LoginPolicyOut:
     """Sign-in links on or off (on by default), JIT provisioning from the tenant's SSO
     source, and the MFA requirement for tenant admins. Audited with before and after."""
     row = await session.get(TenantLoginPolicy, tenant_id, with_for_update=True)
@@ -369,7 +387,133 @@ async def set_login_policy(
             metadata={"operator_id": str(operator.user_id), "before": before, "after": after},
         )
         log("operator.login_policy_changed", tenant_id=str(tenant_id), status="changed")
-    return row
+    return policy_out(request, row)
+
+
+# --- the tenant's SSO source (P1b-07) -----------------------------------------------------
+
+
+def _sso_values(row: TenantLoginPolicy) -> Change:
+    return {
+        "sso_source_kind": row.sso_source_kind,
+        "sso_source_slug": row.sso_source_slug,
+        "sso_config_sha256": config_digest(row.sso_kind, row.sso_source_config),
+    }
+
+
+def _source_config(body: SsoSourceIn) -> tuple[dict[str, str | list[str]], str | None]:
+    """The non-secret configuration to store, and the IdP's certificate (SAML)."""
+    if isinstance(body, EntraSourceIn):
+        return entra_config(body.entra_tenant_id, body.client_id, body.admin_group_ids), None
+    if isinstance(body, GoogleSourceIn):
+        return google_config(body.client_id), None
+    if isinstance(body, OidcSourceIn):
+        return oidc_config(body.issuer, body.client_id), None
+    metadata = parse_idp_metadata(body.metadata_xml)
+    return saml_config(metadata), metadata.certificate_pem
+
+
+def _source_admin(request: Request) -> SourceAdmin:
+    provider: SourceAdmin | None = getattr(request.app.state, "sign_in_provider", None)
+    if provider is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="no_identity_provider")
+    return provider
+
+
+async def _audit_source(
+    session: AsyncSession, tenant_id: UUID, operator: OperatorContext, before: Change, after: Change
+) -> None:
+    await record(
+        session,
+        tenant_id=tenant_id,
+        actor_user_id=None,
+        event="operator.sso_source_changed",
+        metadata={"operator_id": str(operator.user_id), "before": before, "after": after},
+    )
+    log("operator.sso_source_changed", tenant_id=str(tenant_id), status="changed")
+
+
+@router.put("/tenants/{tenant_id}/login-policy/sso", response_model=LoginPolicyOut)
+async def set_sso_source(
+    tenant_id: UUID,
+    body: SsoSourceIn,
+    request: Request,
+    operator: OperatorContext = Depends(require_operator),
+    session: AsyncSession = Depends(operator_session),
+) -> LoginPolicyOut:
+    """Configure the tenant's one SSO source in Authentik and keep its non-secret fields.
+
+    The client secret (OIDC kinds) goes to Authentik only. A new source, or a change of
+    kind, needs it; otherwise omitting it keeps the one Authentik holds. Audited with
+    the kind, the source slug and a fingerprint of the stored configuration.
+    """
+    tenant = await session.get(Tenant, tenant_id)
+    row = await session.get(TenantLoginPolicy, tenant_id, with_for_update=True)
+    if tenant is None or row is None:
+        raise NOT_FOUND
+    secret = getattr(body, "client_secret", None)
+    if body.kind != "saml" and secret is None and row.sso_source_kind != body.kind:
+        raise _unprocessable("client_secret_required")
+    try:
+        config, certificate = _source_config(body)
+        spec = spec_for(
+            tenant_id=tenant_id,
+            tenant_slug=tenant.slug,
+            verified_domains=list(tenant.verified_domains),
+            kind=body.kind,
+            config=config,
+            certificate_pem=certificate,
+        )
+    except SourceRefused as exc:
+        raise _unprocessable(exc.error_code) from None
+    provider = _source_admin(request)
+    try:
+        await provider.configure_source(spec, secret)
+    except ProviderError as exc:
+        log("operator.sso_source_failed", tenant_id=str(tenant_id), error_code=exc.error_code)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="source_not_configured") from None
+    before = _sso_values(row)
+    row.sso_source_kind = body.kind
+    row.sso_source_slug = spec.slug
+    row.sso_source_config = config
+    row.updated_at = func.now()
+    await session.flush()
+    await session.refresh(row)
+    after = _sso_values(row)
+    if after != before:
+        await _audit_source(session, tenant_id, operator, before, after)
+    return policy_out(request, row)
+
+
+@router.delete("/tenants/{tenant_id}/login-policy/sso", response_model=LoginPolicyOut)
+async def remove_sso_source(
+    tenant_id: UUID,
+    request: Request,
+    operator: OperatorContext = Depends(require_operator),
+    session: AsyncSession = Depends(operator_session),
+) -> LoginPolicyOut:
+    """Remove the tenant's source from Authentik; its users then sign in with links (if
+    the policy allows them) until a source is configured again. Audited."""
+    row = await session.get(TenantLoginPolicy, tenant_id, with_for_update=True)
+    if row is None:
+        raise NOT_FOUND
+    kind, slug = row.sso_kind, row.sso_source_slug
+    if kind is None or slug is None:
+        return policy_out(request, row)
+    try:
+        await _source_admin(request).remove_source(kind, slug)
+    except ProviderError as exc:
+        log("operator.sso_source_failed", tenant_id=str(tenant_id), error_code=exc.error_code)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="source_not_removed") from None
+    before = _sso_values(row)
+    row.sso_source_kind = "none"
+    row.sso_source_slug = None
+    row.sso_source_config = {}
+    row.updated_at = func.now()
+    await session.flush()
+    await session.refresh(row)
+    await _audit_source(session, tenant_id, operator, before, _sso_values(row))
+    return policy_out(request, row)
 
 
 @router.get("/notices", response_model=list[NoticeOut])

@@ -17,6 +17,8 @@ import type {
   EntitlementsOut,
   LoginPolicyIn,
   LoginPolicyOut,
+  SsoSourceIn,
+  SsoStartOut,
   Me,
   ModelOption,
   NoticeOut,
@@ -160,6 +162,20 @@ export async function discoverMethods(email: string): Promise<DiscoverOut> {
   return (await response.json()) as DiscoverOut;
 }
 
+// SSO (P1b-07): where to send the browser to sign in at the organisation's IdP, or null
+// when the address's domain has no SSO.
+export async function startSso(email: string): Promise<string | null> {
+  const response = await fetch(`${BASE}/auth/sso/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+    credentials: "same-origin",
+  });
+  if (response.status === 409) return null;
+  if (!response.ok) throw new ApiError(response.status);
+  return ((await response.json()) as SsoStartOut).redirect_url;
+}
+
 export async function requestSignInLink(email: string): Promise<void> {
   const response = await fetch(`${BASE}/auth/link`, {
     method: "POST",
@@ -227,6 +243,8 @@ export const adminApi = {
   savePrompt: (workspaceId: string, text: string) =>
     json<WorkspacePrompt>("PUT", `/workspaces/${workspaceId}/prompt`, { text }),
   settings: () => json<TenantSettings>("GET", "/admin/settings"),
+  // P1b-07: how the tenant's users sign in, read-only (the operator configures it).
+  loginPolicy: () => json<LoginPolicyOut>("GET", "/admin/login-policy"),
   setRetention: (days: number) =>
     json<TenantSettings>("PUT", "/admin/settings/retention", { retention_days: days }),
 };
@@ -247,6 +265,11 @@ export const operatorApi = {
   // Login policy (P1b-06): sign-in links, JIT provisioning, MFA for tenant admins.
   setLoginPolicy: (tenantId: string, body: LoginPolicyIn) =>
     json<LoginPolicyOut>("PUT", `/operator/tenants/${tenantId}/login-policy`, body),
+  // P1b-07: the tenant's SSO source, configured in Authentik; secrets are write-only.
+  setSsoSource: (tenantId: string, body: SsoSourceIn) =>
+    json<LoginPolicyOut>("PUT", `/operator/tenants/${tenantId}/login-policy/sso`, body),
+  removeSsoSource: (tenantId: string) =>
+    json<LoginPolicyOut>("DELETE", `/operator/tenants/${tenantId}/login-policy/sso`),
   notices: () => json<NoticeOut[]>("GET", "/operator/notices"),
   // Package builder (P1a-04): a tenant's workspaces and their tags.
   workspaces: (tenantId: string) =>

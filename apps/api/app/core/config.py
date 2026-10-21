@@ -247,6 +247,21 @@ class AuthentikConfig(_Strict):
     redirect_uri: str
     sign_in_flow: str = Field(pattern=r"^[a-z0-9][a-z0-9-]*$")
     timeout_seconds: float = Field(gt=0)
+    # P1b-07: our public origin. Tenant SSO sources call back to it (Caddy hands those
+    # paths to the API), so the API presents it as the Host when it relays a sign-in to
+    # Authentik. Not an outbound host: nothing is ever sent to it by the API.
+    public_url: str | None = Field(default=None, pattern=r"^https://[a-z0-9.-]+$")
+    # The flows every tenant source uses (infra/authentik/blueprints): sign in a known
+    # source user, or create one (JIT); both update the user from the source's mapping.
+    source_authentication_flow: str = Field(
+        default="ask-spore-source-authentication", pattern=r"^[a-z0-9][a-z0-9-]*$"
+    )
+    source_enrollment_flow: str = Field(
+        default="ask-spore-source-enrollment", pattern=r"^[a-z0-9][a-z0-9-]*$"
+    )
+    source_pre_authentication_flow: str = Field(
+        default="ask-spore-source-pre-authentication", pattern=r"^[a-z0-9][a-z0-9-]*$"
+    )
 
 
 class AuthConfig(_Strict):

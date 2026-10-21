@@ -843,6 +843,57 @@
         "title": "EntitlementsOut",
         "type": "object"
       },
+      "EntraSourceIn": {
+        "additionalProperties": false,
+        "properties": {
+          "admin_group_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Admin Group Ids",
+            "type": "array"
+          },
+          "client_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._@:/-]{0,255}$",
+            "title": "Client Id",
+            "type": "string"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "format": "password",
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
+          "entra_tenant_id": {
+            "format": "uuid",
+            "title": "Entra Tenant Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "entra",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "entra_tenant_id",
+          "client_id"
+        ],
+        "title": "EntraSourceIn",
+        "type": "object"
+      },
       "ErrorData": {
         "properties": {
           "error_code": {
@@ -919,6 +970,42 @@
           "comment"
         ],
         "title": "FeedbackOut",
+        "type": "object"
+      },
+      "GoogleSourceIn": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._@:/-]{0,255}$",
+            "title": "Client Id",
+            "type": "string"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "format": "password",
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
+          "kind": {
+            "const": "google",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "client_id"
+        ],
+        "title": "GoogleSourceIn",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1035,6 +1122,13 @@
             "title": "Sign In Links Enabled",
             "type": "boolean"
           },
+          "sso_endpoints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Sso Endpoints",
+            "type": "object"
+          },
           "sso_source_config": {
             "additionalProperties": {
               "anyOf": [
@@ -1063,6 +1157,17 @@
             "title": "Sso Source Kind",
             "type": "string"
           },
+          "sso_source_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sso Source Slug"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -1072,6 +1177,7 @@
         "required": [
           "sign_in_links_enabled",
           "sso_source_kind",
+          "sso_source_slug",
           "sso_source_config",
           "jit_provisioning_enabled",
           "admin_mfa_required",
@@ -1261,6 +1367,49 @@
         "title": "NoticeOut",
         "type": "object"
       },
+      "OidcSourceIn": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._@:/-]{0,255}$",
+            "title": "Client Id",
+            "type": "string"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "format": "password",
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
+          "issuer": {
+            "maxLength": 512,
+            "minLength": 9,
+            "title": "Issuer",
+            "type": "string"
+          },
+          "kind": {
+            "const": "oidc",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "issuer",
+          "client_id"
+        ],
+        "title": "OidcSourceIn",
+        "type": "object"
+      },
       "OperatorMeOut": {
         "properties": {
           "display_name": {
@@ -1444,6 +1593,28 @@
         "title": "RetentionIn",
         "type": "object"
       },
+      "SamlSourceIn": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "saml",
+            "title": "Kind",
+            "type": "string"
+          },
+          "metadata_xml": {
+            "maxLength": 262144,
+            "minLength": 1,
+            "title": "Metadata Xml",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "metadata_xml"
+        ],
+        "title": "SamlSourceIn",
+        "type": "object"
+      },
       "SourceDownloadableIn": {
         "additionalProperties": false,
         "properties": {
@@ -1515,6 +1686,20 @@
           "withdrawn"
         ],
         "title": "SourceOut",
+        "type": "object"
+      },
+      "SsoStartOut": {
+        "description": "Where the browser goes next: the IdP's sign-in page (P1b-07).",
+        "properties": {
+          "redirect_url": {
+            "title": "Redirect Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "redirect_url"
+        ],
+        "title": "SsoStartOut",
         "type": "object"
       },
       "TenantCreateIn": {
@@ -2069,6 +2254,25 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/login-policy": {
+      "get": {
+        "description": "How the tenant's users sign in, as the operator configured it with the client's\nIT (architecture §7.4): shown, never changed here (self-service SSO is Phase 3).",
+        "operationId": "get_login_policy_api_v1_admin_login_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Login Policy"
+      }
+    },
     "/api/v1/admin/settings": {
       "get": {
         "operationId": "get_settings_api_v1_admin_settings_get",
@@ -2423,6 +2627,45 @@
           }
         },
         "summary": "Auth Mode"
+      }
+    },
+    "/api/v1/auth/sso/start": {
+      "post": {
+        "description": "Start a sign-in through the address's tenant's source. An unknown domain and a\ndomain without SSO get the same 409: discovery already tells the page which.",
+        "operationId": "start_sso_api_v1_auth_sso_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoverIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoStartOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Sso"
       }
     },
     "/api/v1/conversations": {
@@ -3149,6 +3392,119 @@
           }
         },
         "summary": "Set Login Policy"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/login-policy/sso": {
+      "delete": {
+        "description": "Remove the tenant's source from Authentik; its users then sign in with links (if\nthe policy allows them) until a source is configured again. Audited.",
+        "operationId": "remove_sso_source_api_v1_operator_tenants__tenant_id__login_policy_sso_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Sso Source"
+      },
+      "put": {
+        "description": "Configure the tenant's one SSO source in Authentik and keep its non-secret fields.\n\nThe client secret (OIDC kinds) goes to Authentik only. A new source, or a change of\nkind, needs it; otherwise omitting it keeps the one Authentik holds. Audited with\nthe kind, the source slug and a fingerprint of the stored configuration.",
+        "operationId": "set_sso_source_api_v1_operator_tenants__tenant_id__login_policy_sso_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "entra": "#/components/schemas/EntraSourceIn",
+                    "google": "#/components/schemas/GoogleSourceIn",
+                    "oidc": "#/components/schemas/OidcSourceIn",
+                    "saml": "#/components/schemas/SamlSourceIn"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EntraSourceIn"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GoogleSourceIn"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OidcSourceIn"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SamlSourceIn"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Sso Source"
       }
     },
     "/api/v1/operator/tenants/{tenant_id}/workspaces": {

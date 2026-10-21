@@ -157,11 +157,11 @@ async def _request_link(
                 )
             )
     if limited:
-        await _audit(factory, tenant_id, user_id, "auth.link_refused", "rate_limited")
+        await audit_sign_in(factory, tenant_id, user_id, "auth.link_refused", "rate_limited")
         log("auth.link_not_sent", tenant_id=str(tenant_id), error_code="rate_limited")
         return
     await provider.send_sign_in_link(email)
-    await _audit(factory, tenant_id, user_id, "auth.link_requested", None)
+    await audit_sign_in(factory, tenant_id, user_id, "auth.link_requested", None)
     log("auth.link_sent", tenant_id=str(tenant_id), user_id=str(user_id))
 
 
@@ -233,24 +233,24 @@ async def complete_link(
     """Redeem a link token POSTed from the landing page by the browser holding ``binding``."""
     if not binding:
         # Another browser or a scanner: refused before anything is consumed.
-        await _refuse(factory, None, None, "no_binding")
+        await refuse_sign_in(factory, None, None, "no_binding")
     if not token or len(token) > MAX_TOKEN_LENGTH:
-        await _refuse(factory, None, None, "malformed_token")
+        await refuse_sign_in(factory, None, None, "malformed_token")
     pending, refusal, tenant_id = await _consume(factory, digest(token), digest(binding))
     if pending is None:
-        await _refuse(factory, tenant_id, None, refusal or "unknown_binding")
+        await refuse_sign_in(factory, tenant_id, None, refusal or "unknown_binding")
 
     try:
         issued = await provider.redeem_sign_in_link(token)
         identity = await validator.validate(issued.access_token)
     except (LinkRefused, ProviderError, InvalidToken) as exc:
-        await _refuse(factory, pending.tenant_id, pending.user_id, exc.error_code)
+        await refuse_sign_in(factory, pending.tenant_id, pending.user_id, exc.error_code)
     if identity.tenant_id != pending.tenant_id or identity.email != pending.email:
-        await _refuse(factory, pending.tenant_id, pending.user_id, "identity_mismatch")
+        await refuse_sign_in(factory, pending.tenant_id, pending.user_id, "identity_mismatch")
 
     context = await resolve_user(factory, pending.tenant_id, pending.email, allow_invited=True)
     if context is None or context.user_id != pending.user_id:
-        await _refuse(factory, pending.tenant_id, pending.user_id, "user_inactive")
+        await refuse_sign_in(factory, pending.tenant_id, pending.user_id, "user_inactive")
     async with tenant_session(factory, pending.tenant_id) as session:
         enabled = await session.scalar(
             select(TenantLoginPolicy.sign_in_links_enabled).where(
@@ -271,7 +271,7 @@ async def complete_link(
                 metadata={"method": METHOD, "status": "ok"},
             )
     if not enabled:
-        await _refuse(factory, pending.tenant_id, pending.user_id, "links_disabled")
+        await refuse_sign_in(factory, pending.tenant_id, pending.user_id, "links_disabled")
     log("auth.login", tenant_id=str(pending.tenant_id), user_id=str(pending.user_id), status="ok")
     return SignedIn(
         context=RequestContext(
@@ -282,14 +282,23 @@ async def complete_link(
     )
 
 
-async def _refuse(
+async def refuse_sign_in(
     factory: async_sessionmaker[AsyncSession],
     tenant_id: UUID | None,
     user_id: UUID | None,
     error_code: str,
+    *,
+    method: str = METHOD,
 ) -> NoReturn:
     """Audit and log a failed completion, then raise SignInRefused."""
-    await _audit(factory, tenant_id or INTERNAL_TENANT_ID, user_id, "auth.login_failed", error_code)
+    await audit_sign_in(
+        factory,
+        tenant_id or INTERNAL_TENANT_ID,
+        user_id,
+        "auth.login_failed",
+        error_code,
+        method=method,
+    )
     log(
         "auth.login_failed",
         tenant_id=str(tenant_id) if tenant_id else None,
@@ -298,14 +307,16 @@ async def _refuse(
     raise SignInRefused(error_code)
 
 
-async def _audit(
+async def audit_sign_in(
     factory: async_sessionmaker[AsyncSession],
     tenant_id: UUID,
     user_id: UUID | None,
     event: str,
     error_code: str | None,
+    *,
+    method: str = METHOD,
 ) -> None:
-    metadata: dict[str, AuditValue] = {"method": METHOD}
+    metadata: dict[str, AuditValue] = {"method": method}
     if error_code is not None:
         metadata["error_code"] = error_code
     async with tenant_session(factory, tenant_id) as session:

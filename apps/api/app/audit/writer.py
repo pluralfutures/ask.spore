@@ -76,6 +76,7 @@ CHANGE_FIELDS: Final[frozenset[str]] = frozenset(
         # Login policy (P1b-06, P1b-07): non-secret fields only.
         "sso_source_kind",
         "sso_source_slug",
+        "sso_config_sha256",
         "jit_provisioning_enabled",
         "admin_mfa_required",
         "external_acceptance_reference",

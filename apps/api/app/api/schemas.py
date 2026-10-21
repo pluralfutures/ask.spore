@@ -11,7 +11,7 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 MAX_QUESTION_CHARS = 4000
 MAX_COMMENT_CHARS = 2000
@@ -330,10 +330,66 @@ class LoginPolicyOut(_Out):
 
     sign_in_links_enabled: bool
     sso_source_kind: Literal["none", "entra", "google", "oidc", "saml"]
+    sso_source_slug: str | None
     sso_source_config: dict[str, str | list[str]]
     jit_provisioning_enabled: bool
     admin_mfa_required: bool
     updated_at: datetime
+    # P1b-07: what the client's IT registers at their IdP (redirect URI, or SAML ACS URL
+    # and SP entity ID), on our public host.
+    sso_endpoints: dict[str, str] = Field(default_factory=dict)
+
+
+# P1b-07: one SSO source per tenant, by kind. Client secrets are write-only: passed to
+# Authentik and never stored, returned or logged by the API.
+_CLIENT_ID = r"^[A-Za-z0-9][A-Za-z0-9._@:/-]{0,255}$"
+ClientSecret = Annotated[SecretStr, Field(min_length=1, max_length=1024)]
+
+
+class EntraSourceIn(_In):
+    kind: Literal["entra"]
+    entra_tenant_id: UUID
+    client_id: str = Field(pattern=_CLIENT_ID)
+    # Required when the source is created or its kind changes; omitted keeps it.
+    client_secret: ClientSecret | None = None
+    # Entra group object IDs whose members are tenant admins (optional).
+    admin_group_ids: list[UUID] = Field(default_factory=list, max_length=20)
+
+
+class GoogleSourceIn(_In):
+    kind: Literal["google"]
+    client_id: str = Field(pattern=_CLIENT_ID)
+    client_secret: ClientSecret | None = None
+
+
+class OidcSourceIn(_In):
+    kind: Literal["oidc"]
+    issuer: str = Field(min_length=9, max_length=512)
+    client_id: str = Field(pattern=_CLIENT_ID)
+    client_secret: ClientSecret | None = None
+
+
+class SamlSourceIn(_In):
+    kind: Literal["saml"]
+    metadata_xml: str = Field(min_length=1, max_length=262_144)
+
+    @field_validator("metadata_xml", mode="before")
+    @classmethod
+    def _line_endings(cls, value: object) -> object:
+        # Metadata files often end lines with CRLF; carriage returns are the only control
+        # characters let through, as newlines.
+        return value.replace("\r\n", "\n").replace("\r", "\n") if isinstance(value, str) else value
+
+
+SsoSourceIn = Annotated[
+    EntraSourceIn | GoogleSourceIn | OidcSourceIn | SamlSourceIn, Field(discriminator="kind")
+]
+
+
+class SsoStartOut(BaseModel):
+    """Where the browser goes next: the IdP's sign-in page (P1b-07)."""
+
+    redirect_url: str
 
 
 class TenantOut(BaseModel):

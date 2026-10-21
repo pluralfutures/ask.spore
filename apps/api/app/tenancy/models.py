@@ -1,5 +1,5 @@
 """Tenants, users, entitlements and tenant settings. Mirrors alembic revisions 0001, 0004,
-0006, 0011 and 0020; the migrations are authoritative. The login policy is in
+0006, 0011, 0020 and 0021; the migrations are authoritative. The login policy is in
 ``app.tenancy.login_policy``."""
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ INTERNAL_TENANT_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
 TENANT_STATUSES = ("active", "suspended")
 USER_ROLES = ("user", "tenant_admin")
 USER_STATUSES = ("invited", "active", "deactivated")
-LOGIN_METHODS = ("sign_in_link",)
+LOGIN_METHODS = ("sign_in_link", "sso")
 ANSWER_MODES = ("corpus_only", "general_knowledge")
 
 
@@ -66,7 +66,7 @@ class User(Base):
         CheckConstraint("email = lower(email)", name="email_lowercase"),
         CheckConstraint("role IN ('user', 'tenant_admin')", name="role_valid"),
         CheckConstraint("status IN ('invited', 'active', 'deactivated')", name="status_valid"),
-        CheckConstraint("last_login_method IN ('sign_in_link')", name="login_method_valid"),
+        CheckConstraint("last_login_method IN ('sign_in_link', 'sso')", name="login_method_valid"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

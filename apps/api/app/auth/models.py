@@ -1,4 +1,5 @@
-"""Pending sign-in links. Mirrors alembic revision 0005; the migration is authoritative."""
+"""Pending sign-in links and SSO attempts, and revoked sessions. Mirrors alembic revisions
+0005, 0010 and 0021; the migrations are authoritative."""
 
 from __future__ import annotations
 
@@ -68,3 +69,26 @@ class RevokedSession(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
     revoked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SsoAttempt(Base):
+    """One SSO sign-in started from the login page (P1b-07), bound to that browser."""
+
+    __tablename__ = "sso_attempts"
+    __table_args__ = (
+        Index(None, "tenant_id", "created_at"),
+        CheckConstraint("expires_at <= created_at + interval '10 minutes'", name="expiry_cap"),
+        CheckConstraint("binding_hash ~ '^[0-9a-f]{64}$'", name="binding_hash_hex"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE")
+    )
+    binding_hash: Mapped[str] = mapped_column(Text, unique=True)
+    source_slug: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -38,6 +38,13 @@ export type TenantSettings = Schemas["TenantSettingsOut"];
 export type DiscoverOut = Schemas["DiscoverOut"];
 export type LoginPolicyIn = Schemas["LoginPolicyIn"];
 export type LoginPolicyOut = Schemas["LoginPolicyOut"];
+// Client SSO (P1b-07).
+export type SsoSourceIn =
+  | Schemas["EntraSourceIn"]
+  | Schemas["GoogleSourceIn"]
+  | Schemas["OidcSourceIn"]
+  | Schemas["SamlSourceIn"];
+export type SsoStartOut = Schemas["SsoStartOut"];
 
 export type ChatStreamEvent =
   | { event: "token"; data: TokenData }

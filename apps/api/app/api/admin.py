@@ -13,6 +13,7 @@ and nothing here takes a tenant ID from the request.
 - Workspace defaults: mode, model and reasoning among the tenant's enabled options. The
   additional instructions keep their routes (``PUT /workspaces/{id}/prompt``, findings
   B5): each save is a new version, with no revert in Phase 1a.
+- Login policy (P1b-07): the tenant's sign-in methods and SSO source, read-only.
 - Retention: shorten chat-history retention to between 1 and 30 days
   (``app.tenancy.retention``); never above 30 (CLAUDE.md).
 
@@ -29,8 +30,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session, require_tenant_admin
+from app.api.policy import policy_out
 from app.api.schemas import (
     AdminUserOut,
+    LoginPolicyOut,
     RetentionIn,
     TenantSettingsOut,
     UserChangeIn,
@@ -47,6 +50,7 @@ from app.core.logging import log
 from app.llm.catalogue import ModelChoice
 from app.tenancy.context import RequestContext
 from app.tenancy.entitlements import ModelRefused, check_choice
+from app.tenancy.login_policy import TenantLoginPolicy
 from app.tenancy.models import MAX_RETENTION_DAYS, Tenant, TenantEntitlements, User
 from app.tenancy.retention import retention_days, set_retention
 from app.tenancy.workspaces import Workspace
@@ -228,6 +232,23 @@ async def set_workspace_defaults(
     out = WorkspaceOut.model_validate(workspace)
     await session.commit()
     return out
+
+
+# --- login policy (P1b-07): read-only ---------------------------------------------------
+
+
+@router.get("/login-policy", response_model=LoginPolicyOut)
+async def get_login_policy(
+    request: Request,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> LoginPolicyOut:
+    """How the tenant's users sign in, as the operator configured it with the client's
+    IT (architecture §7.4): shown, never changed here (self-service SSO is Phase 3)."""
+    row = await session.get(TenantLoginPolicy, admin.tenant_id)
+    if row is None:
+        raise NOT_FOUND
+    return policy_out(request, row)
 
 
 # --- settings: retention --------------------------------------------------------------

@@ -1,9 +1,18 @@
-"""Test double for Authentik and the email provider (``SignInLinkProvider``).
+"""Test double for Authentik and the email provider (``SignInLinkProvider``), and for
+the tenants' SSO sources and their IdPs (``SsoProvider``, ``SourceAdmin``; P1b-07).
 
 Signs real RS256 access tokens with a throwaway key and serves the matching JWKS
 through an httpx MockTransport, so the API's real ``JwksTokenValidator`` checks
 them. Link tokens are single-use and expire, like Authentik's flow tokens; the
 "outbox" stands in for the email that Authentik would send.
+
+SSO: ``configure_source`` keeps the source as the API specified it; ``start_sso``
+returns an IdP URL carrying a state; ``answer`` plays the IdP (the user signs in there
+with whatever address and claims the test chooses) and returns the callback parameters;
+``finish_sso`` mints the token Authentik would, with ``ask_spore_tenant`` from the
+source's tenant and ``ask_spore_sso`` from the IdP's claims. It deliberately does
+**not** apply the source mapping's domain and ``hd`` checks, so the tests prove the
+API's own checks; ``mint_tenant`` and ``mint_source`` simulate a misconfigured source.
 """
 
 from __future__ import annotations
@@ -12,15 +21,19 @@ import json
 import secrets
 import time
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
+from pydantic import SecretStr
 
-from app.auth.provider import IssuedTokens, LinkRefused
-from app.auth.tokens import TENANT_CLAIM, JwksTokenValidator
+from app.auth.provider import IssuedTokens, LinkRefused, ProviderError, SourceSpec, SsoRedirect
+from app.auth.tokens import SSO_CLAIM, TENANT_CLAIM, JwksTokenValidator
+from app.tenancy.login_policy import SsoKind
 
 ISSUER = "http://authentik-server:9000/application/o/ask-spore/"
 CLIENT_ID = "ask-spore"
@@ -68,6 +81,20 @@ class _Link:
 
 
 @dataclass
+class FakeSource:
+    spec: SourceSpec
+    client_secret: str | None
+
+
+@dataclass
+class _Answer:
+    email: str
+    hd: str | None
+    groups: tuple[str, ...]
+    email_verified: bool
+
+
+@dataclass
 class FakeSignInLinks:
     """Implements app.auth.provider.SignInLinkProvider in memory."""
 
@@ -80,6 +107,16 @@ class FakeSignInLinks:
     revoked: list[str] = field(default_factory=list)  # access tokens revoked on sign-out
     # Make the next redeem return a token for a different identity (identity check).
     impersonate: tuple[str, uuid.UUID] | None = None
+    # P1b-07: sources by slug, pending IdP round trips, and what each IdP answered.
+    sources: dict[str, FakeSource] = field(default_factory=dict)
+    removed: list[str] = field(default_factory=list)
+    sso_sessions: dict[str, tuple[str, str]] = field(default_factory=dict)  # state
+    sso_answers: dict[str, tuple[str, _Answer]] = field(default_factory=dict)  # code
+    finished: list[str] = field(default_factory=list)  # slugs finish_sso was called for
+    fail_configure: bool = False
+    # A misconfigured source: mint another tenant or source into the token.
+    mint_tenant: uuid.UUID | None = None
+    mint_source: str | None = None
 
     async def send_sign_in_link(self, email: str) -> None:
         if email not in self.users:
@@ -109,6 +146,78 @@ class FakeSignInLinks:
 
     async def aclose(self) -> None:
         return None
+
+    # --- SSO sources (P1b-07) -----------------------------------------------------------
+
+    async def configure_source(self, spec: SourceSpec, client_secret: SecretStr | None) -> None:
+        if self.fail_configure:
+            raise ProviderError("source_not_configured")
+        existing = self.sources.get(spec.slug)
+        secret = client_secret.get_secret_value() if client_secret is not None else None
+        if spec.kind != "saml" and secret is None:
+            if existing is None or existing.client_secret is None:
+                raise ProviderError("client_secret_required")
+            secret = existing.client_secret
+        self.sources[spec.slug] = FakeSource(spec=spec, client_secret=secret)
+
+    async def remove_source(self, kind: SsoKind, slug: str) -> None:
+        self.sources.pop(slug, None)
+        self.removed.append(slug)
+
+    async def start_sso(self, kind: SsoKind, slug: str) -> SsoRedirect:
+        if slug not in self.sources:
+            raise ProviderError("sso_not_started")
+        state, resume = secrets.token_urlsafe(16), secrets.token_urlsafe(24)
+        self.sso_sessions[state] = (slug, resume)
+        return SsoRedirect(url=f"https://idp.example/{slug}/authorize?state={state}", resume=resume)
+
+    def answer(
+        self,
+        redirect_url: str,
+        *,
+        email: str,
+        hd: str | None = None,
+        groups: tuple[str, ...] = (),
+        email_verified: bool = True,
+        saml: bool = False,
+    ) -> dict[str, str]:
+        """The IdP signs the user in; returns the parameters it sends back to us."""
+        (state,) = parse_qs(urlsplit(redirect_url).query)["state"]
+        code = secrets.token_urlsafe(16)
+        self.sso_answers[code] = (state, _Answer(email, hd, groups, email_verified))
+        if saml:
+            return {"SAMLResponse": code, "RelayState": state}
+        return {"code": code, "state": state}
+
+    async def finish_sso(
+        self, kind: SsoKind, slug: str, params: Mapping[str, str], resume: str
+    ) -> IssuedTokens:
+        self.finished.append(slug)
+        state = params.get("state") or params.get("RelayState") or ""
+        code = params.get("code") or params.get("SAMLResponse") or ""
+        if self.sso_sessions.pop(state, None) != (slug, resume):
+            raise LinkRefused("refused_by_source")
+        found = self.sso_answers.pop(code, None)
+        if found is None or found[0] != state:
+            raise LinkRefused("refused_by_source")
+        answer = found[1]
+        source = self.sources[slug].spec
+        admin_groups = source.config.get("admin_group_ids", [])
+        token = sign(
+            self.key,
+            email=answer.email,
+            tenant_id=self.mint_tenant or source.tenant_id,
+            jti=secrets.token_hex(8),
+            **{
+                SSO_CLAIM: {
+                    "source": self.mint_source or slug,
+                    "hd": answer.hd or "",
+                    "email_verified": answer.email_verified,
+                    "admin": bool(set(answer.groups) & set(admin_groups)),
+                }
+            },
+        )
+        return IssuedTokens(access_token=token)
 
     def expire_all(self) -> None:
         for link in self.links.values():

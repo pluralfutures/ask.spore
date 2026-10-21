@@ -33,8 +33,11 @@ PUBLIC_PATHS = frozenset(
         "/api/v1/auth/link",
         "/api/v1/auth/link/complete",
         "/api/v1/auth/logout",
+        "/api/v1/auth/sso/start",
     }
 )
+# The IdP's answers for a tenant's source (P1b-07), one path per source slug.
+PUBLIC_PREFIXES = ("/api/v1/auth/sso/oauth/", "/api/v1/auth/sso/saml/")
 # Public in both modes: liveness, and the mode the web app asks before signing in.
 ALWAYS_PUBLIC = frozenset({"/healthz", "/api/v1/auth/mode"})
 IDENTITY_KEY = "identity"
@@ -79,7 +82,7 @@ class AuthMiddleware:
         if state.settings.models.auth.mode == "phase0":
             await self._phase0(scope, receive, send)
             return
-        if scope["path"] in PUBLIC_PATHS:
+        if scope["path"] in PUBLIC_PATHS or scope["path"].startswith(PUBLIC_PREFIXES):
             await self.app(scope, receive, send)
             return
 

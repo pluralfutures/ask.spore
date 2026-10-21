@@ -57,6 +57,12 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
             "admin_mfa_required": True,
         },
     ),
+    (
+        "PUT",
+        f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/login-policy/sso",
+        {"kind": "google", "client_id": "x", "client_secret": "synthetic"},
+    ),
+    ("DELETE", f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/login-policy/sso", None),
     ("GET", "/api/v1/operator/notices", None),
 ]
 

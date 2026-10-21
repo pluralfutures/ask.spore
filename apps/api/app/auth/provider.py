@@ -13,9 +13,14 @@ by ``app.auth.links`` before the provider is called.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
+
+from pydantic import SecretStr
+
+from app.tenancy.login_policy import SsoKind
 
 
 class LinkRefused(Exception):
@@ -37,6 +42,55 @@ class ProviderError(Exception):
 @dataclass(frozen=True)
 class IssuedTokens:
     access_token: str
+
+
+@dataclass(frozen=True)
+class SourceSpec:
+    """One tenant's SSO source as the API asks Authentik to configure it (P1b-07).
+
+    Non-secret: the client secret travels separately and is stored in Authentik only.
+    ``tenant_id`` and ``verified_domains`` are the tenant's own, from our database:
+    the source's property mapping stamps ``tenant_id`` on every user it brings in and
+    refuses any address outside ``verified_domains``.
+    """
+
+    tenant_id: UUID
+    slug: str
+    name: str
+    kind: SsoKind
+    verified_domains: tuple[str, ...]
+    config: Mapping[str, str | list[str]]
+    certificate_pem: str | None = None  # SAML: the IdP's public signing certificate
+
+
+@dataclass(frozen=True)
+class SsoRedirect:
+    """Where the browser goes to sign in at the IdP, and what the callback needs back."""
+
+    url: str
+    resume: str  # opaque provider state, kept in the starting browser's cookie only
+
+
+class SsoProvider(Protocol):
+    async def start_sso(self, kind: SsoKind, slug: str) -> SsoRedirect:
+        """Begin a sign-in through source ``slug``; the browser is sent to ``url``."""
+        ...
+
+    async def finish_sso(
+        self, kind: SsoKind, slug: str, params: Mapping[str, str], resume: str
+    ) -> IssuedTokens:
+        """Hand the IdP's answer (``params``) to the source; raise LinkRefused if refused."""
+        ...
+
+
+class SourceAdmin(Protocol):
+    async def configure_source(self, spec: SourceSpec, client_secret: SecretStr | None) -> None:
+        """Create or update the tenant's source; ``None`` keeps the stored secret."""
+        ...
+
+    async def remove_source(self, kind: SsoKind, slug: str) -> None:
+        """Delete the source and everything created for it."""
+        ...
 
 
 class SignInLinkProvider(Protocol):

@@ -38,6 +38,7 @@ AUTHENTIK = AuthentikConfig(
     redirect_uri="https://ask-spore.invalid/auth/callback",
     sign_in_flow="ask-spore-sign-in-link",
     timeout_seconds=5,
+    public_url="https://askspore.test.example",
 )
 BINDING = "askspore_link_binding"
 SESSION = "askspore_session"

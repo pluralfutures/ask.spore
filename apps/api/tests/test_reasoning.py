@@ -13,18 +13,19 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.chat.orchestrator import DoneEvent, ErrorEvent, Orchestrator, TokenEvent
 from app.core.config import Settings, load_settings
 from app.core.db import session_factory
+from app.llm import catalogue
 from app.llm.catalogue import ModelChoice
-from app.llm.mistral import ANSWER_MAX_TOKENS, REASONING_MAX_TOKENS
+from app.llm.mistral import ANSWER_MAX_TOKENS, REASONING_MAX_TOKENS, LLMError
 from app.llm.reasoning import ThinkFilter
 from app.tenancy.entitlements import ModelEntitlement, ModelRefused, check_choice
 from tests.chat_fixtures import USAGE, World, chunks_for
 from tests.fakes import FakeRedis, FakeRetriever, OpenAIRecorder, router, sse
 from tests.test_api import Harness, api
 from tests.test_config import ENV, write_config
-from tests.test_model_catalogue import CLAUDE, DEEPSEEK, QWEN, fixed_choice
+from tests.test_model_catalogue import CLAUDE, DEEPSEEK, QWEN, fixed_choice, internal_entitlement
 from tests.test_openrouter import CONFIG as OPENROUTER
 
-__all__ = ["api"]  # fixture reused from the API tests
+__all__ = ["api", "internal_entitlement"]  # fixtures reused from other test modules
 
 # Synthetic reasoning text: none of it may appear anywhere but the mocked provider reply.
 SECRETS = (
@@ -119,13 +120,12 @@ def test_think_filter(deltas: list[str], expected: str) -> None:
 async def test_scaleway_stream_with_reasoning_yields_only_the_answer(settings: Settings) -> None:
     recorder = OpenAIRecorder(SCALEWAY_REASONING_STREAM)
     stream = await router(settings, recorder).answer(
-        "System.", [], [], "Capacity?", ModelChoice(DEEPSEEK, True)
+        "System.", [], [], "Capacity?", ModelChoice(QWEN, True)
     )
     text = "".join([part async for part in stream])
     assert text == "Capacity grew [1] in 2025."
     assert stream.usage is not None and stream.usage.tokens_out == USAGE["completion_tokens"]
-    # Thinking on (findings C26); DeepSeek V4.1 takes "high", it refuses "medium".
-    assert recorder.bodies()[0]["reasoning_effort"] == "high"
+    assert recorder.bodies()[0]["reasoning_effort"] == "medium"  # thinking on (findings C26)
     assert stream.finish_reason == "stop"
 
 
@@ -146,8 +146,10 @@ async def test_reasoning_is_never_persisted_cached_audited_or_logged(
     world: World,
     redis: FakeRedis,
     capsys: pytest.CaptureFixture[str],
+    internal_entitlement: Any,
 ) -> None:
-    await fixed_choice(world, ModelChoice(DEEPSEEK, True))
+    await internal_entitlement([DEEPSEEK, QWEN])
+    await fixed_choice(world, ModelChoice(QWEN, True))
     recorder = OpenAIRecorder(SCALEWAY_REASONING_STREAM)
     orch = Orchestrator(
         settings=settings,
@@ -164,7 +166,7 @@ async def test_reasoning_is_never_persisted_cached_audited_or_logged(
     )
     done = events[-1]
     assert isinstance(done, DoneEvent)
-    assert (done.model, done.reasoning) == (DEEPSEEK, True)
+    assert (done.model, done.reasoning) == (QWEN, True)
     assert_no_reasoning(logged.out + logged.err)
     assert_no_reasoning(json.dumps(redis.store))
     stored = await world.admin.fetch(
@@ -181,13 +183,18 @@ async def test_reasoning_is_never_persisted_cached_audited_or_logged(
     )
     assert_no_reasoning(audit)
     assert json.loads(audit)["reasoning"] is True
-    assert json.loads(audit)["model"] == DEEPSEEK
+    assert json.loads(audit)["model"] == QWEN
 
 
 async def test_reasoning_is_stored_on_the_message(
-    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+    settings: Settings,
+    engine: AsyncEngine,
+    world: World,
+    redis: FakeRedis,
+    internal_entitlement: Any,
 ) -> None:
-    await fixed_choice(world, ModelChoice(DEEPSEEK, True))
+    await internal_entitlement([DEEPSEEK, QWEN])
+    await fixed_choice(world, ModelChoice(QWEN, True))
     orch = Orchestrator(
         settings=settings,
         db_factory=session_factory(engine),
@@ -210,7 +217,6 @@ async def test_reasoning_is_stored_on_the_message(
     ("model", "on", "budget"),
     [
         (DEEPSEEK, False, ANSWER_MAX_TOKENS),
-        (DEEPSEEK, True, ANSWER_MAX_TOKENS + REASONING_MAX_TOKENS),
         (QWEN, True, ANSWER_MAX_TOKENS + REASONING_MAX_TOKENS),
     ],
 )
@@ -226,9 +232,14 @@ async def test_reasoning_on_gets_room_for_reasoning_tokens(
 
 
 async def test_budget_spent_on_reasoning_alone_is_an_error_not_unsupported(
-    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+    settings: Settings,
+    engine: AsyncEngine,
+    world: World,
+    redis: FakeRedis,
+    internal_entitlement: Any,
 ) -> None:
-    await fixed_choice(world, ModelChoice(DEEPSEEK, True))
+    await internal_entitlement([DEEPSEEK, QWEN])
+    await fixed_choice(world, ModelChoice(QWEN, True))
     orch = Orchestrator(
         settings=settings,
         db_factory=session_factory(engine),
@@ -271,10 +282,13 @@ async def test_cut_off_answer_is_marked_truncated_and_not_cached(
 # --- badge data in the API response -------------------------------------------------------
 
 
-async def test_badge_data_in_stream_and_conversation(api: Harness) -> None:
-    created = await api.request("POST", "/conversations", json={"reasoning": True})
-    assert created.status_code == 201
-    assert (created.json()["model"], created.json()["reasoning"]) == (DEEPSEEK, True)
+async def test_badge_data_in_stream_and_conversation(
+    api: Harness, internal_entitlement: Any
+) -> None:
+    await internal_entitlement([DEEPSEEK, QWEN])
+    created = await api.request("POST", "/conversations", json={"model": QWEN, "reasoning": True})
+    assert created.status_code == 201, created.text
+    assert (created.json()["model"], created.json()["reasoning"]) == (QWEN, True)
     conversation = created.json()["id"]
     api.recorder.add(SCALEWAY_REASONING_STREAM)
     response = await api.request(
@@ -283,13 +297,43 @@ async def test_badge_data_in_stream_and_conversation(api: Harness) -> None:
     assert response.status_code == 200
     assert_no_reasoning(response.text)
     done = json.loads(response.text.strip().split("\n\n")[-1].split("data: ", 1)[1])
-    assert (done["model"], done["reasoning"]) == (DEEPSEEK, True)
+    assert (done["model"], done["reasoning"]) == (QWEN, True)
 
     detail = (await api.request("GET", f"/conversations/{conversation}")).json()
     assert_no_reasoning(json.dumps(detail))
     user, assistant = detail["messages"]
     assert (user["model"], user["reasoning"]) == (None, None)
-    assert (assistant["model"], assistant["reasoning"]) == (DEEPSEEK, True)
+    assert (assistant["model"], assistant["reasoning"]) == (QWEN, True)
+
+
+# --- DeepSeek: reasoning off only (owner decision, Oct 21, 2026) -------------------------
+
+
+def test_deepseek_offers_reasoning_off_only(settings: Settings) -> None:
+    deepseek = catalogue.entry(settings, DEEPSEEK)
+    qwen = catalogue.entry(settings, QWEN)
+    assert deepseek is not None and qwen is not None
+    assert (deepseek.reasoning, deepseek.can_reason) == ("thinking", False)
+    assert qwen.can_reason is True
+    ent = ModelEntitlement((DEEPSEEK, QWEN), False, None)
+    with pytest.raises(ModelRefused) as excinfo:
+        check_choice(settings, ent, ModelChoice(DEEPSEEK, True))
+    assert excinfo.value.code == "reasoning_unsupported"
+
+
+async def test_deepseek_off_still_sends_reasoning_none_and_on_is_refused(
+    settings: Settings,
+) -> None:
+    recorder = OpenAIRecorder(SCALEWAY_REASONING_STREAM)
+    llm = router(settings, recorder)
+    stream = await llm.answer("System.", [], [], "Capacity?", ModelChoice(DEEPSEEK, False))
+    [part async for part in stream]
+    # DeepSeek reasons by default, so off must be sent explicitly.
+    assert recorder.bodies()[0]["reasoning_effort"] == "none"
+    with pytest.raises(LLMError) as excinfo:
+        await llm.answer("System.", [], [], "Capacity?", ModelChoice(DEEPSEEK, True))
+    assert excinfo.value.error_code == "reasoning_unsupported"
+    assert len(recorder.requests) == 1  # nothing went out for the refused call
 
 
 # --- a model without a switch ------------------------------------------------------------

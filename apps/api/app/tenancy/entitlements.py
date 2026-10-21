@@ -101,6 +101,6 @@ def check_choice(settings: Settings, ent: ModelEntitlement, choice: ModelChoice)
         raise ModelRefused("model_not_enabled")
     if model.external and not ent.external_models_enabled:
         raise ModelRefused("external_not_entitled")
-    if choice.reasoning and model.reasoning == "none":
+    if choice.reasoning and not model.can_reason:
         raise ModelRefused("reasoning_unsupported")
     return model

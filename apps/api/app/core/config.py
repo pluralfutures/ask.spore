@@ -164,6 +164,10 @@ class CatalogueEntry(_Strict):
     # The effort sent when reasoning is on; models differ in what they accept (DeepSeek
     # V4.1 on Scaleway refuses "medium": low, high, xhigh or max; checked Oct 21, 2026).
     reasoning_effort_on: str = Field(default="medium", pattern=r"^[a-z]+$")
+    # False: the switch exists (off is sent explicitly) but users cannot turn it on.
+    # DeepSeek V4.1: reasoning length is unbounded on real questions (release, Oct 21,
+    # 2026: 5 of 7 runs used 7,300 to 7,800 reasoning tokens at every effort tried).
+    reasoning_on_offered: bool = True
     # Prices in cents of ``currency`` per million tokens, used for the usage ledger and
     # the external spend cap (P1a-10). The ledger prices in euro cents: USD entries are
     # converted at ``[pricing] usd_to_eur``, which startup requires when one exists.
@@ -180,6 +184,11 @@ class CatalogueEntry(_Strict):
     provider_only: bool = False
     # Served outside the EU (compliance addendum, Oct 18 and 19, 2026); shown to users.
     external: bool
+
+    @property
+    def can_reason(self) -> bool:
+        """Whether a conversation with this model may turn reasoning on."""
+        return self.reasoning != "none" and self.reasoning_on_offered
 
 
 class PricingConfig(_Strict):

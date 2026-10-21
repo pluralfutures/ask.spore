@@ -140,7 +140,7 @@ async def list_models(
             id=e.id,
             display_name=e.display_name,
             external=e.external,
-            reasoning_switch=e.reasoning != "none",
+            reasoning_switch=e.can_reason,
             default=default is not None and e.id == default.model,
         )
         for e in usable_models(settings, ent)

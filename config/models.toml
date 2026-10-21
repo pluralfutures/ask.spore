@@ -105,6 +105,10 @@ id = "deepseek-v4.1-flash"
 provider = "scaleway"
 display_name = "DeepSeek V4.1 Flash"
 reasoning = "thinking"
+# Reasoning off only (owner decision, Oct 21, 2026): off still sends reasoning_effort
+# "none", which DeepSeek needs, but users cannot turn it on. Its reasoning length was
+# unbounded on real questions at every effort Scaleway accepts (findings section 10).
+reasoning_on_offered = false
 # Scaleway refuses "medium" for DeepSeek V4.1 (low, high, xhigh, max; checked Oct 21, 2026).
 reasoning_effort_on = "high"
 currency = "EUR"

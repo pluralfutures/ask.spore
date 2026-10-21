@@ -130,7 +130,14 @@ jobs:
             echo "AUTHENTIK_SECRET_KEY=$(openssl rand -hex 32)"
           } > .env
       - name: Start Authentik
-        run: docker compose --profile auth up -d authentik-postgresql authentik-server authentik-worker
+        # One container at a time: the server and the worker share the fresh volume
+        # authentik_data, and Docker refuses to populate it twice at once ("failed to
+        # create symlink ... media: file exists").
+        run: |
+          docker compose --profile auth up -d --wait authentik-postgresql
+          docker compose --profile auth up -d --no-deps authentik-server
+          sleep 10
+          docker compose --profile auth up -d --no-deps authentik-worker
       - name: Wait until Authentik is ready
         run: |
           for _ in $(seq 1 90); do

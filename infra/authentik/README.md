@@ -23,7 +23,10 @@ branch. Differences, to re-apply on upgrade:
 
 ```
 cp infra/authentik/.env.example infra/authentik/.env    # fill in, see comments
-docker compose -f infra/compose.dev.yml --profile auth up -d
+docker compose -f infra/compose.dev.yml --profile auth up -d   # on a fresh volume, if the
+#   second container fails with "failed to create symlink ... media: file exists", run the
+#   same command again: Docker populated the shared volume for the first one (CI starts them
+#   one at a time)
 ssh -L 9000:127.0.0.1:9000 <instance>                   # on the Instance only
 open http://127.0.0.1:9000/if/flow/initial-setup/       # create the admin account
 ```

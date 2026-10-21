@@ -7,7 +7,10 @@
 #   # sign-in links: cp infra/authentik/.env.example infra/authentik/.env, then
 #   docker compose -f infra/compose.dev.yml --profile auth up -d
 #
-# Host ports bind to 127.0.0.1 only. RAGFlow publishes only its web UI; the API
+#   # one public host with TLS (Phase 1a release): docker compose ... up -d caddy
+#
+# Host ports bind to 127.0.0.1 only, except Caddy's 80 and 443 (profile `public`).
+# RAGFlow publishes only its web UI; the API
 # reaches RAGFlow's HTTP API over the `ragflow` network.
 
 name: ask-spore-dev
@@ -128,9 +131,45 @@ services:
       - app
     restart: unless-stopped
 
+  # Phase 1a release (profile `public`, started with `up -d caddy`): one-shot production
+  # web build into `web_dist`, then Caddy with automatic TLS on 80 and 443. The only
+  # ports on all interfaces; every other service stays on loopback or internal networks.
+  web-build:
+    profiles: ["public"]
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    volumes:
+      - web_dist:/out
+    restart: "no"
+
+  caddy:
+    profiles: ["public"]
+    image: caddy:2.11.7-alpine
+    depends_on:
+      web-build:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+    ports:
+      - 80:80
+      - 443:443
+      - 443:443/udp
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - web_dist:/srv/web:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - app
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   content:
+  web_dist:
+  caddy_data:
+  caddy_config:
 
 networks:
   app:

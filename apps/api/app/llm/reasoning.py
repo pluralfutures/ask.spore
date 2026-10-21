@@ -4,12 +4,16 @@ A conversation's reasoning on or off (architecture §14.2) becomes request field
 
 - ``thinking`` (DeepSeek and Qwen on Scaleway): off sends ``reasoning_effort: "none"``,
   which turns DeepSeek's thinking off on Scaleway (findings M2, checked live); on sends
-  ``reasoning_effort: "medium"``. Both are efforts Qwen supports on Scaleway (none, low,
-  medium, xhigh; owner decision Oct 19, 2026, findings C26).
+  the catalogue entry's ``reasoning_effort_on``: ``"medium"`` for Qwen (none, low,
+  medium, xhigh; owner decision Oct 19, 2026, findings C26), ``"high"`` for DeepSeek
+  V4.1, which refuses ``"medium"`` (checked live, Oct 21, 2026).
 - ``effort`` (GPT and Claude on OpenRouter): OpenRouter's unified ``reasoning`` object
-  with effort ``medium`` or ``none``, and ``exclude: true`` so the provider does not
-  return reasoning text at all.
+  with effort ``reasoning_effort_on`` (``medium``) or ``none``, and ``exclude: true`` so
+  the provider does not return reasoning text at all.
 - ``none``: the model has no switch; only off is valid and nothing is sent.
+
+Reasoning tokens count against the answer's output budget, so a call with reasoning on
+gets ``app.llm.mistral.answer_max_tokens(True)``.
 
 Whatever reasoning text a provider still returns is discarded by the stream reader and
 never shown, stored or logged (``app.llm.scaleway.AnswerStream``).
@@ -22,12 +26,12 @@ from typing import Any
 from app.core.config import ReasoningSwitch
 
 
-def reasoning_params(kind: ReasoningSwitch, on: bool) -> dict[str, Any]:
-    """Request body fields for ``on`` under switch ``kind``."""
+def reasoning_params(kind: ReasoningSwitch, on: bool, effort_on: str = "medium") -> dict[str, Any]:
+    """Request body fields for ``on`` under switch ``kind``; ``effort_on`` when on."""
     if kind == "thinking":
-        return {"reasoning_effort": "medium" if on else "none"}
+        return {"reasoning_effort": effort_on if on else "none"}
     if kind == "effort":
-        return {"reasoning": {"effort": "medium" if on else "none", "exclude": True}}
+        return {"reasoning": {"effort": effort_on if on else "none", "exclude": True}}
     if on:
         raise ValueError("this model has no reasoning switch")
     return {}

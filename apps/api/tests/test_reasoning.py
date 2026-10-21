@@ -10,17 +10,18 @@ from typing import Any
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.chat.orchestrator import DoneEvent, Orchestrator, TokenEvent
+from app.chat.orchestrator import DoneEvent, ErrorEvent, Orchestrator, TokenEvent
 from app.core.config import Settings, load_settings
 from app.core.db import session_factory
 from app.llm.catalogue import ModelChoice
+from app.llm.mistral import ANSWER_MAX_TOKENS, REASONING_MAX_TOKENS
 from app.llm.reasoning import ThinkFilter
 from app.tenancy.entitlements import ModelEntitlement, ModelRefused, check_choice
 from tests.chat_fixtures import USAGE, World, chunks_for
 from tests.fakes import FakeRedis, FakeRetriever, OpenAIRecorder, router, sse
 from tests.test_api import Harness, api
 from tests.test_config import ENV, write_config
-from tests.test_model_catalogue import CLAUDE, DEEPSEEK, fixed_choice
+from tests.test_model_catalogue import CLAUDE, DEEPSEEK, QWEN, fixed_choice
 from tests.test_openrouter import CONFIG as OPENROUTER
 
 __all__ = ["api"]  # fixture reused from the API tests
@@ -71,6 +72,21 @@ OPENROUTER_REASONING_STREAM = sse(
 )
 
 
+def ending(finish_reason: str) -> dict[str, Any]:
+    data = chunk({}, USAGE)
+    data["choices"][0]["finish_reason"] = finish_reason
+    return data
+
+
+# The output budget ran out: during hidden reasoning (no answer text), or mid-answer.
+REASONING_ONLY_STREAM = sse(
+    chunk({"role": "assistant", "reasoning_content": SECRETS[0]}), ending("length")
+)
+CUT_OFF_STREAM = sse(
+    chunk({"role": "assistant", "content": "Capacity grew [1] and"}), ending("length")
+)
+
+
 def assert_no_reasoning(text: str) -> None:
     for secret in SECRETS:
         assert secret not in text
@@ -108,7 +124,9 @@ async def test_scaleway_stream_with_reasoning_yields_only_the_answer(settings: S
     text = "".join([part async for part in stream])
     assert text == "Capacity grew [1] in 2025."
     assert stream.usage is not None and stream.usage.tokens_out == USAGE["completion_tokens"]
-    assert recorder.bodies()[0]["reasoning_effort"] == "medium"  # thinking on (findings C26)
+    # Thinking on (findings C26); DeepSeek V4.1 takes "high", it refuses "medium".
+    assert recorder.bodies()[0]["reasoning_effort"] == "high"
+    assert stream.finish_reason == "stop"
 
 
 async def test_openrouter_stream_with_reasoning_yields_only_the_answer() -> None:
@@ -183,6 +201,71 @@ async def test_reasoning_is_stored_on_the_message(
         "SELECT reasoning FROM messages WHERE id = $1", done.message_id
     )
     assert reasoning is True
+
+
+# --- the output budget: room for reasoning, and a cut-off answer is not passed as whole ---
+
+
+@pytest.mark.parametrize(
+    ("model", "on", "budget"),
+    [
+        (DEEPSEEK, False, ANSWER_MAX_TOKENS),
+        (DEEPSEEK, True, ANSWER_MAX_TOKENS + REASONING_MAX_TOKENS),
+        (QWEN, True, ANSWER_MAX_TOKENS + REASONING_MAX_TOKENS),
+    ],
+)
+async def test_reasoning_on_gets_room_for_reasoning_tokens(
+    settings: Settings, model: str, on: bool, budget: int
+) -> None:
+    recorder = OpenAIRecorder(SCALEWAY_REASONING_STREAM)
+    stream = await router(settings, recorder).answer(
+        "System.", [], [], "Capacity?", ModelChoice(model, on)
+    )
+    [part async for part in stream]
+    assert recorder.bodies()[0]["max_tokens"] == budget
+
+
+async def test_budget_spent_on_reasoning_alone_is_an_error_not_unsupported(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    await fixed_choice(world, ModelChoice(DEEPSEEK, True))
+    orch = Orchestrator(
+        settings=settings,
+        db_factory=session_factory(engine),
+        retriever=FakeRetriever(chunks_for(world)),
+        llm=router(settings, OpenAIRecorder(REASONING_ONLY_STREAM)),
+    )
+    spent_sql = "SELECT coalesce(sum(tokens_out), 0) FROM usage_ledger WHERE tenant_id = $1"
+    before = await world.admin.fetchval(spent_sql, world.ctx.tenant_id)
+    events = [e async for e in await orch.answer(world.ctx, world.conversation_id, "Capacity?")]
+    assert isinstance(events[-1], ErrorEvent)
+    assert events[-1].error_code == "answer_cut_off"
+    assert not any(isinstance(e, DoneEvent) for e in events)
+    answers = await world.admin.fetchval(
+        "SELECT count(*) FROM messages WHERE conversation_id = $1 AND role = 'assistant'",
+        world.conversation_id,
+    )
+    assert answers == 0
+    # The tokens were spent, so they are counted.
+    after = await world.admin.fetchval(spent_sql, world.ctx.tenant_id)
+    assert after - before == USAGE["completion_tokens"]
+
+
+async def test_cut_off_answer_is_marked_truncated_and_not_cached(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    orch = Orchestrator(
+        settings=settings,
+        db_factory=session_factory(engine),
+        retriever=FakeRetriever(chunks_for(world)),
+        llm=router(settings, OpenAIRecorder(CUT_OFF_STREAM)),
+    )
+    events = [e async for e in await orch.answer(world.ctx, world.conversation_id, "Capacity?")]
+    done = events[-1]
+    assert isinstance(done, DoneEvent)
+    assert done.truncated is True
+    assert done.unsupported is False
+    assert "Capacity grew" not in json.dumps(redis.store)
 
 
 # --- badge data in the API response -------------------------------------------------------

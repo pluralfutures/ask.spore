@@ -218,7 +218,8 @@ def test_reasoning_params_per_kind() -> None:
     ("model", "on", "provider", "fields"),
     [
         ("deepseek-v4.1-flash", False, "scaleway", {"reasoning_effort": "none"}),
-        ("deepseek-v4.1-flash", True, "scaleway", {"reasoning_effort": "medium"}),
+        # DeepSeek V4.1 refuses "medium" on Scaleway (checked live, Oct 21, 2026).
+        ("deepseek-v4.1-flash", True, "scaleway", {"reasoning_effort": "high"}),
         ("qwen3.8-27b", False, "scaleway", {"reasoning_effort": "none"}),
         ("qwen3.8-27b", True, "scaleway", {"reasoning_effort": "medium"}),
         (GPT, True, "openrouter", {"reasoning": {"effort": "medium", "exclude": True}}),

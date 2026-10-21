@@ -613,6 +613,10 @@
             "title": "Tokens Out",
             "type": "integer"
           },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          },
           "unsupported": {
             "title": "Unsupported",
             "type": "boolean"
@@ -626,7 +630,8 @@
           "tokens_in",
           "tokens_out",
           "model",
-          "reasoning"
+          "reasoning",
+          "truncated"
         ],
         "title": "DoneData",
         "type": "object"

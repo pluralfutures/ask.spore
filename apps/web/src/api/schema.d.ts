@@ -920,6 +920,8 @@ export interface components {
       tokens_in: number;
       /** Tokens Out */
       tokens_out: number;
+      /** Truncated */
+      truncated: boolean;
       /** Unsupported */
       unsupported: boolean;
     };

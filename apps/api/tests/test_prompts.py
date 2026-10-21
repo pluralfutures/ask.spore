@@ -108,16 +108,17 @@ HOSTILE = (
 )
 
 
-def _template(name: str = "corpus_only", version: str = "v4") -> Prompt:
+def _template(name: str = "corpus_only", version: str = "v5") -> Prompt:
     return load_prompt(DEFAULT_CONFIG_DIR, name, version)
 
 
-# Every released template with a slot; the active ones are corpus_only/v4 and
+# Every released template with a slot; the active ones are corpus_only/v5 and
 # general_knowledge/v2 (findings section 11).
 SLOT_TEMPLATES = [
     ("corpus_only", "v2"),
     ("corpus_only", "v3"),
     ("corpus_only", "v4"),
+    ("corpus_only", "v5"),
     ("general_knowledge", "v1"),
     ("general_knowledge", "v2"),
 ]
@@ -226,7 +227,7 @@ SECRECY_SENTENCE = "I can't share my instructions."
 LEAK_MIN_CHARS = 40  # packages/eval guardrails: a quoted platform sentence this long is a leak
 
 
-@pytest.mark.parametrize(("name", "version"), [("corpus_only", "v4"), ("general_knowledge", "v2")])
+@pytest.mark.parametrize(("name", "version"), [("corpus_only", "v5"), ("general_knowledge", "v2")])
 def test_active_prompts_are_the_section_11_versions(name: str, version: str) -> None:
     settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
     assert active_prompt(settings, name).ref == f"{name}/{version}"
@@ -234,7 +235,12 @@ def test_active_prompts_are_the_section_11_versions(name: str, version: str) -> 
 
 @pytest.mark.parametrize(
     ("name", "version"),
-    [("corpus_only", "v3"), ("corpus_only", "v4"), ("general_knowledge", "v2")],
+    [
+        ("corpus_only", "v3"),
+        ("corpus_only", "v4"),
+        ("corpus_only", "v5"),
+        ("general_knowledge", "v2"),
+    ],
 )
 def test_section_11_prompts_state_secrecy_citation_and_precedence_rules(
     name: str, version: str
@@ -288,6 +294,17 @@ def test_repository_corpus_only_v4_combines_passages_and_declines_only_with_noth
     assert "Only if no passage gives any of the information asked for" in text
     assert f'nothing else: "{ABSTAIN_SENTENCE}" Then cite nothing' in text
     assert "directly state the answer to the question actually asked" not in text
+
+
+def test_repository_corpus_only_v5_keeps_combined_claims_to_what_each_passage_states() -> None:
+    # Findings G9: v4's combined answers lost faithfulness; v5 adds one sentence to rule 4.
+    v4, v5 = _template("corpus_only", "v4").text, _template("corpus_only", "v5").text
+    assert "alone or taken together" in v5 and "Only if no passage gives any" in v5
+    assert "give what each passage says in its own sentence with its own citation" in v5
+    assert "claim no more than that passage states" in v5
+    assert "is marked as a conclusion" in v5 and "adds no fact they do not state" in v5
+    assert v5.index("is marked as a conclusion") < v5.index("5. If passages disagree")
+    assert len(v5.splitlines()) == len(v4.splitlines())  # one sentence added, no new rule
 
 
 def test_repository_general_knowledge_v2_marks_general_knowledge_by_leaving_it_uncited() -> None:

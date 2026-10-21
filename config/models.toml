@@ -27,7 +27,7 @@ external_hosts = [
 # "phase0": the shared bearer token plus X-User-Email (P0-06), kept so the eval harness
 # keeps working; needs PHASE0_BEARER_TOKEN. "oidc": Authentik sign-in links (P1a-02);
 # needs AUTHENTIK_CLIENT_SECRET and AUTHENTIK_API_TOKEN. The Instance runs one or the other.
-mode = "phase0"
+mode = "oidc"
 link_ttl_seconds = 900     # single-use sign-in links expire after 15 minutes at most
 links_per_window = 5       # per user per link lifetime; further requests send nothing
 
@@ -105,6 +105,12 @@ id = "deepseek-v4.1-flash"
 provider = "scaleway"
 display_name = "DeepSeek V4.1 Flash"
 reasoning = "thinking"
+# Reasoning off only (owner decision, Oct 21, 2026): off still sends reasoning_effort
+# "none", which DeepSeek needs, but users cannot turn it on. Its reasoning length was
+# unbounded on real questions at every effort Scaleway accepts (findings section 10).
+reasoning_on_offered = false
+# Scaleway refuses "medium" for DeepSeek V4.1 (low, high, xhigh, max; checked Oct 21, 2026).
+reasoning_effort_on = "high"
 currency = "EUR"
 price_in_cents_per_mtok = 60  # EUR 0.60; owner, Oct 19, 2026
 price_out_cents_per_mtok = 180  # EUR 1.80; owner, Oct 19, 2026
@@ -160,8 +166,8 @@ embedding_model = "BAAI/bge-m3@Builtin"
 [prompts]
 # Active versions of config/prompts/<name>/<version>.md. Changing a prompt means a
 # new version file and an eval run (CLAUDE.md); never edit a released version.
-corpus_only = "v3"   # P1a-06: findings section 10, eval gate of Oct 21, 2026
-general_knowledge = "v2"   # P1a-06: the general-knowledge answer mode; findings section 10
+corpus_only = "v3"   # P1a-06: findings section 11, eval gate of Oct 21, 2026
+general_knowledge = "v2"   # P1a-06: the general-knowledge answer mode; findings section 11
 rewrite = "v1"
 # Faithfulness judge of the eval harness (packages/eval, P0-18); the API does not use it.
 judge = "v1"

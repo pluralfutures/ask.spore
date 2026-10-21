@@ -5,7 +5,8 @@
 | `compose.dev.yml` | Local stack: Postgres 16, Redis 7, API, web dev server, and RAGFlow (included from `ragflow/`) |
 | `ragflow/` | Pinned RAGFlow Compose, `VERSION`, `.env.example`; see its README for differences from upstream |
 | `authentik/` | Pinned Authentik Compose (P1a-02, profile `auth`), sign-in email template, `.env.example`; see its README for differences from upstream and the configuration the API relies on |
-| `caddy/`, `monitoring/` | Phase 1+ |
+| `caddy/` | Caddyfile for the one public host with TLS (Phase 1a release, profile `public`); see its README |
+| `monitoring/` | Phase 1+ |
 
 ## Local stack
 
@@ -27,7 +28,7 @@ Sign-in links (P1a-02) need the `auth` profile and `[auth] mode = "oidc"` in
 `config/models.toml`; `mode = "phase0"` keeps the Phase 0 bearer token for the eval
 harness. See `authentik/README.md`.
 
-All host ports bind to `127.0.0.1`. RAGFlow's Elasticsearch, MySQL, MinIO, Redis, TEI
+All host ports bind to `127.0.0.1`, except Caddy's 80 and 443 (profile `public`, `up -d caddy`). RAGFlow's Elasticsearch, MySQL, MinIO, Redis, TEI
 and HTTP API (`9380`) publish nothing; the API container reaches RAGFlow at
 `http://ragflow:9380` on the `ragflow` network.
 

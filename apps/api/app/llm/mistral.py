@@ -35,7 +35,10 @@ from app.core.config import MistralConfig
 Role = Literal["user", "assistant"]
 
 ANSWER_TEMPERATURE = 0.2
-ANSWER_MAX_TOKENS = 1500
+ANSWER_MAX_TOKENS = 1800  # +20% from 1500, owner decision Oct 21, 2026
+# Added to the answer's budget when reasoning is on: hidden reasoning tokens count
+# against max_tokens, and in the release test 1500 went to reasoning alone.
+REASONING_MAX_TOKENS = 6000
 REWRITE_TEMPERATURE = 0.0
 REWRITE_MAX_TOKENS = 128
 MAX_REWRITE_LENGTH = 500
@@ -200,13 +203,20 @@ def _is_5xx(exc: Exception) -> bool:
     return isinstance(exc, MistralError) and exc.status_code >= 500
 
 
+def answer_max_tokens(reasoning_on: bool) -> int:
+    """The answer's output budget, with room for hidden reasoning when it is on."""
+    return ANSWER_MAX_TOKENS + (REASONING_MAX_TOKENS if reasoning_on else 0)
+
+
 class AnswerStream:
-    """Async iterator of answer text deltas; ``usage`` is set when the stream ends."""
+    """Async iterator of answer text deltas; ``usage`` and ``finish_reason`` are set when
+    the stream ends (``"length"``: the output budget ran out)."""
 
     def __init__(self, events: Any, model: str) -> None:
         self._events = events
         self.model = model
         self.usage: Usage | None = None
+        self.finish_reason: str | None = None
 
     def __aiter__(self) -> AsyncIterator[str]:
         return self._deltas()
@@ -219,6 +229,8 @@ class AnswerStream:
                     if chunk.usage is not None:
                         self.usage = _usage(chunk.usage)
                     for choice in chunk.choices:
+                        if choice.finish_reason:
+                            self.finish_reason = str(choice.finish_reason)
                         delta = _text(choice.delta.content)
                         if delta:
                             yield delta
@@ -319,6 +331,7 @@ class MistralClient:
         *,
         model: str | None = None,
         reasoning: Mapping[str, Any] | None = None,
+        max_tokens: int = ANSWER_MAX_TOKENS,
     ) -> AnswerStream:
         """Open a streamed answer. Retries once if the stream fails to open with a 5xx.
 
@@ -335,7 +348,7 @@ class MistralClient:
                     model=model,
                     messages=messages,  # type: ignore[arg-type]
                     temperature=ANSWER_TEMPERATURE,
-                    max_tokens=ANSWER_MAX_TOKENS,
+                    max_tokens=max_tokens,
                 )
                 return AnswerStream(events, model)
             except (MistralError, httpx.HTTPError) as exc:

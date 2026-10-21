@@ -170,6 +170,7 @@ async def test_uses_configured_endpoint_models_and_reasoning_off(
     assert {b["reasoning_effort"] for b in bodies} == {"none"}
     assert bodies[1]["stream"] is True
     assert bodies[1]["stream_options"] == {"include_usage": True}
+    assert bodies[1]["max_tokens"] == 1800  # owner decision Oct 21, 2026
     assert recorder.requests[0].headers["authorization"] == f"Bearer {API_KEY}"
 
 

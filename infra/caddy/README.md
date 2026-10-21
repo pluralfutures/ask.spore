@@ -1,7 +1,29 @@
 # infra/caddy
 
-Phase 1+. Not used in Phase 0 (see design/specs/phase-0-build-spec.md, "Not in this phase").
+Phase 1a release: one host, `askspore.myceliumgastronomy.com`, with TLS (release
+runbook section 3). Not used in Phase 0.
 
-When Caddy is configured (Phase 1a, one host with TLS): do not enable request logging of
-paths under `/api/v1/files/`, which carry single-use download tokens (P1a-14), or log
-paths without them. Caddy's default is no access log.
+```
+docker compose -f infra/compose.dev.yml up -d caddy
+```
+
+`caddy` and the one-shot `web-build` are in the Compose profile `public`; naming `caddy`
+starts both. `web-build` builds `apps/web/Dockerfile` and copies `dist/` into the
+`web_dist` volume, which Caddy serves read-only. After a web change, run
+`up -d --build web-build`; Caddy reads files per request, so it needs no restart.
+
+| Path | Goes to |
+| --- | --- |
+| `/api/*`, `/healthz` | `api:8000` |
+| everything else, including `/auth/finish` | the production web build; unknown paths fall back to `index.html` (client-side routes) |
+
+- Certificates: automatic from Let's Encrypt, account email the operator's, stored in the
+  `caddy_data` volume. Ports 80 and 443 (TCP, and UDP for HTTP/3) are the only ports in
+  the stack published on all interfaces.
+- Headers: HSTS (one year), `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy:
+  no-referrer`, a restrictive `Permissions-Policy`, and a CSP allowing only `'self'` (the
+  build has no inline scripts or styles). The `Server` header is removed.
+- No access log: paths under `/api/v1/files/` carry single-use download tokens (P1a-14).
+  Caddy writes no access log unless a `log` directive is present; do not add one. The API
+  runs with `--no-access-log` for the same reason.
+- The admin endpoint is off (`admin off`), so a Caddyfile change needs `restart caddy`.

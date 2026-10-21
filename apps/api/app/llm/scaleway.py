@@ -89,7 +89,8 @@ _ERRORS = (openai.APIError, httpx2.HTTPError)
 
 
 class AnswerStream:
-    """Async iterator of answer text deltas; ``usage`` is set when the stream ends.
+    """Async iterator of answer text deltas; ``usage`` and ``finish_reason`` are set when
+    the stream ends (``"length"``: the output budget ran out).
 
     Shared with ``app.llm.openrouter``, which has no client-side throttle (``bucket``).
     """
@@ -100,6 +101,7 @@ class AnswerStream:
         self._events = events
         self.model = model
         self.usage: Usage | None = None
+        self.finish_reason: str | None = None
         self._bucket = bucket
         self._reserved = reserved
 
@@ -117,6 +119,8 @@ class AnswerStream:
                     if chunk.usage is not None:
                         self.usage = _usage(chunk.usage)
                     for choice in chunk.choices:
+                        if choice.finish_reason:
+                            self.finish_reason = choice.finish_reason
                         delta = choice.delta.content if choice.delta else None
                         text = thinking.feed(delta) if delta else ""
                         if text:
@@ -241,13 +245,15 @@ class ScalewayClient:
         *,
         model: str | None = None,
         reasoning: Mapping[str, Any] | None = None,
+        max_tokens: int = ANSWER_MAX_TOKENS,
     ) -> AnswerStream:
         """Open a streamed answer. Retries once if the stream fails to open with a 5xx.
 
-        ``model`` and ``reasoning`` come from the conversation's model choice
-        (``app.llm.factory.LLMRouter``, P1a-10, P1a-11): a pinned Scaleway model and the
-        request fields of its reasoning switch (``app.llm.reasoning``). Without them the
-        configured ``chat_model`` and ``reasoning_effort`` are used, as in Phase 0.
+        ``model``, ``reasoning`` and ``max_tokens`` come from the conversation's model
+        choice (``app.llm.factory.LLMRouter``, P1a-10, P1a-11): a pinned Scaleway model,
+        the request fields of its reasoning switch (``app.llm.reasoning``) and the output
+        budget for that switch. Without them the configured ``chat_model`` and
+        ``reasoning_effort`` are used, as in Phase 0.
         """
         messages = answer_messages(system, context_chunks, history, question)
         model = model or self._config.chat_model
@@ -257,7 +263,7 @@ class ScalewayClient:
             else dict(reasoning)
         )
         reserved = await self._bucket.acquire(
-            estimate_tokens([m["content"] for m in messages], ANSWER_MAX_TOKENS)
+            estimate_tokens([m["content"] for m in messages], max_tokens)
         )
         for attempt in range(RETRIES_ON_5XX + 1):
             try:
@@ -265,7 +271,7 @@ class ScalewayClient:
                     model=model,
                     messages=messages,
                     temperature=ANSWER_TEMPERATURE,
-                    max_tokens=ANSWER_MAX_TOKENS,
+                    max_tokens=max_tokens,
                     stream=True,
                     stream_options={"include_usage": True},
                     extra_body=params or None,

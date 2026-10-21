@@ -177,6 +177,8 @@ class DoneData(BaseModel):
     # Badge data (P1a-11): the conversation's model and its reasoning switch.
     model: str | None
     reasoning: bool
+    # The answer stopped at the output budget and is shown as cut off.
+    truncated: bool
 
 
 class ErrorData(BaseModel):

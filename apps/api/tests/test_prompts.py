@@ -113,7 +113,7 @@ def _template(name: str = "corpus_only", version: str = "v3") -> Prompt:
 
 
 # Every released template with a slot; the active ones are corpus_only/v3 and
-# general_knowledge/v2 (findings section 10).
+# general_knowledge/v2 (findings section 11).
 SLOT_TEMPLATES = [
     ("corpus_only", "v2"),
     ("corpus_only", "v3"),

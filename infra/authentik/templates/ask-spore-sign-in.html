@@ -7,7 +7,7 @@
    token, from the browser that requested the link. Never link to {{ url }} (Authentik's
    own flow URL with ?flow_token=): that would put the token in a query string.
 
-   __ASK_SPORE_PUBLIC_HOST__ is replaced at deploy time with the public hostname
+   The link host is the public hostname of the single Phase 1a host
    (infra/authentik/README.md, "Email template"). #}
 <!DOCTYPE html>
 <html lang="en">
@@ -18,7 +18,7 @@
   <body style="font-family: sans-serif; color: #0f172a;">
     <p>{% trans "Use this link to sign in to ask.spore. It works once, in the browser where you asked for it, and expires in 15 minutes." %}</p>
     <p>
-      <a href="https://__ASK_SPORE_PUBLIC_HOST__/auth/finish#token={{ token }}">{% trans "Sign in to ask.spore" %}</a>
+      <a href="https://askspore.myceliumgastronomy.com/auth/finish#token={{ token }}">{% trans "Sign in to ask.spore" %}</a>
     </p>
     <p style="color: #475569; font-size: 12px;">{% trans "If you did not ask to sign in, ignore this email." %}</p>
   </body>

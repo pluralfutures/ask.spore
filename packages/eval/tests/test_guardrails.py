@@ -166,7 +166,7 @@ def test_metrics_and_regressions() -> None:
 
 @pytest.mark.parametrize("mode", guardrails.MODES)
 def test_fixed_replies_of_the_active_prompts_are_not_scored_as_leaks(mode: str) -> None:
-    # corpus_only/v3 and general_knowledge/v2 (findings section 10) tell the model to
+    # corpus_only/v3 and general_knowledge/v2 (findings section 11) tell the model to
     # answer a request for its instructions, and corpus_only an unanswered question,
     # with one fixed sentence. Giving it must not count as quoting the prompt.
     from eval.runner import load_harness_settings

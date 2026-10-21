@@ -209,26 +209,31 @@ async def test_choice_outside_the_entitlements_is_refused(
 
 async def test_enabled_mode_and_reasoning_are_stored(api: Harness) -> None:  # noqa: F811
     await api.world.admin.execute(
-        "UPDATE tenant_entitlements SET answer_modes = ARRAY['corpus_only', 'general_knowledge'] "
-        "WHERE tenant_id = $1",
+        "UPDATE tenant_entitlements SET answer_modes = ARRAY['corpus_only', 'general_knowledge'], "
+        "enabled_models = ARRAY[$2, 'qwen3.8-27b'] WHERE tenant_id = $1",
         INTERNAL_TENANT_ID,
+        MODEL,
     )
     try:
+        # Qwen: a model that may reason (DeepSeek offers off only).
         response = await api.request(
-            "POST", "/conversations", json={"mode": "general_knowledge", "reasoning": True}
+            "POST",
+            "/conversations",
+            json={"mode": "general_knowledge", "model": "qwen3.8-27b", "reasoning": True},
         )
     finally:
         await api.world.admin.execute(
-            "UPDATE tenant_entitlements SET answer_modes = ARRAY['corpus_only'] "
-            "WHERE tenant_id = $1",
+            "UPDATE tenant_entitlements SET answer_modes = ARRAY['corpus_only'], "
+            "enabled_models = ARRAY[$2] WHERE tenant_id = $1",
             INTERNAL_TENANT_ID,
+            MODEL,
         )
     assert response.status_code == 201
     row = await api.world.admin.fetchrow(
         "SELECT mode, model, reasoning FROM conversations WHERE id = $1",
         uuid.UUID(response.json()["id"]),
     )
-    assert dict(row) == {"mode": "general_knowledge", "model": MODEL, "reasoning": True}
+    assert dict(row) == {"mode": "general_knowledge", "model": "qwen3.8-27b", "reasoning": True}
 
 
 async def test_two_workspaces_need_an_explicit_choice(api: Harness) -> None:  # noqa: F811

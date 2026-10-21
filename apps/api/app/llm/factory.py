@@ -25,6 +25,7 @@ from app.llm.mistral import (
     RewriteResult,
     Statement,
     Turn,
+    answer_max_tokens,
 )
 from app.llm.openrouter import OpenRouterClient
 from app.llm.reasoning import reasoning_params
@@ -115,9 +116,10 @@ class LLMRouter:
         model = catalogue.entry(self._settings, choice.model)
         if model is None or not self.serves(model):
             raise LLMError("model_unavailable")
-        if choice.reasoning and model.reasoning == "none":
+        if choice.reasoning and not model.can_reason:
             raise LLMError("reasoning_unsupported")
-        params = reasoning_params(model.reasoning, choice.reasoning)
+        params = reasoning_params(model.reasoning, choice.reasoning, model.reasoning_effort_on)
+        max_tokens = answer_max_tokens(choice.reasoning)
         if model.provider == "openrouter" and self._openrouter is not None:
             return await self._openrouter.answer(
                 system,
@@ -128,7 +130,14 @@ class LLMRouter:
                 reasoning=params,
                 provider_order=model.provider_order,
                 provider_only=model.provider_only,
+                max_tokens=max_tokens,
             )
         return await self._default.answer(
-            system, context_chunks, history, question, model=model.id, reasoning=params
+            system,
+            context_chunks,
+            history,
+            question,
+            model=model.id,
+            reasoning=params,
+            max_tokens=max_tokens,
         )

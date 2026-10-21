@@ -113,6 +113,8 @@ class DoneEvent:
     # Badge data (P1a-11): the conversation's model and its reasoning switch.
     model: str | None = None
     reasoning: bool = False
+    # The answer stopped at the output budget (finish reason "length"): shown as cut off.
+    truncated: bool = False
 
 
 @dataclass(frozen=True)
@@ -425,23 +427,36 @@ class Orchestrator:
 
         # 8. Citation mapping.
         answer = "".join(parts)
+        truncated = stream.finish_reason == "length"
+        if truncated and not answer.strip():
+            # The whole budget went to hidden reasoning: no answer, not an unsupported one.
+            # The tokens were still spent, so they count towards usage and the spend cap.
+            async with tenant_session(self._db, run.ctx.tenant_id) as session:
+                await record_usage(
+                    session, self._settings, run.ctx.tenant_id, run.usage, run.auth.entitlement
+                )
+            async for event in self._fail(run, "answer_cut_off"):
+                yield event
+            return
         citations = [_citation(n, context[n - 1]) for n in markers.cited]
         # An uncited general-knowledge answer is expected, not unsupported (architecture §5.1).
         outcome: Outcome = "answered" if citations or general else "unsupported"
         yield CitationsEvent(citations)
 
         # 9. Cache, then persist and audit (cached first: the client may leave after done).
-        await self._cache_set(
-            run.ctx.tenant_id,
-            key,
-            {
-                "answer": answer,
-                "outcome": outcome,
-                "model": run.model,
-                "citations": [asdict(c) for c in citations],
-            },
-        )
-        async for event in self._finish(run, answer, citations, outcome):
+        # A cut-off answer is not cached, so asking again gets a fresh one.
+        if not truncated:
+            await self._cache_set(
+                run.ctx.tenant_id,
+                key,
+                {
+                    "answer": answer,
+                    "outcome": outcome,
+                    "model": run.model,
+                    "citations": [asdict(c) for c in citations],
+                },
+            )
+        async for event in self._finish(run, answer, citations, outcome, truncated=truncated):
             yield event
 
     async def _abstain(self, run: _Run) -> AsyncIterator[ChatEvent]:
@@ -451,7 +466,13 @@ class Orchestrator:
             yield event
 
     async def _finish(
-        self, run: _Run, answer: str, citations: Sequence[CitationOut], outcome: Outcome
+        self,
+        run: _Run,
+        answer: str,
+        citations: Sequence[CitationOut],
+        outcome: Outcome,
+        *,
+        truncated: bool = False,
     ) -> AsyncIterator[ChatEvent]:
         message_id = uuid.uuid4()
         latency = run.latency_ms()
@@ -476,6 +497,7 @@ class Orchestrator:
             model=run.model,
             status=outcome,
             chunk_count=run.context,
+            error_code="answer_truncated" if truncated else None,
         )
         yield DoneEvent(
             message_id=message_id,
@@ -486,6 +508,7 @@ class Orchestrator:
             tokens_out=run.tokens_out,
             model=run.model or run.conversation.model,
             reasoning=run.conversation.reasoning,
+            truncated=truncated,
         )
 
     async def _persist(

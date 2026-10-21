@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 
 import asyncpg
@@ -32,7 +32,11 @@ USAGE = {"prompt_tokens": 900, "completion_tokens": 40}
 
 @pytest.fixture(scope="module")
 def settings() -> Settings:
-    return load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
+    # These tests authenticate with the Phase 0 bearer token, whatever auth mode the
+    # repository config runs the Instance in (oidc since the Phase 1a release).
+    real = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
+    auth = real.models.auth.model_copy(update={"mode": "phase0"})
+    return replace(real, models=real.models.model_copy(update={"auth": auth}))
 
 
 @pytest.fixture

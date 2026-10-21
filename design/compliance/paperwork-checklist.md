@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Status | **DRAFT** — nothing below is done yet |
+| Status | **DRAFT**: item 6 confirmed (Oct 20, 2026), item 9 done (Oct 21, 2026); everything else open |
 | Date | Oct 19, 2026 |
 | Author | Drafted for owner review (spec item P1a-15) |
 | To finalise, the owner must | Work each line to "done", fill in the evidence location and date, and only then enable the external-models entitlement for any tenant in the operator console. The gate is a process rule; no code enforces it (findings A13). |
@@ -21,9 +21,9 @@ Evidence is metadata and contracts only: no real queries, no secrets, no client 
 | 6 | GDPR roles position confirmed (processor for client user data, controller for corpus and own logs) | Owner | Confirmed Oct 20, 2026 | Decision recorded in the compliance guide addendum |
 | 7 | Client DPA reviewed by counsel and signed by [Client], including Annex 4 (acceptance of external models, spend cap EUR 30/month) | Owner, counsel | Drafted (`client-dpa-draft.md`) | Signed copy in [document store]/clients/[Client]/; reference and date entered in the operator console (stored on the entitlement and in the audit event) |
 | 8 | Sub-processor list final and given to [Client] with the DPA | Owner | Drafted (`sub-processors.md`) | `design/compliance/sub-processors.md` |
-| 9 | Qwen reasoning switch confirmed with one real call on Scaleway (`reasoning_effort` `"none"` and `"medium"`, findings C26) | Engineering | Open | `design/specs/phase-1a-findings.md` (new row; usage metadata only) |
-| 10 | `anthropic/claude-opus-5.5` confirmed with one real call through `eu.openrouter.ai` with the production request shape (pin, `allow_fallbacks: false`, `zdr: true`, `data_collection: "deny"`); serving provider recorded | Engineering | Open | Same; can be the same call as item 4 |
-| 11 | `openai/gpt-6.1-sol` confirmed the same way | Engineering | Open | Same |
+| 9 | Qwen reasoning switch confirmed with one real call on Scaleway (`reasoning_effort` `"none"` and `"medium"`, findings C26) | Engineering | **Done** Oct 21, 2026: `none` and `medium` both answer on Scaleway; reasoning hidden | `design/specs/phase-1a-findings.md` §10, row F8 (usage metadata only) |
+| 10 | `anthropic/claude-opus-5.5` confirmed with one real call through `eu.openrouter.ai` with the production request shape (pin, `allow_fallbacks: false`, `zdr: true`, `data_collection: "deny"`); serving provider recorded | Engineering | Open, **deferred** by owner decision Oct 21, 2026 (findings §10); external entitlement never granted | Same; can be the same call as item 4 |
+| 11 | `openai/gpt-6.1-sol` confirmed the same way | Engineering | Open, **deferred** by owner decision Oct 21, 2026 (findings §10) | Same |
 | 12 | Spend cap of EUR 30.00 (3,000 cents) set for [Client] in the operator console when enabling | Operator | Open (after 1 to 11) | Audit event `operator.entitlements_changed` |
 | 13 | Email: sending domain verified in Scaleway Transactional Email (fr-par; SPF, DKIM, MX, DMARC), quota checked, covered by item 2. Mailgun EU backup: DPA with SCCs accepted and filed, EU region, tracking off, **before** the backup is ever switched on (owner decision Oct 20, 2026) | Owner | Open | [document store]/vendors/scaleway/ and /vendors/mailgun/; reference in `sub-processors.md` |
 

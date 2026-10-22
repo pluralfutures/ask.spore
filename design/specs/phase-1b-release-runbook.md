@@ -60,11 +60,10 @@ marked "default" run with the stated value unless the owner says otherwise.
 9. **SSO test identity providers** (owner, Oct 22, 2026):
    - **Entra ID**: trial tenant `myceliumtest001.onmicrosoft.com`; the test user is on that
      domain. Admin-group mapping not tested unless the owner adds a group.
-   - **Google Workspace**: domain `myceliumgastronomy.com`. That domain is a verified domain
-     of `cc` (test phase only) and a domain may belong to one tenant at a time, so for the
-     Google drill the operator removes it from `cc`, adds it to `ssotest`, runs the drill,
-     and reverses both (all four changes audited). The `cc` test admin's sign-in links
-     are unavailable during that window.
+   - **Google Workspace**: domain `pluralfutures.com` (owner, Oct 22, 2026), verified for
+     `ssotest`; the test user is on it. A Workspace user on `myceliumgastronomy.com` is the
+     unverified-domain case: that domain is verified for `cc`, so the refusal also proves
+     that a Google sign-in never lands in another tenant. No change to `cc`.
    - **Generic OIDC**: the owner has no provider; use a **throwaway Keycloak** on the
      Instance as the IdP, on the test host `idp-test.askspore.myceliumgastronomy.com`
      (owner adds the A record to the Instance's IPv4; Caddy issues the certificate). A

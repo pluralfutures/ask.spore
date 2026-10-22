@@ -16,17 +16,27 @@ and nothing here takes a tenant ID from the request.
 - Login policy (P1b-07): the tenant's sign-in methods and SSO source, read-only.
 - Retention: shorten chat-history retention to between 1 and 30 days
   (``app.tenancy.retention``); never above 30 (CLAUDE.md).
+- Audit log (architecture §7.2, P1b-10): a CSV download of the tenant's sign-in, admin,
+  operator and consent events (``EXPORTED_EVENTS``), metadata only as recorded. Query,
+  feedback and download events and the operator-only tenant-name flags are not in it.
+
+Every route is also behind the consent gate (``app.consent.gate``, P1b-10).
 
 Every change writes an audit event with the values before and after.
 """
 
 from __future__ import annotations
 
+import csv
+import io
+import json
 import uuid
+from datetime import UTC, date, datetime, time, timedelta
+from typing import Any, Final
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session, require_tenant_admin
@@ -41,10 +51,12 @@ from app.api.schemas import (
     WorkspaceDefaultsIn,
     WorkspaceOut,
 )
+from app.audit.models import AuditEvent
 from app.audit.writer import Change, record
 from app.auth.links import normalise_email
 from app.auth.provider import ProviderError, SignInLinkProvider
 from app.chat.selection import load_entitlement
+from app.consent.gate import require_consent
 from app.core.db import AUTH_ROLE, role_session
 from app.core.logging import log
 from app.llm.catalogue import ModelChoice
@@ -59,7 +71,11 @@ from app.tenancy.workspaces import Workspace
 NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, detail="not_found")
 
 
-router = APIRouter(prefix="/api/v1/admin", dependencies=[Depends(require_tenant_admin)])
+# P1b-10: tenant admin pages are gated like conversations, after the role check.
+router = APIRouter(
+    prefix="/api/v1/admin",
+    dependencies=[Depends(require_tenant_admin), Depends(require_consent)],
+)
 
 
 def _unprocessable(code: str) -> HTTPException:
@@ -292,6 +308,88 @@ async def _settings_out(session: AsyncSession, tenant_id: UUID) -> TenantSetting
         retention_days=await retention_days(session),
         max_retention_days=MAX_RETENTION_DAYS,
         answer_modes=list(entitlements.answer_modes) if entitlements else ["corpus_only"],
+    )
+
+
+# Event name prefixes (ending in ".") and exact names in the tenant admin's export.
+EXPORTED_EVENTS: Final[tuple[str, ...]] = (
+    "auth.",
+    "tenant_admin.",
+    "operator.",
+    "consent.",
+    "workspace.prompt_saved",
+)
+MAX_EXPORT_ROWS: Final = 10_000
+DEFAULT_EXPORT_DAYS: Final = 90
+EXPORT_COLUMNS: Final = ("created_at", "event", "actor_user_id", "metadata")
+
+
+def _exported(column: Any) -> Any:
+    return or_(
+        *(
+            column.startswith(name, autoescape=True) if name.endswith(".") else column == name
+            for name in EXPORTED_EVENTS
+        )
+    )
+
+
+@router.get(
+    "/audit-log",
+    response_class=Response,
+    responses={200: {"content": {"text/csv": {}}, "description": "the tenant's audit events"}},
+)
+async def export_audit_log(
+    since: date | None = None,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> Response:
+    """The tenant's audit events since ``since`` (default 90 days), oldest first, as CSV."""
+    start = since or (datetime.now(UTC).date() - timedelta(days=DEFAULT_EXPORT_DAYS))
+    rows = (
+        await session.execute(
+            select(
+                AuditEvent.created_at,
+                AuditEvent.event,
+                AuditEvent.actor_user_id,
+                AuditEvent.metadata_,
+            )
+            .where(
+                AuditEvent.tenant_id == admin.tenant_id,
+                AuditEvent.created_at >= datetime.combine(start, time.min, UTC),
+                _exported(AuditEvent.event),
+            )
+            .order_by(AuditEvent.created_at, AuditEvent.id)
+            .limit(MAX_EXPORT_ROWS)
+        )
+    ).all()
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(EXPORT_COLUMNS)
+    for row in rows:
+        writer.writerow(
+            [
+                row.created_at.isoformat(),
+                row.event,
+                "" if row.actor_user_id is None else str(row.actor_user_id),
+                json.dumps(row.metadata_, sort_keys=True, default=str),
+            ]
+        )
+    await record(
+        session,
+        tenant_id=admin.tenant_id,
+        actor_user_id=admin.user_id,
+        event="tenant_admin.audit_exported",
+        metadata={"count": len(rows)},
+    )
+    log("tenant_admin.audit_exported", tenant_id=str(admin.tenant_id), count=len(rows))
+    await session.commit()
+    return Response(
+        out.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": 'attachment; filename="audit-log.csv"',
+            "Cache-Control": "no-store",
+        },
     )
 
 

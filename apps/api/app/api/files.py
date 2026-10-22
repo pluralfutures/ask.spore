@@ -24,13 +24,15 @@ from app.api.schemas import (
     WorkspaceSiteOut,
 )
 from app.audit.writer import record
+from app.consent.gate import require_consent
 from app.content import store
 from app.content.ingest import SUFFIX_BY_TYPE, TYPE_BY_MEDIA_TYPE
 from app.core.db import tenant_session
 from app.core.logging import log
 from app.files.service import FileRefused, is_downloadable, issue_link, redeem, workspace_files
 
-router = APIRouter(prefix="/api/v1")
+# P1b-10: file lists and downloads need the active notice accepted.
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_consent)])
 
 FILES_PATH = "/api/v1/files/"
 MEDIA_TYPES = {kind: media for media, kind in TYPE_BY_MEDIA_TYPE.items()}

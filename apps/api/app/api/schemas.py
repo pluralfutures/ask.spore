@@ -281,6 +281,28 @@ class MeOut(BaseModel):
     tenant_display_name: str
     # P1b-08: the session's access token expiry (OIDC mode); renew before it.
     session_expires_at: datetime | None = None
+    # P1b-10: true until the user accepts the active use and privacy notice.
+    consent_required: bool = False
+
+
+class ConsentNoticeOut(BaseModel):
+    """The active use and privacy notice (P1b-10): Markdown, from the owner's file."""
+
+    version: str
+    title: str
+    summary: str
+    text: str
+    accepted_version: str | None
+    accepted_at: datetime | None
+    required: bool
+
+
+class ConsentAcceptIn(BaseModel):
+    """The notice version the user read and accepts; must be the active one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: str = Field(pattern=r"^v[1-9][0-9]*$")
 
 
 class ModelOptionOut(BaseModel):

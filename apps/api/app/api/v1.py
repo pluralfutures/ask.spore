@@ -62,6 +62,7 @@ from app.chat.orchestrator import (
     TokenEvent,
 )
 from app.chat.selection import choose_for_new_conversation, load_entitlement
+from app.consent.gate import active_version, require_consent
 from app.content.models import Source
 from app.core.logging import log
 from app.llm import catalogue
@@ -80,7 +81,8 @@ from app.tenancy.workspaces import (
     tenant_tags,
 )
 
-router = APIRouter(prefix="/api/v1")
+# P1b-10: every route here but /healthz and /me needs the active notice accepted.
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_consent)])
 
 NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, detail="not_found")
 NAME_MATCH_NOTICE = "workspace_prompt.tenant_name_match"
@@ -115,7 +117,13 @@ async def me(request: Request, session: AsyncSession = Depends(db_session)) -> M
     """The signed-in user, from the request context (P1a-02)."""
     row = (
         await session.execute(
-            select(User.email, User.display_name, User.role, Tenant.display_name.label("tenant"))
+            select(
+                User.email,
+                User.display_name,
+                User.role,
+                User.consent_version,
+                Tenant.display_name.label("tenant"),
+            )
             .join(Tenant, Tenant.id == User.tenant_id)
             .where(User.id == current_user_id(request))
         )
@@ -128,6 +136,8 @@ async def me(request: Request, session: AsyncSession = Depends(db_session)) -> M
         tenant_display_name=row.tenant,
         # P1b-08: when the access token expires; the web app renews the session before.
         session_expires_at=identity.expires_at if isinstance(identity, Identity) else None,
+        # P1b-10: the web app shows the notice until the active version is accepted.
+        consent_required=row.consent_version != active_version(request),
     )
 
 

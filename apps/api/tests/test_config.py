@@ -26,6 +26,9 @@ general_knowledge = "v1"
 rewrite = "v1"
 judge = "v1"
 
+[consent]
+version = "v1"
+
 [chat]
 history_messages = 6
 history_max_tokens = 2000
@@ -67,12 +70,20 @@ ENV = {
 }
 
 
+SYNTHETIC_NOTICE = (
+    "# Synthetic notice\n\n## Summary\n\nSynthetic summary.\n\n"
+    "## Full notice\n\nSynthetic notice text.\n"
+)
+
+
 def write_config(tmp_path: Path, text: str = VALID_TOML, *, prompts: bool = True) -> Path:
     (tmp_path / "models.toml").write_text(text, encoding="utf-8")
     if prompts:
         for name in ("corpus_only", "general_knowledge", "rewrite", "judge"):
             (tmp_path / "prompts" / name).mkdir(parents=True, exist_ok=True)
             (tmp_path / "prompts" / name / "v1.md").write_text("Synthetic prompt.\n")
+        (tmp_path / "consent").mkdir(exist_ok=True)
+        (tmp_path / "consent" / "v1.md").write_text(SYNTHETIC_NOTICE, encoding="utf-8")
     return tmp_path
 
 

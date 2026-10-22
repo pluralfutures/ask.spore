@@ -33,6 +33,18 @@ async def enqueue_invitation(
     )
 
 
+async def enqueue_consent_notice(session: AsyncSession, *, tenant_id: UUID, user_id: UUID) -> UUID:
+    """The consent notice email for a user who accepted an earlier notice version
+    (P1b-10, ``app.consent.notices``)."""
+    return await enqueue(
+        session,
+        "send_mail",
+        {"template": "consent_notice", "tenant_id": str(tenant_id), "user_id": str(user_id)},
+        created_by=None,
+        max_attempts=MAIL_MAX_ATTEMPTS,
+    )
+
+
 async def enqueue_operator_notice(session: AsyncSession, *, template: str, notice_id: UUID) -> UUID:
     """An operator notice's email. The worker sends it to every operator: this job fans
     out into one job per operator when it runs."""

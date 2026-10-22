@@ -21,7 +21,7 @@ from app.core.db import session_factory
 from app.tenancy.context import resolve_user
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.chat_fixtures import World, chunks_for
-from tests.conftest import CONVERSATION_COLUMNS, CONVERSATION_DEFAULTS
+from tests.conftest import CONSENT_VERSION, CONVERSATION_COLUMNS, CONVERSATION_DEFAULTS
 from tests.fakes import FakeRedis, FakeRetriever, router
 from tests.fakes import OpenAIRecorder as Recorder
 
@@ -42,6 +42,7 @@ async def make_tenant(
     user_status: str = "active",
     role: str = "user",
     domain: str = "client.example",
+    consent_version: str | None = CONSENT_VERSION,
 ) -> Tenant:
     """A tenant with one user, an entitlements row and one workspace without tags
     (arranged as the owner). Its login policy row comes from revision 0020's trigger."""
@@ -61,12 +62,14 @@ async def make_tenant(
         tenant_id,
     )
     user_id = await admin.fetchval(
-        "INSERT INTO users (tenant_id, email, display_name, role, status) "
-        "VALUES ($1, $2, 'Synthetic User', $3, $4) RETURNING id",
+        "INSERT INTO users (tenant_id, email, display_name, role, status, consent_version, "
+        "consented_at) VALUES ($1, $2, 'Synthetic User', $3, $4, $5, "
+        "CASE WHEN $5::text IS NULL THEN NULL ELSE now() END) RETURNING id",
         tenant_id,
         email,
         role,
         user_status,
+        consent_version,
     )
     await admin.execute(
         "INSERT INTO workspaces (tenant_id, slug, name, default_model) "

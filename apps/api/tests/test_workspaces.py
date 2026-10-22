@@ -22,6 +22,7 @@ from app.core.db import session_factory, tenant_session
 from app.retrieval.types import RetrievedChunk
 from app.tenancy import workspaces
 from app.tenancy.models import INTERNAL_TENANT_ID
+from tests.conftest import CONSENT_VERSION
 from tests.chat_fixtures import DATASETS, World, chunks_for
 from tests.fakes import FakeRedis, FakeRetriever, delta, sse
 from tests.fakes import OpenAIRecorder as Recorder
@@ -344,10 +345,11 @@ async def test_admin_saves_prompt_versions_and_users_cannot(console: Console) ->
     assert too_long.status_code == 422
 
     user_id = await console.auth.admin.fetchval(
-        "INSERT INTO users (tenant_id, email, display_name, role) "
-        "VALUES ($1, $2, 'Synthetic Reader', 'user') RETURNING id",
+        "INSERT INTO users (tenant_id, email, display_name, role, consent_version, consented_at) "
+        "VALUES ($1, $2, 'Synthetic Reader', 'user', $3, now()) RETURNING id",
         admin.id,
         f"reader-{uuid.uuid4().hex[:6]}@client.example",
+        CONSENT_VERSION,
     )
     reader_email = await console.auth.admin.fetchval(
         "SELECT email FROM users WHERE id = $1", user_id

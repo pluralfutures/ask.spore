@@ -12,6 +12,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.api.admin import router as api_admin
 from app.api.auth import router as api_auth
+from app.api.consent import router as api_consent
 from app.api.content import router as api_content
 from app.api.files import router as api_files
 from app.api.operator import router as api_operator
@@ -20,6 +21,7 @@ from app.auth.authentik import oidc_services
 from app.auth.middleware import AuthMiddleware
 from app.chat.orchestrator import Orchestrator
 from app.chat.prompts import active_prompt
+from app.consent.notice import load_notice
 from app.core import cache
 from app.core.config import get_settings
 from app.core.db import create_engine, session_factory
@@ -98,6 +100,15 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
         app.state.settings = settings
         # P1a-10: warns per catalogue entry still marked price_placeholder (none since Oct 19).
         catalogue.warn_placeholder_prices(settings)
+        # P1b-10: warns while the active notice is the repository's placeholder.
+        notice = load_notice(settings.config_dir, settings.models.consent.version)
+        if notice.is_placeholder:
+            log(
+                "consent.placeholder_notice",
+                level="warning",
+                consent_version=notice.version,
+                status="placeholder",
+            )
         engine = create_engine(settings.secrets.database_url.get_secret_value())
         app.state.db_factory = session_factory(engine)
         cache.connect(settings.secrets.redis_url.get_secret_value())
@@ -135,6 +146,7 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
     app.add_middleware(ErrorBoundary)
     app.include_router(api_auth)
     app.include_router(api_v1)
+    app.include_router(api_consent)
     app.include_router(api_operator)
     app.include_router(api_admin)
     app.include_router(api_files)

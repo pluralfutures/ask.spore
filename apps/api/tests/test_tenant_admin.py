@@ -12,6 +12,7 @@ import asyncpg
 import httpx
 import pytest
 
+from tests.conftest import CONSENT_VERSION
 from tests.fake_idp import sign
 from tests.test_auth import Auth, auth  # noqa: F401 - fixture
 from tests.test_tenancy import Tenant
@@ -50,17 +51,24 @@ async def admin_of(harness: Auth) -> tuple[Tenant, httpx.AsyncClient]:
 
 
 async def add_user(
-    admin: asyncpg.Connection, tenant: Tenant, *, role: str = "user", status: str = "active"
+    admin: asyncpg.Connection,
+    tenant: Tenant,
+    *,
+    role: str = "user",
+    status: str = "active",
+    consent_version: str | None = CONSENT_VERSION,
 ) -> Tenant:
     email = f"member-{uuid.uuid4().hex[:8]}@client.example"
     user_id = await admin.fetchval(
         "INSERT INTO users (tenant_id, email, display_name, role, status, last_login_at, "
-        "last_login_method) VALUES ($1, $2, 'Synthetic Member', $3, $4, now(), 'sign_in_link') "
+        "last_login_method, consent_version, consented_at) VALUES ($1, $2, 'Synthetic Member', "
+        "$3, $4, now(), 'sign_in_link', $5, CASE WHEN $5::text IS NULL THEN NULL ELSE now() END) "
         "RETURNING id",
         tenant.id,
         email,
         role,
         status,
+        consent_version,
     )
     return Tenant(tenant.id, user_id, email)
 

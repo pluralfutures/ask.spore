@@ -24,6 +24,11 @@ import httpx
 import jwt
 
 TENANT_CLAIM = "ask_spore_tenant"
+# P1b-07: set on users that arrive from a tenant's SSO source, by that source's property
+# mapping (app.auth.authentik): which source, and what the IdP said about the user.
+SSO_CLAIM = "ask_spore_sso"
+MAX_SOURCE_SLUG_LENGTH = 72
+MAX_DOMAIN_LENGTH = 253
 # Authentik signs with the provider's certificate (RS256 or ES256). Symmetric
 # algorithms (HS256 with the client secret) and "none" are refused.
 ALGORITHMS = ("RS256", "ES256")
@@ -40,11 +45,40 @@ class InvalidToken(Exception):
 
 
 @dataclass(frozen=True)
+class SsoClaims:
+    """What a tenant's source recorded at its last sign-in (P1b-07)."""
+
+    source: str  # the Authentik source's slug
+    hd: str | None  # Google Workspace hosted domain, as the IdP sent it
+    email_verified: bool
+    admin: bool  # in one of the source's admin groups (Entra group mapping)
+
+
+@dataclass(frozen=True)
 class Identity:
     subject: str
     email: str
     tenant_id: UUID
     expires_at: datetime
+    sso: SsoClaims | None = None
+
+
+def sso_from_claims(claims: dict[str, Any]) -> SsoClaims | None:
+    """The SSO claim if it is well formed, else None (a sign-in link user has none)."""
+    raw = claims.get(SSO_CLAIM)
+    if not isinstance(raw, dict):
+        return None
+    source, hd = raw.get("source"), raw.get("hd") or None
+    if not isinstance(source, str) or not 0 < len(source) <= MAX_SOURCE_SLUG_LENGTH:
+        return None
+    if hd is not None and (not isinstance(hd, str) or len(hd) > MAX_DOMAIN_LENGTH):
+        return None
+    return SsoClaims(
+        source=source,
+        hd=hd.strip().lower() if hd else None,
+        email_verified=raw.get("email_verified") is True,
+        admin=raw.get("admin") is True,
+    )
 
 
 class TokenValidator(Protocol):
@@ -64,6 +98,7 @@ def identity_from_claims(claims: dict[str, Any]) -> Identity:
         email=email.strip().lower(),
         tenant_id=tenant_id,
         expires_at=datetime.fromtimestamp(int(claims["exp"]), UTC),
+        sso=sso_from_claims(claims),
     )
 
 

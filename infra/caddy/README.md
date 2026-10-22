@@ -15,6 +15,7 @@ starts both. `web-build` builds `apps/web/Dockerfile` and copies `dist/` into th
 | Path | Goes to |
 | --- | --- |
 | `/api/*`, `/healthz` | `api:8000` |
+| `/source/oauth/callback/<slug>/`, `/source/saml/<slug>/acs/` | `api:8000`, rewritten to `/api/v1/auth/sso/oauth/<slug>` and `/api/v1/auth/sso/saml/<slug>`: a tenant IdP's answer, which the API relays to Authentik (P1b-07). Nothing else of Authentik is reachable |
 | everything else, including `/auth/finish` | the production web build; unknown paths fall back to `index.html` (client-side routes) |
 
 - Certificates: automatic from Let's Encrypt, account email the operator's, stored in the

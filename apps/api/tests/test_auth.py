@@ -38,6 +38,7 @@ AUTHENTIK = AuthentikConfig(
     redirect_uri="https://ask-spore.invalid/auth/callback",
     sign_in_flow="ask-spore-sign-in-link",
     timeout_seconds=5,
+    public_url="https://askspore.test.example",
 )
 BINDING = "askspore_link_binding"
 SESSION = "askspore_session"
@@ -164,7 +165,7 @@ async def test_no_enumeration_and_no_link_for_ineligible_addresses(
     )
     if setup.get("links_off"):
         await auth.admin.execute(
-            "UPDATE tenant_entitlements SET sign_in_links_enabled = false WHERE tenant_id = $1",
+            "UPDATE tenant_login_policy SET sign_in_links_enabled = false WHERE tenant_id = $1",
             t.id,
         )
     email = f"nobody-{uuid.uuid4().hex[:6]}@client.example" if setup.get("unknown") else t.email
@@ -195,6 +196,10 @@ async def test_links_per_window_are_capped(auth: Auth) -> None:
 
 async def test_post_from_the_requesting_browser_signs_in(auth: Auth) -> None:
     t = await auth.tenant(user_status="invited", role="tenant_admin")
+    # The second factor for admins (P1b-08) is tested in test_admin_mfa.
+    await auth.admin.execute(
+        "UPDATE tenant_login_policy SET admin_mfa_required = false WHERE tenant_id = $1", t.id
+    )
     browser = auth.browser()
     await auth.request_link(browser, t.email)
     response = await auth.complete(browser, auth.idp.last_token())
@@ -206,7 +211,11 @@ async def test_post_from_the_requesting_browser_signs_in(auth: Auth) -> None:
         assert attribute in session
     me = await browser.get("/api/v1/me")
     assert me.status_code == 200
-    assert me.json() == {
+    # P1b-08: the session's expiry, so the web app can renew it in time.
+    assert me.json().pop("session_expires_at").endswith("Z")
+    body = me.json()
+    body.pop("session_expires_at")
+    assert body == {
         "email": t.email,
         "display_name": "Synthetic User",
         "role": "tenant_admin",
@@ -219,7 +228,7 @@ async def test_post_from_the_requesting_browser_signs_in(auth: Auth) -> None:
     assert (user["status"], user["last_login_method"]) == ("active", "sign_in_link")
     assert user["last_login_at"] is not None
     assert await auth.audit("auth.login", t.id) == [
-        {"actor": t.user_id, "method": "sign_in_link", "status": "ok"}
+        {"actor": t.user_id, "method": "sign_in_link", "status": "ok", "mfa": False}
     ]
 
 
@@ -257,11 +266,13 @@ async def test_second_post_with_the_same_token_is_refused(auth: Auth) -> None:
 
     again = await auth.complete(browser, token)
     assert again.status_code == 401
-    assert again.json() == {"detail": "sign_in_failed"}
+    # Success cleared this browser's binding cookie, so it now holds none (P1b-08).
+    assert again.json() == {"detail": "no_binding"}
     # Another browser that requested its own link cannot replay it either.
     other = auth.browser()
     await auth.request_link(other, t.email)
-    assert (await auth.complete(other, token)).status_code == 401
+    replay = await auth.complete(other, token)
+    assert (replay.status_code, replay.json()) == (401, {"detail": "sign_in_failed"})
     assert auth.idp.redeemed == [token]  # refused by us, never resubmitted to the provider
     # The first browser's binding cookie was cleared on success; the replay from the
     # other browser is recognised by the token itself.
@@ -289,6 +300,8 @@ async def test_link_opened_in_another_browser_is_refused_and_not_spent(auth: Aut
     scanner = auth.browser()  # no binding cookie
     response = await auth.complete(scanner, token)
     assert response.status_code == 401
+    # P1b-08: the landing page can say where to open the link; decided before any lookup.
+    assert response.json() == {"detail": "no_binding"}
     assert auth.idp.redeemed == []
     failure = await auth.audit("auth.login_failed", INTERNAL_TENANT_ID)
     assert failure[-1]["error_code"] == "no_binding"
@@ -343,7 +356,7 @@ async def test_links_disabled_after_sending_refuses_the_sign_in(auth: Auth) -> N
     browser = auth.browser()
     await auth.request_link(browser, t.email)
     await auth.admin.execute(
-        "UPDATE tenant_entitlements SET sign_in_links_enabled = false WHERE tenant_id = $1", t.id
+        "UPDATE tenant_login_policy SET sign_in_links_enabled = false WHERE tenant_id = $1", t.id
     )
     assert (await auth.complete(browser, auth.idp.last_token())).status_code == 401
     assert (await auth.audit("auth.login_failed", t.id))[-1]["error_code"] == "links_disabled"
@@ -489,6 +502,7 @@ async def test_old_cookie_is_refused_after_logout(auth: Auth) -> None:
     browser = auth.browser()
     await auth.sign_in(browser, a)
     old = browser.cookies[SESSION]
+    old_refresh = browser.cookies["askspore_refresh"]
     assert (await browser.get("/api/v1/me")).status_code == 200
     assert (await browser.post("/api/v1/auth/logout")).status_code == 204
 
@@ -497,15 +511,16 @@ async def test_old_cookie_is_refused_after_logout(auth: Auth) -> None:
     assert (await replay.get("/api/v1/me")).status_code == 401
     bearer = await auth.browser().get("/api/v1/me", headers={"Authorization": f"Bearer {old}"})
     assert bearer.status_code == 401
-    assert auth.idp.revoked == [old]
+    # P1b-08: the refresh token is revoked with it, at Authentik and in our list.
+    assert auth.idp.revoked == [old, old_refresh]
     assert await auth.audit("auth.signed_out", a.id) == [{"actor": a.user_id, "status": "revoked"}]
     stored = await auth.admin.fetch(
         "SELECT token_sha256, user_id FROM revoked_sessions WHERE tenant_id = $1", a.id
     )
-    # Only the hash is kept, never the token.
-    assert [(r["token_sha256"], r["user_id"]) for r in stored] == [
-        (hashlib.sha256(old.encode()).hexdigest(), a.user_id)
-    ]
+    # Only the hashes are kept, never the tokens.
+    assert sorted((r["token_sha256"], r["user_id"]) for r in stored) == sorted(
+        (hashlib.sha256(token.encode()).hexdigest(), a.user_id) for token in (old, old_refresh)
+    )
     # A second sign-out with the same token revokes nothing new.
     again = auth.browser()
     again.cookies.set(SESSION, old)
@@ -566,6 +581,10 @@ async def test_phase0_mode_has_no_sign_in_links(
         assert me.status_code == 200 and me.json()["email"] == ANALYST
         link = await http.post("/api/v1/auth/link", json={"email": ANALYST}, headers=headers)
         assert link.status_code == 404
+        discover = await http.post(
+            "/api/v1/auth/discover", json={"email": ANALYST}, headers=headers
+        )
+        assert discover.status_code == 404
         # An OIDC token means nothing in Phase 0 mode.
         idp = FakeSignInLinks()
         token = sign(idp.key, email=ANALYST, tenant_id=INTERNAL_TENANT_ID)

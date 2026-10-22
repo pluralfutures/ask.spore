@@ -41,6 +41,9 @@ client_id = "ask-spore"
 redirect_uri = "https://ask-spore.invalid/auth/callback"
 sign_in_flow = "ask-spore-sign-in-link"
 timeout_seconds = 10
+# P1b-07: tenant SSO sources call back to our public host (Caddy hands the callback
+# paths to the API, which relays them to Authentik). Not an outbound host.
+public_url = "https://askspore.myceliumgastronomy.com"
 
 [llm]
 # Provider the API and the eval harness call: "mistral" or "scaleway".

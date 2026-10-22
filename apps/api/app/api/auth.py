@@ -1,4 +1,6 @@
-"""/api/v1/auth: sign-in links (P1a-02). Public routes; see ``app.auth.links``.
+"""/api/v1/auth: tenant discovery (P1b-06), sign-in links (P1a-02) and SSO through the
+tenant's source (P1b-07). Public routes; see ``app.tenancy.login_policy``,
+``app.auth.links`` and ``app.auth.sso``.
 
 ``POST /auth/link`` sets the browser-binding cookie and answers 202 the same way for
 every address; the lookup and the email run after the response. ``POST
@@ -6,24 +8,54 @@ every address; the lookup and the email run after the response. ``POST
 landing page's button calls it: there is no GET that consumes anything. On success
 the Authentik access token is set as the ``askspore_session`` cookie (HttpOnly,
 Secure, SameSite=Strict) and never returned in a body. ``POST /auth/logout`` clears
-the cookie and revokes the token (``app.auth.sessions``).
+the cookies and revokes the tokens, and ``POST /auth/refresh`` renews the session from the
+refresh cookie (``app.auth.sessions``, P1b-08).
 """
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
+from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
 
-from app.api.schemas import AuthModeOut, LinkCompleteIn, LinkRequestIn, LinkRequestOut
-from app.auth.links import SignInRefused, complete_link, new_binding, request_link
+from app.api.schemas import (
+    AuthModeOut,
+    DiscoverIn,
+    DiscoverOut,
+    LinkCompleteIn,
+    LinkRequestIn,
+    LinkRequestOut,
+    MfaCodeIn,
+    MfaRequiredOut,
+    SsoStartOut,
+)
+from app.auth import sessions, sso
+from app.auth.links import (
+    MFA_TTL,
+    MfaPending,
+    SignedIn,
+    SignInRefused,
+    complete_link,
+    complete_mfa,
+    new_binding,
+    request_link,
+)
 from app.auth.middleware import SESSION_COOKIE, presented_token
-from app.auth.sessions import revoke
+from app.auth.provider import ProviderError
+from app.auth.ratelimit import IpRateLimiter, client_ip
+from app.core.logging import log
+from app.tenancy.login_policy import discover
 
 router = APIRouter(prefix="/api/v1/auth")
 
 BINDING_COOKIE = "askspore_link_binding"
+# P1b-08: the refresh token, sent only to the auth routes (refresh and sign-out).
+REFRESH_COOKIE = "askspore_refresh"
+REFRESH_PATH = "/api/v1/auth"
 # The binding cookie is sent only to the completion route, never to anything else.
 BINDING_PATH = "/api/v1/auth/link"
 
@@ -35,10 +67,47 @@ def _require_oidc(request: Request) -> Any:
     return settings
 
 
+def _limit(request: Request, route: str) -> None:
+    """Per-client-IP limit of the public sign-in routes (P1b-08): 429 before anything
+    else, so nothing is looked up, set or sent."""
+    state = request.app.state
+    limiters: dict[str, IpRateLimiter] | None = getattr(state, "ip_limiters", None)
+    if limiters is None:
+        limiters = state.ip_limiters = {}
+    limiter = limiters.get(route)
+    if limiter is None:
+        config = state.settings.models.auth
+        limiter = limiters[route] = IpRateLimiter(
+            config.ip_requests_per_window, config.ip_window_seconds
+        )
+    address = client_ip(request)
+    if not limiter.allow(address):
+        log("auth.ip_rate_limited", route=route, status=429)
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="rate_limited",
+            headers={"Retry-After": str(limiter.retry_after(address))},
+        )
+
+
 def _cookie(response: Response, name: str, value: str, *, max_age: int, path: str) -> None:
     response.set_cookie(
         name, value, max_age=max_age, path=path, secure=True, httponly=True, samesite="strict"
     )
+
+
+def _session_cookies(request: Request, response: Response, signed_in: SignedIn) -> None:
+    """The access token for every route, and the refresh token for the auth routes."""
+    lifetime = int((signed_in.expires_at - datetime.now(UTC)).total_seconds())
+    _cookie(response, SESSION_COOKIE, signed_in.access_token, max_age=max(lifetime, 0), path="/")
+    if signed_in.refresh_token:
+        ttl = request.app.state.settings.models.auth.refresh_token_ttl_seconds
+        _cookie(response, REFRESH_COOKIE, signed_in.refresh_token, max_age=ttl, path=REFRESH_PATH)
+
+
+def _clear_session(response: Response) -> None:
+    for name, path in ((SESSION_COOKIE, "/"), (REFRESH_COOKIE, REFRESH_PATH)):
+        response.delete_cookie(name, path=path, secure=True, httponly=True, samesite="strict")
 
 
 @router.get("/mode", response_model=AuthModeOut)
@@ -46,11 +115,23 @@ async def auth_mode(request: Request) -> AuthModeOut:
     return AuthModeOut(mode=request.app.state.settings.models.auth.mode)
 
 
+@router.post("/discover", response_model=DiscoverOut)
+async def discover_methods(body: DiscoverIn, request: Request) -> DiscoverOut:
+    """Tenant discovery (P1b-06): the methods the address's domain allows. Domain-level
+    only, so it says nothing about whether the address belongs to a user; an unknown
+    domain gets the links-only answer, like any domain without SSO."""
+    _require_oidc(request)
+    _limit(request, "discover")
+    methods, kind = (await discover(request.app.state.db_factory, body.email)).public()
+    return DiscoverOut(methods=list(methods), sso_kind=kind)
+
+
 @router.post("/link", status_code=status.HTTP_202_ACCEPTED, response_model=LinkRequestOut)
 async def request_sign_in_link(
     body: LinkRequestIn, request: Request, response: Response, background: BackgroundTasks
 ) -> LinkRequestOut:
     settings = _require_oidc(request)
+    _limit(request, "link")
     binding = new_binding()
     ttl = settings.models.auth.link_ttl_seconds
     _cookie(response, BINDING_COOKIE, binding, max_age=ttl, path=BINDING_PATH)
@@ -65,7 +146,11 @@ async def request_sign_in_link(
     return LinkRequestOut(status="sent_if_known")
 
 
-@router.post("/link/complete", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/link/complete",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={200: {"model": MfaRequiredOut, "description": "A second factor is needed"}},
+)
 async def complete_sign_in_link(body: LinkCompleteIn, request: Request) -> Response:
     _require_oidc(request)
     try:
@@ -76,34 +161,237 @@ async def complete_sign_in_link(body: LinkCompleteIn, request: Request) -> Respo
             token=body.token,
             binding=request.cookies.get(BINDING_COOKIE),
         )
+    except SignInRefused as exc:
+        # P1b-08: a link opened in another browser is told so (the landing page says
+        # where to open it). That is decided before anything is looked up, so it says
+        # nothing about the address; every other refusal is the same.
+        detail = "no_binding" if exc.error_code == "no_binding" else "sign_in_failed"
+        refused = Response(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content=json.dumps({"detail": detail}).encode(),
+            media_type="application/json",
+        )
+        refused.delete_cookie(BINDING_COOKIE, path=BINDING_PATH)
+        return refused
+    response = _signed_in_or_mfa(request, signed_in)
+    response.delete_cookie(BINDING_COOKIE, path=BINDING_PATH)
+    return response
+
+
+# --- the second factor for tenant admins (P1b-08) -----------------------------------------
+
+MFA_BINDING_COOKIE = "askspore_mfa_binding"
+MFA_STATE_COOKIE = "askspore_mfa_state"
+MFA_PATH = "/api/v1/auth/mfa"
+
+
+def _signed_in_or_mfa(request: Request, outcome: SignedIn | MfaPending) -> Response:
+    """204 with the session cookies, or 200 asking for the code with the MFA cookies."""
+    if isinstance(outcome, SignedIn):
+        response = Response(status_code=status.HTTP_204_NO_CONTENT)
+        _session_cookies(request, response, outcome)
+        _clear_mfa(response)
+        return response
+    challenge = outcome.challenge
+    body = MfaRequiredOut(
+        status="mfa_required",
+        stage=challenge.stage,
+        setup_uri=challenge.setup_uri,
+        failed=challenge.failed,
+    )
+    response = Response(
+        status_code=status.HTTP_200_OK,
+        content=body.model_dump_json().encode(),
+        media_type="application/json",
+        headers={"Cache-Control": "no-store"},  # the setup URI carries the TOTP secret
+    )
+    ttl = int(MFA_TTL.total_seconds())
+    _cookie(response, MFA_BINDING_COOKIE, outcome.binding, max_age=ttl, path=MFA_PATH)
+    _cookie(response, MFA_STATE_COOKIE, challenge.resume, max_age=ttl, path=MFA_PATH)
+    return response
+
+
+def _clear_mfa(response: Response) -> None:
+    for name in (MFA_BINDING_COOKIE, MFA_STATE_COOKIE):
+        response.delete_cookie(name, path=MFA_PATH, secure=True, httponly=True, samesite="strict")
+
+
+@router.post(
+    "/mfa",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={200: {"model": MfaRequiredOut, "description": "The code was not accepted"}},
+)
+async def answer_mfa(body: MfaCodeIn, request: Request) -> Response:
+    """The tenant admin's code for the second factor of a sign-in link (P1b-08), from the
+    browser that POSTed the link. A wrong code asks again (at most 5 in 5 minutes)."""
+    _require_oidc(request)
+    try:
+        outcome = await complete_mfa(
+            factory=request.app.state.db_factory,
+            provider=request.app.state.sign_in_provider,
+            validator=request.app.state.token_validator,
+            binding=request.cookies.get(MFA_BINDING_COOKIE),
+            resume=request.cookies.get(MFA_STATE_COOKIE),
+            code=body.code,
+        )
     except SignInRefused:
         refused = Response(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content=b'{"detail":"sign_in_failed"}',
             media_type="application/json",
         )
-        refused.delete_cookie(BINDING_COOKIE, path=BINDING_PATH)
+        _clear_mfa(refused)
+        return refused
+    return _signed_in_or_mfa(request, outcome)
+
+
+# --- SSO through the tenant's source (P1b-07) ---------------------------------------------
+
+SSO_BINDING_COOKIE = "askspore_sso_binding"
+SSO_STATE_COOKIE = "askspore_sso_state"
+# The browser sees the IdP's callback under Authentik's paths on our host (Caddy hands
+# them to the routes below), so the cookies are scoped to those paths only.
+SSO_COOKIE_PATH = "/source/"
+SSO_COOKIE_SECONDS = int(sso.ATTEMPT_TTL.total_seconds())
+MAX_CALLBACK_PARAMS = 20
+MAX_CALLBACK_VALUE = 4096
+MAX_SAML_BODY = 512 * 1024
+SSO_FAILED_REDIRECT = "/?sign_in=failed"
+
+
+@router.post("/sso/start", response_model=SsoStartOut)
+async def start_sso(body: DiscoverIn, request: Request, response: Response) -> SsoStartOut:
+    """Start a sign-in through the address's tenant's source. An unknown domain and a
+    domain without SSO get the same 409: discovery already tells the page which."""
+    _require_oidc(request)
+    _limit(request, "sso_start")
+    try:
+        started = await sso.start(
+            factory=request.app.state.db_factory,
+            provider=request.app.state.sign_in_provider,
+            email=body.email,
+        )
+    except ProviderError as exc:
+        log("auth.sso_not_started", level="error", error_code=exc.error_code)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="sso_unavailable") from None
+    if started is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="sso_unavailable")
+    # A SAML IdP answers with a cross-site POST, which only SameSite=None cookies follow;
+    # an OIDC IdP with a top-level GET, which Lax cookies follow.
+    same_site: Literal["lax", "none"] = "none" if started.callback == "saml" else "lax"
+    for name, value in ((SSO_BINDING_COOKIE, started.binding), (SSO_STATE_COOKIE, started.resume)):
+        response.set_cookie(
+            name,
+            value,
+            max_age=SSO_COOKIE_SECONDS,
+            path=SSO_COOKIE_PATH,
+            secure=True,
+            httponly=True,
+            samesite=same_site,
+        )
+    return SsoStartOut(redirect_url=started.redirect_url)
+
+
+async def _finish_sso(
+    request: Request, callback: sso.CallbackKind, slug: str, params: dict[str, str]
+) -> Response:
+    _require_oidc(request)
+    try:
+        signed_in = await sso.complete(
+            factory=request.app.state.db_factory,
+            provider=request.app.state.sign_in_provider,
+            validator=request.app.state.token_validator,
+            callback=callback,
+            slug=slug,
+            params=params,
+            binding=request.cookies.get(SSO_BINDING_COOKIE),
+            resume=request.cookies.get(SSO_STATE_COOKIE),
+        )
+        response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+        _session_cookies(request, response, signed_in)
+    except SignInRefused:
+        response = RedirectResponse(SSO_FAILED_REDIRECT, status_code=status.HTTP_303_SEE_OTHER)
+    for name in (SSO_BINDING_COOKIE, SSO_STATE_COOKIE):
+        response.delete_cookie(name, path=SSO_COOKIE_PATH, secure=True, httponly=True)
+    return response
+
+
+def _bounded(pairs: list[tuple[str, str]], max_value: int) -> dict[str, str] | None:
+    if len(pairs) > MAX_CALLBACK_PARAMS or any(len(v) > max_value for _, v in pairs):
+        return None
+    return dict(pairs)
+
+
+@router.get("/sso/oauth/{slug}", include_in_schema=False)
+async def sso_oauth_callback(slug: str, request: Request) -> Response:
+    """The OIDC IdP's redirect, from ``/source/oauth/callback/<slug>/`` (Caddy)."""
+    params = _bounded(list(request.query_params.multi_items()), MAX_CALLBACK_VALUE)
+    if params is None:
+        return RedirectResponse(SSO_FAILED_REDIRECT, status_code=status.HTTP_303_SEE_OTHER)
+    return await _finish_sso(request, "oauth", slug, params)
+
+
+@router.post("/sso/saml/{slug}", include_in_schema=False)
+async def sso_saml_callback(slug: str, request: Request) -> Response:
+    """The SAML IdP's POST to ``/source/saml/<slug>/acs/`` (Caddy)."""
+    body = await request.body()
+    params = None
+    if len(body) <= MAX_SAML_BODY:
+        try:
+            pairs = parse_qsl(body.decode("ascii"), keep_blank_values=True, strict_parsing=False)
+        except UnicodeDecodeError:
+            pairs = []
+        params = _bounded(pairs, MAX_SAML_BODY)
+    if not params:
+        return RedirectResponse(SSO_FAILED_REDIRECT, status_code=status.HTTP_303_SEE_OTHER)
+    return await _finish_sso(request, "saml", slug, params)
+
+
+@router.post("/refresh", status_code=status.HTTP_204_NO_CONTENT)
+async def refresh_session(request: Request) -> Response:
+    """Renew the session before the access token expires (P1b-08). Needs the refresh
+    cookie; the previous access and refresh tokens are revoked, so only the new ones
+    work. A refused refresh clears both cookies (the user signs in again)."""
+    state = request.app.state
+    _require_oidc(request)
+    try:
+        signed_in = await sessions.refresh(
+            factory=state.db_factory,
+            validator=state.token_validator,
+            provider=state.sign_in_provider,
+            refresh_token=request.cookies.get(REFRESH_COOKIE),
+            current_token=presented_token(request.scope),
+            refresh_ttl_seconds=state.settings.models.auth.refresh_token_ttl_seconds,
+        )
+    except SignInRefused:
+        refused = Response(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content=b'{"detail":"refresh_refused"}',
+            media_type="application/json",
+        )
+        _clear_session(refused)
         return refused
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    lifetime = int((signed_in.expires_at - datetime.now(UTC)).total_seconds())
-    _cookie(response, SESSION_COOKIE, signed_in.access_token, max_age=max(lifetime, 0), path="/")
-    response.delete_cookie(BINDING_COOKIE, path=BINDING_PATH)
+    _session_cookies(request, response, signed_in)
     return response
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(request: Request) -> Response:
-    """Clear the session cookie and revoke the session server-side (P1a-02): the token
-    is listed in ``revoked_sessions``, so a copy of the old cookie is refused."""
+    """Clear the session cookies and revoke the session server-side (P1a-02, P1b-08): the
+    access and refresh tokens are listed in ``revoked_sessions`` and revoked at
+    Authentik, so a copy of either old cookie is refused."""
     state = request.app.state
     token = presented_token(request.scope)
     if state.settings.models.auth.mode == "oidc" and token is not None:
-        await revoke(
+        await sessions.revoke(
             state.db_factory,
             state.token_validator,
             getattr(state, "sign_in_provider", None),
             token,
+            refresh_token=request.cookies.get(REFRESH_COOKIE),
+            refresh_ttl_seconds=state.settings.models.auth.refresh_token_ttl_seconds,
         )
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    response.delete_cookie(SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="strict")
+    _clear_session(response)
     return response

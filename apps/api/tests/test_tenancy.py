@@ -41,17 +41,19 @@ async def make_tenant(
     status: str = "active",
     user_status: str = "active",
     role: str = "user",
+    domain: str = "client.example",
 ) -> Tenant:
     """A tenant with one user, an entitlements row and one workspace without tags
-    (arranged as the owner)."""
+    (arranged as the owner). Its login policy row comes from revision 0020's trigger."""
     tenant_id = uuid.uuid4()
-    email = f"user-{tenant_id.hex[:8]}@client.example"
+    email = f"user-{tenant_id.hex[:8]}@{domain}"
     await admin.execute(
         "INSERT INTO tenants (id, slug, display_name, verified_domains, status) "
-        "VALUES ($1, $2, 'Synthetic Client', ARRAY['client.example'], $3)",
+        "VALUES ($1, $2, 'Synthetic Client', ARRAY[$4], $3)",
         tenant_id,
         f"c-{tenant_id.hex[:12]}",
         status,
+        domain,
     )
     await admin.execute(
         "INSERT INTO tenant_entitlements (tenant_id, enabled_models) "
@@ -99,7 +101,10 @@ async def test_internal_tenant_is_a_row_with_entitlements(admin_conn: asyncpg.Co
     assert entitlements["answer_modes"] == ["corpus_only"]
     assert entitlements["enabled_models"] == ["deepseek-v4.1-flash"]
     assert entitlements["external_models_enabled"] is False
-    assert entitlements["sign_in_links_enabled"] is True
+    policy = await admin_conn.fetchrow(
+        "SELECT * FROM tenant_login_policy WHERE tenant_id = $1", INTERNAL_TENANT_ID
+    )
+    assert policy is not None and policy["sign_in_links_enabled"] is True
 
 
 async def test_seeded_users_are_active_users(admin_conn: asyncpg.Connection) -> None:

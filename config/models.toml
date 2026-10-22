@@ -54,6 +54,12 @@ public_url = "https://askspore.myceliumgastronomy.com"
 # PHASE 0: Scaleway, by owner decision, because the Mistral account has no API quota
 # (findings M2). The [mistral] section stays in place, inactive.
 provider = "scaleway"
+# P1b-17: when the active provider fails to open an answer (5xx, 429, timeout), the
+# other EU provider answers (Stack Decision, fallback LLM row); needs its key. Off while
+# the Mistral account has no API quota (findings M2). Tenants with the external-models
+# entitlement fail over to OpenRouter as well, whatever this says (owner decision 2 of
+# Oct 22, 2026; app.llm.factory).
+eu_failover = false
 
 [mistral]
 base_url = "https://api.mistral.ai"

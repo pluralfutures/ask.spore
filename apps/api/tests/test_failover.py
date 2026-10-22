@@ -253,10 +253,8 @@ def test_eu_failover_needs_the_other_providers_key(tmp_path: Path) -> None:
     shutil.copytree(DEFAULT_CONFIG_DIR, config)
     toml = config / "models.toml"
     text = toml.read_text(encoding="utf-8")
-    toml.write_text(
-        text.replace('provider = "scaleway"\n', 'provider = "scaleway"\neu_failover = true\n', 1),
-        encoding="utf-8",
-    )
+    assert "eu_failover = false\n" in text  # the repository default
+    toml.write_text(text.replace("eu_failover = false\n", "eu_failover = true\n"), encoding="utf-8")
     assert load_settings(environ=ENV, config_dir=config).models.llm.eu_failover
     env = {k: v for k, v in ENV.items() if k != "MISTRAL_API_KEY"}
     with pytest.raises(ConfigError) as excinfo:

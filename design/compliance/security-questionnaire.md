@@ -85,7 +85,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | # | Question | Answer | Detail and evidence |
 | --- | --- | --- | --- |
 | 7.1 | Data centre physical controls | N/A (inherited) | Scaleway data centres in the Paris region. We rely on Scaleway's certifications; reports kept per `policy-vendor-management.md` |
-| 7.2 | Provider offices hold customer data? | No | No customer data on staff devices; never debug with real queries (repository rule). *DRAFT, Oct 22, 2026:* for a client that supplies documents, files received by email or link and a local working copy are held until registered and deleted within 30 days after the contract ends; this row must say so (open-questions J18) |
+| 7.2 | Provider offices hold customer data? | No (Yes, encrypted, for clients that supply documents) | No customer data on staff devices; never debug with real queries (repository rule). *DRAFT, Oct 22, 2026:* for a client that supplies documents, files received by email or link and a local working copy are kept only on encrypted devices (owner decision) until 30 days after the contract ends |
 
 ## 8. Operations and logging
 

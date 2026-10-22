@@ -54,6 +54,7 @@ source = { editable = "." }
 dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "deepseek-tokenizer" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "mistralai" },
@@ -80,6 +81,7 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = "~=1.20.0" },
     { name = "asyncpg", specifier = "~=0.32.0" },
+    { name = "deepseek-tokenizer", specifier = "~=0.3.0" },
     { name = "fastapi", specifier = "~=0.143.3" },
     { name = "httpx", specifier = "~=0.28.1" },
     { name = "mistralai", specifier = "~=2.10.1" },
@@ -340,6 +342,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c7/5d/bd21ba1519b6b1e222b29878301d2e1fb928e890dc7d085fa4222ac5671b/dateparser-1.4.3.tar.gz", hash = "sha256:bab8c43a746266e68142f4926e69438ce551441aa88e54e78bb6410bf3ee7000", size = 362152, upload-time = "2026-09-03T10:07:54.545Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/30/5f/63f927b5ffd1cc2c030fc2bd362bf920890e8806cf42f701198de5b3f9c7/dateparser-1.4.3-py3-none-any.whl", hash = "sha256:cbce86c64e0cea5c54c84c015d34c903d46c51bfad50632bf2f05a6141d10c05", size = 322384, upload-time = "2026-09-03T10:07:52.913Z" },
+]
+
+[[package]]
+name = "deepseek-tokenizer"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/29/7b/e1563c3d0208cf09c6c68cd5c5161df6f7513329148e0197e6fbdba3cade/deepseek_tokenizer-0.3.0.tar.gz", hash = "sha256:eda5e8cb98776bd72065841d4c51b6749deec1e19f4c6f1c569e6daeed3d5b56", size = 1876784, upload-time = "2026-06-28T11:15:07.186Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/63/a2/482cd79283a943740e2da16d0e2a0f6c6d00cf8587cd0b35ce17956fdc13/deepseek_tokenizer-0.3.0-py3-none-any.whl", hash = "sha256:b6617d0b92aabaebe71a7be23244b5c602a5b0c1bd2dcdc6fa0dfdaf735f9e88", size = 1918459, upload-time = "2026-06-28T11:15:05.524Z" },
 ]
 
 [[package]]

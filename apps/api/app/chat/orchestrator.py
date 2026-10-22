@@ -50,11 +50,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.audit.writer import record
 from app.chat.citations import MarkerFilter, strip_markers
-from app.chat.context import ContextChunk, estimate_tokens, select_context
+from app.chat.context import ContextChunk, select_context
 from app.chat.models import Citation, Conversation, Message
 from app.chat.package import Package, Provenance, provenance_by_document, workspace_package
 from app.chat.prompts import AnswerPrompt, active_prompt, render_system
 from app.chat.selection import Authorization, authorize, message_choice_fields
+from app.chat.tokens import count_tokens
 from app.core import cache
 from app.core.config import Settings
 from app.core.db import tenant_session
@@ -348,7 +349,7 @@ class Orchestrator:
             if outcome in ("abstained", "unsupported"):
                 continue  # canned text, not model output (an uncited reply is withheld)
             text = strip_markers(content) if role == "assistant" else content
-            budget -= estimate_tokens(text)
+            budget -= count_tokens(text)
             if budget < 0:
                 break
             turns.append(Turn(role="assistant" if role == "assistant" else "user", content=text))

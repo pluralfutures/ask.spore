@@ -503,3 +503,26 @@ async def test_the_cli_path_registers_approves_and_waits_for_the_pages(crawls: C
         resolve=resolver(PUBLIC),
     )
     assert again.status == "queued"  # an approved site: a crawl now
+
+
+async def test_sites_are_shared_tables_the_app_cannot_delete_and_the_operator_cannot_read(
+    crawls: Crawls, app_conn: asyncpg.Connection, admin_conn: asyncpg.Connection
+) -> None:
+    site_id = await crawls.approved()
+    await crawls.run()
+    # Operator-owned shared tables like sources: no tenant column, no RLS.
+    for table in ("sites", "site_pages"):
+        columns = await admin_conn.fetch(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = $1", table
+        )
+        assert "tenant_id" not in {c["column_name"] for c in columns}
+    # The application role reads and writes them, never deletes.
+    assert await app_conn.fetchval("SELECT count(*) FROM site_pages WHERE site_id = $1", site_id)
+    for table in ("sites", "site_pages"):
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await app_conn.execute(f"DELETE FROM {table}")
+    # The operator console's role has no access to them at all.
+    await app_conn.execute("SET ROLE askspore_operator")
+    for table in ("sites", "site_pages"):
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await app_conn.fetch(f"SELECT * FROM {table}")

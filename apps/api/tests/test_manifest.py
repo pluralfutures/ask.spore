@@ -286,6 +286,28 @@ async def test_site_row_fails_when_the_crawl_or_a_page_fails(corpus: Path) -> No
     assert (partial.status, partial.error_code, partial.chunk_count) == ("failed", "no_chunks", 1)
 
 
+async def test_a_site_row_waits_for_its_review_or_its_crawl(corpus: Path) -> None:
+    # P1b-04: a site row registers the site; it waits for a reviewer or for the worker.
+    [row] = load_manifest(write(corpus, SITE_ROW), TAGS)
+
+    async def no_file(_: ManifestRow) -> IngestResult:
+        raise AssertionError("not a file row")
+
+    for status in ("proposed", "queued"):
+
+        async def site(_: ManifestRow, status: str = status) -> tuple[str, list[IngestResult]]:
+            return status, []
+
+        [outcome] = await run_manifest([row], no_file, site)
+        assert (outcome.status, outcome.error_code) == (status, None)
+
+    async def rejected(_: ManifestRow) -> tuple[str, list[IngestResult]]:
+        return "site_rejected", []
+
+    [outcome] = await run_manifest([row], no_file, rejected)
+    assert (outcome.status, outcome.error_code) == ("failed", "site_rejected")
+
+
 async def test_rerun_is_idempotent_by_file_hash(env: tuple[Env, Ingest], corpus: Path) -> None:
     e, run = env
     rows = load_manifest(write(corpus, PDF_ROW, DOCX_ROW, PPTX_ROW), TAGS)

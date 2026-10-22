@@ -32,6 +32,9 @@ class TagConfig(BaseModel):
 
     chunk_method: ChunkMethod
     chunk_method_by_type: dict[SourceType, ChunkMethod] = Field(default_factory=dict)
+    # P1b-12: the slug of the one tenant whose workspaces may use this tag (a client's own
+    # corpus); unset, the tag is shared and any tenant's workspace may use it.
+    tenant: str | None = Field(default=None, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
     def chunk_method_for(self, source_type: str) -> str:
         """The method a document of ``source_type`` should be parsed with in this tag."""
@@ -42,6 +45,11 @@ class TagsFile(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     tags: dict[str, TagConfig] = Field(min_length=1)
+
+
+def tags_for_tenant(tags: dict[str, TagConfig], tenant_slug: str) -> list[str]:
+    """The tags a tenant's workspaces may use: its own and the shared ones, sorted."""
+    return sorted(tag for tag, config in tags.items() if config.tenant in (None, tenant_slug))
 
 
 def dataset_name(tag: str) -> str:

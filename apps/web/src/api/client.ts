@@ -3,6 +3,7 @@ import { readEvents } from "../lib/sse";
 import type {
   AdminInviteIn,
   AdminUser,
+  Aggregates,
   AuthMode,
   ChatStreamEvent,
   ConversationCreated,
@@ -25,10 +26,12 @@ import type {
   NoticeOut,
   OperatorOptions,
   OperatorSource,
+  OperatorTag,
   OperatorWorkspace,
   TenantCreateIn,
   TenantOut,
   TenantSettings,
+  TenantSpend,
   UserChangeIn,
   UserInviteIn,
   Workspace,
@@ -287,6 +290,15 @@ export const adminApi = {
 export const operatorApi = {
   options: () => json<OperatorOptions>("GET", "/operator/options"),
   tenants: () => json<TenantOut[]>("GET", "/operator/tenants"),
+  // P1b-12: one tenant per page, its users and spend, and the cross-tenant totals.
+  tenant: (tenantId: string) => json<TenantOut>("GET", `/operator/tenants/${tenantId}`),
+  tenantTags: (tenantId: string) =>
+    json<OperatorTag[]>("GET", `/operator/tenants/${tenantId}/tags`),
+  tenantUsers: (tenantId: string) =>
+    json<AdminUser[]>("GET", `/operator/tenants/${tenantId}/users`),
+  tenantSpend: (tenantId: string) =>
+    json<TenantSpend>("GET", `/operator/tenants/${tenantId}/spend`),
+  aggregates: () => json<Aggregates>("GET", "/operator/aggregates"),
   createTenant: (body: TenantCreateIn) => json<TenantOut>("POST", "/operator/tenants", body),
   inviteAdmin: (tenantId: string, body: AdminInviteIn) =>
     json<{ user_id: string; status: "invited" }>(

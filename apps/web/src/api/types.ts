@@ -58,3 +58,7 @@ export type WorkspaceFile = Schemas["WorkspaceFileOut"];
 export type WorkspaceSite = Schemas["WorkspaceSiteOut"];
 export type DownloadLink = Schemas["DownloadLinkOut"];
 export type OperatorSource = Schemas["OperatorSourceOut"];
+// Operator console, one tenant per page (P1b-12).
+export type OperatorTag = Schemas["OperatorTagOut"];
+export type TenantSpend = Schemas["TenantSpendOut"];
+export type Aggregates = Schemas["AggregatesOut"];

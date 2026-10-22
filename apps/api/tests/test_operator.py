@@ -42,6 +42,7 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
         "PUT",
         f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/entitlements",
         {
+            "tenant_id": str(INTERNAL_TENANT_ID),
             "answer_modes": ["corpus_only"],
             "enabled_models": [MODEL],
             "external_models_enabled": False,
@@ -64,6 +65,12 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     ),
     ("DELETE", f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/login-policy/sso", None),
     ("GET", "/api/v1/operator/notices", None),
+    # P1b-12: one tenant per page, its spend, and the cross-tenant totals.
+    ("GET", f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}", None),
+    ("GET", f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/tags", None),
+    ("GET", f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/users", None),
+    ("GET", f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/spend", None),
+    ("GET", "/api/v1/operator/aggregates", None),
 ]
 
 
@@ -111,8 +118,9 @@ async def console(auth: Auth, owner: Any) -> AsyncIterator[Console]:  # noqa: F8
     await revoke_operator(owner, email=OPERATOR_EMAIL)
 
 
-def entitlements(**overrides: Any) -> dict[str, Any]:
+def entitlements(tenant_id: Any, **overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
+        "tenant_id": str(tenant_id),  # the console page's tenant (P1b-12, findings F2)
         "answer_modes": ["corpus_only"],
         "enabled_models": [MODEL],
         "external_models_enabled": False,
@@ -305,7 +313,7 @@ async def test_entitlement_change_is_audited_with_before_and_after(console: Cons
     tenant_id = (await create(op))["id"]
     response = await op.put(
         f"/api/v1/operator/tenants/{tenant_id}/entitlements",
-        json=entitlements(answer_modes=["general_knowledge", "corpus_only"]),
+        json=entitlements(tenant_id, answer_modes=["general_knowledge", "corpus_only"]),
     )
     assert response.status_code == 200
     assert response.json()["answer_modes"] == ["corpus_only", "general_knowledge"]
@@ -316,7 +324,7 @@ async def test_entitlement_change_is_audited_with_before_and_after(console: Cons
     # Saving the same values again changes nothing and writes nothing.
     again = await op.put(
         f"/api/v1/operator/tenants/{tenant_id}/entitlements",
-        json=entitlements(answer_modes=["general_knowledge", "corpus_only"]),
+        json=entitlements(tenant_id, answer_modes=["general_knowledge", "corpus_only"]),
     )
     assert again.status_code == 200
     assert len(await console.events("operator.entitlements_changed", uuid.UUID(tenant_id))) == 1
@@ -327,12 +335,14 @@ async def test_enabling_external_models_needs_the_acceptance_reference(console: 
     tenant_id = (await create(op))["id"]
     path = f"/api/v1/operator/tenants/{tenant_id}/entitlements"
     refused = await op.put(
-        path, json=entitlements(external_models_enabled=True, external_spend_cap_cents=50_000)
+        path,
+        json=entitlements(tenant_id, external_models_enabled=True, external_spend_cap_cents=50_000),
     )
     assert (refused.status_code, refused.json()["detail"]) == (422, "acceptance_required")
     no_cap = await op.put(
         path,
         json=entitlements(
+            tenant_id,
             external_models_enabled=True,
             external_acceptance={"reference": "DPA-SYN-001 §4", "accepted_on": "2026-10-15"},
         ),
@@ -342,6 +352,7 @@ async def test_enabling_external_models_needs_the_acceptance_reference(console: 
     in_future = await op.put(
         path,
         json=entitlements(
+            tenant_id,
             external_models_enabled=True,
             external_spend_cap_cents=50_000,
             external_acceptance={"reference": "DPA-SYN-001", "accepted_on": future},
@@ -360,6 +371,7 @@ async def test_enabling_external_models_needs_the_acceptance_reference(console: 
     enabled = await op.put(
         path,
         json=entitlements(
+            tenant_id,
             external_models_enabled=True,
             external_spend_cap_cents=50_000,
             external_acceptance={"reference": "DPA-SYN-001 §4", "accepted_on": "2026-10-15"},
@@ -378,7 +390,8 @@ async def test_enabling_external_models_needs_the_acceptance_reference(console: 
 
     # Already on, with the acceptance on file: other changes need no new reference.
     cap = await op.put(
-        path, json=entitlements(external_models_enabled=True, external_spend_cap_cents=80_000)
+        path,
+        json=entitlements(tenant_id, external_models_enabled=True, external_spend_cap_cents=80_000),
     )
     assert cap.status_code == 200 and cap.json()["external_acceptance_reference"]
 
@@ -411,7 +424,8 @@ async def test_entitlement_validation(
     op = await console.operator()
     tenant_id = (await create(op))["id"]
     response = await op.put(
-        f"/api/v1/operator/tenants/{tenant_id}/entitlements", json=entitlements(**override)
+        f"/api/v1/operator/tenants/{tenant_id}/entitlements",
+        json=entitlements(tenant_id, **override),
     )
     assert response.status_code == 422
     if detail:

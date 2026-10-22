@@ -86,7 +86,7 @@ These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a
 
 6A.4 **Downloads.** A Customer Document is downloadable only by the Customer's own users and only where the Customer's declaration says so. The Customer may change this by written instruction.
 
-6A.5 **Isolation.** Customer Documents are searched, listed and downloadable only within the Customer's own workspaces and are never available to another customer. The Provider uses them only to provide the Service to the Customer and never to train any model. This includes testing the quality of answers on Customer Documents: test questions are written from them and run in the Customer's own workspaces, and the Provider keeps only the resulting scores, never the questions, answers or document text. The Customer may exclude this testing in the order form (A.8).
+6A.5 **Isolation.** Customer Documents are searched, listed and downloadable only within the Customer's own workspaces and are never available to another customer. Every content collection the Customer's workspaces search belongs to the Customer alone. The Provider uses them only to provide the Service to the Customer and never to train any model. This includes testing the quality of answers on Customer Documents: test questions are written from them and run in the Customer's own workspaces, and the Provider keeps only the resulting scores, never the questions, answers or document text. The Customer may exclude this testing in the order form (A.8).
 
 6A.6 **Withdrawal.** On the Customer's written request the Provider withdraws a Customer Document within 10 working days. If the Provider receives a third party's notice that a Customer Document infringes its rights, the Provider may withdraw the document at once, without waiting for the Customer's instruction, and tells the Customer without undue delay. The Customer may contest the claim; once it is resolved in the Customer's favour, the Provider re-ingests the document on the Customer's instruction.
 
@@ -167,11 +167,11 @@ The Provider may suspend a user or the Customer, with notice where practical, if
 
 | Workspace | Content tags | Notes |
 | --- | --- | --- |
-| [workspace name] | [tag], [shared tag] | |
-| [workspace name] | [tag], [shared tag] | |
-| [workspace name] | [tag], [shared tag] | |
+| [workspace name] | [tag], [common tag] | |
+| [workspace name] | [tag], [common tag] | |
+| [workspace name] | [tag], [common tag] | |
 
-*Owner: for the test client, three workspaces (`team1-healthcare-gpo`, `team2-college-universities`, `team3-commercial-restaurants`), each with its own tag plus `cc-shared` (empty until P1b-13d decides its files). Use the Customer-facing names here.*
+*Owner: for the test client, three workspaces (`team1-healthcare-gpo`, `team2-college-universities`, `team3-commercial-restaurants`), each with its own tag plus `cc-shared` (empty until P1b-13d decides its files). Use the Customer-facing names here. A "[common tag]" is shared only between this Customer's own workspaces; no tag is shared with another customer (owner decision Oct 22, 2026).*
 
 ### A.2 Seats and fees
 
@@ -234,7 +234,7 @@ Chat-history retention: [30] days (maximum 30; the Customer's administrators may
 | --- | --- |
 | Customer Documents supplied | [Yes / No] |
 | Customer-owned content tags (one per workspace, plus an optional common tag for the Customer's workspaces only) | [tag], [tag] |
-| Platform content supplementing them | [None / platform tags listed in A.1] |
+| Platform content supplementing them | [None / added to the Customer's own tags listed in A.1] |
 | Transfer method for files | Email, a link to a file share the Customer controls (for example SharePoint), or [other agreed channel] |
 | Limits | 500 MB per file (larger files after consultation, §6A.1), 100 files per batch; PDF, DOCX, PPTX |
 | Withdrawal on request | Within 10 working days |

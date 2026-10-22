@@ -17,7 +17,7 @@ Key decisions:
 | Decision | Choice | Rationale |
 | --- | --- | --- |
 | Retrieval engine | RAGFlow, self-hosted, internal only | Strong document parsing (DeepDoc) for PDF/DOCX/PPTX, built-in chunking, hybrid search, retrieval API with per-dataset scoping |
-| Corpus model | One shared RAGFlow instance; one dataset (knowledge base) per content tag; a tenant package is a set of tags | Logical isolation was chosen; packages are composed by us without re-ingesting documents |
+| Corpus model | One shared RAGFlow instance; one dataset (knowledge base) per content tag; a tenant package is a set of tags | Logical isolation was chosen; packages are composed by us without re-ingesting documents. *DRAFT, Oct 22, 2026 (§15.4):* every tag now belongs to one tenant and is never shared across tenants; content needed by two tenants is ingested into each tenant's own tags |
 | Tenant boundary | Our own application layer, not RAGFlow's tenant model | RAGFlow's users/teams are an admin convenience, not a security boundary we would expose to clients |
 | Generation | Our application calls the LLM directly; RAGFlow is used for retrieval only | Full control of prompt contents, ZDR endpoint, region pin, citation format, answer modes, streaming and logging |
 | LLM provider and model | Mistral (La Plateforme, EU) primary, Mistral Large class pinned by default; Scaleway Generative APIs (Paris) as fallback with the closest available Mistral model | Both EU-hosted; zero-retention confirmations in hand; Large chosen for answer quality on long research contexts |
@@ -164,7 +164,7 @@ Not used for: end-user authentication, chat history, the client-facing chat assi
 
 **Dataset layout.** One RAGFlow dataset per **content tag**. Tags are the unit of packaging: topic or publisher collections (`src-<publisher>`, `topic-<area>`), our analysis collections (`analysis-<series>`), and client-specific collections (`client-<slug>`) for analysis produced for one client. A document that belongs in several tags is linked into each dataset; the source register records the mapping. A **tenant package** is a set of tags assembled by the operator; the API resolves it to dataset IDs at query time and never accepts dataset IDs from the client.
 
-*DRAFT, Oct 22, 2026:* for clients that supply their own documents, tags gain an owning tenant and client-supplied files go only into tags owned by the supplying tenant; see §15.4.
+*DRAFT, Oct 22, 2026:* every tag gains an owning tenant and may sit only in that tenant's workspaces; no tag, and so no dataset, is shared across tenants, for platform-gathered and client-supplied content alike. Cross-tenant topic or publisher collections are replaced by per-tenant tags (`<tenant-slug>-<topic>`, as `cc` already does). See §15.4.
 
 ### 4.5 Workers
 
@@ -411,7 +411,7 @@ Web-search mode is placed in Phase 2 because it needs a DPA clause and new UI la
 | Topic | Decision |
 | --- | --- |
 | Login methods | Microsoft Entra ID, Google Workspace, generic OIDC/SAML SSO, and emailed sign-in links; realised through a self-hosted identity broker |
-| Packaging | Client-specific packages composed by the platform operator from content tags; no self-service purchase |
+| Packaging | Client-specific packages composed by the platform operator from content tags; no self-service purchase. *DRAFT, Oct 22, 2026:* only from tags owned by that tenant (§15.4) |
 | Licensing | Third-party licences assumed to permit text-and-data mining and excerpt display; register still records basis per document |
 | Source access | Excerpt plus link to the original; no in-app full-document viewer |
 | Answer modes | Corpus-only by default; operator may enable General knowledge and Web search per tenant |
@@ -501,10 +501,10 @@ The design so far assumed one content model: public and open-source sources chos
 | What they are | Published third-party PDFs, crawled public pages, our own DOCX/PPTX analysis | Whatever the client sends within the accepted formats (§15.3): its own reports, licensed material it holds, internal documents |
 | Who holds the right to use and redistribute | Us, recorded per source in the register (licence name, letter, "own work") | The client, by its written declaration and warranty (§15.5) |
 | GDPR role for personal data in the files | Controller (compliance guide data map) | Processor for the client (§15.10) |
-| Where they may be placed | Any tag, including tags shared across tenants | Only tags owned by the supplying tenant (§15.4) |
+| Where they may be placed | Only tags owned by the tenant they are gathered for; the same source may be ingested into several tenants' own tags as separate copies (§15.4) | Only tags owned by the supplying tenant (§15.4) |
 | Applies to | The current test client `cc` (unchanged: its three workspaces and `cc-shared` use only this model) and the internal tenant | Later clients that sign the client-supplied terms |
 
-The models combine: a model-2 client's workspaces hold its own files and **may be supplemented** by platform-gathered content, either in platform tags added to the workspace or in the client's own tags. A model-2 source is never moved to model 1 or the reverse; a file that both we and a client hold is two separate sources (§15.4, de-duplication).
+The models combine: a model-2 client's workspaces hold its own files and **may be supplemented** by platform-gathered content, ingested into the client's own tags. A model-2 source is never moved to model 1 or the reverse; a file that both we and a client hold is two separate sources (§15.4, de-duplication).
 
 ### 15.2 Source register: the `client-supplied` licence basis
 
@@ -535,20 +535,20 @@ PDF, DOCX and PPTX, as for model 1, up to 500 MB per file and 100 files per batc
 - Workspaces, conversations, messages, citations and downloads sit in tenant tables with forced RLS and `tenant_id`-first indexes; the API sets the tenant from the token.
 - Chunks from datasets outside the workspace are dropped before the prompt (`select_context`); the file list and downloads answer only for sources in the workspace's tags, and 404 otherwise (P1a-14).
 - Answer cache keys are tenant-prefixed (`app.core.cache`).
-- Changing a source's tags needs a reviewer (P1b-01, findings A1-6); the operator console offers only the page's tenant's tags plus shared tags (P1b-12).
+- Changing a source's tags needs a reviewer (P1b-01, findings A1-6); the operator console offers only the page's tenant's tags plus shared tags (P1b-12; the "plus shared tags" part is removed in step 2, below).
 
-These controls keep one tenant's **queries** and **workspaces** apart. They do not stop the operator from putting one tag into two tenants' workspaces: tags have no owner today, and that is by design for model 1, where shared tags are the point.
+These controls keep one tenant's **queries** and **workspaces** apart. They do not stop the operator from putting one tag into two tenants' workspaces: tags have no owner today. **Owner decision of Oct 22, 2026 (open-questions J9): a tag may be shared only between workspaces of the same tenant and must never be used to share documents across tenants, for any content, even if this means the same file sits several times in the shared RAG index under different tenants.**
 
 **What is new for model 2:**
 
-1. **Tag ownership.** Each tag gains an owner: `owner_tenant_id` on the tag record (the `datasets` table, or a `tags` table if step 2 moves tags out of `config/tags.toml`), null for a platform tag. A **shared tag** is a platform tag (null owner), which may sit in the workspaces of several tenants. A tenant-owned tag may sit in several workspaces **of its owning tenant** (a tenant's "common" corpus, as `cc-shared` is for `cc`) and in no other tenant's workspace. Client-supplied tags follow the existing `client-<slug>` convention (§4.4) with the tenant's slug.
+1. **Tag ownership.** Each tag gains an owner: `owner_tenant_id` on the tag record (the `datasets` table, or a `tags` table if step 2 moves tags out of `config/tags.toml`), never null: every tag belongs to exactly one tenant (the internal tenant for our own working and eval tags, such as `sample-*`). A **shared tag** is a tag shared by several workspaces **of its owning tenant** (a tenant's "common" corpus, as `cc-shared` is for `cc`); it sits in no other tenant's workspace (owner decision Oct 22, 2026, open-questions J9). Tag names carry the tenant's slug (`<tenant-slug>-<topic>`, as `cc` already does; client-supplied collections `client-<slug>`, §4.4). The `cc` tags already meet the rule: step 2 only records `cc` as their owner.
 2. **Placement rule.** A `client_supplied` source may be linked only to tags whose `owner_tenant_id` equals its `supplying_tenant_id`. Enforced at proposal, at approval, at re-tagging and again by the worker before every upload to a dataset (the worker re-reads both values from the database; a mismatch fails the job with an error code and no upload). A database constraint or trigger on the source-to-tag mapping enforces the same rule, so a direct write cannot bypass the API.
 3. **Workspace rule.** The operator's workspace routes refuse a tag owned by another tenant (`foreign_tag`), whatever the console offers; enforced in the API and by a database check on `workspaces.tag_ids` against tag ownership.
-4. **De-duplication per owner.** Today a file whose content hash is already ingested is linked into the new tags of the existing source (findings E3). For model 2 de-duplication is scoped to the supplying tenant: a client-supplied file never merges with a platform source or with another tenant's source, even when the bytes are identical; it becomes its own source row and its own RAGFlow documents. The same applies in reverse (a platform file never joins a client's source).
+4. **De-duplication per owner.** Today a file whose content hash is already ingested is linked into the new tags of the existing source (findings E3). For model 2 de-duplication is scoped to the supplying tenant: a client-supplied file never merges with a platform source or with another tenant's source, even when the bytes are identical; it becomes its own source row and its own RAGFlow documents. The same applies in reverse (a platform file never joins a client's source). For platform-gathered content the existing re-tagging path (findings E3) already uploads a separate RAGFlow document into each new tag's dataset; with tenant-owned tags, giving one public report to two tenants therefore means two copies, one in each tenant's datasets, parsed twice and stored twice. The register keeps one row for our licence record, so a licence takedown still withdraws every copy (open-questions J19).
 5. **Content store.** Copies of client-supplied files and declarations are stored under `[files] content_root` in a per-tenant directory (`clients/<tenant_id>/`), so that withdrawal and termination can be verified file by file and a directory listing proves nothing is left.
 6. **Ownership is immutable** while the tag has documents: changing a tag's owner requires an empty dataset.
 
-Platform-gathered content may be linked into a client-owned tag (to supplement that client), but then it is visible only to that client; to supplement several clients, platform content stays in platform tags.
+Platform-gathered content reaches a tenant only through that tenant's own tags; there are no cross-tenant platform tags. The cost is duplicate parsing and storage of content several tenants use (disk: open-questions J7).
 
 RAGFlow remains one shared instance; tenant ownership lives in our database, not in RAGFlow (§1, "Tenant boundary"). A dedicated RAGFlow instance or index per client is not offered: a client's request for one is refused, unless a signed contract already obliges us to provide it (owner decision Oct 22, 2026, open-questions J15; compliance guide, decisions closed Oct 17).
 
@@ -598,13 +598,14 @@ Client-supplied files are Client Data. Personal data in them is processed by us 
 
 ### 15.12 Build in step 2 (for the later spec item)
 
-Register columns and constraints (§15.2); tag ownership and the placement, workspace and de-duplication rules (§15.4); per-tenant content-store directory; console and manifest support for the basis and the supplying tenant; tenant-name flag on declared metadata; untrusted wrapping for every client-supplied passage; termination purge step and certificate figures. Tests, each proving the negative case: a client-supplied source cannot be linked to a platform tag or another tenant's tag (API, worker and database); a workspace of tenant B cannot take a tag owned by tenant A; a query in tenant B's workspace never retrieves, lists or downloads tenant A's client-supplied file; an identical file supplied by two tenants yields two sources; the termination purge leaves no document, dataset, content-store file or register title for the tenant; the prompt for a client-supplied chunk contains no identifier added by the API; the worker refuses a job whose tags no longer match the supplying tenant.
+Register columns and constraints (§15.2); tag ownership and the placement, workspace and de-duplication rules (§15.4); per-tenant content-store directory; console and manifest support for the basis and the supplying tenant; tenant-name flag on declared metadata; untrusted wrapping for every client-supplied passage; termination purge step and certificate figures. Owner for every existing tag (internal tenant for `sample-*`, `cc` for `cc-*`); the operator console and API offer and accept only the page tenant's own tags (removes P1b-12's "plus shared tags"). Tests, each proving the negative case: a tag cannot be placed in a workspace of a tenant other than its owner; a tag cannot be created without an owner; a client-supplied source cannot be linked to another tenant's tag (API, worker and database); a workspace of tenant B cannot take a tag owned by tenant A; a query in tenant B's workspace never retrieves, lists or downloads tenant A's client-supplied file; an identical file supplied by two tenants yields two sources; the termination purge leaves no document, dataset, content-store file or register title for the tenant; the prompt for a client-supplied chunk contains no identifier added by the API; the worker refuses a job whose tags no longer match the supplying tenant.
 
 ### 15.13 Decisions log additions
 
 | Topic | Decision |
 | --- | --- |
 | Content models | Two models: platform-gathered (as today, `cc`) and client-supplied (later clients, client-driven, platform may supplement); owner decision 11, Oct 22, 2026 |
-| Client-supplied isolation | Register basis `client-supplied` with the supplying tenant; such sources only in tags owned by that tenant, never in shared tags or another tenant's workspace; de-duplication per owner (DRAFT) |
+| Tag ownership | Every tag belongs to one tenant; shared tags are shared only between workspaces of that tenant and never across tenants, for all content, accepting duplicate copies in the index (owner, Oct 22, 2026; DRAFT) |
+| Client-supplied isolation | Register basis `client-supplied` with the supplying tenant; such sources only in tags owned by that tenant, never in another tenant's workspace; de-duplication per owner (DRAFT) |
 | Rights in client files | Client's warranty and indemnity; declaration per file or batch; the client decides downloadability (DRAFT, counsel to review) |
 | GDPR role for client files | Processor for the client (DRAFT, counsel to confirm) |

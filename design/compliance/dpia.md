@@ -71,7 +71,7 @@ Likelihood and severity on a 1 to 3 scale; risk = likelihood × severity, before
 | R9 | **Mailbox takeover gives account access.** Anyone who controls a user's mailbox can sign in by link; a mail scanner could consume a link | 2 | 2 | 4 |
 | R10 | **Body text in logs or errors** exposes questions to operators | 1 | 2 | 2 |
 | R11 | **Personal data typed into questions**, including about third parties, is sent to the model | 2 | 1 | 2 |
-| R12 | **Client-supplied document reaches another client** (placed in a shared tag or another tenant's workspace, merged by de-duplication) and its contents, including people named in it, are shown to the wrong customer. *DRAFT, Oct 22, 2026* | 1 | 3 | 3 |
+| R12 | **Client-supplied document reaches another client** (placed in another tenant's tag or workspace, merged by de-duplication) and its contents, including people named in it, are shown to the wrong customer. *DRAFT, Oct 22, 2026* | 1 | 3 | 3 |
 | R13 | **More personal data than declared in client files** (staff data, special categories), indexed and sent to the model. *DRAFT* | 2 | 2 | 4 |
 | R14 | **Client file not removed** on withdrawal or termination (a copy left in a dataset, the content store or a cache). *DRAFT* | 1 | 2 | 2 |
 

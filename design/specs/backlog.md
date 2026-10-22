@@ -60,4 +60,6 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 - Phase 2: count public holidays (a configurable calendar) in the takedown due date; Phase 1b counts Monday to Friday only (findings 1b A1-17). Raised by the Group A1 build.
 - Phase 1b follow-up: clean up the documents of an interrupted re-tag job, as an interrupted first ingestion already is (findings 1b A1-11). Raised by the Group A1 build.
 - Phase 2: hardware keys or passkeys as the second factor for tenant admins. Phase 1b uses TOTP, because the API-run sign-in flow cannot relay WebAuthn (owner decision Oct 22, 2026, findings B15); needs a browser-run Authentik flow or a WebAuthn relay in the API.
+- Phase 1b or 2: "restore" action for a crawled page a reviewer withdrew, which otherwise stays out of later crawls for good (owner decision Oct 22, 2026, findings A2-7).
+- Phase 1b or 2: "resend invitation" action in the operator console and the tenant admin pages for a user still in `invited` state, re-queuing the invitation mail (owner decision Oct 22, 2026, findings D5).
 

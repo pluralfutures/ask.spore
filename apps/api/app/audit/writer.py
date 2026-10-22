@@ -36,8 +36,9 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "tokens_out",
         "latency_ms",
         "rating",
-        # Sign-in (P1a-02): how the user authenticated.
+        # Sign-in (P1a-02): how the user authenticated; with a second factor (P1b-08).
         "method",
+        "mfa",
         # Operator console (P1a-03): who acted, what changed, and the client's
         # acceptance of external models when they are enabled.
         "operator_id",
@@ -77,6 +78,12 @@ CHANGE_FIELDS: Final[frozenset[str]] = frozenset(
         "external_models_enabled",
         "external_spend_cap_cents",
         "sign_in_links_enabled",
+        # Login policy (P1b-06, P1b-07): non-secret fields only.
+        "sso_source_kind",
+        "sso_source_slug",
+        "sso_config_sha256",
+        "jit_provisioning_enabled",
+        "admin_mfa_required",
         "external_acceptance_reference",
         "external_acceptance_date",
         "user_id",

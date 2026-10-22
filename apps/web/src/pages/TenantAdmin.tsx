@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { ApiError, adminApi, api } from "../api/client";
-import type { AdminUser, Me, ModelOption, Workspace } from "../api/types";
+import type { AdminUser, LoginPolicyOut, Me, ModelOption, Workspace } from "../api/types";
 import {
   MAX_INSTRUCTIONS_CHARS,
   MAX_RETENTION_DAYS,
@@ -14,6 +14,7 @@ import {
   userActions,
 } from "../lib/admin";
 import { formatDate } from "../lib/format";
+import { policySummary } from "../lib/sso";
 import { modelLabel } from "../lib/startPanel";
 
 function refusal(error: unknown): string | null {
@@ -48,6 +49,7 @@ export function TenantAdmin() {
         <Users selfEmail={me.data?.email} />
         <Workspaces />
         <Retention />
+        <SignInPolicy />
       </main>
     </AdminGate>
   );
@@ -406,6 +408,32 @@ export function VersionHistory({
         ))}
       </ol>
     </details>
+  );
+}
+
+// P1b-07: the tenant's sign-in methods and SSO source, as the operator configured them
+// with the client's IT. Read-only: changes go through the operator.
+function SignInPolicy() {
+  const policy = useQuery({ queryKey: ["admin", "login-policy"], queryFn: adminApi.loginPolicy });
+  return (
+    <section className="flex flex-col gap-2 rounded bg-white p-3 text-sm">
+      <h2 className="font-semibold">Sign-in</h2>
+      {policy.data ? <PolicySummary policy={policy.data} /> : null}
+      <p className="text-slate-600">To change single sign-on, contact the platform operator.</p>
+    </section>
+  );
+}
+
+export function PolicySummary({ policy }: { policy: LoginPolicyOut }) {
+  return (
+    <dl className="grid grid-cols-[max-content_1fr] gap-x-3">
+      {policySummary(policy).map(([label, value]) => (
+        <Fragment key={label}>
+          <dt className="text-slate-600">{label}</dt>
+          <dd className="break-all">{value}</dd>
+        </Fragment>
+      ))}
+    </dl>
   );
 }
 

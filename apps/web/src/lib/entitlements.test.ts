@@ -8,7 +8,6 @@ const off: EntitlementsOut = {
   enabled_models: ["deepseek-v4.1-flash"],
   external_models_enabled: false,
   external_spend_cap_cents: null,
-  sign_in_links_enabled: true,
   external_acceptance_reference: null,
   external_acceptance_date: null,
   updated_at: "2026-10-19T10:00:00Z",

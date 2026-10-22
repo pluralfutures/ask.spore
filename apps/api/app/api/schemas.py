@@ -11,7 +11,7 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 MAX_QUESTION_CHARS = 4000
 MAX_COMMENT_CHARS = 2000
@@ -231,6 +231,18 @@ class LinkRequestIn(_In):
     email: str = Field(min_length=3, max_length=320)
 
 
+class DiscoverIn(_In):
+    email: str = Field(min_length=3, max_length=320)
+
+
+class DiscoverOut(BaseModel):
+    """The sign-in methods an address's domain allows (P1b-06). The same for every
+    address of a domain, and the links-only answer for any unknown domain."""
+
+    methods: list[Literal["sso", "sign_in_link"]]
+    sso_kind: Literal["entra", "google", "oidc", "saml"] | None
+
+
 class LinkRequestOut(BaseModel):
     """Identical for every address (no enumeration)."""
 
@@ -241,11 +253,27 @@ class LinkCompleteIn(_In):
     token: str = Field(min_length=1, max_length=512)
 
 
+class MfaRequiredOut(BaseModel):
+    """The sign-in waits for the tenant admin's second factor (P1b-08): their TOTP code,
+    or first enrolling an authenticator app with ``setup_uri`` (``otpauth://``)."""
+
+    status: Literal["mfa_required"]
+    stage: Literal["validate", "setup"]
+    setup_uri: str | None
+    failed: bool  # the last code was not accepted
+
+
+class MfaCodeIn(_In):
+    code: str = Field(pattern=r"^[0-9]{6,8}$")
+
+
 class MeOut(BaseModel):
     email: str
     display_name: str
     role: Literal["user", "tenant_admin"]
     tenant_display_name: str
+    # P1b-08: the session's access token expiry (OIDC mode); renew before it.
+    session_expires_at: datetime | None = None
 
 
 class ModelOptionOut(BaseModel):
@@ -295,7 +323,6 @@ class EntitlementsIn(_In):
     enabled_models: list[str] = Field(min_length=1, max_length=20)
     external_models_enabled: bool
     external_spend_cap_cents: int | None = Field(default=None, ge=0, le=100_000_000)
-    sign_in_links_enabled: bool
     # Required when this request switches external models on.
     external_acceptance: AcceptanceIn | None = None
 
@@ -305,10 +332,84 @@ class EntitlementsOut(_Out):
     enabled_models: list[str]
     external_models_enabled: bool
     external_spend_cap_cents: int | None
-    sign_in_links_enabled: bool
     external_acceptance_reference: str | None
     external_acceptance_date: date | None
     updated_at: datetime
+
+
+class LoginPolicyIn(_In):
+    """The operator's switches (P1b-06). The SSO source has its own routes (P1b-07)."""
+
+    sign_in_links_enabled: bool
+    jit_provisioning_enabled: bool
+    admin_mfa_required: bool
+
+
+class LoginPolicyOut(_Out):
+    """A tenant's login policy: non-secret fields only (P1b-06, P1b-07)."""
+
+    sign_in_links_enabled: bool
+    sso_source_kind: Literal["none", "entra", "google", "oidc", "saml"]
+    sso_source_slug: str | None
+    sso_source_config: dict[str, str | list[str]]
+    jit_provisioning_enabled: bool
+    admin_mfa_required: bool
+    updated_at: datetime
+    # P1b-07: what the client's IT registers at their IdP (redirect URI, or SAML ACS URL
+    # and SP entity ID), on our public host.
+    sso_endpoints: dict[str, str] = Field(default_factory=dict)
+
+
+# P1b-07: one SSO source per tenant, by kind. Client secrets are write-only: passed to
+# Authentik and never stored, returned or logged by the API.
+_CLIENT_ID = r"^[A-Za-z0-9][A-Za-z0-9._@:/-]{0,255}$"
+ClientSecret = Annotated[SecretStr, Field(min_length=1, max_length=1024)]
+
+
+class EntraSourceIn(_In):
+    kind: Literal["entra"]
+    entra_tenant_id: UUID
+    client_id: str = Field(pattern=_CLIENT_ID)
+    # Required when the source is created or its kind changes; omitted keeps it.
+    client_secret: ClientSecret | None = None
+    # Entra group object IDs whose members are tenant admins (optional).
+    admin_group_ids: list[UUID] = Field(default_factory=list, max_length=20)
+
+
+class GoogleSourceIn(_In):
+    kind: Literal["google"]
+    client_id: str = Field(pattern=_CLIENT_ID)
+    client_secret: ClientSecret | None = None
+
+
+class OidcSourceIn(_In):
+    kind: Literal["oidc"]
+    issuer: str = Field(min_length=9, max_length=512)
+    client_id: str = Field(pattern=_CLIENT_ID)
+    client_secret: ClientSecret | None = None
+
+
+class SamlSourceIn(_In):
+    kind: Literal["saml"]
+    metadata_xml: str = Field(min_length=1, max_length=262_144)
+
+    @field_validator("metadata_xml", mode="before")
+    @classmethod
+    def _line_endings(cls, value: object) -> object:
+        # Metadata files often end lines with CRLF; carriage returns are the only control
+        # characters let through, as newlines.
+        return value.replace("\r\n", "\n").replace("\r", "\n") if isinstance(value, str) else value
+
+
+SsoSourceIn = Annotated[
+    EntraSourceIn | GoogleSourceIn | OidcSourceIn | SamlSourceIn, Field(discriminator="kind")
+]
+
+
+class SsoStartOut(BaseModel):
+    """Where the browser goes next: the IdP's sign-in page (P1b-07)."""
+
+    redirect_url: str
 
 
 class TenantOut(BaseModel):
@@ -320,6 +421,7 @@ class TenantOut(BaseModel):
     created_at: datetime
     admins: int
     entitlements: EntitlementsOut
+    login_policy: LoginPolicyOut
 
 
 class AdminInviteIn(_In):

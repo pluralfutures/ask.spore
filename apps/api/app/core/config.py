@@ -247,6 +247,24 @@ class AuthentikConfig(_Strict):
     redirect_uri: str
     sign_in_flow: str = Field(pattern=r"^[a-z0-9][a-z0-9-]*$")
     timeout_seconds: float = Field(gt=0)
+    # P1b-07: our public origin. Tenant SSO sources call back to it (Caddy hands those
+    # paths to the API), so the API presents it as the Host when it relays a sign-in to
+    # Authentik. Not an outbound host: nothing is ever sent to it by the API.
+    public_url: str | None = Field(default=None, pattern=r"^https://[a-z0-9.-]+$")
+    # The flows every tenant source uses (infra/authentik/blueprints): sign in a known
+    # source user, or create one (JIT); both update the user from the source's mapping.
+    source_authentication_flow: str = Field(
+        default="ask-spore-source-authentication", pattern=r"^[a-z0-9][a-z0-9-]*$"
+    )
+    source_enrollment_flow: str = Field(
+        default="ask-spore-source-enrollment", pattern=r"^[a-z0-9][a-z0-9-]*$"
+    )
+    source_pre_authentication_flow: str = Field(
+        default="ask-spore-source-pre-authentication", pattern=r"^[a-z0-9][a-z0-9-]*$"
+    )
+    # P1b-08: the group the sign-in-link flow's authenticator validation stage is bound
+    # to. The API keeps tenant admins of tenants that require a second factor in it.
+    admin_mfa_group: str = Field(default="ask-spore-tenant-admins", pattern=r"^[a-z0-9][a-z0-9-]*$")
 
 
 class AuthConfig(_Strict):
@@ -257,6 +275,15 @@ class AuthConfig(_Strict):
     link_ttl_seconds: int = Field(default=900, ge=60, le=900)
     # At most this many links per user per link lifetime; further requests send nothing.
     links_per_window: int = Field(default=5, ge=1, le=20)
+    # P1b-08: per client IP, at most this many sign-in requests (link, discovery, SSO
+    # start, each counted on its own) per window; more get 429 and nothing is sent.
+    # Caddy's limit would be a second layer (findings 1b B11).
+    ip_requests_per_window: int = Field(default=10, ge=1, le=1000)
+    ip_window_seconds: int = Field(default=600, ge=60, le=3600)
+    # P1b-08: how long the refresh cookie lives; matches the Authentik provider's
+    # refresh_token_validity (infra/authentik/blueprints). The session is renewed before
+    # the access token (8 hours) expires, at most this long after the last renewal.
+    refresh_token_ttl_seconds: int = Field(default=86_400, ge=3_600, le=7 * 86_400)
     authentik: AuthentikConfig | None = None
 
 

@@ -13,6 +13,7 @@ and nothing here takes a tenant ID from the request.
 - Workspace defaults: mode, model and reasoning among the tenant's enabled options. The
   additional instructions keep their routes (``PUT /workspaces/{id}/prompt``, findings
   B5): each save is a new version, with no revert in Phase 1a.
+- Login policy (P1b-07): the tenant's sign-in methods and SSO source, read-only.
 - Retention: shorten chat-history retention to between 1 and 30 days
   (``app.tenancy.retention``); never above 30 (CLAUDE.md).
 
@@ -29,8 +30,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session, require_tenant_admin
+from app.api.policy import policy_out
 from app.api.schemas import (
     AdminUserOut,
+    LoginPolicyOut,
     RetentionIn,
     TenantSettingsOut,
     UserChangeIn,
@@ -47,6 +50,7 @@ from app.core.logging import log
 from app.llm.catalogue import ModelChoice
 from app.tenancy.context import RequestContext
 from app.tenancy.entitlements import ModelRefused, check_choice
+from app.tenancy.login_policy import TenantLoginPolicy
 from app.tenancy.models import MAX_RETENTION_DAYS, Tenant, TenantEntitlements, User
 from app.tenancy.retention import retention_days, set_retention
 from app.tenancy.workspaces import Workspace
@@ -116,6 +120,8 @@ async def invite_user(
         await provider.provision_user(
             email=email, display_name=user.display_name, tenant_id=admin.tenant_id
         )
+        if body.role == "tenant_admin" and await _admin_mfa_required(session, admin.tenant_id):
+            await provider.set_admin_mfa(email, True)  # P1b-08
     except ProviderError as exc:
         # The transaction rolls back: no users row without its Authentik user.
         log("tenant_admin.invite_failed", tenant_id=str(admin.tenant_id), error_code=exc.error_code)
@@ -134,10 +140,19 @@ async def invite_user(
     return out
 
 
+async def _admin_mfa_required(session: AsyncSession, tenant_id: UUID) -> bool:
+    # Explicit tenant predicate on top of RLS (review of Oct 22, 2026).
+    required = await session.scalar(
+        select(TenantLoginPolicy.admin_mfa_required).where(TenantLoginPolicy.tenant_id == tenant_id)
+    )
+    return required is not False  # no row: the default, required
+
+
 @router.patch("/users/{user_id}", response_model=AdminUserOut)
 async def change_user(
     user_id: UUID,
     body: UserChangeIn,
+    request: Request,
     admin: RequestContext = Depends(require_tenant_admin),
     session: AsyncSession = Depends(db_session),
 ) -> AdminUserOut:
@@ -150,7 +165,22 @@ async def change_user(
     if user.id == admin.user_id:
         raise _unprocessable("cannot_change_self")
     before = _user_values(user)
-    if body.role is not None:
+    if body.role is not None and body.role != user.role:
+        # P1b-08: an admin's sign-in links ask for a second factor; a user's do not.
+        provider: SignInLinkProvider | None = getattr(request.app.state, "sign_in_provider", None)
+        if provider is not None:
+            required = body.role == "tenant_admin" and await _admin_mfa_required(
+                session, admin.tenant_id
+            )
+            try:
+                await provider.set_admin_mfa(user.email, required)
+            except ProviderError as exc:
+                log(
+                    "tenant_admin.mfa_sync_failed",
+                    tenant_id=str(admin.tenant_id),
+                    error_code=exc.error_code,
+                )
+                raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="mfa_not_updated") from None
         user.role = body.role
     if body.status == "deactivated":
         user.status = "deactivated"
@@ -228,6 +258,23 @@ async def set_workspace_defaults(
     out = WorkspaceOut.model_validate(workspace)
     await session.commit()
     return out
+
+
+# --- login policy (P1b-07): read-only ---------------------------------------------------
+
+
+@router.get("/login-policy", response_model=LoginPolicyOut)
+async def get_login_policy(
+    request: Request,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> LoginPolicyOut:
+    """How the tenant's users sign in, as the operator configured it with the client's
+    IT (architecture §7.4): shown, never changed here (self-service SSO is Phase 3)."""
+    row = await session.get(TenantLoginPolicy, admin.tenant_id)
+    if row is None:
+        raise NOT_FOUND
+    return policy_out(request, row)
 
 
 # --- settings: retention --------------------------------------------------------------

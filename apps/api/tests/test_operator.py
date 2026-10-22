@@ -19,7 +19,7 @@ from app.core.db import session_factory
 from app.operator.grants import grant_operator, revoke_operator
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.conftest import MigratedDatabase
-from tests.fake_idp import sign
+from tests.fake_idp import TOTP_CODE, sign
 from tests.test_auth import Auth, auth  # noqa: F401 - fixture
 from tests.test_tenancy import Tenant
 
@@ -45,9 +45,24 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
             "answer_modes": ["corpus_only"],
             "enabled_models": [MODEL],
             "external_models_enabled": False,
-            "sign_in_links_enabled": False,
         },
     ),
+    ("GET", f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/login-policy", None),
+    (
+        "PUT",
+        f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/login-policy",
+        {
+            "sign_in_links_enabled": False,
+            "jit_provisioning_enabled": False,
+            "admin_mfa_required": True,
+        },
+    ),
+    (
+        "PUT",
+        f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/login-policy/sso",
+        {"kind": "google", "client_id": "x", "client_secret": "synthetic"},
+    ),
+    ("DELETE", f"/api/v1/operator/tenants/{INTERNAL_TENANT_ID}/login-policy/sso", None),
     ("GET", "/api/v1/operator/notices", None),
 ]
 
@@ -102,7 +117,6 @@ def entitlements(**overrides: Any) -> dict[str, Any]:
         "enabled_models": [MODEL],
         "external_models_enabled": False,
         "external_spend_cap_cents": None,
-        "sign_in_links_enabled": True,
     }
     body.update(overrides)
     return body
@@ -174,7 +188,10 @@ async def test_create_tenant_with_defaults_and_audit(console: Console) -> None:
     assert created["status"] == "active" and created["admins"] == 0
     ent = created["entitlements"]
     assert (ent["answer_modes"], ent["enabled_models"]) == (["corpus_only"], [MODEL])
-    assert ent["external_models_enabled"] is False and ent["sign_in_links_enabled"] is True
+    assert ent["external_models_enabled"] is False
+    policy = created["login_policy"]
+    assert (policy["sign_in_links_enabled"], policy["sso_source_kind"]) == (True, "none")
+    assert (policy["jit_provisioning_enabled"], policy["admin_mfa_required"]) == (False, True)
 
     tenant_id = uuid.UUID(created["id"])
     (event,) = await console.events("operator.tenant_created", tenant_id)
@@ -244,10 +261,16 @@ async def test_invited_first_admin_signs_in_with_a_link(console: Console) -> Non
     assert event["after"] == {"user_id": str(user_id), "role": "tenant_admin", "status": "invited"}
     assert email not in json.dumps(event)  # the audit row names the user, not the address
 
-    # The admin signs in from their own browser and becomes active.
+    # Provisioned into the group Authentik's second factor is bound to (P1b-08).
+    assert console.auth.idp.mfa_sync == [(email, True)]
+
+    # The admin signs in from their own browser, with a second factor, and becomes active.
     browser = console.auth.browser()
     await console.auth.request_link(browser, email)
-    assert (await console.auth.complete(browser, console.auth.idp.last_token())).status_code == 204
+    pending = await console.auth.complete(browser, console.auth.idp.last_token())
+    assert (pending.status_code, pending.json()["stage"]) == (200, "setup")
+    answered = await browser.post("/api/v1/auth/mfa", json={"code": TOTP_CODE})
+    assert answered.status_code == 204
     me = (await browser.get("/api/v1/me")).json()
     assert (me["role"], me["tenant_display_name"]) == ("tenant_admin", "Synthetic Co")
     assert (
@@ -282,9 +305,7 @@ async def test_entitlement_change_is_audited_with_before_and_after(console: Cons
     tenant_id = (await create(op))["id"]
     response = await op.put(
         f"/api/v1/operator/tenants/{tenant_id}/entitlements",
-        json=entitlements(
-            answer_modes=["general_knowledge", "corpus_only"], sign_in_links_enabled=False
-        ),
+        json=entitlements(answer_modes=["general_knowledge", "corpus_only"]),
     )
     assert response.status_code == 200
     assert response.json()["answer_modes"] == ["corpus_only", "general_knowledge"]
@@ -292,16 +313,10 @@ async def test_entitlement_change_is_audited_with_before_and_after(console: Cons
     assert event["operator_id"] == str(await console.operator_id())
     assert event["before"]["answer_modes"] == ["corpus_only"]
     assert event["after"]["answer_modes"] == ["corpus_only", "general_knowledge"]
-    assert (event["before"]["sign_in_links_enabled"], event["after"]["sign_in_links_enabled"]) == (
-        True,
-        False,
-    )
     # Saving the same values again changes nothing and writes nothing.
     again = await op.put(
         f"/api/v1/operator/tenants/{tenant_id}/entitlements",
-        json=entitlements(
-            answer_modes=["general_knowledge", "corpus_only"], sign_in_links_enabled=False
-        ),
+        json=entitlements(answer_modes=["general_knowledge", "corpus_only"]),
     )
     assert again.status_code == 200
     assert len(await console.events("operator.entitlements_changed", uuid.UUID(tenant_id))) == 1

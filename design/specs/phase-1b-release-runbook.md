@@ -57,11 +57,23 @@ marked "default" run with the stated value unless the owner says otherwise.
 6. **Usage ledger kept on termination**: default, keep.
 7. **Judge model**: default, `qwen3.8-27b` on Scaleway as `[eval] judge_model`.
 8. **Tokenizer package**: default, keep `deepseek-tokenizer` 0.3.0; vendoring goes to the backlog.
-9. **SSO test identity providers**, one per connector kind the owner can log in to:
-   an Entra ID trial tenant (tenant ID, a test user), a Google Workspace domain the owner
-   controls (or a Google account with `hd`), and a generic OIDC or SAML provider (a second
-   Authentik, Okta developer tenant or Keycloak). Client secrets are entered by the owner in
-   the operator console, never pasted to the session.
+9. **SSO test identity providers** (owner, Oct 22, 2026):
+   - **Entra ID**: trial tenant `myceliumtest001.onmicrosoft.com`; the test user is on that
+     domain. Admin-group mapping not tested unless the owner adds a group.
+   - **Google Workspace**: domain `myceliumgastronomy.com`. That domain is a verified domain
+     of `cc` (test phase only) and a domain may belong to one tenant at a time, so for the
+     Google drill the operator removes it from `cc`, adds it to `ssotest`, runs the drill,
+     and reverses both (all four changes audited). The `cc` test admin's sign-in links
+     are unavailable during that window.
+   - **Generic OIDC**: the owner has no provider; use a **throwaway Keycloak** on the
+     Instance as the IdP, on the test host `idp-test.askspore.myceliumgastronomy.com`
+     (owner adds the A record to the Instance's IPv4; Caddy issues the certificate). A
+     drill-only compose file under `infra/drills/` with a digest-pinned Keycloak image,
+     a realm with one confidential client and two users (one on a domain verified for
+     `ssotest`, one not), removed after the drill with its volume. SAML is then
+     desk-checked only and recorded as such; Keycloak can serve SAML too if time allows.
+   Client IDs and secrets are entered by the owner in the operator console, never
+   pasted to a session.
 10. **Backups**: whether the nightly volume backup is in place (owner-handled); the restore
     test is recorded if the owner has done it, otherwise marked open.
 

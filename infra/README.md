@@ -59,3 +59,21 @@ uv run --directory apps/api alembic upgrade head
 
 Host requirement for Elasticsearch: `sysctl -w vm.max_map_count=262144`.
 Disk: the RAGFlow and TEI images are about 24 GB together.
+
+## Image pins (P1b-15 g)
+
+Every image is pinned by tag and digest (`name:tag@sha256:…`): Compose files, the API and web
+Dockerfiles and the CI PostgreSQL service. `apps/api/tests/test_image_pins.py` fails on any
+reference without a digest. To print the current digests, check the pins, or upgrade an image:
+
+```
+python3 infra/scripts/image-digests.py            # each reference and its tag's digest now
+python3 infra/scripts/image-digests.py --check    # exit 1 if a pinned tag has moved
+# change a tag, then pin it:
+python3 infra/scripts/image-digests.py --write
+```
+
+Docker Hub allows 100 anonymous manifest requests an hour per address; behind a shared address
+add `--hub-mirror mirror.gcr.io` (same content-addressed digests; a mirror can lag a re-pushed
+tag, so `--check` against Docker Hub before trusting a changed digest). The pins of Oct 22, 2026
+were taken through that mirror for Docker Hub images and from ghcr.io directly for Authentik.

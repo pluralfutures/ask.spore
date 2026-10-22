@@ -96,6 +96,8 @@ async def harness(
     h = Eval(app, recorder)
     yield h
     await h.http.aclose()
+    # The internal tenant keeps exactly its seeded users for other tests.
+    await world.admin.execute("DELETE FROM users WHERE email = $1", EMAIL)
 
 
 async def test_the_eval_harness_asks_through_the_oidc_api_with_its_credential(
@@ -173,10 +175,13 @@ async def test_the_credential_never_reaches_another_tenant(
     assert me.json()["tenant_display_name"] == internal != "Synthetic Client"
 
 
-async def test_the_identity_is_never_an_operator(owner: Any) -> None:
+async def test_the_identity_is_never_an_operator(
+    owner: Any, admin_conn: asyncpg.Connection
+) -> None:
     email = f"op-{uuid.uuid4().hex[:6]}@example.org"
     await grant_operator(owner, email=email, display_name="Synthetic Op", provider=None)
     assert await create_eval_identity(owner, email=email) == "has_roles"
+    await admin_conn.execute("DELETE FROM users WHERE email = $1", email)
 
 
 def test_the_repository_config_accepts_no_eval_credential() -> None:

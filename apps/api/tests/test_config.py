@@ -328,3 +328,27 @@ def test_ragflow_admin_ui_link_is_loopback_only(tmp_path: Path) -> None:
 def test_repository_ragflow_admin_ui_is_on_the_loopback() -> None:
     settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
     assert settings.models.ragflow.admin_ui_url == "http://127.0.0.1:8080"
+
+
+# --- deploy version (P1b-13 e) ------------------------------------------------------------
+
+
+def test_deploy_version_comes_from_the_environment(tmp_path: Path) -> None:
+    env = {**ENV, "ASK_SPORE_DEPLOY_VERSION": "0f3e244a1b2c"}
+    assert load_settings(environ=env, config_dir=write_config(tmp_path)).deploy_version == (
+        "0f3e244a1b2c"
+    )
+
+
+def test_deploy_version_falls_back_to_a_hash_of_the_config(tmp_path: Path) -> None:
+    config = write_config(tmp_path)
+    first = load_settings(environ=ENV, config_dir=config).deploy_version
+    assert first.startswith("files-")
+    assert load_settings(environ=ENV, config_dir=config).deploy_version == first
+    (config / "prompts" / "corpus_only" / "v1.md").write_text("Changed prompt.\n")
+    assert load_settings(environ=ENV, config_dir=config).deploy_version != first
+
+
+def test_rejects_a_malformed_deploy_version(tmp_path: Path) -> None:
+    problems = problems_for(tmp_path, VALID_TOML, {**ENV, "ASK_SPORE_DEPLOY_VERSION": "a b;c"})
+    assert any("ASK_SPORE_DEPLOY_VERSION" in p for p in problems)

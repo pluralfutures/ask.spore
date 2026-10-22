@@ -19,7 +19,11 @@ Startup checks (design/Stack Decision.md, Conventions):
   only, with provider slugs;
 - every required secret must be present in the environment, including those of the
   authentication mode (``[auth] mode``: the Phase 0 bearer token, or Authentik's);
-- every active prompt version must exist under ``prompts/`` in the config directory.
+- every active prompt version must exist under ``prompts/`` in the config directory;
+- platform mail (``[mail]``, P1b-11): the active provider's section exists, every mail
+  host is an EU host over HTTPS (Scaleway Transactional Email, and Mailgun's EU region
+  only as the configured backup), and every active template version exists under
+  ``mail/`` and renders with the fixed placeholders only.
 
 Any failure raises ConfigError listing every problem; the API does not start.
 Error messages name the offending setting or variable, never a secret value.
@@ -27,10 +31,11 @@ Error messages name the offending setting or variable, never a secret value.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import tomllib
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -40,9 +45,16 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 from app.chat.prompts import check_slot
+from app.core.mailtemplates import TEMPLATE_NAMES, check_template
 
 CONFIG_DIR_ENV = "ASK_SPORE_CONFIG_DIR"
 DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[4] / "config"
+# P1b-13 (e), findings 1a F10: the deployed build, part of the answer cache key, so a
+# deploy never serves answers cached by the previous code. Set by the Compose file from
+# the deploy step (the git commit); without it, a hash of the configuration and code.
+DEPLOY_VERSION_ENV = "ASK_SPORE_DEPLOY_VERSION"
+APP_DIR = Path(__file__).resolve().parents[1]
+_DEPLOY_VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:+-]{0,63}$")
 
 # Environment variables that must be set and non-empty, plus the active LLM provider's
 # key (PROVIDER_SECRETS) and the authentication mode's (AUTH_SECRETS).
@@ -65,6 +77,14 @@ AUTH_SECRETS: dict[str, tuple[str, ...]] = {
 MIN_BEARER_TOKEN_LENGTH = 32
 # Optional: Scaleway project to bill; it becomes part of the base URL path.
 SCALEWAY_PROJECT_ENV = "SCALEWAY_PROJECT_ID"
+# Platform mail (P1b-11), optional like OpenRouter's key: without the active provider's
+# key no sender is built and every send_mail job fails with ``mail_not_configured``.
+# A separate IAM key whose policy allows Transactional Email only (EmailSend on the
+# project), not the Generative APIs key, whose policy does not cover it.
+SCALEWAY_TEM_KEY_ENV = "SCALEWAY_TEM_API_KEY"
+# The project the emails are sent from; SCALEWAY_PROJECT_ID when unset.
+SCALEWAY_TEM_PROJECT_ENV = "SCALEWAY_TEM_PROJECT_ID"
+MAILGUN_KEY_ENV = "MAILGUN_API_KEY"
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 # Dated model versions such as "mistral-large-2512"; rejects "-latest" and other aliases.
@@ -113,6 +133,11 @@ class LlmConfig(_Strict):
     """Which provider the API and the eval harness call (findings M2)."""
 
     provider: Literal["mistral", "scaleway"] = "mistral"
+    # P1b-17 (owner decision 2 of Oct 22, 2026): when the active provider fails to open
+    # an answer (5xx, 429, timeout), the other EU provider answers instead (Stack
+    # Decision, fallback LLM row). Needs that provider's section and key. Tenants with
+    # the external-models entitlement may then fail over to OpenRouter as well.
+    eu_failover: bool = False
 
 
 class ScalewayConfig(_Strict):
@@ -243,6 +268,50 @@ class FilesConfig(_Strict):
     downloads_per_user_per_day: int = Field(default=50, ge=1, le=1000)
 
 
+_VERSION = r"^v[1-9][0-9]*$"
+
+
+class ScalewayMailConfig(_Strict):
+    """Scaleway Transactional Email, HTTP API (Stack Decision, email row)."""
+
+    base_url: str
+    api_version: str = Field(pattern=r"^v[0-9]+(?:alpha|beta)?[0-9]*$")
+    region: Literal["fr-par"] = "fr-par"
+
+
+class MailgunConfig(_Strict):
+    """Mailgun, EU region only: the configured backup, used only while ``provider`` names
+    it (after its DPA is filed)."""
+
+    base_url: str
+    api_version: Literal["v3"] = "v3"
+    domain: str = Field(pattern=r"^[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z]{2,}$")
+
+
+class MailTemplatesConfig(_Strict):
+    """Active versions of ``mail/<name>/<version>.txt`` and ``.html`` (P1b-11)."""
+
+    invitation: str = Field(pattern=_VERSION)
+    spend_cap_80: str = Field(pattern=_VERSION)
+    spend_cap_100: str = Field(pattern=_VERSION)
+    tenant_name_flag: str = Field(pattern=_VERSION)
+    consent_notice: str = Field(pattern=_VERSION)
+
+
+class MailConfig(_Strict):
+    """Platform transactional mail (P1b-11): exactly one provider sends at a time."""
+
+    provider: Literal["scaleway", "mailgun"]
+    from_address: str = Field(pattern=r"^[a-z0-9._+-]+@[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z]{2,}$")
+    from_name: str = Field(min_length=1, max_length=64)
+    # Where recipients sign in; the only link a platform email carries.
+    app_url: str = Field(pattern=r"^https://[a-z0-9.-]+$")
+    timeout_seconds: float = Field(gt=0, le=60)
+    scaleway: ScalewayMailConfig | None = None
+    mailgun: MailgunConfig | None = None
+    templates: MailTemplatesConfig
+
+
 class AuthentikConfig(_Strict):
     """Authentik (P1a-02), reached by the API on the Compose network only."""
 
@@ -308,6 +377,8 @@ class ModelsConfig(_Strict):
     prompts: PromptsConfig
     chat: ChatConfig
     files: FilesConfig = FilesConfig()
+    # Platform mail (P1b-11); without it the API and worker send nothing.
+    mail: MailConfig | None = None
 
 
 @dataclass(frozen=True)
@@ -322,6 +393,10 @@ class Secrets:
     authentik_client_secret: SecretStr | None = None  # set in auth mode "oidc"
     authentik_api_token: SecretStr | None = None  # set in auth mode "oidc"
     openrouter_api_key: SecretStr | None = None  # optional; external models need it
+    # Platform mail (P1b-11), optional; the active [mail] provider's key.
+    scaleway_tem_api_key: SecretStr | None = None
+    scaleway_tem_project_id: str | None = None
+    mailgun_api_key: SecretStr | None = None
 
 
 @dataclass(frozen=True)
@@ -329,6 +404,27 @@ class Settings:
     models: ModelsConfig
     secrets: Secrets
     config_dir: Path
+    # The deployed build (``deploy_version``); in the answer cache key.
+    deploy_version: str = "unversioned"
+
+
+def _tree_bytes(root: Path, pattern: str) -> Iterator[bytes]:
+    for path in sorted(p for p in root.rglob(pattern) if p.is_file()):
+        yield path.relative_to(root).as_posix().encode("utf-8") + b"\x00"
+        yield path.read_bytes() + b"\x00"
+
+
+def deploy_version(env: Mapping[str, str], config_dir: Path) -> str:
+    """``ASK_SPORE_DEPLOY_VERSION`` (the git commit or image build ID the Compose file
+    passes), or, when it is unset, ``files-`` and a hash of every file in the config
+    directory and of the API's own code, so a change to either still changes it."""
+    value = env.get(DEPLOY_VERSION_ENV, "").strip()
+    if value:
+        return value
+    digest = hashlib.sha256()
+    for part in (*_tree_bytes(config_dir, "*"), *_tree_bytes(APP_DIR, "*.py")):
+        digest.update(part)
+    return "files-" + digest.hexdigest()[:16]
 
 
 def _host(url: str) -> str | None:
@@ -468,6 +564,19 @@ def _check_models(models: ModelsConfig) -> list[str]:
         eu_outbound["auth.authentik.issuer"] = models.auth.authentik.issuer
     elif models.auth.mode == "oidc":
         problems.append("auth.mode is 'oidc' but there is no [auth.authentik] section")
+    if models.mail is not None:
+        mail = models.mail
+        if getattr(mail, mail.provider) is None:
+            problems.append(
+                f"mail.provider is '{mail.provider}' but there is no [mail.{mail.provider}]"
+            )
+        for name, section in (("scaleway", mail.scaleway), ("mailgun", mail.mailgun)):
+            if section is None:
+                continue
+            # Mail carries recipients' addresses: EU hosts only, never an external host.
+            eu_outbound[f"mail.{name}.base_url"] = section.base_url
+            if urlsplit(section.base_url).scheme != "https":
+                problems.append(f"mail.{name}.base_url must use https")
     _check_hosts(problems, eu_outbound, eu, "eu_hosts")
     if "latest" in models.ragflow.embedding_model.lower():
         problems.append("ragflow.embedding_model must name a fixed model, not a '-latest' alias")
@@ -515,6 +624,17 @@ def _check_prompts(prompts: PromptsConfig, directory: Path) -> list[str]:
     return problems
 
 
+def _check_mail_templates(mail: MailConfig | None, directory: Path) -> list[str]:
+    if mail is None:
+        return []
+    versions = mail.templates.model_dump()
+    return [
+        f"mail.templates.{name}: {problem}"
+        for name in TEMPLATE_NAMES
+        for problem in check_template(directory, name, versions[name])
+    ]
+
+
 def _load_toml(path: Path) -> tuple[ModelsConfig | None, list[str]]:
     try:
         raw: dict[str, Any] = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -542,6 +662,7 @@ def load_settings(
     if models is not None:
         problems += _check_models(models)
         problems += _check_prompts(models.prompts, directory)
+        problems += _check_mail_templates(models.mail, directory)
 
     provider = models.llm.provider if models is not None else None
     auth_mode = models.auth.mode if models is not None else None
@@ -550,6 +671,11 @@ def load_settings(
         *([PROVIDER_SECRETS[provider]] if provider else []),
         *(AUTH_SECRETS[auth_mode] if auth_mode else ()),
     ]
+    if models is not None and models.llm.eu_failover:
+        backup = "mistral" if models.llm.provider == "scaleway" else "scaleway"
+        if backup == "scaleway" and models.scaleway is None:
+            problems.append("llm.eu_failover needs a [scaleway] section")
+        required.append(PROVIDER_SECRETS[backup])
     missing = [name for name in required if not env.get(name, "").strip()]
     if missing:
         problems.append("missing required secrets in the environment: " + ", ".join(missing))
@@ -559,9 +685,18 @@ def load_settings(
             f"PHASE0_BEARER_TOKEN must be at least {MIN_BEARER_TOKEN_LENGTH} characters"
         )
 
+    version = env.get(DEPLOY_VERSION_ENV, "").strip()
+    if version and not _DEPLOY_VERSION.fullmatch(version):
+        problems.append(
+            f"{DEPLOY_VERSION_ENV} must be a commit or build ID (letters, digits, . _ : + -)"
+        )
+
     project = env.get(SCALEWAY_PROJECT_ENV, "").strip() or None
     if project is not None and not _UUID.fullmatch(project):
         problems.append(f"{SCALEWAY_PROJECT_ENV} must be a project UUID")
+    mail_project = env.get(SCALEWAY_TEM_PROJECT_ENV, "").strip() or None
+    if mail_project is not None and not _UUID.fullmatch(mail_project):
+        problems.append(f"{SCALEWAY_TEM_PROJECT_ENV} must be a project UUID")
 
     if problems or models is None:
         raise ConfigError(problems)
@@ -581,8 +716,16 @@ def load_settings(
         authentik_client_secret=optional("AUTHENTIK_CLIENT_SECRET"),
         authentik_api_token=optional("AUTHENTIK_API_TOKEN"),
         openrouter_api_key=optional(OPENROUTER_SECRET),
+        scaleway_tem_api_key=optional(SCALEWAY_TEM_KEY_ENV),
+        scaleway_tem_project_id=mail_project or project,
+        mailgun_api_key=optional(MAILGUN_KEY_ENV),
     )
-    return Settings(models=models, secrets=secrets, config_dir=directory)
+    return Settings(
+        models=models,
+        secrets=secrets,
+        config_dir=directory,
+        deploy_version=deploy_version(env, directory),
+    )
 
 
 @lru_cache(maxsize=1)

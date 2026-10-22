@@ -5,7 +5,8 @@ Every answer and query rewrite adds its tokens, priced from the catalogue in eur
 tenant, month and model, in the same transaction that stores the message. External
 models (OpenRouter) count towards the tenant's monthly ``external_spend_cap_cents``:
 
-- at 80 percent an operator notice ``spend.cap_80`` is written, once per month;
+- at 80 percent an operator notice ``spend.cap_80`` is written, once per month, and
+  emailed to the operators (P1b-11);
 - at 100 percent an operator notice ``spend.cap_100`` is written, once per month, and
   ``cap_reached`` turns true: new conversations on external models fall back to the
   default model (``app.chat.selection.choose_for_new_conversation``) and existing ones
@@ -29,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.llm import catalogue
 from app.llm.mistral import Usage
+from app.mail.queue import enqueue_operator_notice
 from app.operator.models import OperatorNotice
 from app.tenancy.entitlements import ModelEntitlement
 from app.usage.models import SpendNotice, UsageLedger
@@ -138,9 +140,10 @@ async def notify_thresholds(
         # A Core insert on the table with the ID set here, so no RETURNING is added: the
         # application role may insert notices but not read them.
         notices: Table = OperatorNotice.__table__  # type: ignore[assignment]
+        notice_id = uuid.uuid4()
         await session.execute(
             insert(notices).values(
-                id=uuid.uuid4(),
+                id=notice_id,
                 tenant_id=tenant_id,
                 kind=f"spend.cap_{threshold}",
                 metadata={
@@ -150,4 +153,8 @@ async def notify_thresholds(
                     "spent_cents": int(spent),
                 },
             )
+        )
+        # P1b-11: emailed to every operator by the worker, naming no tenant.
+        await enqueue_operator_notice(
+            session, template=f"spend_cap_{threshold}", notice_id=notice_id
         )

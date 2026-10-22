@@ -6,6 +6,7 @@ import asyncio
 import json
 import re
 import uuid
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -278,6 +279,26 @@ async def test_job_types_without_a_handler_fail_with_a_code(
     assert (job["status"], job["error_code"]) == ("failed", "no_site")
 
 
+def test_crawl_and_mail_handlers_register_together(tmp_path: Path) -> None:
+    # Integration of P1b-04 and P1b-11: one worker runs crawls and platform mail.
+    from app.mail.jobs import MailContext
+
+    ctx = worker.Context(
+        factory=None,  # type: ignore[arg-type]
+        client=None,  # type: ignore[arg-type]
+        tags=TAGS,
+        content_root=tmp_path,
+        mail=MailContext(factory=None, config=None, config_dir=tmp_path, sender=None),  # type: ignore[arg-type]
+    )
+    assert set(worker.handlers(ctx)) == {
+        "ingest_source",
+        "withdraw_source",
+        "crawl_site",
+        "send_mail",
+    }
+    assert "send_mail" not in worker.handlers(replace(ctx, mail=None))
+
+
 async def test_a_crashing_handler_fails_the_job_not_the_worker(
     env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
 ) -> None:
@@ -300,7 +321,7 @@ async def test_payloads_hold_identifiers_only(
         with pytest.raises(ValueError, match="payload keys not allowed"):
             await enqueue(session, "ingest_source", {"text": "body"}, created_by=None)  # type: ignore[dict-item]
         with pytest.raises(ValueError, match="not a job type"):
-            await enqueue(session, "send_mail", {}, created_by=None)  # type: ignore[arg-type]
+            await enqueue(session, "purge_tenant", {}, created_by=None)  # type: ignore[arg-type]
     for payload in ('{"source_id": "x", "content": "body"}', '"a string"', '{"query": "q"}'):
         with pytest.raises(asyncpg.CheckViolationError):
             await app_conn.execute(

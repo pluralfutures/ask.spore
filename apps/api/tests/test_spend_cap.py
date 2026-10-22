@@ -217,6 +217,18 @@ async def test_80_percent_notice_is_written_once_per_month(
         "cap_cents": 100,
         "spent_cents": 80,
     }
+    # P1b-11: emailed to the operators once, the job naming the notice only.
+    notice_id = await world.admin.fetchval(
+        "SELECT id FROM operator_notices WHERE tenant_id = $1 AND kind = 'spend.cap_80'",
+        INTERNAL_TENANT_ID,
+    )
+    payloads = await world.admin.fetch(
+        "SELECT payload FROM jobs WHERE type = 'send_mail' AND payload->>'notice_id' = $1",
+        str(notice_id),
+    )
+    assert [json.loads(p["payload"]) for p in payloads] == [
+        {"template": "spend_cap_80", "notice_id": str(notice_id)}
+    ]
     assert (
         await world.admin.fetchval(
             "SELECT count(*) FROM spend_notices WHERE tenant_id = $1 AND month = $2",

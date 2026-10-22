@@ -65,7 +65,7 @@ describe("second factor (P1b-08)", () => {
   const challenge = {
     status: "mfa_required" as const,
     stage: "setup" as const,
-    setup_uri: "otpauth://totp/ask.spore:x?secret=JBSWY3DPEHPK3PXP",
+    setup_uri: "otpauth://totp/SporeBot:x?secret=JBSWY3DPEHPK3PXP",
     failed: false,
   };
 

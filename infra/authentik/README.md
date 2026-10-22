@@ -46,7 +46,7 @@ From P1b-08 the blueprint `blueprints/ask-spore.yaml` does all of this (see
      password field, no sources, "Pretend user exists" on.
    - Email stage `ask-spore-email-link`: "Use global connection settings" on (the SMTP
      settings above), template `ask-spore-sign-in.html`, token expiry `minutes=15`,
-     subject "Sign in to ask.spore", "Activate pending user on success" off.
+     subject "Sign in to SporeBot", "Activate pending user on success" off.
    - User login stage `ask-spore-login`: session duration `hours=8`.
 3. **Flow** `ask-spore-sign-in-link`, designation *Authentication*, with the three
    stages in that order, and from P1b-08 a fourth between the email stage and the login

@@ -132,6 +132,94 @@
         "title": "AdminUserOut",
         "type": "object"
       },
+      "AggregateModelOut": {
+        "properties": {
+          "cost_cents": {
+            "title": "Cost Cents",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "external": {
+            "title": "External",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "tenants": {
+            "title": "Tenants",
+            "type": "integer"
+          },
+          "tokens_in": {
+            "title": "Tokens In",
+            "type": "integer"
+          },
+          "tokens_out": {
+            "title": "Tokens Out",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "display_name",
+          "external",
+          "tokens_in",
+          "tokens_out",
+          "cost_cents",
+          "provider",
+          "tenants"
+        ],
+        "title": "AggregateModelOut",
+        "type": "object"
+      },
+      "AggregatesOut": {
+        "description": "Cross-tenant totals for the month (P1b-12): no tenant is named, no text exists.",
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/AggregateModelOut"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderTotalOut"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "tenants": {
+            "title": "Tenants",
+            "type": "integer"
+          },
+          "tenants_with_usage": {
+            "title": "Tenants With Usage",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "month",
+          "tenants",
+          "tenants_with_usage",
+          "models",
+          "providers"
+        ],
+        "title": "AggregatesOut",
+        "type": "object"
+      },
       "ApproveIn": {
         "additionalProperties": false,
         "properties": {
@@ -1296,6 +1384,21 @@
             "title": "Cached",
             "type": "boolean"
           },
+          "failover": {
+            "anyOf": [
+              {
+                "enum": [
+                  "eu",
+                  "external"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failover"
+          },
           "message_id": {
             "format": "uuid",
             "title": "Message Id",
@@ -1417,9 +1520,15 @@
               }
             ],
             "title": "External Spend Cap Cents"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
           }
         },
         "required": [
+          "tenant_id",
           "answer_modes",
           "enabled_models",
           "external_models_enabled"
@@ -2049,6 +2158,21 @@
             "title": "Created At",
             "type": "string"
           },
+          "failover": {
+            "anyOf": [
+              {
+                "enum": [
+                  "eu",
+                  "external"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failover"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -2194,6 +2318,45 @@
           "default"
         ],
         "title": "ModelOptionOut",
+        "type": "object"
+      },
+      "ModelSpendOut": {
+        "description": "One model's month-to-date usage, from ``usage_ledger`` (P1b-12).",
+        "properties": {
+          "cost_cents": {
+            "title": "Cost Cents",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "external": {
+            "title": "External",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "tokens_in": {
+            "title": "Tokens In",
+            "type": "integer"
+          },
+          "tokens_out": {
+            "title": "Tokens Out",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "display_name",
+          "external",
+          "tokens_in",
+          "tokens_out",
+          "cost_cents"
+        ],
+        "title": "ModelSpendOut",
         "type": "object"
       },
       "NoteIn": {
@@ -2399,6 +2562,25 @@
         "title": "OperatorSourceOut",
         "type": "object"
       },
+      "OperatorTagOut": {
+        "description": "A tag a tenant's workspaces may use (P1b-12): its own, or shared by all tenants.",
+        "properties": {
+          "shared": {
+            "title": "Shared",
+            "type": "boolean"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "shared"
+        ],
+        "title": "OperatorTagOut",
+        "type": "object"
+      },
       "OperatorWorkspaceOut": {
         "properties": {
           "created_at": {
@@ -2514,6 +2696,34 @@
           "possible_replacements"
         ],
         "title": "ProposeOut",
+        "type": "object"
+      },
+      "ProviderTotalOut": {
+        "properties": {
+          "cost_cents": {
+            "title": "Cost Cents",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "tokens_in": {
+            "title": "Tokens In",
+            "type": "integer"
+          },
+          "tokens_out": {
+            "title": "Tokens Out",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "provider",
+          "tokens_in",
+          "tokens_out",
+          "cost_cents"
+        ],
+        "title": "ProviderTotalOut",
         "type": "object"
       },
       "RetentionIn": {
@@ -3223,6 +3433,42 @@
         "title": "SourceRef",
         "type": "object"
       },
+      "SpendThresholdOut": {
+        "properties": {
+          "cents": {
+            "title": "Cents",
+            "type": "string"
+          },
+          "notified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notified At"
+          },
+          "percent": {
+            "title": "Percent",
+            "type": "integer"
+          },
+          "reached": {
+            "title": "Reached",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "percent",
+          "cents",
+          "reached",
+          "notified_at"
+        ],
+        "title": "SpendThresholdOut",
+        "type": "object"
+      },
       "SsoStartOut": {
         "description": "Where the browser goes next: the IdP's sign-in page (P1b-07).",
         "properties": {
@@ -3516,6 +3762,64 @@
           "answer_modes"
         ],
         "title": "TenantSettingsOut",
+        "type": "object"
+      },
+      "TenantSpendOut": {
+        "description": "A tenant's month-to-date usage by model and its external spend against the cap.",
+        "properties": {
+          "external_models_enabled": {
+            "title": "External Models Enabled",
+            "type": "boolean"
+          },
+          "external_spend_cap_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Spend Cap Cents"
+          },
+          "external_spent_cents": {
+            "title": "External Spent Cents",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelSpendOut"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "thresholds": {
+            "items": {
+              "$ref": "#/components/schemas/SpendThresholdOut"
+            },
+            "title": "Thresholds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "month",
+          "models",
+          "external_spent_cents",
+          "external_models_enabled",
+          "external_spend_cap_cents",
+          "thresholds"
+        ],
+        "title": "TenantSpendOut",
         "type": "object"
       },
       "TokenData": {
@@ -4072,7 +4376,7 @@
         "summary": "List Users"
       },
       "post": {
-        "description": "Invite a user of one of the tenant's verified email domains, as ``invited``.\n\nThey then request a sign-in link from their own browser; the first sign-in makes\nthem ``active`` (findings A15). An email that exists in any tenant is refused:\nAuthentik's usernames are emails, and an email maps to one tenant (findings A8).",
+        "description": "Invite a user of one of the tenant's verified email domains, as ``invited``.\n\nThe worker emails them an invitation (P1b-11); they then sign in from their own\nbrowser, and the first sign-in makes them ``active`` (findings A15). An email that\nexists in any tenant is refused: Authentik's usernames are emails, and an email maps\nto one tenant (findings A8).",
         "operationId": "invite_user_api_v1_admin_users_post",
         "requestBody": {
           "content": {
@@ -5725,6 +6029,25 @@
         "summary": "List Models"
       }
     },
+    "/api/v1/operator/aggregates": {
+      "get": {
+        "description": "Cross-tenant totals for the month: per model and per provider, and how many\ntenants used each. No tenant is named; there is no query text to show.",
+        "operationId": "aggregates_api_v1_operator_aggregates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AggregatesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Aggregates"
+      }
+    },
     "/api/v1/operator/me": {
       "get": {
         "operationId": "operator_me_api_v1_operator_me_get",
@@ -5915,9 +6238,50 @@
         "summary": "Create Tenant"
       }
     },
+    "/api/v1/operator/tenants/{tenant_id}": {
+      "get": {
+        "description": "One tenant, for its console page (P1b-12).",
+        "operationId": "get_tenant_api_v1_operator_tenants__tenant_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Tenant"
+      }
+    },
     "/api/v1/operator/tenants/{tenant_id}/admins": {
       "post": {
-        "description": "Create the tenant's admin as ``invited`` and provision them in Authentik.\n\nThey then sign in with a link from their own browser; the first sign-in makes\nthem ``active``. An email already used in any tenant is refused: Authentik's\nusernames are emails, and an email maps to one tenant (findings A8).",
+        "description": "Create the tenant's admin as ``invited``, provision them in Authentik and queue\ntheir invitation email (P1b-11).\n\nThey then sign in from their own browser; the first sign-in makes them ``active``.\nAn email already used in any tenant is refused: Authentik's usernames are emails,\nand an email maps to one tenant (findings A8).",
         "operationId": "invite_admin_api_v1_operator_tenants__tenant_id__admins_post",
         "parameters": [
           {
@@ -6216,6 +6580,137 @@
           }
         },
         "summary": "Set Sso Source"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/spend": {
+      "get": {
+        "description": "Month-to-date token usage and cost by model, from ``usage_ledger``, and external\nspend against the cap with the 80 and 100 percent notice thresholds (UTC month).",
+        "operationId": "tenant_spend_api_v1_operator_tenants__tenant_id__spend_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSpendOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tenant Spend"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/tags": {
+      "get": {
+        "description": "What the tenant's workspace tag pickers offer (P1b-12).",
+        "operationId": "list_tenant_tags_api_v1_operator_tenants__tenant_id__tags_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OperatorTagOut"
+                  },
+                  "title": "Response List Tenant Tags Api V1 Operator Tenants  Tenant Id  Tags Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Tenant Tags"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/users": {
+      "get": {
+        "description": "The tenant's users, as its admin sees them (no conversation data).",
+        "operationId": "list_tenant_users_api_v1_operator_tenants__tenant_id__users_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminUserOut"
+                  },
+                  "title": "Response List Tenant Users Api V1 Operator Tenants  Tenant Id  Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Tenant Users"
       }
     },
     "/api/v1/operator/tenants/{tenant_id}/workspaces": {

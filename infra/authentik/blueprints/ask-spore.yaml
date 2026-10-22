@@ -58,7 +58,7 @@ entries:
       use_global_settings: true
       template: ask-spore-sign-in.html
       token_expiry: minutes=15
-      subject: Sign in to ask.spore
+      subject: Sign in to SporeBot  # user-facing product name (P1b-17, owner decision 1)
       activate_user_on_success: false
   - model: authentik_stages_user_login.userloginstage
     id: stage-login
@@ -80,7 +80,7 @@ entries:
       name: ask-spore-admin-totp-setup
     attrs:
       digits: "6"
-      friendly_name: ask.spore
+      friendly_name: SporeBot  # the issuer authenticator apps show (P1b-17)
   - model: authentik_stages_authenticator_validate.authenticatorvalidatestage
     id: stage-admin-mfa
     identifiers:
@@ -99,7 +99,7 @@ entries:
       slug: ask-spore-sign-in-link
     attrs:
       name: ask.spore sign-in link
-      title: Sign in to ask.spore
+      title: Sign in to SporeBot
       designation: authentication
       authentication: none
   - model: authentik_flows.flowstagebinding
@@ -163,7 +163,7 @@ entries:
       slug: ask-spore-source-authentication
     attrs:
       name: ask.spore source sign-in
-      title: Signing in to ask.spore
+      title: Signing in to SporeBot
       designation: authentication
       authentication: require_unauthenticated
   - model: authentik_flows.flowstagebinding
@@ -187,7 +187,7 @@ entries:
       slug: ask-spore-source-enrollment
     attrs:
       name: ask.spore source enrolment
-      title: Signing in to ask.spore
+      title: Signing in to SporeBot
       designation: enrollment
       authentication: require_unauthenticated
   - model: authentik_flows.flowstagebinding
@@ -210,7 +210,7 @@ entries:
       slug: ask-spore-source-pre-authentication
     attrs:
       name: ask.spore source pre-authentication
-      title: Signing in to ask.spore
+      title: Signing in to SporeBot
       designation: stage_configuration
       authentication: none
 

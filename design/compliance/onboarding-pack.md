@@ -114,17 +114,19 @@ Subject: You have been invited to SporeBot
 
 The invitation carries no sign-in link, on purpose: a link only works in the browser that requested it.
 
+*As built in P1b-11 (Oct 22, 2026):* `config/mail/invitation/v1.txt` and `.html`. The built text names no first name and no inviter, because a platform email may carry no identifier beyond the recipient's own address (tested); it says where to sign in and with which address, and how links and SSO work. Adding the recipient's own first name is a one-placeholder change if the owner wants it (Phase 1b findings, section 4, question 2).
+
 ### 2.2 Sign-in link (built, Authentik template `infra/authentik/templates/ask-spore-sign-in.html`)
 
-Subject: Sign in to ask.spore
+Subject: Sign in to SporeBot
 
-> Use this link to sign in to ask.spore. It works once, in the browser where you asked for it, and expires in 15 minutes.
+> Use this link to sign in to SporeBot. It works once, in the browser where you asked for it, and expires in 15 minutes.
 >
-> [Sign in to ask.spore] → `https://askspore.myceliumgastronomy.com/auth/finish#token=…`
+> [Sign in to SporeBot] → `https://askspore.myceliumgastronomy.com/auth/finish#token=…`
 >
 > If you did not ask to sign in, ignore this email.
 
-Notes: the token sits in the fragment (after `#`), never in a query string. The product name is hard-coded as "ask.spore" in the subject and body today, but the client-facing name is SporeBot (owner, Oct 21, 2026). Before the first client user is invited, the template and the Authentik email stage's subject change together to "Sign in to SporeBot" (an infra change, not made in this document set).
+Notes: the token sits in the fragment (after `#`), never in a query string. The template and the Authentik email stage's subject read "Sign in to SporeBot" since P1b-17 (Oct 22, 2026); the hostname stays `askspore.myceliumgastronomy.com`.
 
 ### 2.3 Updated use and privacy notice (from Phase 1b, P1b-10 and P1b-11)
 

@@ -152,6 +152,25 @@ def test_the_sign_in_link_flow_matches_the_readme_and_the_config(blueprint: dict
     assert login["attrs"]["session_duration"] == "hours=8"
 
 
+def test_what_users_see_reads_sporebot(blueprint: dict[str, Any]) -> None:
+    """P1b-17 (owner decision 1): the sign-in email's subject and text, the flow titles
+    and the authenticator app's issuer say SporeBot; slugs and names stay ask-spore."""
+    email = one(blueprint, "authentik_stages_email.emailstage", name="ask-spore-email-link")
+    assert email["attrs"]["subject"] == "Sign in to SporeBot"
+    totp = one(
+        blueprint,
+        "authentik_stages_authenticator_totp.authenticatortotpstage",
+        name="ask-spore-admin-totp-setup",
+    )
+    assert totp["attrs"]["friendly_name"] == "SporeBot"
+    for flow in entries(blueprint, "authentik_flows.flow"):
+        assert "SporeBot" in flow["attrs"]["title"]
+        assert "ask.spore" not in flow["attrs"]["title"]
+    template = REPO / "infra" / "authentik" / "templates" / email["attrs"]["template"]
+    shown = re.sub(r"\{#.*?#\}", "", template.read_text(encoding="utf-8"), flags=re.S)
+    assert "SporeBot" in shown and "ask.spore" not in shown
+
+
 def test_the_second_factor_is_bound_to_the_admin_group(blueprint: dict[str, Any]) -> None:
     config = settings_authentik()
     stage = one(

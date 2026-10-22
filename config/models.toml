@@ -15,6 +15,10 @@ eu_hosts = [
     "api.scaleway.ai", # Scaleway Generative APIs, Paris (findings M2; DPA/ZDR confirmation open)
     "ragflow",        # RAGFlow on the private Compose network; never public
     "authentik-server", # Authentik (P1a-02) on the private Compose network; ours, Paris host
+    "api.scaleway.com", # Scaleway Transactional Email (P1b-11), fr-par; under the Scaleway DPA
+    # Mailgun EU (P1b-11 backup): called only while [mail] provider = "mailgun", which is
+    # set only after the Mailgun DPA is filed (Stack Decision, email row). Never the US host.
+    "api.eu.mailgun.net",
 ]
 # external_hosts: non-EU model providers. Called only for a tenant with the operator-set
 # "external models" entitlement, and only with zero-data-retention routing on every
@@ -50,6 +54,12 @@ public_url = "https://askspore.myceliumgastronomy.com"
 # PHASE 0: Scaleway, by owner decision, because the Mistral account has no API quota
 # (findings M2). The [mistral] section stays in place, inactive.
 provider = "scaleway"
+# P1b-17: when the active provider fails to open an answer (5xx, 429, timeout), the
+# other EU provider answers (Stack Decision, fallback LLM row); needs its key. Off while
+# the Mistral account has no API quota (findings M2). Tenants with the external-models
+# entitlement fail over to OpenRouter as well, whatever this says (owner decision 2 of
+# Oct 22, 2026; app.llm.factory).
+eu_failover = false
 
 [mistral]
 base_url = "https://api.mistral.ai"
@@ -190,6 +200,44 @@ judge = "v1"
 content_root = "/srv/ask-spore/content"
 download_url_ttl_seconds = 60     # a download link is single-use and expires after this
 downloads_per_user_per_day = 50   # owner, Oct 19, 2026; per UTC calendar day
+
+[mail]
+# Platform transactional mail (P1b-11): invitations, operator notices and the consent
+# notice, sent by the worker's send_mail jobs through app.core.mail. Exactly one provider
+# sends: "scaleway" (primary, Scaleway Transactional Email, fr-par) or "mailgun" (the
+# backup, EU region, only after its DPA is filed). Keys come from the environment:
+# SCALEWAY_TEM_API_KEY (an IAM key allowed EmailSend on the project, not the Generative
+# APIs key) with SCALEWAY_TEM_PROJECT_ID (or SCALEWAY_PROJECT_ID), or MAILGUN_API_KEY.
+# Without the active provider's key nothing is sent (jobs fail with mail_not_configured).
+provider = "scaleway"
+# The sending address: on the domain verified in Transactional Email (SPF, DKIM, DMARC),
+# the same domain as Authentik's AUTHENTIK_EMAIL__FROM. To confirm by the owner.
+from_address = "sporebot@myceliumgastronomy.com"
+from_name = "SporeBot"
+# Where recipients sign in; the only link a platform email carries.
+app_url = "https://askspore.myceliumgastronomy.com"
+timeout_seconds = 10
+
+[mail.scaleway]
+base_url = "https://api.scaleway.com"
+api_version = "v1alpha1"   # pinned (Stack Decision): .../transactional-email/v1alpha1/regions/fr-par
+region = "fr-par"
+
+# The backup, inactive while provider = "scaleway". Uncomment with the verified sending
+# domain (click and open tracking off) when the owner activates it.
+# [mail.mailgun]
+# base_url = "https://api.eu.mailgun.net"
+# api_version = "v3"
+# domain = "mg.example.org"
+
+[mail.templates]
+# Active versions of config/mail/<name>/<version>.txt and .html; never edit a released
+# version (app.core.mailtemplates).
+invitation = "v1"
+spend_cap_80 = "v1"
+spend_cap_100 = "v1"
+tenant_name_flag = "v1"
+consent_notice = "v1"   # template only: the consent gate (P1b-10) decides when it is sent
 
 [chat]
 # Orchestrator parameters (P0-14). Token figures are estimates (~4 characters per token).

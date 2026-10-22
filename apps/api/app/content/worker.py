@@ -10,7 +10,9 @@ concurrency stays as tuned in Phase 1a, findings §9). Each job type has a handl
   purges the tenants' answer caches;
 - ``crawl_site``: ``app.content.sitecrawl.crawl_site`` (P1b-04), one crawl of one
   approved site, at the worker's per-host rate limit; between jobs the worker queues
-  the crawls that are due (``app.content.sites.schedule_due_crawls``).
+  the crawls that are due (``app.content.sites.schedule_due_crawls``);
+- ``send_mail`` (P1b-11): ``app.mail.jobs.send_mail``, when the worker was given a mail
+  context; mail failures that may pass (timeouts, 429, 5xx) are retried with backoff.
 
 A job of a type without a handler fails with ``unsupported_job_type``.
 
@@ -50,6 +52,7 @@ from app.content.sitecrawl import crawl_site
 from app.content.tags import TagConfig
 from app.content.withdraw import withdraw_source
 from app.core.logging import log
+from app.mail.jobs import MailContext, send_mail
 from app.retrieval.ragflow import RagflowClient
 
 POLL_INTERVAL_SECONDS: Final = 5.0
@@ -88,6 +91,7 @@ class Context:
     http: Callable[[], httpx.AsyncClient] = http_client
     limiter: HostLimiter = field(default_factory=HostLimiter)
     resolve: Resolver = resolve_host
+    mail: MailContext | None = None  # P1b-11: send_mail jobs
 
 
 def _source_id(job: ClaimedJob) -> UUID | None:
@@ -176,12 +180,32 @@ def crawl_handler(ctx: Context) -> Handler:
     return handle
 
 
+def mail_handler(mail: MailContext) -> Handler:
+    async def handle(job: ClaimedJob) -> Outcome:
+        result = await send_mail(mail, job)
+        # Metadata only: the job, its template and outcome; never the address or text.
+        log(
+            "mail.job",
+            level="info" if result.error_code is None else "warning",
+            job_id=str(job.id),
+            template=str(job.payload.get("template", ""))[:64],
+            status="sent" if result.error_code is None else "failed",
+            error_code=result.error_code,
+        )
+        return Outcome(result.error_code, retry=result.retry)
+
+    return handle
+
+
 def handlers(ctx: Context) -> dict[str, Handler]:
-    return {
+    registry = {
         "ingest_source": ingest_handler(ctx),
         "withdraw_source": withdraw_handler(ctx),
         "crawl_site": crawl_handler(ctx),
     }
+    if ctx.mail is not None:
+        registry["send_mail"] = mail_handler(ctx.mail)
+    return registry
 
 
 async def _keep_lease(

@@ -77,3 +77,7 @@ export type SiteCreateIn = Schemas["SiteCreateIn"];
 export type SiteSettingsIn = Schemas["SiteSettingsIn"];
 export type ContentTag = Schemas["TagOut"];
 export type TagSync = Schemas["TagSyncOut"];
+// Operator console, one tenant per page (P1b-12).
+export type OperatorTag = Schemas["OperatorTagOut"];
+export type TenantSpend = Schemas["TenantSpendOut"];
+export type Aggregates = Schemas["AggregatesOut"];

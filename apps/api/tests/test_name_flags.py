@@ -119,6 +119,16 @@ async def test_tenant_name_match_writes_notice_and_audit_and_reveals_nothing(
     for secret in ("Synthetic Client", admin.email, "client.example"):
         assert secret not in stored and secret not in out
 
+    # P1b-11: the notice is emailed to the operators; the job names the notice only.
+    notice_id = await console.auth.admin.fetchval(
+        "SELECT id FROM operator_notices WHERE tenant_id = $1", admin.id
+    )
+    payload = await console.auth.admin.fetchval(
+        "SELECT payload FROM jobs WHERE type = 'send_mail' AND payload->>'notice_id' = $1",
+        str(notice_id),
+    )
+    assert json.loads(payload) == {"template": "tenant_name_flag", "notice_id": str(notice_id)}
+
     # The operator sees it in the console's notice list.
     op = await console.operator()
     listed = (await op.get("/api/v1/operator/notices")).json()

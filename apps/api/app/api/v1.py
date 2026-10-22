@@ -65,6 +65,8 @@ from app.chat.selection import choose_for_new_conversation, load_entitlement
 from app.content.models import Source
 from app.core.logging import log
 from app.llm import catalogue
+from app.llm.factory import FailoverKind
+from app.mail.queue import enqueue_operator_notice
 from app.operator.models import OperatorNotice
 from app.tenancy.entitlements import ModelRefused, eu_fallback_choice, usable_models
 from app.tenancy.models import Tenant, TenantEntitlements, User
@@ -304,10 +306,19 @@ async def get_conversation(
                 citations=by_message.get(m.id, []),
                 model=m.model if m.role == "assistant" else None,
                 reasoning=m.reasoning if m.role == "assistant" else None,
+                failover=_failover(request, conversation.model, m),
             )
             for m in messages
         ],
     )
+
+
+def _failover(request: Request, conversation_model: str, message: Message) -> FailoverKind | None:
+    """P1b-17: whether a backup answered, from the model stored on the message."""
+    if message.role != "assistant" or not message.model or message.model == conversation_model:
+        return None
+    entry = catalogue.entry(request.app.state.settings, message.model)
+    return "external" if entry is not None and entry.external else "eu"
 
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -502,11 +513,14 @@ async def _flag_tenant_names(
         "match_kinds": kinds,
     }
     # No RETURNING (the ID is ours): the application role may add notices, not read them.
+    notice_id = uuid4()
     await session.execute(
         insert(OperatorNotice).values(
-            id=uuid4(), tenant_id=tenant_id, kind=NAME_MATCH_NOTICE, metadata_=metadata
+            id=notice_id, tenant_id=tenant_id, kind=NAME_MATCH_NOTICE, metadata_=metadata
         )
     )
+    # P1b-11: emailed to every operator by the worker, naming no tenant.
+    await enqueue_operator_notice(session, template="tenant_name_flag", notice_id=notice_id)
     await record(
         session,
         tenant_id=tenant_id,

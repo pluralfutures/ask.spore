@@ -4,6 +4,9 @@ import type { Page, Route } from "@playwright/test";
 // page.route. Synthetic content only (CLAUDE.md): no real documents or queries. It keeps
 // what a test needs to assert: every request body the web app sent.
 
+// A saved workspace prompt answers after this long (P1b-13 f).
+const SLOW_SAVE_MS = 300;
+
 export interface FakeWorkspace {
   id: string;
   slug: string;
@@ -247,6 +250,9 @@ export class FakeApi {
           created_at: NOW,
         };
         this.prompts.set(prompt[1], [saved, ...versions]);
+        // Slow on purpose (P1b-13 f): a test that does not wait for the save to land
+        // fails every time instead of now and then.
+        await new Promise((resolve) => setTimeout(resolve, SLOW_SAVE_MS));
         return route.fulfill({ json: saved });
       }
       return route.fulfill({ json: versions });

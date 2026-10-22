@@ -65,7 +65,7 @@ export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
   if (step.kind === "sent") {
     return (
       <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-        <h1 className="text-xl font-semibold">ask.spore</h1>
+        <h1 className="text-xl font-semibold">SporeBot</h1>
         <p className="text-sm">
           If this address can sign in, a link is on its way. Open it in this browser within 15
           minutes.
@@ -76,7 +76,7 @@ export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
   if (step.kind === "choose") {
     return (
       <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-        <h1 className="text-xl font-semibold">ask.spore</h1>
+        <h1 className="text-xl font-semibold">SporeBot</h1>
         <button
           type="button"
           onClick={() => void goToSso()}
@@ -95,7 +95,7 @@ export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
   }
   return (
     <form onSubmit={submit} className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-xl font-semibold">ask.spore</h1>
+      <h1 className="text-xl font-semibold">SporeBot</h1>
       <label className="flex flex-col gap-1 text-sm">
         Email
         <input
@@ -113,7 +113,7 @@ export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
       {ssoFailed && !failed && (
         <p className="text-sm text-red-700">
           Single sign-on did not complete. Start again, or ask your administrator whether your
-          account can use ask.spore.
+          account can use SporeBot.
         </p>
       )}
       {failed && <p className="text-sm text-red-700">{failureText(limited)}</p>}

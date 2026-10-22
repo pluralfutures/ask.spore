@@ -1,0 +1,9 @@
+Subject: $product operator notice: a tenant reached its external model cap
+
+A tenant's spend on models served outside the EU this month has reached its monthly cap.
+
+From now until the end of the month, or until the cap is raised, new conversations on external models fall back to the workspace default model and existing conversations on external models are refused.
+
+The operator console's notices name the tenant: $app_url/operator
+
+This email names no tenant on purpose: platform mail carries no identifier beyond the recipient's address.

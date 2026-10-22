@@ -8,17 +8,18 @@
    own flow URL with ?flow_token=): that would put the token in a query string.
 
    The link host is the public hostname of the single Phase 1a host
-   (infra/authentik/README.md, "Email template"). #}
+   (infra/authentik/README.md, "Email template"). The user-facing product name is
+   SporeBot (P1b-17, owner decision 1 of Oct 22, 2026); internal names stay ask.spore. #}
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>{% trans "Sign in to ask.spore" %}</title>
+    <title>{% trans "Sign in to SporeBot" %}</title>
   </head>
   <body style="font-family: sans-serif; color: #0f172a;">
-    <p>{% trans "Use this link to sign in to ask.spore. It works once, in the browser where you asked for it, and expires in 15 minutes." %}</p>
+    <p>{% trans "Use this link to sign in to SporeBot. It works once, in the browser where you asked for it, and expires in 15 minutes." %}</p>
     <p>
-      <a href="https://askspore.myceliumgastronomy.com/auth/finish#token={{ token }}">{% trans "Sign in to ask.spore" %}</a>
+      <a href="https://askspore.myceliumgastronomy.com/auth/finish#token={{ token }}">{% trans "Sign in to SporeBot" %}</a>
     </p>
     <p style="color: #475569; font-size: 12px;">{% trans "If you did not ask to sign in, ignore this email." %}</p>
   </body>

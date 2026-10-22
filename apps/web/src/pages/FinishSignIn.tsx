@@ -53,7 +53,7 @@ export function FinishSignIn({
 
   return (
     <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-xl font-semibold">ask.spore</h1>
+      <h1 className="text-xl font-semibold">SporeBot</h1>
       {state === "no_binding" ? (
         <p className="text-sm">
           Open this link in the same browser window where you asked for it. A link works only there,
@@ -103,7 +103,7 @@ export function SecondFactor({
 
   return (
     <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-xl font-semibold">ask.spore</h1>
+      <h1 className="text-xl font-semibold">SporeBot</h1>
       {key ? (
         <div className="flex flex-col gap-1 text-sm">
           <p>

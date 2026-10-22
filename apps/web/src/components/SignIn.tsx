@@ -16,7 +16,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (credentials: Credentials) 
 
   return (
     <form onSubmit={submit} className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-xl font-semibold">ask.spore</h1>
+      <h1 className="text-xl font-semibold">SporeBot</h1>
       <label className="flex flex-col gap-1 text-sm">
         Email
         <input

@@ -72,6 +72,13 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "excerpts_blanked",
         # Crawl management (P1b-04): which registered site.
         "site_id",
+        # Platform mail (P1b-11): which template went to the user (with "version"), the
+        # job that sent it, and the provider. Never the address, subject or body.
+        "template",
+        "job_id",
+        "provider",
+        # Failover (P1b-17): which backup answered ("eu" or "external"), or none.
+        "failover",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.

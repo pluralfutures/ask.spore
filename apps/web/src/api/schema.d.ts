@@ -76,9 +76,10 @@ export interface paths {
      * Invite User
      * @description Invite a user of one of the tenant's verified email domains, as ``invited``.
      *
-     *     They then request a sign-in link from their own browser; the first sign-in makes
-     *     them ``active`` (findings A15). An email that exists in any tenant is refused:
-     *     Authentik's usernames are emails, and an email maps to one tenant (findings A8).
+     *     The worker emails them an invitation (P1b-11); they then sign in from their own
+     *     browser, and the first sign-in makes them ``active`` (findings A15). An email that
+     *     exists in any tenant is refused: Authentik's usernames are emails, and an email maps
+     *     to one tenant (findings A8).
      */
     post: operations["invite_user_api_v1_admin_users_post"];
     delete?: never;
@@ -812,6 +813,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/operator/aggregates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Aggregates
+     * @description Cross-tenant totals for the month: per model and per provider, and how many
+     *     tenants used each. No tenant is named; there is no query text to show.
+     */
+    get: operations["aggregates_api_v1_operator_aggregates_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/operator/me": {
     parameters: {
       query?: never;
@@ -923,6 +945,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/operator/tenants/{tenant_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Tenant
+     * @description One tenant, for its console page (P1b-12).
+     */
+    get: operations["get_tenant_api_v1_operator_tenants__tenant_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/operator/tenants/{tenant_id}/admins": {
     parameters: {
       query?: never;
@@ -934,11 +976,12 @@ export interface paths {
     put?: never;
     /**
      * Invite Admin
-     * @description Create the tenant's admin as ``invited`` and provision them in Authentik.
+     * @description Create the tenant's admin as ``invited``, provision them in Authentik and queue
+     *     their invitation email (P1b-11).
      *
-     *     They then sign in with a link from their own browser; the first sign-in makes
-     *     them ``active``. An email already used in any tenant is refused: Authentik's
-     *     usernames are emails, and an email maps to one tenant (findings A8).
+     *     They then sign in from their own browser; the first sign-in makes them ``active``.
+     *     An email already used in any tenant is refused: Authentik's usernames are emails,
+     *     and an email maps to one tenant (findings A8).
      */
     post: operations["invite_admin_api_v1_operator_tenants__tenant_id__admins_post"];
     delete?: never;
@@ -1010,6 +1053,67 @@ export interface paths {
      *     the policy allows them) until a source is configured again. Audited.
      */
     delete: operations["remove_sso_source_api_v1_operator_tenants__tenant_id__login_policy_sso_delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/spend": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Tenant Spend
+     * @description Month-to-date token usage and cost by model, from ``usage_ledger``, and external
+     *     spend against the cap with the 80 and 100 percent notice thresholds (UTC month).
+     */
+    get: operations["tenant_spend_api_v1_operator_tenants__tenant_id__spend_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/tags": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Tenant Tags
+     * @description What the tenant's workspace tag pickers offer (P1b-12).
+     */
+    get: operations["list_tenant_tags_api_v1_operator_tenants__tenant_id__tags_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/users": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Tenant Users
+     * @description The tenant's users, as its admin sees them (no conversation data).
+     */
+    get: operations["list_tenant_users_api_v1_operator_tenants__tenant_id__users_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -1233,6 +1337,41 @@ export interface components {
       role: string;
       /** Status */
       status: string;
+    };
+    /** AggregateModelOut */
+    AggregateModelOut: {
+      /** Cost Cents */
+      cost_cents: string;
+      /** Display Name */
+      display_name: string;
+      /** External */
+      external: boolean;
+      /** Model */
+      model: string;
+      /** Provider */
+      provider: string;
+      /** Tenants */
+      tenants: number;
+      /** Tokens In */
+      tokens_in: number;
+      /** Tokens Out */
+      tokens_out: number;
+    };
+    /**
+     * AggregatesOut
+     * @description Cross-tenant totals for the month (P1b-12): no tenant is named, no text exists.
+     */
+    AggregatesOut: {
+      /** Models */
+      models: components["schemas"]["AggregateModelOut"][];
+      /** Month */
+      month: string;
+      /** Providers */
+      providers: components["schemas"]["ProviderTotalOut"][];
+      /** Tenants */
+      tenants: number;
+      /** Tenants With Usage */
+      tenants_with_usage: number;
     };
     /** ApproveIn */
     ApproveIn: {
@@ -1635,6 +1774,8 @@ export interface components {
       abstained: boolean;
       /** Cached */
       cached: boolean;
+      /** Failover */
+      failover?: ("eu" | "external") | null;
       /**
        * Message Id
        * Format: uuid
@@ -1677,6 +1818,11 @@ export interface components {
       external_models_enabled: boolean;
       /** External Spend Cap Cents */
       external_spend_cap_cents?: number | null;
+      /**
+       * Tenant Id
+       * Format: uuid
+       */
+      tenant_id: string;
     };
     /** EntitlementsOut */
     EntitlementsOut: {
@@ -1915,6 +2061,8 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+      /** Failover */
+      failover?: ("eu" | "external") | null;
       /**
        * Id
        * Format: uuid
@@ -1978,6 +2126,24 @@ export interface components {
       id: string;
       /** Reasoning Switch */
       reasoning_switch: boolean;
+    };
+    /**
+     * ModelSpendOut
+     * @description One model's month-to-date usage, from ``usage_ledger`` (P1b-12).
+     */
+    ModelSpendOut: {
+      /** Cost Cents */
+      cost_cents: string;
+      /** Display Name */
+      display_name: string;
+      /** External */
+      external: boolean;
+      /** Model */
+      model: string;
+      /** Tokens In */
+      tokens_in: number;
+      /** Tokens Out */
+      tokens_out: number;
     };
     /** NoteIn */
     NoteIn: {
@@ -2063,6 +2229,16 @@ export interface components {
       /** Type */
       type: string;
     };
+    /**
+     * OperatorTagOut
+     * @description A tag a tenant's workspaces may use (P1b-12): its own, or shared by all tenants.
+     */
+    OperatorTagOut: {
+      /** Shared */
+      shared: boolean;
+      /** Tag */
+      tag: string;
+    };
     /** OperatorWorkspaceOut */
     OperatorWorkspaceOut: {
       /**
@@ -2120,6 +2296,17 @@ export interface components {
       source_id: string;
       /** Status */
       status: string;
+    };
+    /** ProviderTotalOut */
+    ProviderTotalOut: {
+      /** Cost Cents */
+      cost_cents: string;
+      /** Provider */
+      provider: string;
+      /** Tokens In */
+      tokens_in: number;
+      /** Tokens Out */
+      tokens_out: number;
     };
     /** RetentionIn */
     RetentionIn: {
@@ -2337,6 +2524,17 @@ export interface components {
       /** Title */
       title: string;
     };
+    /** SpendThresholdOut */
+    SpendThresholdOut: {
+      /** Cents */
+      cents: string;
+      /** Notified At */
+      notified_at: string | null;
+      /** Percent */
+      percent: number;
+      /** Reached */
+      reached: boolean;
+    };
     /**
      * SsoStartOut
      * @description Where the browser goes next: the IdP's sign-in page (P1b-07).
@@ -2464,6 +2662,29 @@ export interface components {
       max_retention_days: number;
       /** Retention Days */
       retention_days: number;
+    };
+    /**
+     * TenantSpendOut
+     * @description A tenant's month-to-date usage by model and its external spend against the cap.
+     */
+    TenantSpendOut: {
+      /** External Models Enabled */
+      external_models_enabled: boolean;
+      /** External Spend Cap Cents */
+      external_spend_cap_cents: number | null;
+      /** External Spent Cents */
+      external_spent_cents: string;
+      /** Models */
+      models: components["schemas"]["ModelSpendOut"][];
+      /** Month */
+      month: string;
+      /**
+       * Tenant Id
+       * Format: uuid
+       */
+      tenant_id: string;
+      /** Thresholds */
+      thresholds: components["schemas"]["SpendThresholdOut"][];
     };
     /** TokenData */
     TokenData: {
@@ -4053,6 +4274,26 @@ export interface operations {
       };
     };
   };
+  aggregates_api_v1_operator_aggregates_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AggregatesOut"];
+        };
+      };
+    };
+  };
   operator_me_api_v1_operator_me_get: {
     parameters: {
       query?: never;
@@ -4203,6 +4444,37 @@ export interface operations {
     responses: {
       /** @description Successful Response */
       201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TenantOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_tenant_api_v1_operator_tenants__tenant_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
         headers: {
           [name: string]: unknown;
         };
@@ -4414,6 +4686,99 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["LoginPolicyOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  tenant_spend_api_v1_operator_tenants__tenant_id__spend_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TenantSpendOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_tenant_tags_api_v1_operator_tenants__tenant_id__tags_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatorTagOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_tenant_users_api_v1_operator_tenants__tenant_id__users_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminUserOut"][];
         };
       };
       /** @description Validation Error */

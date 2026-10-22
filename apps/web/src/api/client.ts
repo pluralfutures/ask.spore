@@ -21,6 +21,7 @@ import type {
   MfaRequiredOut,
   SsoSourceIn,
   SsoStartOut,
+  ConsentNotice,
   Me,
   ModelOption,
   NoticeOut,
@@ -119,6 +120,15 @@ export function setUnauthorizedHandler(handler: () => void): void {
   onUnauthorized = handler;
 }
 
+// P1b-10: a route refused for want of consent (the notice version changed during the
+// session) sends the app back to the consent gate.
+export const CONSENT_REQUIRED = "consent_required";
+let onConsentRequired: () => void = () => {};
+
+export function setConsentRequiredHandler(handler: () => void): void {
+  onConsentRequired = handler;
+}
+
 async function send(method: string, path: string, body?: unknown, signal?: AbortSignal) {
   const credentials = loadCredentials();
   const headers: Record<string, string> = {};
@@ -138,7 +148,11 @@ async function send(method: string, path: string, body?: unknown, signal?: Abort
     clearCredentials();
     onUnauthorized();
   }
-  if (!response.ok) throw new ApiError(response.status, await errorCode(response));
+  if (!response.ok) {
+    const code = await errorCode(response);
+    if (response.status === 403 && code === CONSENT_REQUIRED) onConsentRequired();
+    throw new ApiError(response.status, code);
+  }
   return response;
 }
 
@@ -262,6 +276,9 @@ export async function currentUser(): Promise<Me | null> {
 
 export const api = {
   me: () => json<Me>("GET", "/me"),
+  // P1b-10: the active use and privacy notice, and accepting the version shown.
+  consent: () => json<ConsentNotice>("GET", "/consent"),
+  acceptConsent: (version: string) => json<ConsentNotice>("POST", "/consent", { version }),
   listConversations: () => json<ConversationSummary[]>("GET", "/conversations"),
   workspaces: () => json<Workspace[]>("GET", "/workspaces"),
   models: () => json<ModelOption[]>("GET", "/models"),
@@ -310,6 +327,8 @@ export const adminApi = {
   loginPolicy: () => json<LoginPolicyOut>("GET", "/admin/login-policy"),
   setRetention: (days: number) =>
     json<TenantSettings>("PUT", "/admin/settings/retention", { retention_days: days }),
+  // P1b-10: the tenant's sign-in, admin, operator and consent events, as CSV.
+  auditLog: async (): Promise<Blob> => (await send("GET", "/admin/audit-log")).blob(),
 };
 
 // Operator console (P1a-03). The API answers 403 to anyone who is not an operator.

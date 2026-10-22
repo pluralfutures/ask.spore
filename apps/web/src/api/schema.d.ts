@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+  "/api/v1/admin/audit-log": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Export Audit Log
+     * @description The tenant's audit events since ``since`` (default 90 days), oldest first, as CSV.
+     */
+    get: operations["export_audit_log_api_v1_admin_audit_log_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/login-policy": {
     parameters: {
       query?: never;
@@ -284,6 +304,30 @@ export interface paths {
      *     domain without SSO get the same 409: discovery already tells the page which.
      */
     post: operations["start_sso_api_v1_auth_sso_start_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/consent": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Consent
+     * @description The active notice in full, its summary, and what the user has accepted.
+     */
+    get: operations["get_consent_api_v1_consent_get"];
+    put?: never;
+    /**
+     * Accept Consent
+     * @description Accept the active notice version (idempotent: a second acceptance records nothing).
+     */
+    post: operations["accept_consent_api_v1_consent_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1480,6 +1524,34 @@ export interface components {
       /** Citations */
       citations: components["schemas"]["CitationOut"][];
     };
+    /**
+     * ConsentAcceptIn
+     * @description The notice version the user read and accepts; must be the active one.
+     */
+    ConsentAcceptIn: {
+      /** Version */
+      version: string;
+    };
+    /**
+     * ConsentNoticeOut
+     * @description The active use and privacy notice (P1b-10): Markdown, from the owner's file.
+     */
+    ConsentNoticeOut: {
+      /** Accepted At */
+      accepted_at: string | null;
+      /** Accepted Version */
+      accepted_version: string | null;
+      /** Required */
+      required: boolean;
+      /** Summary */
+      summary: string;
+      /** Text */
+      text: string;
+      /** Title */
+      title: string;
+      /** Version */
+      version: string;
+    };
     /** ContentMeOut */
     ContentMeOut: {
       /** Ragflow Ui Url */
@@ -2034,6 +2106,11 @@ export interface components {
     };
     /** MeOut */
     MeOut: {
+      /**
+       * Consent Required
+       * @default false
+       */
+      consent_required: boolean;
       /** Display Name */
       display_name: string;
       /** Email */
@@ -2881,6 +2958,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  export_audit_log_api_v1_admin_audit_log_get: {
+    parameters: {
+      query?: {
+        since?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description the tenant's audit events */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/csv": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   get_login_policy_api_v1_admin_login_policy_get: {
     parameters: {
       query?: never;
@@ -3299,6 +3407,59 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SsoStartOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_consent_api_v1_consent_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConsentNoticeOut"];
+        };
+      };
+    };
+  };
+  accept_consent_api_v1_consent_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConsentAcceptIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConsentNoticeOut"];
         };
       };
       /** @description Validation Error */

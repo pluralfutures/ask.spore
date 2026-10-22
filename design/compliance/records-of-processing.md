@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1): C1 scope note, C9 (client declarations), and the Part 2 template row for clients that supply documents. Placeholders added: [limitation period] |
+| Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1): C1 scope note, C9 (client declarations), and the Part 2 template row for clients that supply documents. [limitation period] for C9 filled in by the owner (5 years), Oct 22, 2026 |
 | Placeholders | [registered address], [DPO or privacy contact name], [privacy contact email], [takedown contact email], [Client], [Client legal name], [Client address], [date], [SCC module], [document store], [representative, if any] |
 | To finalise, the owner must | (1) fill in the entity, contact and DPO placeholders; (2) decide whether a DPO is required (see open-questions.md) or name a privacy contact; (3) confirm the reasoning on the usage ledger in Part 1, row C5; (4) confirm the retention periods marked [confirm]; (5) add one Part 2 sheet per client at signature, starting with [Client]; (6) have counsel review; (7) review every six months and on every change to `sub-processors.md`. |
 
@@ -165,7 +165,7 @@ Note: the audit rows used here are part of the client's audit trail (Part 2). We
 | Recipients | Our operators; counsel where needed |
 | Transfers | None |
 | Storage | [document store]; reference in the source register (`client_declaration_ref`) |
-| Retention | Term of the contract plus [limitation period] |
+| Retention | Term of the contract plus 5 years (general limitation period for contract claims under Spanish law; owner decision Oct 22, 2026, counsel to confirm), then destroyed |
 | TOMs | `policy-access-control.md` |
 
 ---

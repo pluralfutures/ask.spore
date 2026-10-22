@@ -314,7 +314,7 @@ Owner decisions of Oct 18, 2026, recorded for the Phase 1 build. They change the
 | --- | --- | --- | --- | --- |
 | Client-supplied documents | Files a client sends for its workspaces: its own reports, material it holds a licence for, internal documents | Processor for the client | Sometimes (authors, staff, people named in the client's material) | Until the client withdraws them; deleted at termination with a certificate |
 | Derived data of client-supplied documents | Parsed text, chunks, embeddings in the client's own datasets; excerpts in that client's stored citations | Processor | Inherits from the file | Same as the file; excerpts in history follow chat retention |
-| Client declarations | The client's written declaration of rights and downloadability per file or batch | Controller (our contract record) | Signatory's name | Term of the contract plus [limitation period] |
+| Client declarations | The client's written declaration of rights and downloadability per file or batch | Controller (our contract record) | Signatory's name | Term of the contract plus 5 years (general limitation period for contract claims under Spanish law; owner decision Oct 22, 2026, counsel to confirm) |
 
 **Confidentiality.** Client-supplied files are Customer Data and are classified like conversations: confidential, isolated per tenant, never visible to another tenant, never used for training, never in the repository, fixtures or eval sets (CLAUDE.md). The query stream stays the first confidential asset; for a model-2 client its corpus is the second.
 

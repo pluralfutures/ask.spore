@@ -180,6 +180,7 @@ The Provider may suspend a user or the Customer, with notice where practical, if
 | User seats | [seats] | [price] per seat per month |
 | Platform fee | 1 | [price] per month |
 | Onboarding and SSO setup | 1 | [price] one-off |
+| Customer Documents (§6A), only as part of the wider project | as agreed | [price, agreed per Customer within the project agreement] |
 | External-model usage | as used, up to the spend cap | [price / included amount] |
 
 Currency: [currency]. Payment terms: [payment days] days.

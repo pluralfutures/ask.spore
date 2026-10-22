@@ -6,7 +6,6 @@ export interface EntitlementsForm {
   enabledModels: string[];
   externalModelsEnabled: boolean;
   spendCapEuros: string;
-  signInLinksEnabled: boolean;
   acceptanceReference: string;
   acceptanceDate: string;
 }
@@ -20,7 +19,6 @@ export function formFrom(current: EntitlementsOut): EntitlementsForm {
       current.external_spend_cap_cents === null
         ? ""
         : String(current.external_spend_cap_cents / 100),
-    signInLinksEnabled: current.sign_in_links_enabled,
     acceptanceReference: "",
     acceptanceDate: "",
   };
@@ -51,7 +49,6 @@ export function toRequest(
       enabled_models: form.enabledModels,
       external_models_enabled: form.externalModelsEnabled,
       external_spend_cap_cents: cap,
-      sign_in_links_enabled: form.signInLinksEnabled,
       external_acceptance: acceptance,
     },
   };

@@ -34,6 +34,19 @@ export type UserChangeIn = Schemas["UserChangeIn"];
 export type WorkspaceDefaultsIn = Schemas["WorkspaceDefaultsIn"];
 export type WorkspacePrompt = Schemas["WorkspacePromptOut"];
 export type TenantSettings = Schemas["TenantSettingsOut"];
+// Login policy and tenant discovery (P1b-06).
+export type DiscoverOut = Schemas["DiscoverOut"];
+export type LoginPolicyIn = Schemas["LoginPolicyIn"];
+export type LoginPolicyOut = Schemas["LoginPolicyOut"];
+// Client SSO (P1b-07).
+export type SsoSourceIn =
+  | Schemas["EntraSourceIn"]
+  | Schemas["GoogleSourceIn"]
+  | Schemas["OidcSourceIn"]
+  | Schemas["SamlSourceIn"];
+export type SsoStartOut = Schemas["SsoStartOut"];
+// Second factor for tenant admins (P1b-08).
+export type MfaRequiredOut = Schemas["MfaRequiredOut"];
 
 export type ChatStreamEvent =
   | { event: "token"; data: TokenData }

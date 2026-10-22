@@ -2,9 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 
 import { ApiError, operatorApi } from "../api/client";
-import type { OperatorOptions, OperatorWorkspace, TenantOut } from "../api/types";
+import type {
+  LoginPolicyIn,
+  OperatorOptions,
+  OperatorWorkspace,
+  SsoSourceIn,
+  TenantOut,
+} from "../api/types";
 import { formatDate } from "../lib/format";
 import { formFrom, toRequest, type EntitlementsForm } from "../lib/entitlements";
+import { emptySourceForm, sourceBody, type SourceForm, type SsoKind } from "../lib/sso";
+import { PolicySummary } from "./TenantAdmin";
 
 // Operator console, minimum (P1a-03): tenants, first admin, entitlements, notices; and the
 // package builder (P1a-04): each tenant's workspaces and the tags that form their corpus.
@@ -230,14 +238,6 @@ function TenantPanel({ tenant, options }: { tenant: TenantOut; options: Operator
             </label>
           ))}
         </fieldset>
-        <label>
-          <input
-            type="checkbox"
-            checked={form.signInLinksEnabled}
-            onChange={(e) => setForm({ ...form, signInLinksEnabled: e.target.checked })}
-          />{" "}
-          Sign-in links
-        </label>
         <fieldset className="flex flex-wrap items-end gap-2">
           <legend>External models (served outside the EU)</legend>
           <label>
@@ -287,6 +287,8 @@ function TenantPanel({ tenant, options }: { tenant: TenantOut; options: Operator
           <p className="text-red-700">{problem ?? errorText(save.error)}</p>
         )}
       </form>
+      <LoginPolicy tenant={tenant} />
+      <SsoSource tenant={tenant} />
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -325,6 +327,150 @@ function TenantPanel({ tenant, options }: { tenant: TenantOut; options: Operator
       </form>
       <Workspaces tenant={tenant} options={options} />
     </section>
+  );
+}
+
+// P1b-06: how the tenant's users sign in. Sign-in links are on by default; the operator
+// switches them off once the client's SSO is live and their IT asks for it.
+function LoginPolicy({ tenant }: { tenant: TenantOut }) {
+  const queryClient = useQueryClient();
+  const current = tenant.login_policy;
+  const [form, setForm] = useState<LoginPolicyIn>({
+    sign_in_links_enabled: current.sign_in_links_enabled,
+    jit_provisioning_enabled: current.jit_provisioning_enabled,
+    admin_mfa_required: current.admin_mfa_required,
+  });
+  const save = useMutation({
+    mutationFn: () => operatorApi.setLoginPolicy(tenant.id, form),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["operator", "tenants"] }),
+  });
+  const box = (key: keyof LoginPolicyIn, label: string) => (
+    <label>
+      <input
+        type="checkbox"
+        checked={form[key]}
+        onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
+      />{" "}
+      {label}
+    </label>
+  );
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate();
+      }}
+      className="flex flex-wrap items-center gap-3"
+    >
+      <h3 className="w-full font-semibold">Login policy</h3>
+      {box("sign_in_links_enabled", "Sign-in links")}
+      {box("jit_provisioning_enabled", "Create users on first SSO sign-in (verified domains)")}
+      {box("admin_mfa_required", "Second factor for tenant admins")}
+      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+        Save login policy
+      </button>
+      {errorText(save.error) && <p className="w-full text-red-700">{errorText(save.error)}</p>}
+    </form>
+  );
+}
+
+// P1b-07: the tenant's one SSO source, configured in Authentik with the client's IT. The
+// client secret is sent once and never shown again; leave it empty to keep it.
+function SsoSource({ tenant }: { tenant: TenantOut }) {
+  const queryClient = useQueryClient();
+  const current = tenant.login_policy;
+  const [form, setForm] = useState<SourceForm>(() =>
+    emptySourceForm(current.sso_source_kind === "none" ? "entra" : current.sso_source_kind),
+  );
+  const [problem, setProblem] = useState<string | null>(null);
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["operator", "tenants"] });
+  const save = useMutation({
+    mutationFn: (body: SsoSourceIn) => operatorApi.setSsoSource(tenant.id, body),
+    onSuccess: () => {
+      setForm({ ...form, clientSecret: "" });
+      void refresh();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: () => operatorApi.removeSsoSource(tenant.id),
+    onSuccess: refresh,
+  });
+  const field = (key: keyof SourceForm, label: string, type = "text") => (
+    <label className="flex flex-col">
+      {label}
+      <input
+        type={type}
+        autoComplete="off"
+        value={form[key]}
+        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+        className="border px-1"
+      />
+    </label>
+  );
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const result = sourceBody(form);
+    if ("error" in result) {
+      setProblem(result.error);
+      return;
+    }
+    setProblem(null);
+    save.mutate(result.body);
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-2">
+      <h3 className="font-semibold">Single sign-on source</h3>
+      <PolicySummary policy={current} />
+      <label className="flex gap-2">
+        Kind
+        <select
+          value={form.kind}
+          onChange={(e) => setForm({ ...form, kind: e.target.value as SsoKind })}
+          className="border"
+        >
+          <option value="entra">Microsoft Entra ID</option>
+          <option value="google">Google Workspace</option>
+          <option value="oidc">OpenID Connect</option>
+          <option value="saml">SAML 2.0</option>
+        </select>
+      </label>
+      <div className="flex flex-wrap items-end gap-2">
+        {form.kind === "entra" && field("entraTenantId", "Entra tenant ID")}
+        {form.kind === "oidc" && field("issuer", "Issuer (https)")}
+        {form.kind !== "saml" && field("clientId", "Client ID")}
+        {form.kind !== "saml" && field("clientSecret", "Client secret", "password")}
+        {form.kind === "entra" &&
+          field("adminGroupIds", "Admin group object IDs (comma-separated, optional)")}
+      </div>
+      {form.kind === "saml" && (
+        <label className="flex flex-col">
+          IdP metadata (XML)
+          <textarea
+            value={form.metadataXml}
+            onChange={(e) => setForm({ ...form, metadataXml: e.target.value })}
+            rows={4}
+            className="border px-1 font-mono text-xs"
+          />
+        </label>
+      )}
+      <div className="flex gap-2">
+        <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+          Save SSO source
+        </button>
+        {current.sso_source_kind !== "none" && (
+          <button type="button" onClick={() => remove.mutate()} className="underline">
+            Remove SSO source
+          </button>
+        )}
+      </div>
+      {(problem ?? errorText(save.error) ?? errorText(remove.error)) && (
+        <p className="text-red-700">
+          {problem ?? errorText(save.error) ?? errorText(remove.error)}
+        </p>
+      )}
+    </form>
   );
 }
 

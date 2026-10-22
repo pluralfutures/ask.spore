@@ -13,9 +13,14 @@ by ``app.auth.links`` before the provider is called.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID
+
+from pydantic import SecretStr
+
+from app.tenancy.login_policy import SsoKind
 
 
 class LinkRefused(Exception):
@@ -34,9 +39,80 @@ class ProviderError(Exception):
         super().__init__(error_code)
 
 
+# RFC 7009 token_type_hint values.
+TokenKind = Literal["access_token", "refresh_token"]
+
+
 @dataclass(frozen=True)
 class IssuedTokens:
     access_token: str
+    # P1b-08: with the ``offline_access`` scope, to renew the session before the access
+    # token (8 hours) expires. Kept in an HttpOnly cookie for the refresh route only.
+    refresh_token: str | None = None
+    # P1b-08: the flow included a second factor the user answered (relayed by the API).
+    mfa: bool = False
+
+
+@dataclass(frozen=True)
+class MfaRequired:
+    """The sign-in-link flow stopped at a second factor (P1b-08): the user's TOTP code
+    (``validate``), or enrolling an authenticator first (``setup``, with the
+    ``otpauth://`` URI the user adds to their app). ``resume`` is the provider's pending
+    state, kept in the browser's cookie only; ``failed``: the last code was wrong."""
+
+    stage: Literal["validate", "setup"]
+    resume: str
+    setup_uri: str | None = None
+    failed: bool = False
+
+
+@dataclass(frozen=True)
+class SourceSpec:
+    """One tenant's SSO source as the API asks Authentik to configure it (P1b-07).
+
+    Non-secret: the client secret travels separately and is stored in Authentik only.
+    ``tenant_id`` and ``verified_domains`` are the tenant's own, from our database:
+    the source's property mapping stamps ``tenant_id`` on every user it brings in and
+    refuses any address outside ``verified_domains``.
+    """
+
+    tenant_id: UUID
+    slug: str
+    name: str
+    kind: SsoKind
+    verified_domains: tuple[str, ...]
+    config: Mapping[str, str | list[str]]
+    certificate_pem: str | None = None  # SAML: the IdP's public signing certificate
+
+
+@dataclass(frozen=True)
+class SsoRedirect:
+    """Where the browser goes to sign in at the IdP, and what the callback needs back."""
+
+    url: str
+    resume: str  # opaque provider state, kept in the starting browser's cookie only
+
+
+class SsoProvider(Protocol):
+    async def start_sso(self, kind: SsoKind, slug: str) -> SsoRedirect:
+        """Begin a sign-in through source ``slug``; the browser is sent to ``url``."""
+        ...
+
+    async def finish_sso(
+        self, kind: SsoKind, slug: str, params: Mapping[str, str], resume: str
+    ) -> IssuedTokens:
+        """Hand the IdP's answer (``params``) to the source; raise LinkRefused if refused."""
+        ...
+
+
+class SourceAdmin(Protocol):
+    async def configure_source(self, spec: SourceSpec, client_secret: SecretStr | None) -> None:
+        """Create or update the tenant's source; ``None`` keeps the stored secret."""
+        ...
+
+    async def remove_source(self, kind: SsoKind, slug: str) -> None:
+        """Delete the source and everything created for it."""
+        ...
 
 
 class SignInLinkProvider(Protocol):
@@ -44,16 +120,30 @@ class SignInLinkProvider(Protocol):
         """Email ``email`` a single-use link to the landing page (token in the fragment)."""
         ...
 
-    async def redeem_sign_in_link(self, token: str) -> IssuedTokens:
-        """Complete the sign-in flow with ``token``; raise LinkRefused if it is not valid."""
+    async def redeem_sign_in_link(self, token: str) -> IssuedTokens | MfaRequired:
+        """Complete the sign-in flow with ``token``; raise LinkRefused if it is not valid.
+        A tenant admin's flow stops at the second factor (P1b-08)."""
+        ...
+
+    async def answer_mfa(self, resume: str, code: str) -> IssuedTokens | MfaRequired:
+        """Answer the pending second factor; a wrong code gives ``failed`` (P1b-08)."""
+        ...
+
+    async def set_admin_mfa(self, email: str, required: bool) -> None:
+        """Put the user in (or take them out of) the group the second factor is bound to."""
         ...
 
     async def provision_user(self, *, email: str, display_name: str, tenant_id: UUID) -> None:
         """Create or update the provider's user, carrying ``tenant_id`` into its tokens."""
         ...
 
-    async def revoke_token(self, access_token: str) -> None:
-        """Revoke an access token at the provider on sign-out (P1a-02, best effort)."""
+    async def refresh_session(self, refresh_token: str) -> IssuedTokens:
+        """New tokens for a refresh token (rotated: the old one is spent); LinkRefused if
+        the provider will not (P1b-08)."""
+        ...
+
+    async def revoke_token(self, token: str, kind: TokenKind) -> None:
+        """Revoke a token at the provider on sign-out (P1a-02, P1b-08; best effort)."""
         ...
 
     async def aclose(self) -> None: ...

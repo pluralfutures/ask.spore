@@ -4,6 +4,27 @@
  */
 
 export interface paths {
+  "/api/v1/admin/login-policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Login Policy
+     * @description How the tenant's users sign in, as the operator configured it with the client's
+     *     IT (architecture §7.4): shown, never changed here (self-service SSO is Phase 3).
+     */
+    get: operations["get_login_policy_api_v1_admin_login_policy_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/settings": {
     parameters: {
       query?: never;
@@ -109,6 +130,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/auth/discover": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Discover Methods
+     * @description Tenant discovery (P1b-06): the methods the address's domain allows. Domain-level
+     *     only, so it says nothing about whether the address belongs to a user; an unknown
+     *     domain gets the links-only answer, like any domain without SSO.
+     */
+    post: operations["discover_methods_api_v1_auth_discover_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/auth/link": {
     parameters: {
       query?: never;
@@ -154,10 +197,32 @@ export interface paths {
     put?: never;
     /**
      * Logout
-     * @description Clear the session cookie and revoke the session server-side (P1a-02): the token
-     *     is listed in ``revoked_sessions``, so a copy of the old cookie is refused.
+     * @description Clear the session cookies and revoke the session server-side (P1a-02, P1b-08): the
+     *     access and refresh tokens are listed in ``revoked_sessions`` and revoked at
+     *     Authentik, so a copy of either old cookie is refused.
      */
     post: operations["logout_api_v1_auth_logout_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/mfa": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Answer Mfa
+     * @description The tenant admin's code for the second factor of a sign-in link (P1b-08), from the
+     *     browser that POSTed the link. A wrong code asks again (at most 5 in 5 minutes).
+     */
+    post: operations["answer_mfa_api_v1_auth_mfa_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -175,6 +240,49 @@ export interface paths {
     get: operations["auth_mode_api_v1_auth_mode_get"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Refresh Session
+     * @description Renew the session before the access token expires (P1b-08). Needs the refresh
+     *     cookie; the previous access and refresh tokens are revoked, so only the new ones
+     *     work. A refused refresh clears both cookies (the user signs in again).
+     */
+    post: operations["refresh_session_api_v1_auth_refresh_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/sso/start": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start Sso
+     * @description Start a sign-in through the address's tenant's source. An unknown domain and a
+     *     domain without SSO get the same 409: discovery already tells the page which.
+     */
+    post: operations["start_sso_api_v1_auth_sso_start_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -493,6 +601,57 @@ export interface paths {
     put: operations["set_entitlements_api_v1_operator_tenants__tenant_id__entitlements_put"];
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/login-policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Login Policy */
+    get: operations["get_login_policy_api_v1_operator_tenants__tenant_id__login_policy_get"];
+    /**
+     * Set Login Policy
+     * @description Sign-in links on or off (on by default), JIT provisioning from the tenant's SSO
+     *     source, and the MFA requirement for tenant admins. Audited with before and after.
+     */
+    put: operations["set_login_policy_api_v1_operator_tenants__tenant_id__login_policy_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/login-policy/sso": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Sso Source
+     * @description Configure the tenant's one SSO source in Authentik and keep its non-secret fields.
+     *
+     *     The client secret (OIDC kinds) goes to Authentik only. A new source, or a change of
+     *     kind, needs it; otherwise omitting it keeps the one Authentik holds. Audited with
+     *     the kind, the source slug and a fingerprint of the stored configuration.
+     */
+    put: operations["set_sso_source_api_v1_operator_tenants__tenant_id__login_policy_sso_put"];
+    post?: never;
+    /**
+     * Remove Sso Source
+     * @description Remove the tenant's source from Authentik; its users then sign in with links (if
+     *     the policy allows them) until a source is configured again. Audited.
+     */
+    delete: operations["remove_sso_source_api_v1_operator_tenants__tenant_id__login_policy_sso_delete"];
     options?: never;
     head?: never;
     patch?: never;
@@ -911,6 +1070,22 @@ export interface components {
        */
       workspace_id: string;
     };
+    /** DiscoverIn */
+    DiscoverIn: {
+      /** Email */
+      email: string;
+    };
+    /**
+     * DiscoverOut
+     * @description The sign-in methods an address's domain allows (P1b-06). The same for every
+     *     address of a domain, and the links-only answer for any unknown domain.
+     */
+    DiscoverOut: {
+      /** Methods */
+      methods: ("sso" | "sign_in_link")[];
+      /** Sso Kind */
+      sso_kind: ("entra" | "google" | "oidc" | "saml") | null;
+    };
     /** DoneData */
     DoneData: {
       /** Abstained */
@@ -959,8 +1134,6 @@ export interface components {
       external_models_enabled: boolean;
       /** External Spend Cap Cents */
       external_spend_cap_cents?: number | null;
-      /** Sign In Links Enabled */
-      sign_in_links_enabled: boolean;
     };
     /** EntitlementsOut */
     EntitlementsOut: {
@@ -976,13 +1149,30 @@ export interface components {
       external_models_enabled: boolean;
       /** External Spend Cap Cents */
       external_spend_cap_cents: number | null;
-      /** Sign In Links Enabled */
-      sign_in_links_enabled: boolean;
       /**
        * Updated At
        * Format: date-time
        */
       updated_at: string;
+    };
+    /** EntraSourceIn */
+    EntraSourceIn: {
+      /** Admin Group Ids */
+      admin_group_ids?: string[];
+      /** Client Id */
+      client_id: string;
+      /** Client Secret */
+      client_secret?: string | null;
+      /**
+       * Entra Tenant Id
+       * Format: uuid
+       */
+      entra_tenant_id: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "entra";
     };
     /** ErrorData */
     ErrorData: {
@@ -1013,6 +1203,18 @@ export interface components {
        * @enum {string}
        */
       rating: "up" | "down";
+    };
+    /** GoogleSourceIn */
+    GoogleSourceIn: {
+      /** Client Id */
+      client_id: string;
+      /** Client Secret */
+      client_secret?: string | null;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "google";
     };
     /** HTTPValidationError */
     HTTPValidationError: {
@@ -1048,6 +1250,50 @@ export interface components {
        */
       status: "sent_if_known";
     };
+    /**
+     * LoginPolicyIn
+     * @description The operator's switches (P1b-06). The SSO source has its own routes (P1b-07).
+     */
+    LoginPolicyIn: {
+      /** Admin Mfa Required */
+      admin_mfa_required: boolean;
+      /** Jit Provisioning Enabled */
+      jit_provisioning_enabled: boolean;
+      /** Sign In Links Enabled */
+      sign_in_links_enabled: boolean;
+    };
+    /**
+     * LoginPolicyOut
+     * @description A tenant's login policy: non-secret fields only (P1b-06, P1b-07).
+     */
+    LoginPolicyOut: {
+      /** Admin Mfa Required */
+      admin_mfa_required: boolean;
+      /** Jit Provisioning Enabled */
+      jit_provisioning_enabled: boolean;
+      /** Sign In Links Enabled */
+      sign_in_links_enabled: boolean;
+      /** Sso Endpoints */
+      sso_endpoints?: {
+        [key: string]: string;
+      };
+      /** Sso Source Config */
+      sso_source_config: {
+        [key: string]: string | string[];
+      };
+      /**
+       * Sso Source Kind
+       * @enum {string}
+       */
+      sso_source_kind: "none" | "entra" | "google" | "oidc" | "saml";
+      /** Sso Source Slug */
+      sso_source_slug: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
     /** MeOut */
     MeOut: {
       /** Display Name */
@@ -1059,6 +1305,8 @@ export interface components {
        * @enum {string}
        */
       role: "user" | "tenant_admin";
+      /** Session Expires At */
+      session_expires_at?: string | null;
       /** Tenant Display Name */
       tenant_display_name: string;
     };
@@ -1093,6 +1341,32 @@ export interface components {
       role: "user" | "assistant";
       /** Unsupported */
       unsupported: boolean;
+    };
+    /** MfaCodeIn */
+    MfaCodeIn: {
+      /** Code */
+      code: string;
+    };
+    /**
+     * MfaRequiredOut
+     * @description The sign-in waits for the tenant admin's second factor (P1b-08): their TOTP code,
+     *     or first enrolling an authenticator app with ``setup_uri`` (``otpauth://``).
+     */
+    MfaRequiredOut: {
+      /** Failed */
+      failed: boolean;
+      /** Setup Uri */
+      setup_uri: string | null;
+      /**
+       * Stage
+       * @enum {string}
+       */
+      stage: "validate" | "setup";
+      /**
+       * Status
+       * @constant
+       */
+      status: "mfa_required";
     };
     /**
      * ModelOptionOut
@@ -1134,6 +1408,20 @@ export interface components {
       tenant_id: string;
       /** Tenant Slug */
       tenant_slug: string;
+    };
+    /** OidcSourceIn */
+    OidcSourceIn: {
+      /** Client Id */
+      client_id: string;
+      /** Client Secret */
+      client_secret?: string | null;
+      /** Issuer */
+      issuer: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "oidc";
     };
     /** OperatorMeOut */
     OperatorMeOut: {
@@ -1213,6 +1501,16 @@ export interface components {
       /** Retention Days */
       retention_days: number;
     };
+    /** SamlSourceIn */
+    SamlSourceIn: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "saml";
+      /** Metadata Xml */
+      metadata_xml: string;
+    };
     /** SourceDownloadableIn */
     SourceDownloadableIn: {
       /** Downloadable */
@@ -1237,6 +1535,14 @@ export interface components {
       type: string;
       /** Withdrawn */
       withdrawn: boolean;
+    };
+    /**
+     * SsoStartOut
+     * @description Where the browser goes next: the IdP's sign-in page (P1b-07).
+     */
+    SsoStartOut: {
+      /** Redirect Url */
+      redirect_url: string;
     };
     /** TenantCreateIn */
     TenantCreateIn: {
@@ -1264,6 +1570,7 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      login_policy: components["schemas"]["LoginPolicyOut"];
       /** Slug */
       slug: string;
       /** Status */
@@ -1470,6 +1777,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  get_login_policy_api_v1_admin_login_policy_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LoginPolicyOut"];
+        };
+      };
+    };
+  };
   get_settings_api_v1_admin_settings_get: {
     parameters: {
       query?: never;
@@ -1646,6 +1973,39 @@ export interface operations {
       };
     };
   };
+  discover_methods_api_v1_auth_discover_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DiscoverIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiscoverOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   request_sign_in_link_api_v1_auth_link_post: {
     parameters: {
       query?: never;
@@ -1692,6 +2052,15 @@ export interface operations {
       };
     };
     responses: {
+      /** @description A second factor is needed */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MfaRequiredOut"];
+        };
+      };
       /** @description Successful Response */
       204: {
         headers: {
@@ -1728,6 +2097,46 @@ export interface operations {
       };
     };
   };
+  answer_mfa_api_v1_auth_mfa_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MfaCodeIn"];
+      };
+    };
+    responses: {
+      /** @description The code was not accepted */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MfaRequiredOut"];
+        };
+      };
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   auth_mode_api_v1_auth_mode_get: {
     parameters: {
       query?: never;
@@ -1744,6 +2153,57 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AuthModeOut"];
+        };
+      };
+    };
+  };
+  refresh_session_api_v1_auth_refresh_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  start_sso_api_v1_auth_sso_start_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DiscoverIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SsoStartOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
@@ -2265,6 +2725,142 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["EntitlementsOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_login_policy_api_v1_operator_tenants__tenant_id__login_policy_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LoginPolicyOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_login_policy_api_v1_operator_tenants__tenant_id__login_policy_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LoginPolicyIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LoginPolicyOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_sso_source_api_v1_operator_tenants__tenant_id__login_policy_sso_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json":
+          | components["schemas"]["EntraSourceIn"]
+          | components["schemas"]["GoogleSourceIn"]
+          | components["schemas"]["OidcSourceIn"]
+          | components["schemas"]["SamlSourceIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LoginPolicyOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  remove_sso_source_api_v1_operator_tenants__tenant_id__login_policy_sso_delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LoginPolicyOut"];
         };
       };
       /** @description Validation Error */

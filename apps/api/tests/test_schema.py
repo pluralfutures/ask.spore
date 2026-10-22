@@ -53,13 +53,25 @@ LATER_TENANT_TABLES = (
     "tenant_settings",
     "downloads",
     "content_roles",
+    "tenant_login_policy",
+    "sso_attempts",
+    "mfa_challenges",
 )
+# One row per tenant, created with the tenant (revision 0020's trigger): another tenant
+# sees its own row only.
+ROW_PER_TENANT = {"tenant_login_policy"}
 # Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
 SET_ROLES = {"askspore_auth", "askspore_operator", "askspore_content"}
 # Tenant tables the application role cannot read (only a SET role does). Since revision
 # 0008 it may INSERT operator notices (P1a-07, and the spend notices of P1a-10, revision
 # 0009), still without reading them.
-NO_APP_ACCESS = {"sign_in_links", "operators", "operator_notices"}
+NO_APP_ACCESS = {
+    "sign_in_links",
+    "operators",
+    "operator_notices",
+    "sso_attempts",
+    "mfa_challenges",
+}
 TENANT_TABLES: tuple[str, ...] = (*_migration().TENANT_TABLES, *LATER_TENANT_TABLES)
 ALL_SCOPED = (*TENANT_TABLES, "tenants")
 
@@ -232,6 +244,9 @@ async def test_other_tenant_sees_zero_rows(
         # The other tenant sees only its own row, never the internal tenant's.
         rows = await app_conn.fetch("SELECT id FROM tenants")
         assert [r["id"] for r in rows] == [populated["other"]]
+    elif table in ROW_PER_TENANT:
+        rows = await app_conn.fetch(f"SELECT tenant_id FROM {table}")
+        assert [r["tenant_id"] for r in rows] == [populated["other"]]
     else:
         assert await app_conn.fetchval(f"SELECT count(*) FROM {table}") == 0
 

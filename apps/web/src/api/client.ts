@@ -9,11 +9,17 @@ import type {
   ConversationCreateIn,
   ConversationDetail,
   ConversationSummary,
+  DiscoverOut,
   DownloadLink,
   FeedbackIn,
   FeedbackOut,
   EntitlementsIn,
   EntitlementsOut,
+  LoginPolicyIn,
+  LoginPolicyOut,
+  MfaRequiredOut,
+  SsoSourceIn,
+  SsoStartOut,
   Me,
   ModelOption,
   NoticeOut,
@@ -131,17 +137,68 @@ export async function authMode(): Promise<AuthMode> {
 }
 
 // The emailed link's landing page (P1a-02) calls this, and only from its button.
+// "no_binding" (P1b-08): this browser did not ask for the link, so it cannot finish it.
+// A tenant admin's link may first ask for a second factor (P1b-08): the challenge.
+export type SignInResult = "ok" | "no_binding" | "failed" | MfaRequiredOut;
+
+async function signInResult(response: Response): Promise<SignInResult> {
+  if (response.status === 200) return (await response.json()) as MfaRequiredOut;
+  if (response.ok) return "ok";
+  return (await errorCode(response)) === "no_binding" ? "no_binding" : "failed";
+}
+
 export async function completeSignIn(
   token: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<boolean> {
+): Promise<SignInResult> {
   const response = await fetchImpl(`${BASE}/auth/link/complete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
     credentials: "same-origin",
   });
-  return response.ok;
+  return signInResult(response);
+}
+
+// The admin's code for the pending second factor, from the same browser (P1b-08).
+export async function answerMfa(
+  code: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<SignInResult> {
+  const response = await fetchImpl(`${BASE}/auth/mfa`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+    credentials: "same-origin",
+  });
+  return signInResult(response);
+}
+
+// Tenant discovery (P1b-06): the methods the address's domain allows. Any unknown domain
+// gets the links-only answer, like every domain without SSO.
+export async function discoverMethods(email: string): Promise<DiscoverOut> {
+  const response = await fetch(`${BASE}/auth/discover`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+    credentials: "same-origin",
+  });
+  if (!response.ok) throw new ApiError(response.status);
+  return (await response.json()) as DiscoverOut;
+}
+
+// SSO (P1b-07): where to send the browser to sign in at the organisation's IdP, or null
+// when the address's domain has no SSO.
+export async function startSso(email: string): Promise<string | null> {
+  const response = await fetch(`${BASE}/auth/sso/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+    credentials: "same-origin",
+  });
+  if (response.status === 409) return null;
+  if (!response.ok) throw new ApiError(response.status);
+  return ((await response.json()) as SsoStartOut).redirect_url;
 }
 
 export async function requestSignInLink(email: string): Promise<void> {
@@ -152,6 +209,15 @@ export async function requestSignInLink(email: string): Promise<void> {
     credentials: "same-origin",
   });
   if (!response.ok) throw new ApiError(response.status);
+}
+
+// P1b-08: renew the session from the refresh cookie before the access token expires.
+export async function refreshSession(): Promise<boolean> {
+  const response = await fetch(`${BASE}/auth/refresh`, {
+    method: "POST",
+    credentials: "same-origin",
+  });
+  return response.ok;
 }
 
 export async function signOut(): Promise<void> {
@@ -211,6 +277,8 @@ export const adminApi = {
   savePrompt: (workspaceId: string, text: string) =>
     json<WorkspacePrompt>("PUT", `/workspaces/${workspaceId}/prompt`, { text }),
   settings: () => json<TenantSettings>("GET", "/admin/settings"),
+  // P1b-07: how the tenant's users sign in, read-only (the operator configures it).
+  loginPolicy: () => json<LoginPolicyOut>("GET", "/admin/login-policy"),
   setRetention: (days: number) =>
     json<TenantSettings>("PUT", "/admin/settings/retention", { retention_days: days }),
 };
@@ -228,6 +296,14 @@ export const operatorApi = {
     ),
   setEntitlements: (tenantId: string, body: EntitlementsIn) =>
     json<EntitlementsOut>("PUT", `/operator/tenants/${tenantId}/entitlements`, body),
+  // Login policy (P1b-06): sign-in links, JIT provisioning, MFA for tenant admins.
+  setLoginPolicy: (tenantId: string, body: LoginPolicyIn) =>
+    json<LoginPolicyOut>("PUT", `/operator/tenants/${tenantId}/login-policy`, body),
+  // P1b-07: the tenant's SSO source, configured in Authentik; secrets are write-only.
+  setSsoSource: (tenantId: string, body: SsoSourceIn) =>
+    json<LoginPolicyOut>("PUT", `/operator/tenants/${tenantId}/login-policy/sso`, body),
+  removeSsoSource: (tenantId: string) =>
+    json<LoginPolicyOut>("DELETE", `/operator/tenants/${tenantId}/login-policy/sso`),
   notices: () => json<NoticeOut[]>("GET", "/operator/notices"),
   // Package builder (P1a-04): a tenant's workspaces and their tags.
   workspaces: (tenantId: string) =>

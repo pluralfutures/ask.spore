@@ -28,7 +28,7 @@ import httpx
 from app.chat.prompts import active_prompt
 from app.core.config import Settings, load_settings
 from app.core.db import create_engine, session_factory
-from app.llm.factory import LLMClient, create_llm_client
+from app.llm.factory import LLMClient, create_judge_client
 from app.llm.mistral import MistralClient
 from app.retrieval.ragflow import RagflowClient
 from pydantic import SecretStr
@@ -166,22 +166,19 @@ def _config_meta(settings: Settings) -> dict[str, Any]:
     except FileNotFoundError:
         ragflow_version = "unknown"
     if models.llm.provider == "scaleway" and models.scaleway is not None:
-        chat, rewrite, judge = (
-            models.scaleway.chat_model,
-            models.scaleway.rewrite_model,
-            models.scaleway.judge_model,
-        )
+        chat, rewrite = models.scaleway.chat_model, models.scaleway.rewrite_model
     else:
-        chat, rewrite, judge = (
-            models.mistral.chat_model,
-            models.mistral.rewrite_model,
-            models.mistral.chat_model,
-        )
+        chat, rewrite = models.mistral.chat_model, models.mistral.rewrite_model
+    # P1b-15 c: the judge is pinned on its own ([eval]); the chat model without it.
+    judge = models.eval.judge_model if models.eval is not None else chat
+    judge_provider = models.eval.judge_provider if models.eval is not None else models.llm.provider
     return {
         "llm_provider": models.llm.provider,
         "chat_model": chat,
         "rewrite_model": rewrite,
         "judge_model": judge,
+        "judge_provider": judge_provider,
+        "vector_similarity_weight": models.chat.vector_similarity_weight,
         "prompts": prompts,
         "top_k": models.chat.top_k,
         "similarity_threshold": models.chat.similarity_threshold,
@@ -219,7 +216,7 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
             http_client=httpx.AsyncClient(transport=mock.transport()),
         )
     else:
-        llm = create_llm_client(settings, rewrite_system)
+        llm = create_judge_client(settings)
     pipeline = ApiPipeline(options.api_url, token, options.user_email)
     warnings: list[str] = []
     item_results: list[ItemResult] = []
@@ -240,7 +237,17 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
         pipeline.workspace_id = step.workspace_id
         if not step.package.dataset_ids:
             raise HarnessError("the package has no datasets; run `ask-spore datasets sync`")
-        judge = Judge(llm, active_prompt(settings, "judge").text)
+        judge_config = settings.models.eval
+        judge = Judge(
+            llm,
+            active_prompt(settings, "judge").text,
+            model=None
+            if options.mock_mistral or judge_config is None
+            else judge_config.judge_model,
+            reasoning_effort="none"
+            if judge_config is None
+            else judge_config.judge_reasoning_effort,
+        )
         for item in items:
             unknown = step.unknown_expected(item.expected_source_ids)
             if unknown:

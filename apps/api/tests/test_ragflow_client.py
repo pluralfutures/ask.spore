@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -174,6 +175,7 @@ async def test_retrieve_request_is_tool_free_and_maps_top_k_to_page_size() -> No
     assert (body["page"], body["page_size"]) == (1, 3)
     assert body["similarity_threshold"] == 0.2
     assert body["knn_top_k"] == ragflow.KNN_TOP_K
+    assert body["vector_similarity_weight"] == ragflow.DEFAULT_VECTOR_SIMILARITY_WEIGHT
     assert "top_k" not in body  # deprecated in v0.27.2
     # Nothing that would make RAGFlow send the question to an LLM of its own.
     assert body["keyword"] is False
@@ -193,6 +195,23 @@ async def test_retrieve_request_is_tool_free_and_maps_top_k_to_page_size() -> No
     assert "levelised cost" in first.text
     assert first.score == pytest.approx(0.3246, abs=1e-4)
     assert [c.score for c in chunks] == sorted((c.score for c in chunks), reverse=True)
+
+
+async def test_retrieve_sends_the_configured_vector_weight() -> None:
+    # P1b-15 e: [chat] vector_similarity_weight, through from_settings.
+    from app.core.config import DEFAULT_CONFIG_DIR, load_settings
+    from tests.test_config import ENV
+
+    settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
+    chat = settings.models.chat.model_copy(update={"vector_similarity_weight": 0.55})
+    tuned = replace(settings, models=settings.models.model_copy(update={"chat": chat}))
+    rec = Recorder(fixture("retrieve"))
+    async with RagflowClient.from_settings(tuned, transport=rec.transport()) as c:
+        await c.retrieve_chunks(
+            dataset_ids=[DATASET_ID], question=QUESTION, top_k=3, similarity_threshold=0.2
+        )
+    assert rec.last_json()["vector_similarity_weight"] == 0.55
+    assert settings.models.chat.vector_similarity_weight == 0.3  # the repository's default
 
 
 async def test_retrieve_with_nothing_above_threshold_returns_empty() -> None:

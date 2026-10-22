@@ -207,7 +207,6 @@ provider = "scaleway"
 base_url = "https://api.scaleway.ai"
 chat_model = "deepseek-v4.1-flash"
 rewrite_model = "deepseek-v4.1-flash"
-judge_model = "deepseek-v4.1-flash"
 models = ["deepseek-v4.1-flash"]
 timeout_seconds = 30
 rate_limit_rps = 5
@@ -267,9 +266,48 @@ def test_only_the_active_providers_key_is_required(
 
 @pytest.mark.parametrize("model", ["deepseek-latest", "deepseek-v4.1-flash-latest", "Deep Seek"])
 def test_scaleway_rejects_alias_or_malformed_model_names(tmp_path: Path, model: str) -> None:
-    text = SCALEWAY_TOML.replace('judge_model = "deepseek-v4.1-flash"', f'judge_model = "{model}"')
-    [problem] = problems_for(tmp_path, text)
-    assert problem.startswith(f"scaleway.judge_model '{model}' must be a fixed model name")
+    text = SCALEWAY_TOML.replace(
+        'rewrite_model = "deepseek-v4.1-flash"', f'rewrite_model = "{model}"'
+    )
+    problems = problems_for(tmp_path, text)
+    assert any(
+        p.startswith(f"scaleway.rewrite_model '{model}' must be a fixed model name")
+        for p in problems
+    ), problems
+
+
+def test_repository_config_pins_a_separate_judge() -> None:
+    # P1b-15 c: [eval] names the judge on its own (today the answer model, by decision).
+    settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
+    assert settings.models.eval is not None
+    assert (settings.models.eval.judge_provider, settings.models.eval.judge_model) == (
+        "scaleway",
+        "deepseek-v4.1-flash",
+    )
+
+
+@pytest.mark.parametrize(
+    ("section", "problem"),
+    [
+        (
+            'judge_provider = "scaleway"\njudge_model = "deepseek-latest"',
+            "eval.judge_model 'deepseek-latest' must be a fixed model name, not an alias",
+        ),
+        (
+            'judge_provider = "scaleway"\njudge_model = "qwen-unpinned-9"',
+            "eval.judge_model 'qwen-unpinned-9' is not pinned in [scaleway]",
+        ),
+        (
+            'judge_provider = "mistral"\njudge_model = "deepseek-v4.1-flash"',
+            "eval.judge_model 'deepseek-v4.1-flash' is not pinned in [mistral]",
+        ),
+    ],
+)
+def test_eval_judge_must_be_pinned_by_its_provider(
+    tmp_path: Path, section: str, problem: str
+) -> None:
+    text = SCALEWAY_TOML + "\n[eval]\n" + section + "\n"
+    assert problems_for(tmp_path, text) == [problem]
 
 
 def test_scaleway_host_must_be_allow_listed_and_https(tmp_path: Path) -> None:

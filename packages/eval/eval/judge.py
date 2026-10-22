@@ -137,9 +137,21 @@ def parse_verdicts(raw: str, count: int) -> list[Verdict]:
 
 
 class Judge:
-    def __init__(self, client: LLMClient, system: str) -> None:
+    """``model`` and ``reasoning_effort`` come from ``[eval]`` (P1b-15 c); without
+    ``model`` the client's chat model judges."""
+
+    def __init__(
+        self,
+        client: LLMClient,
+        system: str,
+        *,
+        model: str | None = None,
+        reasoning_effort: str = "none",
+    ) -> None:
         self._client = client
         self._system = system
+        self._model = model
+        self._reasoning_effort = reasoning_effort
 
     async def judge(
         self, answer: str, citations: Sequence[Citation], chunk_texts: Mapping[str, str]
@@ -149,7 +161,13 @@ class Judge:
         if not request.statements:
             return record
         try:
-            reply = await self._client.judge(self._system, request.passages, request.statements)
+            reply = await self._client.judge(
+                self._system,
+                request.passages,
+                request.statements,
+                model=self._model,
+                reasoning_effort=self._reasoning_effort,
+            )
         except LLMError as exc:
             record.error = exc.error_code
             return record

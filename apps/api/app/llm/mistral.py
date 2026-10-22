@@ -296,17 +296,25 @@ class MistralClient:
         return RewriteResult(query=_clean_query(raw, query), usage=_usage(response.usage))
 
     async def judge(
-        self, system: str, passages: Sequence[PromptChunk], statements: Sequence[Statement]
+        self,
+        system: str,
+        passages: Sequence[PromptChunk],
+        statements: Sequence[Statement],
+        *,
+        model: str | None = None,
+        reasoning_effort: str = "none",
     ) -> JudgeResult:
         """Faithfulness verdicts for ``statements`` (eval harness, P0-18), as JSON text.
 
-        Uses the pinned chat model (Mistral Large) at temperature 0.
+        ``model`` is ``[eval] judge_model`` (P1b-15 c), else the pinned chat model, at
+        temperature 0. Mistral has no reasoning switch; ``reasoning_effort`` is unused.
         """
+        del reasoning_effort
         messages = judge_messages(system, passages, statements)
         for attempt in range(RETRIES_ON_5XX + 1):
             try:
                 response = await self._sdk.chat.complete_async(
-                    model=self._config.chat_model,
+                    model=model or self._config.chat_model,
                     messages=messages,  # type: ignore[arg-type]
                     temperature=JUDGE_TEMPERATURE,
                     max_tokens=JUDGE_MAX_TOKENS,

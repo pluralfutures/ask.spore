@@ -63,7 +63,6 @@ from app.llm.catalogue import ModelChoice
 from app.llm.factory import LLMRouter
 from app.llm.mistral import LLMError, Turn, Usage
 from app.retrieval.protocol import Retriever
-from app.retrieval.ragflow import VECTOR_SIMILARITY_WEIGHT
 from app.retrieval.types import RetrievedChunk
 from app.tenancy.retention import NO_HISTORY_WINDOW
 from app.tenancy.workspaces import NO_INSTRUCTIONS, WorkspaceInstructions, active_instructions
@@ -377,7 +376,7 @@ class Orchestrator:
                 f"top_k={self._chat.top_k}",
                 f"threshold={self._chat.similarity_threshold!r}",
                 f"max_context={self._chat.max_context_tokens}",
-                f"vector_weight={VECTOR_SIMILARITY_WEIGHT!r}",
+                f"vector_weight={self._chat.vector_similarity_weight!r}",
                 f"deploy={self._settings.deploy_version}",
             ]
         )

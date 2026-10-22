@@ -146,13 +146,11 @@ class ScalewayConfig(_Strict):
     base_url: str
     chat_model: str
     rewrite_model: str
-    judge_model: str
     # Every model the catalogue may offer on Scaleway (P1a-09); fixed names only.
     models: tuple[str, ...] = ()
     timeout_seconds: float = Field(gt=0)
     # DeepSeek reasons by default; "none" turns it off (findings M2). Sent as reasoning_effort.
     reasoning_effort: Literal["none", "low", "medium", "high"] = "none"
-    judge_reasoning_effort: Literal["none", "low", "medium", "high"] = "none"
     # Client-side throttle (app.llm.ratelimit), per process, below the account's limits.
     rate_limit_rps: float = Field(gt=0)
     tokens_per_minute: int = Field(gt=0)
@@ -256,6 +254,8 @@ class ChatConfig(_Strict):
     top_k: int = Field(ge=1, le=100)
     similarity_threshold: float = Field(ge=0, le=1)
     max_context_tokens: int = Field(gt=0)
+    # RAGFlow's hybrid score weight (P1b-15 e); RAGFlow's default.
+    vector_similarity_weight: float = Field(default=0.3, ge=0, le=1)
     # Answer cache TTL; app.core.cache caps every TTL at the 30-day retention limit.
     cache_ttl_seconds: int = Field(gt=0, le=30 * 24 * 3600)
 
@@ -266,6 +266,16 @@ class FilesConfig(_Strict):
     content_root: Path = Path("/srv/ask-spore/content")
     download_url_ttl_seconds: int = Field(default=60, ge=10, le=300)
     downloads_per_user_per_day: int = Field(default=50, ge=1, le=1000)
+
+
+class EvalConfig(_Strict):
+    """The eval harness's faithfulness judge (P1b-15 c), pinned on its own so that it can
+    be a different model from the one whose answers it grades (findings D6). EU
+    providers only: the judge sees corpus passages."""
+
+    judge_provider: Literal["mistral", "scaleway"]
+    judge_model: str = Field(min_length=1)
+    judge_reasoning_effort: Literal["none", "low", "medium", "high"] = "none"
 
 
 class RetentionConfig(_Strict):
@@ -386,6 +396,9 @@ class ModelsConfig(_Strict):
     chat: ChatConfig
     files: FilesConfig = FilesConfig()
     retention: RetentionConfig = RetentionConfig()
+    # The eval judge (P1b-15 c); without it the harness judges with the active provider's
+    # chat model.
+    eval: EvalConfig | None = None
     # Platform mail (P1b-11); without it the API and worker send nothing.
     mail: MailConfig | None = None
 
@@ -527,7 +540,7 @@ def _check_models(models: ModelsConfig) -> list[str]:
             problems.append("scaleway.base_url must use https")
         fields = [
             (f"scaleway.{field}", getattr(models.scaleway, field))
-            for field in ("chat_model", "rewrite_model", "judge_model")
+            for field in ("chat_model", "rewrite_model")
         ] + [("scaleway.models", model) for model in models.scaleway.models]
         for name, model in fields:
             if "latest" in model.lower() or not _FIXED_MODEL.fullmatch(model):
@@ -590,7 +603,31 @@ def _check_models(models: ModelsConfig) -> list[str]:
     if "latest" in models.ragflow.embedding_model.lower():
         problems.append("ragflow.embedding_model must name a fixed model, not a '-latest' alias")
     problems += _check_ragflow_ui(models.ragflow)
+    problems += _check_eval(models)
     return problems + _check_catalogue(models)
+
+
+def _check_eval(models: ModelsConfig) -> list[str]:
+    """The judge must be a fixed model its (EU) provider pins (P1b-15 c)."""
+    judge = models.eval
+    if judge is None:
+        return []
+    model = judge.judge_model
+    if "latest" in model.lower() or not _FIXED_MODEL.fullmatch(model):
+        return [f"eval.judge_model '{model}' must be a fixed model name, not an alias"]
+    if judge.judge_provider == "scaleway":
+        if models.scaleway is None:
+            return ["eval.judge_provider is 'scaleway' but there is no [scaleway] section"]
+        pinned = {
+            models.scaleway.chat_model,
+            models.scaleway.rewrite_model,
+            *models.scaleway.models,
+        }
+    else:
+        pinned = {models.mistral.chat_model, models.mistral.rewrite_model}
+    if model not in pinned:
+        return [f"eval.judge_model '{model}' is not pinned in [{judge.judge_provider}]"]
+    return []
 
 
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})

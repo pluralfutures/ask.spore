@@ -221,15 +221,23 @@ class ScalewayClient:
         return RewriteResult(query=_clean_query(raw, query), usage=_usage(response.usage))
 
     async def judge(
-        self, system: str, passages: Sequence[PromptChunk], statements: Sequence[Statement]
+        self,
+        system: str,
+        passages: Sequence[PromptChunk],
+        statements: Sequence[Statement],
+        *,
+        model: str | None = None,
+        reasoning_effort: str = "none",
     ) -> JudgeResult:
-        """Faithfulness verdicts for ``statements`` (eval harness, P0-18), as JSON text."""
+        """Faithfulness verdicts for ``statements`` (eval harness, P0-18), as JSON text.
+
+        ``model`` is ``[eval] judge_model`` (P1b-15 c); the chat model without it."""
         response = await self._complete(
             judge_messages(system, passages, statements),
-            self._config.judge_model,
+            model or self._config.chat_model,
             JUDGE_TEMPERATURE,
             JUDGE_MAX_TOKENS,
-            self._config.judge_reasoning_effort,
+            reasoning_effort,
             response_format={"type": "json_object"},
         )
         message = response.choices[0].message if response.choices else None

@@ -362,6 +362,16 @@ class AuthentikConfig(_Strict):
     admin_mfa_group: str = Field(default="ask-spore-tenant-admins", pattern=r"^[a-z0-9][a-z0-9-]*$")
 
 
+class EvalServiceConfig(_Strict):
+    """P1b-15 a: the eval harness's signed service credential under ``mode = "oidc"``
+    (``app.auth.eval_service``). Only the Ed25519 **public** key is here; the private key
+    is the eval runner's secret. Absent from the production config."""
+
+    email: str = Field(pattern=r"^[a-z0-9._+-]+@[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z]{2,}$")
+    public_key: str = Field(min_length=1)
+    max_lifetime_seconds: int = Field(default=900, ge=60, le=3600)
+
+
 class AuthConfig(_Strict):
     """``phase0``: shared bearer token + X-User-Email (eval harness). ``oidc``: Authentik."""
 
@@ -380,6 +390,8 @@ class AuthConfig(_Strict):
     # the access token (8 hours) expires, at most this long after the last renewal.
     refresh_token_ttl_seconds: int = Field(default=86_400, ge=3_600, le=7 * 86_400)
     authentik: AuthentikConfig | None = None
+    # P1b-15 a: accept the eval harness's signed credential (test and eval APIs only).
+    eval_service: EvalServiceConfig | None = None
 
 
 class ModelsConfig(_Strict):
@@ -604,7 +616,24 @@ def _check_models(models: ModelsConfig) -> list[str]:
         problems.append("ragflow.embedding_model must name a fixed model, not a '-latest' alias")
     problems += _check_ragflow_ui(models.ragflow)
     problems += _check_eval(models)
+    problems += _check_eval_service(models.auth)
     return problems + _check_catalogue(models)
+
+
+def _check_eval_service(auth: AuthConfig) -> list[str]:
+    """The service credential is an ``oidc``-mode path with an Ed25519 public key."""
+    service = auth.eval_service
+    if service is None:
+        return []
+    if auth.mode != "oidc":
+        return ["auth.eval_service needs [auth] mode = 'oidc'"]
+    from app.auth.eval_service import load_public_key
+
+    try:
+        load_public_key(service.public_key)
+    except Exception:  # any unreadable or non-Ed25519 key
+        return ["auth.eval_service.public_key must be an Ed25519 public key (PEM)"]
+    return []
 
 
 def _check_eval(models: ModelsConfig) -> list[str]:

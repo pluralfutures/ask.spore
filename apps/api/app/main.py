@@ -17,6 +17,7 @@ from app.api.files import router as api_files
 from app.api.operator import router as api_operator
 from app.api.v1 import router as api_v1
 from app.auth.authentik import oidc_services
+from app.auth.eval_service import EvalServiceValidator
 from app.auth.middleware import AuthMiddleware
 from app.chat.orchestrator import Orchestrator
 from app.chat.prompts import active_prompt
@@ -109,6 +110,13 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
             app.state.token_validator, app.state.sign_in_provider = oidc_services(
                 settings, auth_http
             )
+            service = settings.models.auth.eval_service
+            if service is not None:
+                # P1b-15 a: the eval harness's service identity (never in production).
+                app.state.eval_service = EvalServiceValidator(
+                    service.public_key, service.email, service.max_lifetime_seconds
+                )
+                log("api.eval_service_enabled", level="warning", status="enabled")
         if retriever is not None:
             app.state.orchestrator = Orchestrator(
                 settings=settings,

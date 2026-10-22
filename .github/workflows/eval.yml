@@ -8,7 +8,8 @@
 #
 # Secrets (repository or environment), read only at run time: MISTRAL_API_KEY,
 # RAGFLOW_API_KEY, EVAL_DATABASE_URL (read access to the target's database),
-# PHASE0_BEARER_TOKEN, EVAL_USER_EMAIL (a seeded internal user), and optionally
+# EVAL_USER_EMAIL, and EVAL_SERVICE_PRIVATE_KEY (an API in oidc mode with
+# [auth.eval_service], P1b-15 a) or PHASE0_BEARER_TOKEN (phase0 mode), and optionally
 # EVAL_API_URL / EVAL_RAGFLOW_URL when the inputs are left empty. None is needed for this
 # file to be valid; a missing one fails the run at the first step, by name.
 
@@ -62,6 +63,8 @@ jobs:
       RAGFLOW_API_KEY: ${{ secrets.RAGFLOW_API_KEY }}
       DATABASE_URL: ${{ secrets.EVAL_DATABASE_URL }}
       PHASE0_BEARER_TOKEN: ${{ secrets.PHASE0_BEARER_TOKEN }}
+      EVAL_SERVICE_PRIVATE_KEY: ${{ secrets.EVAL_SERVICE_PRIVATE_KEY }}
+      SCALEWAY_API_KEY: ${{ secrets.SCALEWAY_API_KEY }}
       EVAL_USER_EMAIL: ${{ secrets.EVAL_USER_EMAIL }}
       EVAL_API_URL: ${{ inputs.api_url || secrets.EVAL_API_URL }}
       EVAL_RAGFLOW_URL: ${{ inputs.ragflow_url || secrets.EVAL_RAGFLOW_URL }}
@@ -72,10 +75,16 @@ jobs:
       - name: Check secrets and inputs are set
         run: |
           missing=""
-          for name in MISTRAL_API_KEY RAGFLOW_API_KEY DATABASE_URL PHASE0_BEARER_TOKEN EVAL_USER_EMAIL EVAL_API_URL; do
+          for name in RAGFLOW_API_KEY DATABASE_URL EVAL_USER_EMAIL EVAL_API_URL; do
             eval "value=\${$name:-}"
             [ -n "$value" ] || missing="$missing $name"
           done
+          if [ -z "${EVAL_SERVICE_PRIVATE_KEY:-}" ] && [ -z "${PHASE0_BEARER_TOKEN:-}" ]; then
+            missing="$missing EVAL_SERVICE_PRIVATE_KEY(or PHASE0_BEARER_TOKEN)"
+          fi
+          if [ -z "${SCALEWAY_API_KEY:-}" ] && [ -z "${MISTRAL_API_KEY:-}" ]; then
+            missing="$missing SCALEWAY_API_KEY(or MISTRAL_API_KEY, the judge's provider)"
+          fi
           if [ -n "$missing" ]; then
             echo "::error::Not set:$missing (DATABASE_URL comes from secret EVAL_DATABASE_URL; EVAL_API_URL from input api_url or secret EVAL_API_URL)"
             exit 1

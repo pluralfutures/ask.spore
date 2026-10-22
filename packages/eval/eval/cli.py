@@ -167,6 +167,23 @@ def cmd_guardrails(args: argparse.Namespace) -> int:
     return 1 if data["regressions"] else 0
 
 
+def cmd_keygen(args: argparse.Namespace) -> int:
+    """P1b-15 a: a key pair for the eval service credential."""
+    from app.auth.eval_service import generate_key_pair
+
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    private, public = generate_key_pair()
+    key_path, pub_path = out / "eval-service.key", out / "eval-service.pub"
+    fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(private)
+    pub_path.write_text(public, encoding="utf-8")
+    _out(f"wrote {key_path} (the eval runner's secret EVAL_SERVICE_PRIVATE_KEY; never commit it)")
+    _out(f"wrote {pub_path} (for [auth.eval_service] public_key on the API under test)")
+    return 0
+
+
 def cmd_compare(args: argparse.Namespace) -> int:
     base, new = results.load(Path(args.base)), results.load(Path(args.new))
     outcome = compare.compare(base, new, args.threshold)
@@ -223,8 +240,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_cmd = commands.add_parser(
         "run",
         help="run an eval set through the retrieval step, the API and the judge",
-        description="Needs MISTRAL_API_KEY, RAGFLOW_API_KEY, DATABASE_URL, "
-        "PHASE0_BEARER_TOKEN and EVAL_USER_EMAIL in the environment (see eval/runner.py). "
+        description="Needs the judge provider's key, RAGFLOW_API_KEY, DATABASE_URL, "
+        "EVAL_USER_EMAIL and either EVAL_SERVICE_PRIVATE_KEY (an API in oidc mode with "
+        "[auth.eval_service]) or PHASE0_BEARER_TOKEN in the environment (see eval/runner.py). "
         "Writes results/<timestamp>-<git-sha>/. Exits 1 if any item errored.",
     )
     run_cmd.add_argument("--config", default=str(DEFAULT_CONFIG), help="path to models.toml")
@@ -291,6 +309,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     guard.add_argument("--note", action="append", default=[], help="line for the summary")
     guard.set_defaults(func=cmd_guardrails)
+
+    keygen = commands.add_parser(
+        "keygen",
+        help="create the eval service credential's Ed25519 key pair (P1b-15 a)",
+        description="Writes eval-service.key (private, mode 0600: the eval runner's "
+        "EVAL_SERVICE_PRIVATE_KEY secret) and eval-service.pub (the API under test's "
+        "[auth.eval_service] public_key). Refuses to overwrite an existing key.",
+    )
+    keygen.add_argument("--out-dir", required=True)
+    keygen.set_defaults(func=cmd_keygen)
 
     compare_cmd = commands.add_parser(
         "compare",

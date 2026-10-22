@@ -71,7 +71,7 @@ from app.core.db import create_engine, session_factory
 from app.core.logging import log
 from app.core.mail import create_mail_sender
 from app.mail.jobs import MailContext
-from app.operator.grants import grant_operator, revoke_operator
+from app.operator.grants import create_eval_identity, grant_operator, revoke_operator
 from app.retrieval.ragflow import RagflowClient
 from app.tenancy.purge import purge_retention, schedule_purge
 from app.tenancy.termination import TerminationError, terminate_tenant
@@ -616,6 +616,22 @@ async def _worker(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _eval_identity(args: argparse.Namespace) -> int:
+    """Create the eval harness's service identity (P1b-15 a), as the schema owner."""
+    owner_url = os.environ.get("MIGRATIONS_DATABASE_URL", "").strip()
+    if not owner_url:
+        log("eval_identity.failed", level="error", error_code="no_owner_database_url")
+        return 1
+    engine = create_engine(owner_url)
+    try:
+        result = await create_eval_identity(session_factory(engine), email=args.email)
+    finally:
+        await engine.dispose()
+    failed = result == "has_roles"
+    log("eval_identity.create", level="error" if failed else "info", status=result)
+    return 1 if failed else 0
+
+
 async def _operators(args: argparse.Namespace) -> int:
     """Grant or revoke the operator role, as the owner (MIGRATIONS_DATABASE_URL)."""
     settings = get_settings()
@@ -898,6 +914,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--confirm", required=True, metavar="SLUG", help="the same slug again, to confirm"
     )
 
+    eval_cmd = commands.add_parser(
+        "eval-identity",
+        help="the eval harness's service identity under oidc (P1b-15 a)",
+        description="Runs as the schema owner (MIGRATIONS_DATABASE_URL). Creates a plain "
+        "active user of the internal tenant (role user, no operator or content role, not "
+        "in Authentik) for the eval harness's signed credential; an API accepts it only "
+        "with [auth.eval_service] set to that email and the harness's public key "
+        "(packages/eval/README.md).",
+    )
+    eval_commands = eval_cmd.add_subparsers(dest="eval_identity_command", required=True)
+    eval_create = eval_commands.add_parser("create", help="create the service identity")
+    eval_create.add_argument("--email", required=True)
+
     operators = commands.add_parser(
         "operators",
         help="grant or revoke the platform operator role (P1a-03)",
@@ -935,6 +964,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_worker(args))
     if args.command == "purge":
         return asyncio.run(_purge(args))
+    if args.command == "eval-identity":
+        return asyncio.run(_eval_identity(args))
     if args.command == "tenant":
         return asyncio.run(_tenant_purge(args))
     raise AssertionError("unreachable: argparse enforces the commands")

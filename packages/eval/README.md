@@ -61,9 +61,44 @@ cited-answer rate on factual and synthesis items (the cost side of abstention). 
 `eval/metrics.py`. `compare` exits 1 when any of them drops by more than `--threshold` points
 (default 3).
 
-Environment: `MISTRAL_API_KEY` (judge), `RAGFLOW_API_KEY` and `DATABASE_URL` (retrieval step;
-the database is only read), `PHASE0_BEARER_TOKEN` and `EVAL_USER_EMAIL` (a seeded internal user,
-for the API). `--ragflow-url` (or `EVAL_RAGFLOW_URL`) points the retrieval step at RAGFlow when
+Environment: the judge provider's key (`SCALEWAY_API_KEY` or `MISTRAL_API_KEY`, per `[eval]`
+judge_provider), `RAGFLOW_API_KEY` and `DATABASE_URL` (retrieval step; the database is only
+read), `EVAL_USER_EMAIL` (the user the API answers as), and either `EVAL_SERVICE_PRIVATE_KEY`
+(an API in `oidc` mode, below) or `PHASE0_BEARER_TOKEN` (an API in `phase0` mode).
+
+### Under `[auth] mode = "oidc"`: the eval service credential (P1b-15 a)
+
+The harness signs a short-lived credential (an EdDSA JWT, at most `max_lifetime_seconds`, a
+fresh one per request) for a **service identity**: a plain user of the internal tenant, never
+in Authentik, with no operator or content role. The API under test accepts it only when its
+config has an `[auth.eval_service]` section with that email and the **public** key; the
+repository's `config/models.toml` (production) has none, and a test keeps it so. There is no
+bearer token in any production config: the API holds a public key only.
+
+One-time setup, on the Instance:
+
+```
+uv run --directory packages/eval python -m eval keygen --out-dir /srv/ask-spore/eval-keys
+docker compose -f infra/compose.dev.yml run --rm api ask-spore eval-identity create --email eval-service@<internal domain>
+```
+
+Keep `eval-service.key` as the eval runner's secret `EVAL_SERVICE_PRIVATE_KEY` (GitHub
+environment secret or a root-only file); never commit it.
+
+**Release step (P1b-16 and every eval gate run):** start a temporary api container from the
+release image whose config copy differs from production only by the section
+
+```
+[auth.eval_service]
+email = "eval-service@<internal domain>"
+public_key = """<contents of eval-service.pub>"""
+```
+
+(`docker compose run --no-deps --name askspore-eval-api -p 127.0.0.1:8001:8000 ...`, as in
+findings 1a G7, but `[auth] mode` stays `oidc`), run the harness against it with
+`EVAL_USER_EMAIL` set to the service identity and `EVAL_SERVICE_PRIVATE_KEY` set, then remove
+the container. The live api never carries the section. If the key is ever exposed, run
+`keygen` again and replace the public key; the old credentials expire within 15 minutes. `--ragflow-url` (or `EVAL_RAGFLOW_URL`) points the retrieval step at RAGFlow when
 `ragflow.base_url` does not resolve where the harness runs; it must be a private or loopback
 address. The harness and the API under test must run the same `config/` (the harness records its
 own configuration in the results; the API does not report its own).

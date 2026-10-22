@@ -5,7 +5,9 @@ Environment (the same names as the API where they mean the same thing):
 - ``MISTRAL_API_KEY``: the judge (any value with ``--mock-mistral``).
 - ``RAGFLOW_API_KEY``, ``DATABASE_URL``: the retrieval step (package datasets,
   provenance and the source register are read, never written).
-- ``PHASE0_BEARER_TOKEN`` and ``EVAL_USER_EMAIL`` (a seeded internal user): the API.
+- ``EVAL_USER_EMAIL``: the user the API answers as, and either
+  ``EVAL_SERVICE_PRIVATE_KEY`` (``[auth] mode = "oidc"``, P1b-15 a: the service
+  identity's signing key) or ``PHASE0_BEARER_TOKEN`` (``mode = "phase0"``).
 - ``EVAL_API_URL``, ``EVAL_RAGFLOW_URL``: defaults for ``--api-url`` / ``--ragflow-url``.
 """
 
@@ -217,7 +219,12 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
         )
     else:
         llm = create_judge_client(settings)
-    pipeline = ApiPipeline(options.api_url, token, options.user_email)
+    pipeline = ApiPipeline(
+        options.api_url,
+        token,
+        options.user_email,
+        service_key=env.get("EVAL_SERVICE_PRIVATE_KEY") or None,
+    )
     warnings: list[str] = []
     item_results: list[ItemResult] = []
     try:

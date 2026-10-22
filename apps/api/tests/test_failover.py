@@ -278,3 +278,22 @@ def test_history_marks_a_backups_answer(settings: Settings) -> None:
     assert _failover(request, DEEPSEEK, message("assistant", "mistral-medium-2604")) == "eu"
     assert _failover(request, DEEPSEEK, message("user", None)) is None
     assert _failover(request, DEEPSEEK, message("assistant", None)) is None
+
+
+async def test_openrouter_follows_when_the_eu_backup_refuses(
+    settings: Settings,
+    engine: AsyncEngine,
+    world: World,
+    redis: FakeRedis,
+    ledger: Any,
+    internal_entitlement: Any,
+) -> None:
+    """A misconfigured backup (401) does not cost an entitled tenant its last resort."""
+    await internal_entitlement([DEEPSEEK, CLAUDE], external=True, cap=100)
+    await fixed_choice(world, EU_CHOICE)
+    openrouter = OpenAIRecorder(sse(delta("Grew [1].", USAGE)))
+    orch = orchestrator(
+        settings, engine, world, OpenAIRecorder(*DOWN), openrouter, OpenAIRecorder(error(401))
+    )
+    done = (await ask(orch, world))[-1]
+    assert isinstance(done, DoneEvent) and done.failover == "external"

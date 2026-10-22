@@ -242,9 +242,7 @@ class LLMRouter:
                     max_tokens=answer_max_tokens(False),
                 )
                 return stream, "eu"
-            except LLMError as exc:
-                if not _fails_over(exc):
-                    raise
+            except LLMError as exc:  # the backup down or refusing: OpenRouter may follow
                 failure = exc
         external = failover.external
         if external is None or not external.external or self._openrouter is None:

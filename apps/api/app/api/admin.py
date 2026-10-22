@@ -120,7 +120,7 @@ async def invite_user(
         await provider.provision_user(
             email=email, display_name=user.display_name, tenant_id=admin.tenant_id
         )
-        if body.role == "tenant_admin" and await _admin_mfa_required(session):
+        if body.role == "tenant_admin" and await _admin_mfa_required(session, admin.tenant_id):
             await provider.set_admin_mfa(email, True)  # P1b-08
     except ProviderError as exc:
         # The transaction rolls back: no users row without its Authentik user.
@@ -140,8 +140,11 @@ async def invite_user(
     return out
 
 
-async def _admin_mfa_required(session: AsyncSession) -> bool:
-    required = await session.scalar(select(TenantLoginPolicy.admin_mfa_required))
+async def _admin_mfa_required(session: AsyncSession, tenant_id: UUID) -> bool:
+    # Explicit tenant predicate on top of RLS (review of Oct 22, 2026).
+    required = await session.scalar(
+        select(TenantLoginPolicy.admin_mfa_required).where(TenantLoginPolicy.tenant_id == tenant_id)
+    )
     return required is not False  # no row: the default, required
 
 
@@ -166,7 +169,9 @@ async def change_user(
         # P1b-08: an admin's sign-in links ask for a second factor; a user's do not.
         provider: SignInLinkProvider | None = getattr(request.app.state, "sign_in_provider", None)
         if provider is not None:
-            required = body.role == "tenant_admin" and await _admin_mfa_required(session)
+            required = body.role == "tenant_admin" and await _admin_mfa_required(
+                session, admin.tenant_id
+            )
             try:
                 await provider.set_admin_mfa(user.email, required)
             except ProviderError as exc:

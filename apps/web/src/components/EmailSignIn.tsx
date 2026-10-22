@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { ApiError, discoverMethods, requestSignInLink, startSso } from "../api/client";
 import type { DiscoverOut } from "../api/types";
 import { ssoButtonLabel } from "../lib/sso";
+import { failureText } from "./emailSignInText";
 
 type Step = { kind: "email" } | { kind: "choose"; found: DiscoverOut } | { kind: "sent" };
 
@@ -118,10 +119,4 @@ export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
       {failed && <p className="text-sm text-red-700">{failureText(limited)}</p>}
     </form>
   );
-}
-
-export function failureText(limited: boolean): string {
-  return limited
-    ? "Too many sign-in attempts from this network. Wait a few minutes and try again."
-    : "Something went wrong. Try again.";
 }

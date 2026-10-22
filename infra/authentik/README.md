@@ -98,6 +98,10 @@ From P1b-08 the blueprint `blueprints/ask-spore.yaml` does all of this (see
    - `ask-spore-source-enrollment` (designation *Enrollment*): a user write stage
      `ask-spore-source-create` ("Always create users", path `ask-spore/sso`, "Create users
      as inactive" off), then `ask-spore-login`.
+   - Both source flows carry the expression policy `ask-spore-source-if-sso`, which lets the
+     flow run only for a sign-in that arrives through an SSO source (never a bare request),
+     and the create stage sets `user_type: external` so SSO users are told apart from the
+     internal tenant's accounts. Both are in the blueprint (`blueprints/ask-spore.yaml`).
    - `ask-spore-source-pre-authentication` (designation *Stage configuration*, no stages):
      required by SAML sources.
 8. Set `[auth] mode = "oidc"` in `config/models.toml` and restart the API.

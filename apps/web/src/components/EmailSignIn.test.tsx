@@ -2,7 +2,8 @@ import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { discoverMethods } from "../api/client";
-import { EmailSignIn, failureText } from "./EmailSignIn";
+import { EmailSignIn } from "./EmailSignIn";
+import { failureText } from "./emailSignInText";
 
 afterEach(() => {
   vi.unstubAllGlobals();

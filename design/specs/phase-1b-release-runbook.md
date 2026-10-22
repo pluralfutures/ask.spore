@@ -45,9 +45,10 @@ Same as the Phase 1a runbook, restated:
 The orchestrating session collects these and puts them in the opening message. Items
 marked "default" run with the stated value unless the owner says otherwise.
 
-1. **Consent notice wording** for `config/consent/v1.md` (full legal text plus the
-   plain-language summary). No default: the gate stays behind the placeholder warning until
-   the text is in, and section 3 below waits.
+1. **Consent notice wording**: done Oct 22, 2026. The owner accepted the privacy-notice
+   draft for the test phase with the company facts filled in (entity, address, DPO Daniel
+   Riveong, contact address); `config/consent/v1.md` is released, pending counsel review,
+   which will be v2.
 2. **Eval harness under the gate**: default, the service identity is exempt (findings §7 I-2).
 3. **Audit export scope**: default, add `download` events to the tenant admin export (a
    small change on `phase-1b/release`, with a test).

@@ -401,18 +401,18 @@ async def test_the_tick_runs_at_most_once_an_interval(
 # --- the notice file and the schema -------------------------------------------------------
 
 
-def test_the_repository_notice_is_the_owners_placeholder() -> None:
-    """v1 quotes the privacy notice draft's title and invents no legal text."""
+def test_the_repository_notice_v1_is_released() -> None:
+    """v1 carries the owner's wording of Oct 22, 2026 (test phase, pending counsel review):
+    no placeholder marker, the controller named, one contact address, both sections."""
     notice = load_notice(DEFAULT_CONFIG_DIR, CONSENT_VERSION)
-    draft_title = (
-        (DEFAULT_CONFIG_DIR.parent / "design" / "compliance" / "privacy-notice.md")
-        .read_text(encoding="utf-8")
-        .splitlines()[0]
-        .removeprefix("# ")
-    )
-    assert notice.title == draft_title
-    assert notice.is_placeholder
-    assert PLACEHOLDER_MARKER in notice.summary and PLACEHOLDER_MARKER in notice.text
+    assert notice.title == "SporeBot Use and Privacy Notice"
+    assert not notice.is_placeholder
+    assert PLACEHOLDER_MARKER not in notice.summary and PLACEHOLDER_MARKER not in notice.text
+    assert "Estefania Simon-Sasyk y Otro CB" in notice.text
+    assert "daniel@myceliumgastronomy.com" in notice.summary
+    assert "### Part A" in notice.text and "### Part B" in notice.text
+    # A released version is never edited: a change is a new version file.
+    assert CONSENT_VERSION == "v1"
 
 
 @pytest.mark.parametrize(

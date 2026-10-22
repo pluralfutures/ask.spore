@@ -12,7 +12,7 @@ from pathlib import Path
 
 from app.core.config import ConfigError
 
-from eval import compare, results, sources
+from eval import compare, gate, results, sources
 from eval.schema import V1_MIN_ITEMS, V1_MIN_OUT_OF_CORPUS, json_schema, load_set
 
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
@@ -167,6 +167,39 @@ def cmd_guardrails(args: argparse.Namespace) -> int:
     return 1 if data["regressions"] else 0
 
 
+def cmd_gate(args: argparse.Namespace) -> int:
+    try:
+        outcome = gate.gate(Path(args.results_dir), args.threshold)
+    except (gate.GateError, ValueError) as exc:
+        _err(f"python -m eval gate: {exc}")
+        return 1
+    text = gate.gate_markdown(outcome, args.threshold)
+    _out(text)
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+    return 0 if outcome.ok else 1
+
+
+def cmd_accept_baseline(args: argparse.Namespace) -> int:
+    try:
+        accepted = gate.accept_baseline(
+            Path(args.results_dir),
+            Path(args.run),
+            reason=args.reason,
+            accept_regression=args.accept_regression,
+            threshold=args.threshold,
+        )
+    except (gate.GateError, ValueError) as exc:
+        _err(f"python -m eval accept-baseline: {exc}")
+        return 1
+    _out(
+        f"baseline is now {accepted.run_id} (was {accepted.previous or 'none'}); commit "
+        f"results/{accepted.run_id}/, results/{gate.BASELINE_FILE} and "
+        f"results/{gate.BASELINE_LOG}"
+    )
+    return 0
+
+
 def cmd_keygen(args: argparse.Namespace) -> int:
     """P1b-15 a: a key pair for the eval service credential."""
     from app.auth.eval_service import generate_key_pair
@@ -309,6 +342,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     guard.add_argument("--note", action="append", default=[], help="line for the summary")
     guard.set_defaults(func=cmd_guardrails)
+
+    gate_cmd = commands.add_parser(
+        "gate",
+        help="CI eval gate: committed runs against results/BASELINE (P1b-15 b)",
+        description="Fails when a committed run holds answer or statement text, or when an "
+        "unmocked run newer than the baseline regresses by more than the threshold.",
+    )
+    gate_cmd.add_argument("--results-dir", default=str(DEFAULT_RESULTS))
+    gate_cmd.add_argument("--threshold", type=float, default=compare.DEFAULT_THRESHOLD)
+    gate_cmd.add_argument("--output", help="also write the Markdown verdict to this file")
+    gate_cmd.set_defaults(func=cmd_gate)
+
+    accept = commands.add_parser(
+        "accept-baseline",
+        help="make a run the eval baseline: redact it into results/, record the decision",
+        description="Copies the run into results/<run id>/ with answer and statement text "
+        "redacted (committed-results rule), compares it with the current baseline, and "
+        "refuses a regression unless --accept-regression (an owner decision, given in "
+        "--reason). Updates results/BASELINE and appends to results/BASELINE.md.",
+    )
+    accept.add_argument("run", help="the run's results folder")
+    accept.add_argument("--reason", required=True, help="why; for a regression, the decision")
+    accept.add_argument("--accept-regression", action="store_true")
+    accept.add_argument("--results-dir", default=str(DEFAULT_RESULTS))
+    accept.add_argument("--threshold", type=float, default=compare.DEFAULT_THRESHOLD)
+    accept.set_defaults(func=cmd_accept_baseline)
 
     keygen = commands.add_parser(
         "keygen",

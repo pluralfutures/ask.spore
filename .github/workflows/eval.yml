@@ -1,6 +1,9 @@
 # Eval harness on demand (P0-19): runs packages/eval against a target API and RAGFlow and
-# uploads the results folder as an artifact. Manual only; automatic gating comes in
-# Phase 1 with staging.
+# uploads the results folder as an artifact. The run is the eval gate (P1b-15 b): it is
+# compared with the last accepted baseline (packages/eval/results/BASELINE, or the
+# `baseline` input) and the job fails on a regression of more than 3 points. To accept
+# the run as the new baseline, download the artifact and run
+# `python -m eval accept-baseline <folder> --reason "..."` (README), then commit.
 #
 # The runner must reach the API, RAGFlow and Postgres of the target. RAGFlow and Postgres
 # have no public listener, so for the Phase 0 Instance use a self-hosted runner on (or
@@ -39,7 +42,7 @@ on:
         required: false
         default: ""
       baseline:
-        description: "Results folder under packages/eval/results to compare against (empty: no comparison)"
+        description: "Results folder under packages/eval/results to compare against (empty: the one named in results/BASELINE)"
         required: false
         default: ""
 
@@ -111,11 +114,12 @@ jobs:
           path: ${{ steps.run.outputs.results_dir }}
           if-no-files-found: error
           retention-days: 30
-      - name: Compare with the baseline
-        if: inputs.baseline != ''
+      - name: Compare with the baseline (the gate)
         env:
           RESULTS_DIR: ${{ steps.run.outputs.results_dir }}
-        run: uv run python -m eval compare "results/$EVAL_BASELINE" "$RESULTS_DIR" --output "$RUNNER_TEMP/compare.md"
+        run: |
+          baseline="${EVAL_BASELINE:-$(head -n 1 results/BASELINE)}"
+          uv run python -m eval compare "results/$baseline" "$RESULTS_DIR" --output "$RUNNER_TEMP/compare.md"
       - name: Job summary
         if: always() && steps.run.outputs.results_dir != ''
         env:

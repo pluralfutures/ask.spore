@@ -63,6 +63,12 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run pytest
+      - name: Eval gate (committed runs against results/BASELINE, P1b-15 b)
+        run: |
+          uv run python -m eval gate --output "$RUNNER_TEMP/gate.md"
+          status=$?
+          cat "$RUNNER_TEMP/gate.md" >> "$GITHUB_STEP_SUMMARY"
+          exit $status
       - name: Validate eval sets
         run: |
           uv run python -m eval validate sets/synthetic-v0.jsonl --min-items 30 --min-out-of-corpus 6

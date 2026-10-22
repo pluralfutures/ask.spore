@@ -112,6 +112,32 @@ cache key includes the retrieval settings, the prompt versions, the workspace, m
 but not RAGFlow's own state (a re-parse without a register change), so a run meant to measure the
 model should still start from a flushed cache.
 
+### The eval gate and the baseline (P1b-15 b)
+
+`results/BASELINE` names the accepted baseline run (now the Phase 0 real-corpus run
+`20261018T234701Z-a981e7bd8911`, which the Phase 1a gate runs were compared with) and the newest run
+that was reviewed when it was accepted; `results/BASELINE.md` records every acceptance with its
+reason. Two places enforce it:
+
+- **CI, every push** (`.github/workflows/ci.yml`, Eval job): `python -m eval gate` fails when a
+  committed `results.json` holds answer, statement or excerpt text (committed-results rule), or
+  when an unmocked run committed after the baseline regresses against it by more than 3 points.
+- **The eval workflow** (`eval.yml`, a live run against a target): the new run is compared with the
+  committed baseline and the job fails on a regression.
+
+**Accepting a new baseline** (after a release's eval, or an owner decision to accept a trade):
+
+```
+uv run --directory packages/eval python -m eval accept-baseline <run folder> --reason "P1b-16 release run"
+# a regression is refused unless the owner accepts it, named in the reason:
+uv run --directory packages/eval python -m eval accept-baseline <run folder> --accept-regression \
+    --reason "Owner decision Oct 21, 2026: -10.4 cited-answer rate for +80 abstention (findings 1a G7)"
+```
+
+It writes `results/<run id>/` with the answer and judged-statement text redacted (metrics,
+counts, retrieval and judge verdicts kept), points `results/BASELINE` at it and appends to
+`results/BASELINE.md`; commit the three in one commit. Never commit an unredacted run folder.
+
 ### In GitHub Actions (P0-19)
 
 `.github/workflows/eval.yml` is triggered by hand (Actions → Eval → Run workflow). Inputs: the

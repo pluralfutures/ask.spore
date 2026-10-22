@@ -84,7 +84,7 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 
 7A.4 [Client] is the controller of personal data in the documents it supplies and is responsible for having a lawful basis to supply them and for informing the people named in them (Article 14 GDPR). The Processor forwards to [Client] any request or claim it receives about a client-supplied document (clause 8.1).
 
-7A.5 On [Client]'s written request, the Processor withdraws a client-supplied document from the Service within [5] working days: the file, its text and its index entries are deleted, and passages already cited in conversations are marked as withdrawn. Where a third party claims a document infringes its rights, the Processor tells [Client] without undue delay and acts on its instruction; the agreement (terms §6A) says when the Processor may withdraw it to protect the Service.
+7A.5 On [Client]'s written request, the Processor withdraws a client-supplied document from the Service within [5] working days: the file, its text and its index entries are deleted, and passages already cited in conversations are marked as withdrawn. Where the Processor receives a third party's notice that a document infringes its rights, it may withdraw the document at once and tells [Client] without undue delay (terms §6A.6). Excerpts already cited in [Client]'s conversations stay, marked as withdrawn, when [Client] withdraws a document itself; they are blanked when the withdrawal follows a third party's rights claim.
 
 7A.6 [Client]'s warranty of rights and indemnity for client-supplied documents are in the Agreement (terms §6A), not in this DPA.
 

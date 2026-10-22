@@ -136,7 +136,7 @@ Some customers send us documents to be searched in their own workspaces: their r
 
 If you are named in such a document, **the customer that supplied it is the controller** of your personal data in it. We process it on that customer's behalf and on its instructions, under a data processing agreement. The customer decides what it supplies and why, and is responsible for having a lawful basis for it and for informing you; Part B sections 7 to 12 do not apply to these documents.
 
-If you write to us about a document a customer supplied, we pass your request to that customer without undue delay and help it respond. We will tell you that we have done so, but we cannot tell you which customer supplied a document without its agreement. [*Counsel: confirm this wording; see open-questions J.*]
+If you write to us about a document a customer supplied, we pass your request to that customer without undue delay and help it respond. We will tell you that we have done so, but we do not tell you which customer supplied a document unless that customer agrees, or a court or a data protection authority requires us to. [*Counsel: confirm this wording; see open-questions J.*]
 
 What happens to these documents: their text is split into passages and indexed, shown with citations to the customer's own users, and sent as excerpts to the AI model answering their questions (section 4), under the same rules as the rest of the library: no names or account identifiers are added, and providers keep nothing. Documents are deleted when the customer withdraws them or stops using the service.
 

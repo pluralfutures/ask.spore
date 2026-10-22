@@ -62,4 +62,4 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 - Phase 2: hardware keys or passkeys as the second factor for tenant admins. Phase 1b uses TOTP, because the API-run sign-in flow cannot relay WebAuthn (owner decision Oct 22, 2026, findings B15); needs a browser-run Authentik flow or a WebAuthn relay in the API.
 - Phase 1b or 2: "restore" action for a crawled page a reviewer withdrew, which otherwise stays out of later crawls for good (owner decision Oct 22, 2026, findings A2-7).
 - Phase 1b or 2: "resend invitation" action in the operator console and the tenant admin pages for a user still in `invited` state, re-queuing the invitation mail (owner decision Oct 22, 2026, findings D5).
-
+- Phase 2 or later: tenant-side upload page for client-supplied documents (tenant admin uploads files with the per-batch declaration; proposals still reviewed by our content reviewer), replacing the interim transfer channel of architecture §15.2 (owner decision Oct 22, 2026, open-questions J6). Adds a public write path for files and a tenant-facing content role; needs its own security review.

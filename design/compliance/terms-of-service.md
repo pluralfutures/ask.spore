@@ -78,7 +78,7 @@ These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a
 
 *DRAFT addition, Oct 22, 2026 (P1b-19 step 1; architecture §15).* *Only for a customer that supplies documents.*
 
-6A.1 **Supply.** The Customer may send the Provider documents for its workspaces (PDF, DOCX or PPTX, up to [max file size] MB each and [max files per batch] per batch) by [secure transfer method], each file or batch with a written declaration naming the files and stating, for each, whether the Customer's users may download it and whether it contains personal data of people other than the Customer's staff. The Provider may refuse a file that is outside these limits, lacks a declaration, or appears to contain special-category data, and says why.
+6A.1 **Supply.** The Customer may send the Provider documents for its workspaces (PDF, DOCX or PPTX, up to [max file size] MB each and [max files per batch] per batch) by [secure transfer method], each file or batch with a written declaration naming the files and stating, for each, whether the Customer's users may download it and whether it contains personal data of people other than the Customer's staff. The Provider reviews each file for its relevance to the purpose of the workspace it is meant for, and may refuse a file that is outside these limits, lacks a declaration, does not fit that purpose, or appears to contain special-category data, and says why.
 
 6A.2 **Customer's warranty.** The Customer warrants that it owns or is licensed to supply each Customer Document for use in the Service as described in this Agreement and the DPA: parsing and indexing it, sending excerpts to the language models named in the DPA, showing excerpts with citations to the Customer's users and, where declared, letting them download it; that doing so infringes no third party's rights or confidentiality obligation; and that any personal data in it may lawfully be processed this way (DPA clause 7A.4).
 
@@ -88,7 +88,7 @@ These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a
 
 6A.5 **Isolation.** Customer Documents are searched, listed and downloadable only within the Customer's own workspaces and are never available to another customer. The Provider uses them only to provide the Service to the Customer and never to train any model.
 
-6A.6 **Withdrawal.** On the Customer's written request the Provider withdraws a Customer Document within [5] working days. If a third party claims a Customer Document infringes its rights, the Provider tells the Customer and follows its instruction; the Provider may withdraw the document without waiting if the claim appears well founded, if the Customer does not answer within [5] working days, or if keeping it would expose the Provider to liability, and tells the Customer.
+6A.6 **Withdrawal.** On the Customer's written request the Provider withdraws a Customer Document within [5] working days. If the Provider receives a third party's notice that a Customer Document infringes its rights, the Provider may withdraw the document at once, without waiting for the Customer's instruction, and tells the Customer without undue delay. The Customer may contest the claim; once it is resolved in the Customer's favour, the Provider re-ingests the document on the Customer's instruction.
 
 6A.7 **Ownership.** The Customer keeps all rights in Customer Documents and grants the Provider, for the term, the non-exclusive right to use them as described in §6A.2, solely to provide the Service to the Customer.
 

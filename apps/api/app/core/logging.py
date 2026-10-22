@@ -29,6 +29,8 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "latency_ms",
         "tokens_in",
         "tokens_out",
+        # P1b-15 d: of tokens_out, hidden reasoning tokens (a count).
+        "reasoning_tokens",
         "model",
         "status",
         "source_id",

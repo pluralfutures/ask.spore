@@ -78,6 +78,28 @@ class PromptChunk:
 class Usage:
     tokens_in: int
     tokens_out: int
+    # P1b-15 d: of ``tokens_out``, the hidden reasoning tokens, where the provider
+    # reports them (``completion_tokens_details.reasoning_tokens``); a count only.
+    reasoning_tokens: int = 0
+
+
+def reasoning_tokens(info: Any) -> int:
+    """``completion_tokens_details.reasoning_tokens`` of a usage object or mapping; 0
+    when the provider does not report it."""
+    details = (
+        info.get("completion_tokens_details")
+        if isinstance(info, dict)
+        else getattr(info, "completion_tokens_details", None)
+    )
+    raw = (
+        details.get("reasoning_tokens")
+        if isinstance(details, dict)
+        else getattr(details, "reasoning_tokens", None)
+    )
+    try:
+        return max(int(raw or 0), 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 @dataclass(frozen=True)
@@ -187,6 +209,7 @@ def _usage(info: Any) -> Usage | None:
     return Usage(
         tokens_in=int(getattr(info, "prompt_tokens", 0) or 0),
         tokens_out=int(getattr(info, "completion_tokens", 0) or 0),
+        reasoning_tokens=reasoning_tokens(info),
     )
 
 

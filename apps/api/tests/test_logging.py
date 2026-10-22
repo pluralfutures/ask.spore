@@ -48,6 +48,7 @@ def test_allow_list_matches_spec() -> None:
         "template",
         "table",
         "certificate",
+        "reasoning_tokens",
     }
 
 

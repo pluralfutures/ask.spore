@@ -54,12 +54,17 @@ async def record_usage(
 ) -> None:
     """Add ``(model, usage)`` pairs to the ledger; notify spend thresholds if external."""
     month = month_of(now)
-    totals: dict[str, tuple[int, int]] = {}
+    totals: dict[str, tuple[int, int, int]] = {}
     for model, used in usage:
-        tokens_in, tokens_out = totals.get(model, (0, 0))
-        totals[model] = (tokens_in + used.tokens_in, tokens_out + used.tokens_out)
+        tokens_in, tokens_out, reasoning = totals.get(model, (0, 0, 0))
+        totals[model] = (
+            tokens_in + used.tokens_in,
+            tokens_out + used.tokens_out,
+            # A count only, never more than the output it is part of (P1b-15 d).
+            reasoning + min(used.reasoning_tokens, used.tokens_out),
+        )
     external = False
-    for model, (tokens_in, tokens_out) in totals.items():
+    for model, (tokens_in, tokens_out, reasoning) in totals.items():
         entry = catalogue.entry(settings, model)
         cost = catalogue.cost_cents(settings, entry, tokens_in, tokens_out) if entry else Decimal(0)
         external = external or (entry is not None and entry.external)
@@ -69,6 +74,7 @@ async def record_usage(
             model=model,
             tokens_in=tokens_in,
             tokens_out=tokens_out,
+            reasoning_tokens=reasoning,
             cost_cents=cost,
         )
         await session.execute(
@@ -77,6 +83,8 @@ async def record_usage(
                 set_={
                     "tokens_in": UsageLedger.tokens_in + stmt.excluded.tokens_in,
                     "tokens_out": UsageLedger.tokens_out + stmt.excluded.tokens_out,
+                    "reasoning_tokens": UsageLedger.reasoning_tokens
+                    + stmt.excluded.reasoning_tokens,
                     "cost_cents": UsageLedger.cost_cents + stmt.excluded.cost_cents,
                     "updated_at": func.now(),
                 },

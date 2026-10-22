@@ -45,6 +45,7 @@ from app.llm.mistral import (
     _clean_query,
     answer_messages,
     judge_messages,
+    reasoning_tokens,
     rewrite_messages,
 )
 from app.llm.ratelimit import TokenBucket, estimate_tokens
@@ -65,6 +66,7 @@ def _usage(info: Any) -> Usage | None:
     return Usage(
         tokens_in=int(getattr(info, "prompt_tokens", 0) or 0),
         tokens_out=int(getattr(info, "completion_tokens", 0) or 0),
+        reasoning_tokens=reasoning_tokens(info),
     )
 
 

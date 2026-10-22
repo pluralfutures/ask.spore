@@ -209,6 +209,7 @@ class _Run:
     model: str | None = None
     tokens_in: int = 0
     tokens_out: int = 0
+    reasoning_tokens: int = 0  # P1b-15 d: of tokens_out, hidden reasoning (a count)
     # P1a-10: per model, for the usage ledger (rewrite and answer may differ).
     usage: list[tuple[str, Usage]] = field(default_factory=list)
     cache_hit: bool = False
@@ -221,6 +222,7 @@ class _Run:
         if usage is not None:
             self.tokens_in += usage.tokens_in
             self.tokens_out += usage.tokens_out
+            self.reasoning_tokens += min(usage.reasoning_tokens, usage.tokens_out)
             self.usage.append((model, usage))
 
     def latency_ms(self) -> int:
@@ -594,6 +596,7 @@ class Orchestrator:
             latency_ms=latency,
             tokens_in=run.tokens_in,
             tokens_out=run.tokens_out,
+            reasoning_tokens=run.reasoning_tokens,
             model=run.model,
             status=outcome,
             chunk_count=run.context,
@@ -727,6 +730,10 @@ class Orchestrator:
             user_id=str(run.ctx.user_id),
             conversation_id=str(run.conversation_id),
             latency_ms=run.latency_ms(),
+            # P1b-15 d: a reasoning budget that ran out (answer_cut_off) shows here.
+            tokens_in=run.tokens_in,
+            tokens_out=run.tokens_out,
+            reasoning_tokens=run.reasoning_tokens,
             status="error",
             error_code=error_code,
         )

@@ -1,6 +1,6 @@
 # Platform Architecture & Functional Design — Multi-Tenant RAG Chatbot
 
-Oct 17, 2026 · Revision 3 (scoping complete)
+Oct 17, 2026 · Revision 3 (scoping complete) · §15 added Oct 22, 2026 (client-supplied documents, DRAFT for owner and counsel review)
 
 Companion to [Compliance & Privacy Design Guide](./Compliance%20%26%20Privacy%20Design%20Guide%20%E2%80%94%20Multi-Tenant%20RAG%20Chatbot%20%28Public%20Sources%20Only%29.md). That document sets the SOC 2, GDPR and ZDR requirements; this one describes the system that satisfies them. Where the two disagree, the compliance guide wins and this document should be amended. One addendum to the compliance guide (web-search mode) was added alongside this revision.
 
@@ -166,6 +166,8 @@ Not used for: end-user authentication, chat history, the client-facing chat assi
 
 **Dataset layout.** One RAGFlow dataset per **content tag**. Tags are the unit of packaging: topic or publisher collections (`src-<publisher>`, `topic-<area>`), our analysis collections (`analysis-<series>`), and client-specific collections (`client-<slug>`) for analysis produced for one client. A document that belongs in several tags is linked into each dataset; the source register records the mapping. A **tenant package** is a set of tags assembled by the operator; the API resolves it to dataset IDs at query time and never accepts dataset IDs from the client.
 
+*DRAFT, Oct 22, 2026:* for clients that supply their own documents, tags gain an owning tenant and client-supplied files go only into tags owned by the supplying tenant; see §15.4.
+
 ### 4.5 Workers
 
 Background processes on the application host:
@@ -238,6 +240,8 @@ Phase 0 may use a RAGFlow chat assistant behind our API for an early demo; it ca
 PostgreSQL table, the single source of truth for what is in the corpus and why. Fields: source ID, type (PDF, web, DOCX, PPTX), URL or file hash, publisher, title, publication date, canonical link shown to users, licence basis (licence name, permission letter reference, or "own work"), content tags, crawl/upload date, review date, status (proposed, approved, ingested, withdrawn; plus failed, retryable, and rejected, Phase 1b findings A1-1), RAGFlow document IDs per dataset, takedown reference if any.
 
 No document reaches RAGFlow without an approved register row. This is both the licensing defence and the index for erasure. Licences are assumed to permit text-and-data mining and excerpt display; the register still records the basis per document so that an exception can be handled.
+
+*DRAFT, Oct 22, 2026:* a second content model, files chosen and supplied by a client for its own workspaces, adds the licence basis `client-supplied` with the supplying tenant recorded; see §15. The `cc` test client uses only the platform-gathered model described here.
 
 ### 6.2 Ingestion flows
 
@@ -487,3 +491,127 @@ Phase 1 is split. **Phase 1a** (the first test client) ships multi-tenancy with 
 | Inference failover | To the other EU provider for every tenant; to OpenRouter only for a tenant with the external-models entitlement (acceptance reference, ZDR routing, spend cap not reached), counted against its cap; every other tenant stays EU-only (owner decision Oct 22, 2026; §5.2 step 9) |
 | Tenant admin second factor | TOTP in Phase 1b; passkeys and hardware keys are in the backlog, because the API-run sign-in flow cannot relay WebAuthn (owner decision Oct 22, 2026; compliance guide, Oct 22 update) |
 | Email provider | Scaleway Transactional Email (fr-par) for every outbound email: sign-in links (Authentik's email stage over its SMTP relay) and the API's own mail (invitations, operator notices) over its HTTP API from `app.core.mail`. Mailgun EU region is an optional backup, switched on only by configuration after its DPA is filed; exactly one provider is active at a time (owner decision Oct 20, 2026, replacing the Oct 19 decision that made Mailgun the sole provider) |
+
+---
+
+## 15. Addendum (Oct 22, 2026): client-supplied documents
+
+**DRAFT for owner and counsel review.** Owner decision 11 of Oct 22, 2026 (`design/specs/phase-1b-build-spec.md`, item P1b-19, step 1). This section is a **design to be built in a later item** (P1b-19 step 2, in Phase 1b if the second client arrives during the phase, otherwise Phase 2). Nothing in it is built; where it names a column, job or check, that is the specification for step 2, not a description of the code. The compliance guide's addendum of the same date records the privacy and contract consequences; where the two disagree, the compliance guide wins. Open points are collected in `design/compliance/open-questions.md`, section J.
+
+### 15.1 Two content models
+
+The design so far assumed one content model: public and open-source sources chosen and licensed by us, plus our own analysis (§1, §6). From this addendum two models coexist.
+
+| | Model 1: platform-gathered | Model 2: client-supplied |
+| --- | --- | --- |
+| Who chooses the files | The platform (content editor and reviewer) | The client, which sends us the files for its workspaces and is the main driver of its corpus |
+| What they are | Published third-party PDFs, crawled public pages, our own DOCX/PPTX analysis | Whatever the client sends within the accepted formats (§15.3): its own reports, licensed material it holds, internal documents |
+| Who holds the right to use and redistribute | Us, recorded per source in the register (licence name, letter, "own work") | The client, by its written declaration and warranty (§15.5) |
+| GDPR role for personal data in the files | Controller (compliance guide data map) | Processor for the client (§15.10) |
+| Where they may be placed | Any tag, including tags shared across tenants | Only tags owned by the supplying tenant (§15.4) |
+| Applies to | The current test client `cc` (unchanged: its three workspaces and `cc-shared` use only this model) and the internal tenant | Later clients that sign the client-supplied terms |
+
+The models combine: a model-2 client's workspaces hold its own files and **may be supplemented** by platform-gathered content, either in platform tags added to the workspace or in the client's own tags. A model-2 source is never moved to model 1 or the reverse; a file that both we and a client hold is two separate sources (§15.4, de-duplication).
+
+### 15.2 Source register: the `client-supplied` licence basis
+
+The register (§6.1) stays one operator-owned table outside tenant RLS, as in Phase 0 and P1b-01. Added for model 2:
+
+| Column | Rule |
+| --- | --- |
+| `licence_basis_kind` | Enumerated kind beside the existing free-text basis: `licensed`, `permission`, `own_work`, `open_licence`, `public_web`, `client_supplied` (names for step 2 to settle; today the basis is free text, P1b-05 and decision 10) |
+| `supplying_tenant_id` | Set if and only if the kind is `client_supplied`; a check constraint enforces both directions. Never changed after the row is created |
+| `client_declaration_ref` | Required for `client_supplied`: the reference and date of the client's written declaration covering this file (§15.5). The declaration itself is kept in the owner's document store, like a licence letter, not in RAGFlow |
+| `downloadable` | Unchanged column; for a `client_supplied` row it is set from the client's declaration, never by default (§15.6) |
+
+The `client-supplied` basis is offered in the console's propose form (P1b-05) and in the manifest (P0-11), and only together with a supplying tenant chosen from the tenant list. The register remains the index for erasure: every client-supplied file, its datasets and its document IDs are found through `supplying_tenant_id`.
+
+Workflow: a content editor proposes the files the client sent, a content reviewer approves, the worker ingests (P1b-01, P1b-02), as for model 1. The reviewer's check for model 2 is narrower than a licence review: format and size within limits, the declaration on file and covering the file, the tags owned by the supplying tenant, and no obvious special-category or out-of-scope content (§15.5, §15.10). The reviewer does not assess the client's rights; the client warrants them. A reviewer may reject a file and tell the client why.
+
+**Intake channel.** In step 2 the client sends files to us by [secure transfer method], and an internal content editor registers them; there is no tenant-side upload. A tenant admin upload page is a later feature (backlog), because it adds a public write path for files and a tenant-facing content role. Received files are deleted from the transfer channel once registered.
+
+### 15.3 Accepted files
+
+PDF, DOCX and PPTX, as for model 1, up to [max file size] MB per file and [max files per batch] per batch; Markdown and HTML only by arrangement. Files are parsed by RAGFlow on the internal network, which has no public listener and makes no external calls (§4.4), so a hostile file reaches only the parser. Whether to add a malware scan before parsing is an open point (open-questions J).
+
+### 15.4 Isolation: tenant-owned tags
+
+**What already exists and still holds** (built in Phase 0 to Phase 1b):
+
+- One RAGFlow dataset per tag; the retrieval call carries only the dataset IDs of the conversation's workspace, resolved server-side from the workspace's tags; a request body with dataset or document IDs is refused (§4.4, §8, P1a-04).
+- Workspaces, conversations, messages, citations and downloads sit in tenant tables with forced RLS and `tenant_id`-first indexes; the API sets the tenant from the token.
+- Chunks from datasets outside the workspace are dropped before the prompt (`select_context`); the file list and downloads answer only for sources in the workspace's tags, and 404 otherwise (P1a-14).
+- Answer cache keys are tenant-prefixed (`app.core.cache`).
+- Changing a source's tags needs a reviewer (P1b-01, findings A1-6); the operator console offers only the page's tenant's tags plus shared tags (P1b-12).
+
+These controls keep one tenant's **queries** and **workspaces** apart. They do not stop the operator from putting one tag into two tenants' workspaces: tags have no owner today, and that is by design for model 1, where shared tags are the point.
+
+**What is new for model 2:**
+
+1. **Tag ownership.** Each tag gains an owner: `owner_tenant_id` on the tag record (the `datasets` table, or a `tags` table if step 2 moves tags out of `config/tags.toml`), null for a platform tag. A **shared tag** is a platform tag (null owner), which may sit in the workspaces of several tenants. A tenant-owned tag may sit in several workspaces **of its owning tenant** (a tenant's "common" corpus, as `cc-shared` is for `cc`) and in no other tenant's workspace. Client-supplied tags follow the existing `client-<slug>` convention (§4.4) with the tenant's slug.
+2. **Placement rule.** A `client_supplied` source may be linked only to tags whose `owner_tenant_id` equals its `supplying_tenant_id`. Enforced at proposal, at approval, at re-tagging and again by the worker before every upload to a dataset (the worker re-reads both values from the database; a mismatch fails the job with an error code and no upload). A database constraint or trigger on the source-to-tag mapping enforces the same rule, so a direct write cannot bypass the API.
+3. **Workspace rule.** The operator's workspace routes refuse a tag owned by another tenant (`foreign_tag`), whatever the console offers; enforced in the API and by a database check on `workspaces.tag_ids` against tag ownership.
+4. **De-duplication per owner.** Today a file whose content hash is already ingested is linked into the new tags of the existing source (findings E3). For model 2 de-duplication is scoped to the supplying tenant: a client-supplied file never merges with a platform source or with another tenant's source, even when the bytes are identical; it becomes its own source row and its own RAGFlow documents. The same applies in reverse (a platform file never joins a client's source).
+5. **Content store.** Copies of client-supplied files and declarations are stored under `[files] content_root` in a per-tenant directory (`clients/<tenant_id>/`), so that withdrawal and termination can be verified file by file and a directory listing proves nothing is left.
+6. **Ownership is immutable** while the tag has documents: changing a tag's owner requires an empty dataset.
+
+Platform-gathered content may be linked into a client-owned tag (to supplement that client), but then it is visible only to that client; to supplement several clients, platform content stays in platform tags.
+
+RAGFlow remains one shared instance; tenant ownership lives in our database, not in RAGFlow (§1, "Tenant boundary"). A dedicated RAGFlow instance or index per client is not planned (compliance guide, decisions closed Oct 17); a contract that demands one is an owner decision (open-questions J).
+
+### 15.5 The client's warranty and declaration
+
+Before a model-2 client's first file is registered, the client signs the client-supplied terms (terms of service §6A, DPA clause 7A). For each file or batch it sends a declaration naming the files and stating, per file: that it has the right to supply it for this service, including parsing, indexing, sending excerpts to the language models named in the DPA, and showing excerpts to its own users; whether its users may download it (§15.6); and whether it contains personal data of people other than the client's staff, or special-category data (expected: no special-category data). The client indemnifies us against third-party claims arising from files it supplied. The reference of the declaration goes into `client_declaration_ref`.
+
+### 15.6 Downloads
+
+A client-supplied file is downloadable only when the client's declaration says so; the `downloadable` flag is set from the declaration, never by default, and changed only on the client's written instruction. Downloads are served only to users of the supplying tenant, through the existing route: the file is listed only in workspaces whose tags contain it, and those tags are owned by the supplying tenant (§15.4). Single-use 60-second links, the per-user daily cap and the `download` audit event apply unchanged (P1a-14).
+
+### 15.7 Withdrawal and takedown
+
+- **On the client's request.** A tenant admin asks in writing ([privacy contact email] or support) to withdraw one or more of its files; the operator records the request and runs the existing `withdraw_source` job (P1b-03): documents deleted from every dataset, answer caches citing them purged, register row withdrawn with reason and date, stored citations flagged. Target: within [5] working days of the request. A tenant admin action in the app is a later feature (backlog).
+- **On a third party's claim** (a publisher or a person named in a client file, or a data subject's request we receive directly): we tell the client without undue delay and act on its instruction, since the file is the client's data (§15.10); where the claim is manifestly well founded or the client does not answer within [5] working days, we may withdraw the file to protect the service (terms §6A) and tell the client.
+- **Stored excerpts.** Decision 5 of Oct 22 applies: excerpts are blanked in stored citations for withdrawals on licence or rights grounds, and kept, labelled "withdrawn", for other withdrawals. For client-supplied files the stored citations sit only in the supplying tenant's own conversations.
+- Copies in the content store (§15.4 item 5) are deleted with the withdrawal.
+
+### 15.8 Termination
+
+The per-tenant termination purge (P1b-14) gains a client-content step, before the account data is deleted: withdraw every source with that `supplying_tenant_id` (RAGFlow file, parsed text, chunks and embeddings deleted from every dataset), delete the tenant-owned tags' datasets, delete the files and declarations under `clients/<tenant_id>/`, and reduce the register rows to an ID, the tenant ID, the withdrawal date and reason, with title, publisher, canonical link and hash erased. The certificate of deletion (`offboarding-pack.md`) gains the figures: client-supplied documents deleted, datasets deleted, files removed from the content store. Encrypted backups taken before the purge age out after the backup retention period, as for account data. Before termination the client may ask for its files back; we return the copies we hold as received (the export window of the terms, §13.3).
+
+During the term, client-supplied files are kept until the client withdraws them; the 30-day maximum applies to chat history, not to the corpus.
+
+### 15.9 What the language model sees
+
+Unchanged in shape: the prompt carries the system prompt, the workspace's additional-instructions block, retrieved chunks with provenance (publisher, title, date, page), conversation turns and the question (CLAUDE.md). Chunks from client-supplied files are retrieved chunks like any other. Consequences:
+
+- They go to the EU provider (Scaleway Generative APIs, Paris) under the Scaleway DPA and its zero-retention terms, and to OpenRouter **only** for a tenant with the external-models entitlement, under the same conditions as today (zero-data-retention routing, signed acceptance, spend cap; including the entitled-tenant failover of decision 2). A model-2 client that wants its files kept in the EU does not accept external models.
+- The API adds no tenant, user or package identifier. A client's own files may contain the client's name or staff names, and the provenance fields (publisher, title) are taken from the declaration. This is tenant-supplied text under the same exception as the workspace instructions (compliance addendum Oct 18): permitted, not stripped. The tenant-name flag (P1a-07, findings B12) is run on the declared metadata at registration, raising a notice to the operator; it is not run on chunk text, where the client's own name is expected.
+- **Prompt safety.** File text is data, never instructions. Today `html` and `markdown` passages are wrapped as untrusted (§8). For model 2 every client-supplied passage is wrapped as untrusted whatever its file type, and the guardrail eval gains a case with an instruction planted in a supplied PDF. The model has no tools (§8), so a planted instruction can at worst distort the answer in the supplying tenant's own workspace; it cannot reach another tenant.
+- **Eval.** Client files never enter the repository or the eval fixtures (CLAUDE.md); evaluation on a client's corpus uses synthetic questions run in the client's own workspace and records metrics only, with the client's agreement.
+
+### 15.10 GDPR roles
+
+Client-supplied files are Client Data. Personal data in them is processed by us as **processor** on the client's instructions under the DPA (clause 7A); the client is the controller and carries the controller's duties for it, including Article 14 transparency to people named in its files and the legal basis for supplying them. Platform-gathered content in the same workspace stays under our controller role (compliance guide data map; `legitimate-interest-assessment.md`). One prompt can therefore carry processor data (the question, the turns, client-file chunks) and controller data (public-source chunks), as the transfer impact assessment already describes for the external-models hop.
+
+### 15.11 What changes elsewhere
+
+| Document | Change |
+| --- | --- |
+| §1, §4.4, §6.1, §6.2, §14.3 | Read with this section; a short pointer is added to §4.4 and §6.1. The `cc` setup is unchanged |
+| Compliance guide | Addendum of Oct 22, 2026 |
+| `design/compliance/` | DPA clause 7A and Annexes; terms §1.2, §3.1, §6A and Annex A.8; privacy notice §1, §4 and Part B §13; transfer impact assessment §3 and §7; sub-processors (no new sub-processor; data received widened); records of processing; DPIA; LIA scope; AI Act documentation §5.4; security questionnaire; onboarding and offboarding packs; trust page; risk register; open questions J |
+| Stack Decision | No change: no new technology |
+| Code, config, migrations | None in step 1 |
+
+### 15.12 Build in step 2 (for the later spec item)
+
+Register columns and constraints (§15.2); tag ownership and the placement, workspace and de-duplication rules (§15.4); per-tenant content-store directory; console and manifest support for the basis and the supplying tenant; tenant-name flag on declared metadata; untrusted wrapping for every client-supplied passage; termination purge step and certificate figures. Tests, each proving the negative case: a client-supplied source cannot be linked to a platform tag or another tenant's tag (API, worker and database); a workspace of tenant B cannot take a tag owned by tenant A; a query in tenant B's workspace never retrieves, lists or downloads tenant A's client-supplied file; an identical file supplied by two tenants yields two sources; the termination purge leaves no document, dataset, content-store file or register title for the tenant; the prompt for a client-supplied chunk contains no identifier added by the API; the worker refuses a job whose tags no longer match the supplying tenant.
+
+### 15.13 Decisions log additions
+
+| Topic | Decision |
+| --- | --- |
+| Content models | Two models: platform-gathered (as today, `cc`) and client-supplied (later clients, client-driven, platform may supplement); owner decision 11, Oct 22, 2026 |
+| Client-supplied isolation | Register basis `client-supplied` with the supplying tenant; such sources only in tags owned by that tenant, never in shared tags or another tenant's workspace; de-duplication per owner (DRAFT) |
+| Rights in client files | Client's warranty and indemnity; declaration per file or batch; the client decides downloadability (DRAFT, counsel to review) |
+| GDPR role for client files | Processor for the client (DRAFT, counsel to confirm) |

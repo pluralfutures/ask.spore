@@ -7,6 +7,7 @@
 | Status | **DRAFT — not for signature. Counsel must review before it is sent to [Client] or signed.** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
+| Revision | Oct 22, 2026, **DRAFT**: §6A (client-supplied documents: warranty, indemnity, downloads, withdrawal), with changes to §1.1, §1.2, §3.1, §6.1, §11, §13.3, §13.4 and Annex A.8, for customers that supply their own documents (P1b-19 step 1). For the test client, which supplies nothing, keep §1.2 option (a) and delete §6A and A.8. Placeholders added: [5] (working days), [secure transfer method], [max file size], [max files per batch], [indemnity cap] |
 | Placeholders | [registered address], [Client], [Client legal name], [date], [price], [currency], [term], [notice period], [liability cap], [Member State], [courts], [privacy contact email], [security contact email], [support email], [support hours], [response time], [payment days], [seats], [workspace name], [tag], [spend cap], [acceptance reference] |
 | To finalise, the owner must | (1) fill in the placeholders, in particular prices, liability cap, governing law and support terms; (2) decide the open points in "Notes for the owner"; (3) have counsel review, especially §8 (output disclaimer), §11 (liability) and §13 (termination); (4) attach the signed DPA (`client-dpa-draft.md`) and the order form (Annex A); (5) check every statement in Annex A against what is enabled in the operator console at signature. |
 
@@ -16,9 +17,9 @@ These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a
 
 ## 1. The service
 
-1.1 SporeBot (the "**Service**") is an online research assistant. It answers questions from a curated library of published third-party sources and the Provider's own analysis (the "**Library**") and cites the passages it used.
+1.1 SporeBot (the "**Service**") is an online research assistant. It answers questions from a curated library of published third-party sources and the Provider's own analysis and, where §6A applies, documents the Customer supplies (together the "**Library**") and cites the passages it used.
 
-1.2 Customer does not upload documents. The Library is selected, licensed and maintained by the Provider.
+1.2 *Owner: choose one.* (a) Customer does not upload documents. The Library is selected, licensed and maintained by the Provider. (b) *DRAFT addition, Oct 22, 2026 (P1b-19 step 1; architecture §15).* The Customer chooses and supplies documents for its workspaces under §6A ("**Customer Documents**"). The Provider may supplement them with published or open-source content it selects, licenses and maintains.
 
 1.3 The Customer's access is organised in **workspaces**. Each workspace searches a set of content tags (the "**Package**") listed in the order form. The Provider decides, server-side, which parts of the Library a workspace may search.
 
@@ -36,7 +37,7 @@ These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a
 
 ## 3. Customer data and confidentiality of questions
 
-3.1 "**Customer Data**" means users' account data, sign-in events, questions, conversations, feedback, workspace instructions written by the Customer, and download records. The Customer owns Customer Data. The Provider processes it as processor under the DPA.
+3.1 "**Customer Data**" means users' account data, sign-in events, questions, conversations, feedback, workspace instructions written by the Customer, download records and, where §6A applies, Customer Documents with their parsed text and index entries. The Customer owns Customer Data. The Provider processes it as processor under the DPA.
 
 3.2 **Query confidentiality.** Questions, answers and conversations are never visible to, shared with or used to answer the questions of any other customer.
 
@@ -67,11 +68,29 @@ These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a
 
 ## 6. Downloads
 
-6.1 Users see the list of files in each workspace's Library. A file can be downloaded only where the Provider has marked it downloadable on the basis of its licence; other files link to the publisher.
+6.1 Users see the list of files in each workspace's Library. A file can be downloaded only where the Provider has marked it downloadable on the basis of its licence, or, for a Customer Document, where the Customer's declaration allows it (§6A.4); other files link to the publisher.
 
 6.2 Downloads are for the Customer's internal research use. Each download is recorded. Download links work once, for 60 seconds; the daily cap per user is [50].
 
 6.3 The Customer gains no ownership of Library content. Rights in third-party content stay with their owners.
+
+## 6A. Customer Documents
+
+*DRAFT addition, Oct 22, 2026 (P1b-19 step 1; architecture §15).* *Only for a customer that supplies documents.*
+
+6A.1 **Supply.** The Customer may send the Provider documents for its workspaces (PDF, DOCX or PPTX, up to [max file size] MB each and [max files per batch] per batch) by [secure transfer method], each file or batch with a written declaration naming the files and stating, for each, whether the Customer's users may download it and whether it contains personal data of people other than the Customer's staff. The Provider may refuse a file that is outside these limits, lacks a declaration, or appears to contain special-category data, and says why.
+
+6A.2 **Customer's warranty.** The Customer warrants that it owns or is licensed to supply each Customer Document for use in the Service as described in this Agreement and the DPA: parsing and indexing it, sending excerpts to the language models named in the DPA, showing excerpts with citations to the Customer's users and, where declared, letting them download it; that doing so infringes no third party's rights or confidentiality obligation; and that any personal data in it may lawfully be processed this way (DPA clause 7A.4).
+
+6A.3 **Indemnity.** The Customer indemnifies the Provider against third-party claims, and the reasonable costs of defending them, to the extent they arise from a Customer Document or its use in the Service as permitted by this Agreement. The Provider notifies the Customer of a claim promptly, lets the Customer control its defence and does not settle it without the Customer's consent. [*Counsel: whether the indemnity is capped, at [indemnity cap], or uncapped; see §11.3.*]
+
+6A.4 **Downloads.** A Customer Document is downloadable only by the Customer's own users and only where the Customer's declaration says so. The Customer may change this by written instruction.
+
+6A.5 **Isolation.** Customer Documents are searched, listed and downloadable only within the Customer's own workspaces and are never available to another customer. The Provider uses them only to provide the Service to the Customer and never to train any model.
+
+6A.6 **Withdrawal.** On the Customer's written request the Provider withdraws a Customer Document within [5] working days. If a third party claims a Customer Document infringes its rights, the Provider tells the Customer and follows its instruction; the Provider may withdraw the document without waiting if the claim appears well founded, if the Customer does not answer within [5] working days, or if keeping it would expose the Provider to liability, and tells the Customer.
+
+6A.7 **Ownership.** The Customer keeps all rights in Customer Documents and grants the Provider, for the term, the non-exclusive right to use them as described in §6A.2, solely to provide the Service to the Customer.
 
 ## 7. Support and availability
 
@@ -103,7 +122,7 @@ The Provider may suspend a user or the Customer, with notice where practical, if
 
 11.2 Otherwise, each party's total liability under this Agreement in any 12 months is limited to [liability cap — e.g. the fees paid in the previous 12 months]. Neither party is liable for indirect or consequential loss, loss of profit or loss of data beyond restoring it from the latest backup.
 
-11.3 [Counsel: whether data-protection and confidentiality breaches carry a separate, higher cap.]
+11.3 [Counsel: whether data-protection and confidentiality breaches carry a separate, higher cap, and whether the Customer's indemnity in §6A.3 sits outside the cap in §11.2.]
 
 ## 12. Fees
 
@@ -117,9 +136,9 @@ The Provider may suspend a user or the Customer, with notice where practical, if
 
 13.2 Either party may terminate for material breach not remedied within 30 days of notice, or immediately if the other becomes insolvent.
 
-13.3 **Export window.** Before the end date, administrators may ask for an export of user accounts and the conversations still within retention. The Provider supplies it in a common machine-readable format within [10] working days of the request, provided the request is made at least [15] days before the end date. Conversation export inside the Service is not available yet; the export is produced by the Provider.
+13.3 **Export window.** Before the end date, administrators may ask for an export of user accounts and the conversations still within retention. The Provider supplies it in a common machine-readable format within [10] working days of the request, provided the request is made at least [15] days before the end date. Conversation export inside the Service is not available yet; the export is produced by the Provider. Where §6A applies, the Provider also returns, on request, the copies of Customer Documents it holds, as received.
 
-13.4 **Deletion.** After termination the Provider deletes Customer Data as set out in the DPA (clause 10.5) and the offboarding procedure (`offboarding-pack.md`), and issues a certificate of deletion. From Phase 1b (P1b-14) this runs as a tested per-customer purge job that produces the certificate's figures.
+13.4 **Deletion.** After termination the Provider deletes Customer Data, including every Customer Document with its parsed text and index entries, as set out in the DPA (clause 10.5) and the offboarding procedure (`offboarding-pack.md`), and issues a certificate of deletion. From Phase 1b (P1b-14) this runs as a tested per-customer purge job that produces the certificate's figures.
 
 13.5 Sections 3, 8, 9.2, 11 and 13.4 survive termination.
 
@@ -207,6 +226,19 @@ Chat-history retention: [30] days (maximum 30; the Customer's administrators may
 | Privacy contact | [privacy contact email] |
 | Target availability | [ ]% per month, no service credits unless stated: [ ] |
 
+### A.8 Customer Documents (only where §6A applies)
+
+*DRAFT addition, Oct 22, 2026 (P1b-19 step 1; architecture §15).*
+
+| | |
+| --- | --- |
+| Customer Documents supplied | [Yes / No] |
+| Customer-owned content tags (one per workspace, plus an optional common tag for the Customer's workspaces only) | [tag], [tag] |
+| Platform content supplementing them | [None / platform tags listed in A.1] |
+| Transfer method for files | [secure transfer method] |
+| Limits | [max file size] MB per file, [max files per batch] per batch; PDF, DOCX, PPTX |
+| Withdrawal on request | Within [5] working days |
+
 Signed for [Client]: name [ ], title [ ], date [ ]
 
 Signed for Estefania Simon-Sasyk y Otro CB: name [ ], title [ ], date [ ]
@@ -220,3 +252,4 @@ Signed for Estefania Simon-Sasyk y Otro CB: name [ ], title [ ], date [ ]
 3. **Availability** (§7.2): one Instance, owner-run backups, no monitoring stack (backlog). Do not promise a numeric SLA with credits until the two-host deployment.
 4. **Downloads** (§6): by owner decision of Oct 20, 2026, third-party test-corpus files are downloadable where their manifest row says so. The redistribution right sits with the licence of each file; the cap of 50 per day is in `config/models.toml`.
 5. **Rate limits** (§5.2): only the sign-in link limit and the download cap exist. No per-user query limit or bulk-extraction detection is built.
+6. **Customer Documents** (§6A, Oct 22, 2026): drafted ahead of the build (P1b-19 step 2); offer §6A only once that build and its isolation tests pass. Counsel to review §6A.2 and §6A.3 (warranty, indemnity, cap) and the interplay with §11. Open points in `open-questions.md` section J.

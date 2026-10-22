@@ -165,9 +165,9 @@ first-login consent gate (P1b-10), on branch `phase-1b/group-e1` (started from
 **Spec questions for the owner (Group E1):**
 
 1. **Notice wording** (E1-5). `config/consent/v1.md` is a placeholder. Supply the summary and full wording as a new file (`v2.md` if v1 was ever shown to client users, else replace v1 before release) and set `[consent] version`; the gate should not go live with the placeholder. Is the accepted notice the privacy notice alone, or the privacy notice plus the terms of use ("use and privacy notice")?
-2. **Eval account** (E1-8). Keep the gate for the Phase 0 eval account (accept once per version, the current build), or exempt the internal tenant's conversation routes as well as its consoles?
-3. **Audit export scope** (E1-6). The export carries sign-in, admin, operator and consent events, not per-user query, feedback or download events. Confirm, or add the download events (each download is audited and is the tenant's own data)?
-4. **Mailing users who never accepted** (E1-7). Only users who accepted an earlier version are mailed when the version changes; a user who never signed in after the gate shipped sees the notice at their next sign-in without an email. Confirm.
+2. **Eval account** (E1-8). Keep the gate for the Phase 0 eval account (accept once per version, the current build), or exempt the internal tenant's conversation routes as well as its consoles? *Answered by decision 17 (Oct 22, 2026): the oidc eval credential is a service identity, not gated (§7 I-2); the Phase 0 account stays gated.*
+3. **Audit export scope** (E1-6). The export carries sign-in, admin, operator and consent events, not per-user query, feedback or download events. Confirm, or add the download events (each download is audited and is the tenant's own data)? *Answered by decision 18 (Oct 22, 2026): download events added to the export.*
+4. **Mailing users who never accepted** (E1-7). Only users who accepted an earlier version are mailed when the version changes; a user who never signed in after the gate shipped sees the notice at their next sign-in without an email. Confirm. *Answered by decision 19 (Oct 22, 2026): as built.*
 
 ## 6. Where the Group E2 build differs from the spec
 
@@ -194,10 +194,10 @@ Playwright tests).
 
 **Spec questions for the owner:**
 
-1. **No history and follow-ups** (E2-2). With retention 0, each question is its own conversation, so a follow-up has no context from the question before it. Keep that (nothing is kept, as "no history" says), or keep the turns of one visit for context while the browser tab is open (they would then exist on the server for the visit)? And confirm that no-history tenants should get no answer caching.
-2. **Termination keeps the usage ledger** (E2-3). The ledger rows (tokens and cost per month and model, no user) are kept as the offboarding pack's "usage and spend figures". Keep, or delete them too after the final invoice?
-3. **A distinct judge model** (E2-7). The judge still grades its own model's answers. Candidates pinned today: `qwen3.8-27b` (Scaleway) or Mistral's chat model once the account has quota.
-4. **The tokenizer package** (E2-7). Accept a third-party DeepSeek V4 tokenizer package, or vendor DeepSeek's own `tokenizer.json` (with `tokenizers`) once someone with Hugging Face access checks the file?
+1. **No history and follow-ups** (E2-2). With retention 0, each question is its own conversation, so a follow-up has no context from the question before it. Keep that (nothing is kept, as "no history" says), or keep the turns of one visit for context while the browser tab is open (they would then exist on the server for the visit)? And confirm that no-history tenants should get no answer caching. *Answered by decision 20 (Oct 22, 2026): as built, no caching.*
+2. **Termination keeps the usage ledger** (E2-3). The ledger rows (tokens and cost per month and model, no user) are kept as the offboarding pack's "usage and spend figures". Keep, or delete them too after the final invoice? *Answered by decision 21 (Oct 22, 2026): keep.*
+3. **A distinct judge model** (E2-7). The judge still grades its own model's answers. Candidates pinned today: `qwen3.8-27b` (Scaleway) or Mistral's chat model once the account has quota. *Answered by decision 22 (Oct 22, 2026): `qwen3.8-27b` on Scaleway, set in `config/models.toml`.*
+4. **The tokenizer package** (E2-7). Accept a third-party DeepSeek V4 tokenizer package, or vendor DeepSeek's own `tokenizer.json` (with `tokenizers`) once someone with Hugging Face access checks the file? *Answered by decision 23 (Oct 22, 2026): keep the package; vendoring on the backlog.*
 
 ## 7. Integration of Groups E1 and E2 (Oct 22, 2026)
 

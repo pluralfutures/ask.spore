@@ -61,6 +61,7 @@ The people concerned are mostly authors, company executives, spokespeople and pe
 | Pages marked `noai`, `noindex` or `none` (meta robots or `X-Robots-Tag`) skipped | Built today |
 | Per-site allow decisions, scope rules, scheduled re-crawl, removed pages withdrawn | From Phase 1b (P1b-04) |
 | Special-category filter at crawl time (path patterns, reviewer whitelist) | From Phase 1b (P1b-04) |
+| Three-way special-category rule for every file: made public by the person (Art. 9(2)(e)) accepted; revealed by others reviewed and removed or redacted unless a clear basis exists; non-public refused (owner decision Oct 22, 2026; architecture §15.5; counsel to confirm) | Process rule; reviewer check from Phase 1b (P1b-01, P1b-05) |
 | Citations and short excerpts, no in-app full-document viewer | Built |
 | No profiling of individuals; terms forbid it | Built (no person search); terms in `terms-of-service.md` |
 | Objection and erasure requests handled within 30 days: remove the document or ingest a redacted copy; record the decision | Process; manual withdrawal today, full cascade from Phase 1b (P1b-03) |

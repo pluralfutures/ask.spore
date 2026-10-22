@@ -7,12 +7,13 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
+| Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15): scope line and rows 4.2, 4.3, 14.1, 14.5, 15.1, 16.3 and new section 17. Use section 17 only for a client that supplies documents, and only once P1b-19 step 2 is built; until then answer "No" to 17.1. Placeholders added: [secure transfer method], [5] (working days) |
 | Placeholders | [Client], [security contact email], [privacy contact email], [support email], [number of staff], [DPO or privacy contact name], [insurance cover], [address], [name], [30] and [48] (DPA notice periods), [date] |
 | To finalise, the owner must | (1) fill in the placeholders; (2) re-check every "Partial" and "No" row against the build on the day the questionnaire is sent, and update the ones that Phase 1b items have closed (each names its spec item); (3) confirm row 6.3 (encryption at rest of the Instance volumes) with Scaleway and replace "[confirm]"; (4) answer the HR rows (section 3) yourself; they are about the company, not the system; (5) keep this file as the master and copy answers into a client's own questionnaire format, never the other way round; (6) have counsel check the privacy rows (section 14) against the signed DPA. |
 
 How to read the answers: **Yes** means built and verified, with the evidence named. **Partial** means part of the control is in place; the detail says which part. **No** means not in place; where it is planned, the spec item is named. **N/A** means it does not apply to this service. Status is as of Oct 21, 2026, after the Phase 1a release (findings §10 to §12).
 
-Scope: SporeBot, a multi-tenant research assistant answering questions from a curated corpus of public sources and our own analysis, with citations. Clients upload no documents. The data we hold for a client is its users' accounts, their questions and conversations (at most 30 days), downloads records and audit metadata.
+Scope: SporeBot, a multi-tenant research assistant answering questions from a curated corpus of public sources and our own analysis, with citations. Clients upload no documents (a client that supplies documents under the terms §6A: see section 17). The data we hold for a client is its users' accounts, their questions and conversations (at most 30 days), downloads records and audit metadata.
 
 ---
 
@@ -51,8 +52,8 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | # | Question | Answer | Detail and evidence |
 | --- | --- | --- | --- |
 | 4.1 | Inventory of systems holding customer data | Yes | One Scaleway Instance in Paris (fr-par) running the API, web app, PostgreSQL, Redis, Authentik, Caddy and RAGFlow in Docker Compose; listed in `sub-processors.md` and `records-of-processing.md` |
-| 4.2 | Data classification | Yes | Data map in the compliance design guide: questions and conversations are the confidential asset; corpus is public or licensed content |
-| 4.3 | Inventory of third-party content and licences | Partial | Source register with licence basis per source; approval workflow and licence-file attachment from Phase 1b (P1b-01, P1b-05) |
+| 4.2 | Data classification | Yes | Data map in the compliance design guide: questions and conversations are the confidential asset; corpus is public or licensed content. Documents a client supplies are classified as confidential customer data like conversations (DRAFT, Oct 22, 2026) |
+| 4.3 | Inventory of third-party content and licences | Partial | Source register with licence basis per source; approval workflow and licence-file attachment from Phase 1b (P1b-01, P1b-05). Client-supplied files are recorded with the basis `client-supplied`, the supplying client and the client's declaration (section 17) |
 
 ## 5. Access control and identity
 
@@ -150,11 +151,11 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 
 | # | Question | Answer | Detail and evidence |
 | --- | --- | --- | --- |
-| 14.1 | Your role under GDPR | — | Processor for the customer's user data (accounts, sign-in events, conversations, downloads). Controller for the public-source corpus and our own operational logs (owner decision Oct 20, 2026) |
+| 14.1 | Your role under GDPR | — | Processor for the customer's user data (accounts, sign-in events, conversations, downloads) and for any documents the customer supplies (section 17). Controller for the public-source corpus and our own operational logs (owner decision Oct 20, 2026) |
 | 14.2 | DPA offered | Yes | `client-dpa-draft.md` (draft for counsel) |
 | 14.3 | Customer data used to train models? | No | Never, by us or by model providers (zero-retention terms; data collection denied on external requests) |
 | 14.4 | Retention of conversations | Yes | At most 30 days; the customer may shorten it to 1 to 30 days; no setting allows more (database constraint, tested). Expired conversations disappear from the service at once; deletion from the database by the purge job from Phase 1b (P1b-14), which also adds a 0-day "no history" setting |
-| 14.5 | Deletion at termination with certificate | Partial | Procedure in `offboarding-pack.md`; the automated per-customer purge and the certificate figures from Phase 1b (P1b-14); until then a manual procedure |
+| 14.5 | Deletion at termination with certificate | Partial | Procedure in `offboarding-pack.md`, including client-supplied documents (section 17); the automated per-customer purge and the certificate figures from Phase 1b (P1b-14); until then a manual procedure |
 | 14.6 | Data export | Partial | No self-service export of conversations. On request, an operator export of accounts and current conversations |
 | 14.7 | Data subject request handling | Yes (process) | Forwarded to the customer as controller; we assist within [30] days (DPA clause 8) |
 | 14.8 | DPIA performed | Partial | `dpia.md` (draft) |
@@ -165,7 +166,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 
 | # | Question | Answer | Detail and evidence |
 | --- | --- | --- | --- |
-| 15.1 | Where is customer data stored? | Yes | Paris, France (Scaleway fr-par): application, database, index, files, logs, backups |
+| 15.1 | Where is customer data stored? | Yes | Paris, France (Scaleway fr-par): application, database, index, files (including any documents the customer supplies), logs, backups |
 | 15.2 | Where is it processed by AI models? | Yes | By default Scaleway Generative APIs in Paris (DeepSeek V4.1 Flash, Qwen 3.8 27B) |
 | 15.3 | Any transfer outside the EEA? | No by default | Only if the customer opts in to external models (DPA clause 6 and Annex 4): prompts go through OpenRouter's EU endpoint to AWS Bedrock (Claude) or Microsoft Azure (GPT), which may process outside the EEA. Off for every customer today; SCCs and a transfer impact assessment (`transfer-impact-assessment.md`) are required first |
 | 15.4 | Email provider location | Yes | Scaleway Transactional Email, Paris; receives the recipient address and the email only |
@@ -176,7 +177,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | --- | --- | --- | --- |
 | 16.1 | Is our data used to train or fine-tune any model? | No | We do not train or fine-tune. Providers are bound by zero-retention terms |
 | 16.2 | Zero data retention at the model provider | Partial | Scaleway states no retention for Generative APIs; the written confirmation naming our organisation, models and endpoint is pending (findings M2). For external models, ZDR routing and data collection denied are set on every request and asserted by tests |
-| 16.3 | What is sent to the model? | Yes | The platform instructions, the workspace's additional instructions, retrieved source passages with publisher, title, date and page, recent conversation turns and the question. No user, account, organisation or workspace identifiers (tested on every build) |
+| 16.3 | What is sent to the model? | Yes | The platform instructions, the workspace's additional instructions, retrieved source passages with publisher, title, date and page (for a customer that supplies documents, including passages from them, never another customer's), recent conversation turns and the question. No user, account, organisation or workspace identifiers (tested on every build) |
 | 16.4 | Can the model act (tools, browsing, writes)? | No | The model has no tools. Retrieval is read-only. Public-source text is marked as untrusted in the prompt |
 | 16.5 | Prompt-injection testing | Yes | A guardrail evaluation with adversarial workspace instructions and passages runs in CI (mocked) and was run live at release; every block passes except "drop citations", which is enforced in code instead: an uncited corpus-only answer is never shown (findings §11, G6) |
 | 16.6 | Hallucination controls | Yes | Answers cite their sources; corpus-only mode withholds uncited answers and declines when sources do not answer; an evaluation set measures citation precision, faithfulness and abstention and gates prompt changes (findings §11, G9). Answers are labelled "AI-generated, verify against cited sources" |
@@ -184,3 +185,20 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | 16.8 | Model versions pinned | Yes | Model names pinned in configuration; aliases such as "latest" refused at startup |
 | 16.9 | EU AI Act position | Yes | Limited-risk system with transparency duties; see `ai-act-technical-documentation.md` and `ai-transparency-note.md` (drafts) |
 | 16.10 | Can one customer's questions influence another's answers? | No | Answer caches are keyed per customer; conversations isolated by row-level security; usage across customers only as aggregated metrics with a minimum group size |
+
+## 17. Customer-supplied documents
+
+*DRAFT addition, Oct 22, 2026 (P1b-19 step 1; architecture §15). Designed, not built: answers describe the design and become "Yes" only once P1b-19 step 2 passes its tests. For the test client: 17.1 "No", omit the rest.*
+
+| # | Question | Answer | Detail and evidence |
+| --- | --- | --- | --- |
+| 17.1 | Can we upload or supply our own documents? | [Planned / Yes] | By arrangement: you send files (PDF, DOCX, PPTX) with a declaration per file or batch by [secure transfer method]; our content team registers them. No self-service upload |
+| 17.2 | Who can see our documents? | Your users only | Each file is recorded with your organisation as its supplier and placed only in content collections owned by your organisation; the application, the ingestion worker and the database each refuse to place it in a collection of another customer or a shared one. Identical files from two customers are kept separately. Tests prove another customer's workspace never retrieves, lists or downloads it |
+| 17.3 | Are our documents used to train models or for other customers? | No | Used only to answer your users' questions. Model providers receive excerpts in prompts under zero-retention terms |
+| 17.4 | Where are our documents processed? | Paris | Stored, parsed and indexed on our Scaleway Instance in Paris; the parser runs on an internal network with no public access. Excerpts go to the EU model provider, and outside the EU only if you have accepted external models (DPA clause 6) |
+| 17.5 | Can our users download our documents? | As you declare | Only your users, only files your declaration marks downloadable; single-use links, daily cap, audited |
+| 17.6 | Can we withdraw a document? | Yes | On written request within [5] working days: file, text and index entries deleted; passages cited in past answers marked withdrawn |
+| 17.7 | What happens at termination? | Deleted | Every supplied document, its text, index and stored copy is deleted and listed in the certificate of deletion; on request before the end we return the copies we hold |
+| 17.8 | Who is responsible for rights in the documents and for people named in them? | You | You warrant your rights and indemnify us for third-party claims (terms §6A); you are controller for personal data in them and we are your processor (DPA clause 7A) |
+| 17.9 | Are document contents treated as instructions to the model? | No | Document text is passed as untrusted data; the model has no tools, so text in a document cannot make it act |
+| 17.10 | Is our content malware-scanned? | [owner] | Files are accepted only in the listed formats and parsed on an isolated internal network. [Whether a malware scan is added: open-questions J] |

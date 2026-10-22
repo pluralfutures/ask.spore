@@ -5,6 +5,7 @@
 | Status | **DRAFT — not for signature. The owner's counsel must review this agreement before it is sent to [Client] or signed.** |
 | Date | Oct 19, 2026 |
 | Author | Drafted for owner review (spec item P1a-15) |
+| Revision | Oct 22, 2026, **DRAFT**: clause 7A (client-supplied documents) and the matching changes to clauses 1.3, 6.3, 10.5 and Annexes 1 to 3, for clients that supply their own documents (P1b-19 step 1, architecture §15). For the test client, which supplies nothing, delete clause 7A and keep clause 1.3 option (a). Placeholders added: [5] (working days), [secure transfer method], [max file size] |
 | Roles position | **Pending the owner's confirmation**: we act as processor for [Client]'s user data (accounts, questions, conversations, downloads, audit of [Client]'s users) and as controller for the public corpus, our own platform logs and security monitoring. This differs from the compliance guide's data map, which treats account data and audit logs as ours as controller; see "Notes for the owner" at the end. |
 | To finalise, the owner must | (1) confirm or change the roles position; (2) fill in every square-bracket placeholder; (3) decide the open points in "Notes for the owner"; (4) have counsel review; (5) attach the final sub-processor list and TOMs; (6) record the signed acceptance reference (document and date) in the operator console before enabling external models (findings A13). |
 
@@ -21,7 +22,7 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 
 1.2 This DPA applies to personal data that the Processor processes on behalf of [Client] in providing the research assistant service (the "**Service**"), as described in Annex 1 ("**Client Personal Data**").
 
-1.3 **No client content.** [Client] does not upload documents to the Service. The research corpus consists of published third-party sources and the Provider's own analysis. The Provider is the controller of the corpus and of any personal data in it, and this DPA does not cover it.
+1.3 *Owner: choose one.* (a) **No client content.** [Client] does not upload documents to the Service. The research corpus consists of published third-party sources and the Provider's own analysis. The Provider is the controller of the corpus and of any personal data in it, and this DPA does not cover it. (b) *DRAFT addition, Oct 22, 2026 (P1b-19 step 1, client-supplied documents; architecture §15).* **Client-supplied documents.** [Client] supplies documents for its workspaces under clause 7A; they and any personal data in them are Client Personal Data covered by this DPA. The Provider may supplement [Client]'s workspaces with published third-party sources and its own analysis; the Provider is the controller of that content and of any personal data in it, and this DPA does not cover it.
 
 1.4 The Provider is also controller, outside this DPA, for its own platform operation and security logs, security monitoring and aggregated, pseudonymised service metrics, processed for the security and integrity of the Service under its own legitimate interests. The Provider describes this processing in its privacy notice.
 
@@ -57,7 +58,7 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 
 6.2 [Client] may opt in to **external models** (at the date of this DPA: Claude Opus 5.5 and GPT-6.1 Sol). When enabled, a user who chooses an external model for a conversation causes that conversation's prompts to be sent to **OpenRouter, Inc.** through its EU endpoint, which forwards them to the upstream vendor pinned for that model (Amazon Web Services Bedrock for Claude; Microsoft Azure for GPT). These vendors may process the prompt outside the European Economic Area. The region of processing is **[EU (Ireland for AWS; [country] for Azure) / the United States], per the Provider's transfer impact assessment dated [date]** (*owner: fill in after the verification in the TIA §10; until verified, state "may be outside the EEA, including the United States"*).
 
-6.3 What is sent: the platform's instructions, [Client]'s workspace additional instructions, excerpts of public sources, recent conversation turns and the user's question. No user, account or customer identifier is sent.
+6.3 What is sent: the platform's instructions, [Client]'s workspace additional instructions, excerpts of public sources and, where clause 7A applies, excerpts of documents [Client] supplied, recent conversation turns and the user's question. No user, account or customer identifier is sent.
 
 6.4 Transfer mechanism: the EU Standard Contractual Clauses (Decision (EU) 2021/914), module [3] [and 2], in OpenRouter's data processing agreement, with the supplementary measures in the Provider's transfer impact assessment (zero-data-retention routing, provider data collection denied, EU endpoint, provider pins, no identifiers in prompts).
 
@@ -70,6 +71,22 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 7.1 Users may see the list of files in each workspace's corpus and may download a file only where the Provider has marked that source as downloadable on the basis of its licence (at the date of this DPA, in practice the Provider's own analyses). Other files are shown with a link to the publisher.
 
 7.2 Each download is processed as Client Personal Data: the Service records which user downloaded which file and when, issues a single-use link valid for 60 seconds, and limits downloads per user per day ([50]). These records are part of the audit log (Annex 1).
+
+## 7A. Client-supplied documents
+
+*DRAFT addition, Oct 22, 2026 (P1b-19 step 1, client-supplied documents; architecture §15).* *Only for a client that supplies documents; delete for the test client.*
+
+7A.1 [Client] may send the Processor documents (PDF, DOCX or PPTX, up to [max file size] MB each) for its workspaces by [secure transfer method], each file or batch with a written declaration naming the files, stating whether its users may download each one, and stating whether it contains personal data of people other than [Client]'s staff. [Client] does not supply special-category data or data about criminal offences unless agreed in writing beforehand.
+
+7A.2 The Processor processes client-supplied documents only to provide the Service to [Client]: it parses and indexes them, shows excerpts with citations to [Client]'s users, sends excerpts in prompts to the language models in Annex 3 (external models only under clause 6) and, where the declaration allows, lets [Client]'s users download them. It does not use them for any other customer, to train any model, or for its own purposes.
+
+7A.3 Client-supplied documents are searched only from [Client]'s own workspaces. The Processor keeps them in collections that belong to [Client] and never places them in a collection available to another customer (Annex 2).
+
+7A.4 [Client] is the controller of personal data in the documents it supplies and is responsible for having a lawful basis to supply them and for informing the people named in them (Article 14 GDPR). The Processor forwards to [Client] any request or claim it receives about a client-supplied document (clause 8.1).
+
+7A.5 On [Client]'s written request, the Processor withdraws a client-supplied document from the Service within [5] working days: the file, its text and its index entries are deleted, and passages already cited in conversations are marked as withdrawn. Where a third party claims a document infringes its rights, the Processor tells [Client] without undue delay and acts on its instruction; the agreement (terms §6A) says when the Processor may withdraw it to protect the Service.
+
+7A.6 [Client]'s warranty of rights and indemnity for client-supplied documents are in the Agreement (terms §6A), not in this DPA.
 
 ## 8. Data subject requests and assistance
 
@@ -95,7 +112,7 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 
 10.4 **Audit records** of [Client]'s users (sign-ins, administrative actions, query and download metadata; never question or answer text) are retained for **12 months** in write-once storage.
 
-10.5 On termination the Processor deletes all Client Personal Data within [30] days, except audit records kept for the remainder of their 12-month retention where needed to evidence security and compliance, and confirms deletion in writing on request. Given the retention above, no export is normally needed; on request before termination the Processor provides an export of accounts and current conversations in a common machine-readable format.
+10.5 On termination the Processor deletes all Client Personal Data within [30] days, including every client-supplied document with its parsed text, index entries and stored copy (clause 7A; *DRAFT addition, Oct 22, 2026*), except audit records kept for the remainder of their 12-month retention where needed to evidence security and compliance, and confirms deletion in writing on request. Given the retention above, no export is normally needed; on request before termination the Processor provides an export of accounts and current conversations in a common machine-readable format.
 
 ## 11. Audits
 
@@ -127,8 +144,8 @@ Signed for Estefania Simon-Sasyk y Otro CB: name [ ], title [ ], date [ ]
 | Nature | Collection, storage, retrieval, transmission to a language model, display and deletion |
 | Purpose | Authenticating [Client]'s users; answering their questions; keeping their conversation history for the retention period; serving the file list and downloads; security and audit of [Client]'s use; usage and cost accounting per customer |
 | Data subjects | [Client]'s employees and contractors invited as users; tenant administrators |
-| Categories of personal data | Account data: email address, name if given, role, status, last sign-in time and method. Content: questions, conversation turns, answers, citations, feedback, model and reasoning setting chosen; any personal data a user types into a question. Workspace additional instructions written by [Client]'s administrators. Downloads: user, file, time. Audit metadata: user ID, event, time, workspace, model; no question or answer text. Technical: session tokens, IP address at sign-in |
-| Special categories | None intended. [Client] instructs its users not to enter special-category data in questions |
+| Categories of personal data | *DRAFT addition, Oct 22, 2026:* Client-supplied documents (clause 7A): personal data contained in them (typically names, roles and statements of authors, staff and people named), as declared by [Client]. Account data: email address, name if given, role, status, last sign-in time and method. Content: questions, conversation turns, answers, citations, feedback, model and reasoning setting chosen; any personal data a user types into a question. Workspace additional instructions written by [Client]'s administrators. Downloads: user, file, time. Audit metadata: user ID, event, time, workspace, model; no question or answer text. Technical: session tokens, IP address at sign-in |
+| Special categories | None intended. [Client] instructs its users not to enter special-category data in questions, and does not supply it in documents unless agreed under clause 7A.1 |
 | Frequency | Continuous while the Service is used |
 | Duration | Term of the Agreement plus the deletion periods in clause 10 |
 | Sign-in | Users sign in with a single-use link sent by email (valid 15 minutes, consumed only when the user presses the button on the landing page, limited per user). The email address is the only data sent to the email sub-processor. Tenant administrators also use a second factor [*pending: not yet configured in the Phase 1a build*] |
@@ -141,6 +158,7 @@ Drawn from the Provider's Compliance & Privacy Design Guide; SOC 2 criteria are 
 | --- | --- |
 | Customer isolation | Row-level security keyed on customer ID on every customer table, set per request from the authenticated user; per-customer cache keys; isolation tests in CI (CC6.1, C1.1) |
 | Corpus access | Which corpus a workspace may search is set by the Provider server-side; the client never chooses datasets; entitlement test in CI (CC6.1, CC6.3) |
+| Client-supplied documents (clause 7A; DRAFT, Oct 22, 2026, to be built in P1b-19 step 2) | Recorded per file with the supplying customer and the declaration reference; placed only in collections owned by that customer, checked by the application, the ingestion worker and the database; never de-duplicated with another customer's or the Provider's files; stored copies in a per-customer directory; withdrawn on request; deleted at termination with a certificate; passages wrapped as untrusted text in prompts (CC6.1, CC6.3, CC6.5, C1.1) |
 | Data minimisation | Prompts carry no user, account or customer identifiers; tested on every build; context capped (CC6.7) |
 | Model providers | Pinned model versions and an allow-list of endpoints checked at start-up; EU endpoints by default; external models only per clause 6, with zero-data-retention routing and data collection denied on every request (CC6.7, CC9.2) |
 | Encryption | TLS 1.2+ in transit; encrypted volumes and encrypted backups at rest in Paris (CC6.1, CC6.7) |
@@ -157,7 +175,7 @@ Drawn from the Provider's Compliance & Privacy Design Guide; SOC 2 criteria are 
 
 ## Annex 3 — Sub-processors
 
-See `sub-processors.md` for the maintained list; at the date of this DPA:
+See `sub-processors.md` for the maintained list; at the date of this DPA. Client-supplied documents (clause 7A) add no sub-processor: they are stored and processed by Scaleway as below, and excerpts reach the language models listed here as part of prompts.
 
 | Sub-processor | Purpose | Location | Safeguard |
 | --- | --- | --- | --- |
@@ -188,3 +206,4 @@ Document reference: [ ] · Signed for [Client]: name [ ], title [ ], date [ ]
 5. **Notice periods and breach window** (clauses 5.2, 9.1) are placeholders for counsel.
 6. **Downloads table retention** (`downloads` rows) is not yet set (backlog, Phase 1b); the audit event is 12 months.
 7. **Annex 2 must match what is live at signature.** It lists the guide's controls. Not yet in place or not verified in Phase 1a: bulk-extraction detection (only rate limits and the download cap exist), the daily write-once export of the audit log, encrypted backups to Object Storage (the content store is a local volume until Phase 1b, findings D9), time-boxed support access, and operator hardware-key MFA (Authentik configuration, not checked by the API, findings A12). Mark these as planned with a date or remove them before signature.
+8. **Client-supplied documents (clause 7A, Oct 22, 2026).** Drafted ahead of the build (P1b-19 step 2): do not offer clause 7A to a client until the step-2 isolation tests pass and the Annex 2 row is true. Open points in `open-questions.md` section J.

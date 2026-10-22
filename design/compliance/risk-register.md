@@ -8,6 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Placeholders | [security lead name], [date]; "[confirm]" marks a fact to check |
+| Revision | Oct 22, 2026, **DRAFT**: R-34 to R-37, client-supplied documents (P1b-19 step 1, architecture §15) |
 | To finalise, the owner must | (1) confirm or change each likelihood and impact; (2) accept the residual risks marked "accept?" or plan a treatment; (3) set the review date; (4) sign. |
 
 ---
@@ -49,5 +50,9 @@ Scale: likelihood and impact are Low, Medium or High, judged for the current pla
 | R-31 | **No monitoring or alerting** of auth anomalies or outages | High | Medium | Metadata logs on stdout | Monitoring stack in backlog | Owner | [date] |
 | R-32 | **Encryption at rest unconfirmed** for Instance volumes | Low | Medium | Scaleway hosting in Paris | Confirm with Scaleway **[confirm]** | Owner | [date] |
 | R-33 | **No inference fallback**: a Scaleway Generative APIs outage stops all answers | Low | High | Two Scaleway models; spend-cap fallback only for external models | Owner decision Oct 21, 2026: OpenRouter routed to EU-served models with ZDR as backup; needs the CLAUDE.md entitlement rule, DPA clause 6.1, sub-processor notice and TIA changed first (`policy-business-continuity.md`) | Owner | [date] |
+| R-34 | **Client-supplied file reaches another tenant** (shared tag, another tenant's workspace, de-duplication merge). *DRAFT, Oct 22, 2026* | Low | High | None needed today: no client supplies files. Existing: server-side datasets, forced RLS, out-of-package chunks dropped | Tenant-owned tags with the placement rule in API, worker and database; per-owner de-duplication; negative tests (P1b-19 step 2); clause 7A not offered before | Owner | [date] |
+| R-35 | **Client lacks rights to a supplied file**: third-party claim against us for indexing, excerpts or downloads. *DRAFT* | Medium | Medium | — | Client warranty and indemnity (terms §6A); declaration per batch; withdrawal on claim (P1b-19) | Owner | [date] |
+| R-36 | **Undeclared personal or special-category data in client files**. *DRAFT* | Medium | Medium | — | Declaration; reviewer check; DPA clause 7A.1; client is controller | Owner | [date] |
+| R-37 | **Hostile client file** exploits the parser or plants instructions. *DRAFT* | Low | Medium | RAGFlow on internal network, no egress; no model tools | Format and size limits; untrusted wrapping of every supplied passage; supplied-file case in the guardrail eval (P1b-19 step 2); malware scan to decide (open-questions J) | Owner | [date] |
 
 Approved by: [security lead name], for Estefania Simon-Sasyk y Otro CB, date [date].

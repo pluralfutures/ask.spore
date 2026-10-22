@@ -64,3 +64,4 @@ Added Oct 21, 2026 (spec item P1b-09). Each document is a draft for owner and co
 | D18 | Pre-filled security questionnaire | `security-questionnaire.md` | Owner (security lead) | Optional | Drafted | [date, location] |
 | D19 | Offboarding pack (termination and deletion procedure, certificate of deletion, deactivation and exit notices) | `offboarding-pack.md` | Owner | Recommended (deletion wording must match the DPA) | Drafted | [date, location] |
 | D20 | Open questions for the owner and counsel | `open-questions.md` | Owner | Required | Open | n/a |
+| D21 | Client-supplied documents addendum (architecture §15, compliance guide Oct 22): DPA clause 7A, terms §6A and A.8, privacy notice §13, and the changes across D1, D10 to D12, D14, D15, D17 to D19, the TIA, the sub-processor list and the trust page (P1b-19 step 1). Not for the test client | the files named | Owner | Required (warranty, indemnity, processor role) | Drafted Oct 22, 2026 | [date, location] |

@@ -7,24 +7,30 @@
 #
 # tenant (P1b-12) names the one tenant (by slug) whose workspaces may use the tag: a
 # client's own corpus. Without it the tag is shared: the operator console offers it to
-# every tenant's workspaces and refuses another tenant's tags.
+# every tenant's workspaces and refuses another tenant's tags. The sample-* tags hold our
+# own and test content (the Phase 0 corpus, synthetic fixtures, drill crawls) and belong
+# to the internal tenant, so no client workspace is offered them (owner, Oct 22, 2026,
+# Phase 1b release 5.1).
 #
 # chunk_method is the RAGFlow chunking method of the tag's dataset. RAGFlow sets it
 # per dataset with a per-document override; chunk_method_by_type gives that override
 # per source type (pdf, docx, pptx, html, markdown) and is applied at ingestion.
 
 [tags.sample-reports]
+tenant = "internal"
 # Third-party reports: PDF with "paper". The Phase 0 corpus also has third-party
 # DOCX and PPTX files under this tag; they get the methods sample-analysis uses.
 chunk_method = "paper"
 chunk_method_by_type = { docx = "naive", pptx = "presentation", markdown = "naive", html = "naive" }
 
 [tags.sample-analysis]
+tenant = "internal"
 # Own analysis: DOCX with "naive", PPTX with "presentation".
 chunk_method = "naive"
 chunk_method_by_type = { pptx = "presentation" }
 
 [tags.sample-web]
+tenant = "internal"
 # Crawled pages, rendered to Markdown.
 chunk_method = "naive"
 

@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.chat import package
 from app.chat.context import select_context
 from app.chat.package import provenance_by_document, workspace_package
+from app.content.tags import TagConfig, load_tags
 from app.core.config import Settings
 from app.core.db import session_factory, tenant_session
 from app.retrieval.types import RetrievedChunk
@@ -398,7 +399,20 @@ async def test_prompt_versions_are_append_only_for_the_app(
 # --- operator: the package builder ----------------------------------------------------------
 
 
-async def test_operator_creates_workspaces_and_assigns_tags(console: Console) -> None:  # noqa: F811
+async def test_operator_creates_workspaces_and_assigns_tags(
+    console: Console,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The repository's sample-* tags are the internal tenant's (Oct 22, 2026); here they
+    # are shared, so the synthetic tenant may use them (ownership: test_operator_console).
+    def shared_samples(config_dir: Path) -> dict[str, TagConfig]:
+        tags = load_tags(config_dir)
+        return {
+            tag: cfg.model_copy(update={"tenant": None}) if tag.startswith("sample-") else cfg
+            for tag, cfg in tags.items()
+        }
+
+    monkeypatch.setattr("app.api.operator.load_tags", shared_samples)
     op = await console.operator()
     t = await console.auth.tenant()
     base = f"/api/v1/operator/tenants/{t.id}/workspaces"

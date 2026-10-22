@@ -10,7 +10,8 @@
   - `invitation/` — to an invited user (the operator's first-admin invite and a tenant admin's invite): where to sign in, with which address. `v2` greets the recipient by first name.
   - `spend_cap_80/`, `spend_cap_100/` — to every operator when a tenant's external spend reaches 80 or 100 percent of its cap.
   - `tenant_name_flag/` — to every operator when saved workspace instructions name the tenant or its people (P1a-07).
-  - `consent_notice/` — to a user when the use and privacy notice changes; template only, sent by the consent gate (P1b-10).
+  - `consent_notice/` — to a user when the use and privacy notice changes: queued by the worker, once per user per version, for every active user who accepted an earlier version (P1b-10).
+- `consent/<version>.md` — the use and privacy notice users accept before their first conversation (P1b-10). The active version is `[consent] version` in `models.toml`; like prompts, a released version is never edited, and a new version re-prompts every user and queues the `consent_notice` email. The file is a `# <title>` line, then a `## Summary` section (the short plain-language summary) and a `## Full notice` section (the full legal wording), both Markdown; startup refuses a missing or malformed file. The owner supplies the wording: `v1` is a placeholder quoting the privacy notice draft's title and the `[owner: final wording]` marker, and the API logs `consent.placeholder_notice` at startup while the active version carries the marker.
 
 ## Platform mail (P1b-11)
 

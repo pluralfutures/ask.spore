@@ -238,15 +238,21 @@ async def test_operator_and_content_consoles_are_not_gated(
     """Internal tenant staff: the consoles are not conversation routes."""
     op = await console.operator()
     await content_user(console.auth.admin, "content_editor")
-    await console.auth.admin.execute(
+    admin = console.auth.admin
+    await admin.execute(
         "UPDATE users SET consent_version = NULL, consented_at = NULL WHERE lower(email) = $1",
         OPERATOR_EMAIL,
     )
-    assert (await op.get("/api/v1/operator/tenants")).status_code == 200
-    assert (await op.get("/api/v1/content/me")).status_code == 200
-    assert (await op.get("/api/v1/content/sources")).status_code == 200
-    # The same person's conversations are gated like everyone's.
-    assert result(await op.get("/api/v1/conversations")) == REFUSED
+    try:
+        assert (await op.get("/api/v1/operator/tenants")).status_code == 200
+        assert (await op.get("/api/v1/content/me")).status_code == 200
+        assert (await op.get("/api/v1/content/sources")).status_code == 200
+        # The same person's conversations are gated like everyone's.
+        assert result(await op.get("/api/v1/conversations")) == REFUSED
+    finally:  # a seeded user, shared with later tests
+        await admin.execute(
+            f"UPDATE users SET {CONSENT_DEFAULTS_SQL} WHERE lower(email) = $1", OPERATOR_EMAIL
+        )
 
 
 async def test_the_refusal_log_line_carries_identifiers_only(

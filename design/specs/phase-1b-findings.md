@@ -228,3 +228,55 @@ pass against PostgreSQL 16 (1 deselected); eval package ruff, format, mypy, 88 t
 `schema.d.ts` unchanged by the merge; compose config valid. The image-digest `--check`
 hit Docker Hub's anonymous limit here; the E2 review ran it without the mirror and every
 pin matched.
+
+## 8. Release on the Instance, Oct 22, 2026 (P1b-16)
+
+Run by a remote-control session on the Instance from `design/specs/phase-1b-release-runbook.md`.
+The Instance runs `main` at **bd1bc46** (`ASK_SPORE_DEPLOY_VERSION=bd1bc464ca60`).
+
+### Release status
+
+In progress. Section 0 done; section 1.3 (independent review) waits for the orchestrating
+session.
+
+### Section 0: bring-up
+
+| Step | Result |
+| --- | --- |
+| 0.2 Env keys | `.env` and `infra/authentik/.env` carry every key their compose files need; the variables left unset have Compose defaults (ports, `ASK_SPORE_DEPLOY_VERSION`, and the two database passwords below). |
+| 0.3 Image digests | `image-digests.py --check` against Docker Hub (no mirror): 14 pins match, **3 tags moved** (table below). Owner decision Oct 22, 2026: keep the existing pins for this release; re-pin after the release in its own PR (backlog). |
+| 0.4 Authentik blueprint | Dry run valid. Applied by starting `authentik-postgresql`, `authentik-server` and `authentik-worker` only (a bare `--profile auth up -d` also starts `migrate`, `api`, `worker` and RAGFlow on the previous images). Blueprint instance `successful`; `verify_blueprint.py`: ok. **Adopted:** flow `ask-spore-sign-in-link` and its three stages, provider and application `ask-spore`, role and service account `ask-spore-provisioner` and its token `ask-spore-provisioner-api` (one provisioner, so step 2.5 has nothing to remove). **Changed:** provider grant types gain `refresh_token`, scopes gain `offline_access`, refresh-token validity `days=30` → `hours=24`; stage `ask-spore-admin-mfa` bound at order 25 of the sign-in-link flow. **Created:** flows `ask-spore-source-authentication`, `-source-enrollment`, `-source-pre-authentication`; stages `ask-spore-admin-mfa`, `ask-spore-admin-totp-setup`, `ask-spore-source-create`, `ask-spore-source-write`; group `ask-spore-tenant-admins`. |
+| 0.5 Build and start | `api`, `web-build`, `worker` and **`migrate`** built from bd1bc46 (F1). Alembic head **0041**. `api`, `worker`, `caddy` up; RAGFlow started from its unchanged pins (not in the runbook's `up` line, needed by sections 4 and 7). `/healthz` 200 over TLS; `/api/v1/auth/mode` = `oidc`; no startup warning (consent placeholder gone). Public listeners: 22, 80, 443 only; Postgres, Redis, API, RAGFlow UI and 9000 on loopback. |
+| 0.6 Content roles | `content_editor` and `content_reviewer` granted to the operator as schema owner; two `content_role.granted` audit events. |
+
+**Moved image tags (0.3), not re-pinned:**
+
+| Image (file) | Pinned digest | Docker Hub digest on Oct 22, 2026 | Hub image built |
+| --- | --- | --- | --- |
+| `postgres:16.15-alpine` (`infra/authentik/docker-compose.yml`) | `sha256:deb28ee471183cb0c303113dac9b2433c51eeeeb678def7af9a9ec5820367815` | `sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36` | Oct 21, 2026 22:57 UTC |
+| `redis:7.4.11-alpine` (`infra/compose.dev.yml`) | `sha256:892022f9f18c26c92c30e15194d132f90044af87b94a491a75429bbc3982eab1` | `sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541` | Oct 21, 2026 21:14 UTC |
+| `caddy:2.11.7-alpine` (`infra/compose.dev.yml`) | `sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd` | `sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f` | Oct 21, 2026 21:32 UTC |
+
+**Credentials still at a default or example value (names only, owner decision Oct 22, 2026:
+pre-launch item, not a release blocker; backlog):** the Postgres schema owner `askspore`
+(`POSTGRES_PASSWORD` unset, Compose default) and the application role `askspore_app`
+(`APP_DB_PASSWORD` unset, Compose default), so `DATABASE_URL` and `MIGRATIONS_DATABASE_URL` in
+`.env` equal `.env.example`; the application Redis has no password (`REDIS_URL` equals the
+example). Also standing: the Authentik bootstrap API token (`authentik-bootstrap-token`, user
+`akadmin`). RAGFlow's MySQL, MinIO, Elasticsearch and Redis passwords differ from the example.
+Postgres and Redis listen on loopback and the Compose network only.
+
+### Section 1: isolation tests
+
+- **1.1 Run:** full suite at bd1bc46 with `REQUIRE_DB_TESTS=1` against a throwaway PostgreSQL
+  16.15 container (same pinned digest as the live one, tmpfs, removed after the run). The live
+  cluster was not used because the migrations create cluster-wide roles. Run with `uv` on the
+  Instance at the release commit, as in Phase 1a: the API image carries neither tests nor dev
+  dependencies. **1345 passed, 0 failed, 1 deselected** (`test_ragflow_integration`). ruff and
+  `mypy --strict` (105 files) clean.
+
+### Issues found and fixed during the release
+
+| # | Item | What | Fix |
+| --- | --- | --- | --- |
+| F1 | Runbook 0.5 | `migrate` builds its own image (`ask-spore-dev-migrate`), which the runbook's build line (`build api web-build worker`) omits: `up -d migrate` ran the Phase 1a image, exited 0 and left the database at 0012. | Built `migrate` too and re-ran: head 0041. Runbook 0.5 now builds `migrate`. (The README deploy line, `up -d --build api worker`, also builds the `migrate` dependency it starts.) |

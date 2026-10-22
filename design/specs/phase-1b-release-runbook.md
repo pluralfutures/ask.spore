@@ -90,7 +90,7 @@ marked "default" run with the stated value unless the owner says otherwise.
    then `--profile auth up -d`, then `verify_blueprint.py` through `ak shell`. Record what the
    blueprint adopted and what it changed on the live instance (names only). If the
    provisioner now exists twice, keep both until step 2.5 below.
-5. Build and start: `docker compose -f infra/compose.dev.yml build api web-build worker`,
+5. Build and start: `docker compose -f infra/compose.dev.yml build migrate api web-build worker` (`migrate` has its own image; F1 in findings §8),
    `up -d migrate` (head must be **0041**), `up -d api worker caddy`. `/healthz` 200 over
    TLS. Confirm `/api/v1/auth/mode` is `oidc`.
 6. Content roles: grant the operator `content_editor` and `content_reviewer`

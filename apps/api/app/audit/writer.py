@@ -64,6 +64,11 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         # reviewer approves their own proposal (allowed and audited, owner decision).
         "roles",
         "self_approval",
+        # Platform mail (P1b-11): which template went to the user (with "version"), the
+        # job that sent it, and the provider. Never the address, subject or body.
+        "template",
+        "job_id",
+        "provider",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.

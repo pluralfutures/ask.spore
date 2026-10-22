@@ -2430,7 +2430,7 @@
         "summary": "List Users"
       },
       "post": {
-        "description": "Invite a user of one of the tenant's verified email domains, as ``invited``.\n\nThey then request a sign-in link from their own browser; the first sign-in makes\nthem ``active`` (findings A15). An email that exists in any tenant is refused:\nAuthentik's usernames are emails, and an email maps to one tenant (findings A8).",
+        "description": "Invite a user of one of the tenant's verified email domains, as ``invited``.\n\nThe worker emails them an invitation (P1b-11); they then sign in from their own\nbrowser, and the first sign-in makes them ``active`` (findings A15). An email that\nexists in any tenant is refused: Authentik's usernames are emails, and an email maps\nto one tenant (findings A8).",
         "operationId": "invite_user_api_v1_admin_users_post",
         "requestBody": {
           "content": {
@@ -3348,7 +3348,7 @@
     },
     "/api/v1/operator/tenants/{tenant_id}/admins": {
       "post": {
-        "description": "Create the tenant's admin as ``invited`` and provision them in Authentik.\n\nThey then sign in with a link from their own browser; the first sign-in makes\nthem ``active``. An email already used in any tenant is refused: Authentik's\nusernames are emails, and an email maps to one tenant (findings A8).",
+        "description": "Create the tenant's admin as ``invited``, provision them in Authentik and queue\ntheir invitation email (P1b-11).\n\nThey then sign in from their own browser; the first sign-in makes them ``active``.\nAn email already used in any tenant is refused: Authentik's usernames are emails,\nand an email maps to one tenant (findings A8).",
         "operationId": "invite_admin_api_v1_operator_tenants__tenant_id__admins_post",
         "parameters": [
           {

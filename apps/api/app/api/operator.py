@@ -62,6 +62,7 @@ from app.content.models import Source
 from app.content.store import STORABLE_TYPES
 from app.content.tags import load_tags
 from app.core.logging import log
+from app.mail.queue import enqueue_invitation
 from app.operator.deps import OperatorContext, operator_session, require_operator
 from app.operator.models import OperatorNotice
 from app.tenancy.entitlements import available_answer_modes, available_models, default_model
@@ -237,11 +238,12 @@ async def invite_admin(
     operator: OperatorContext = Depends(require_operator),
     session: AsyncSession = Depends(operator_session),
 ) -> AdminInvitedOut:
-    """Create the tenant's admin as ``invited`` and provision them in Authentik.
+    """Create the tenant's admin as ``invited``, provision them in Authentik and queue
+    their invitation email (P1b-11).
 
-    They then sign in with a link from their own browser; the first sign-in makes
-    them ``active``. An email already used in any tenant is refused: Authentik's
-    usernames are emails, and an email maps to one tenant (findings A8).
+    They then sign in from their own browser; the first sign-in makes them ``active``.
+    An email already used in any tenant is refused: Authentik's usernames are emails,
+    and an email maps to one tenant (findings A8).
     """
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
@@ -276,6 +278,10 @@ async def invite_admin(
         # The transaction rolls back: no users row without its Authentik user.
         log("operator.invite_failed", tenant_id=str(tenant_id), error_code=exc.error_code)
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="provisioning_failed") from None
+    # P1b-11: the invitation email, sent by the worker; commits with the user (A15).
+    await enqueue_invitation(
+        session, tenant_id=tenant_id, user_id=user.id, created_by=operator.user_id
+    )
     await record(
         session,
         tenant_id=tenant_id,

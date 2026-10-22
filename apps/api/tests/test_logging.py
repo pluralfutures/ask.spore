@@ -44,6 +44,7 @@ def test_allow_list_matches_spec() -> None:
         "job_id",
         "job_type",
         "attempts",
+        "template",
     }
 
 

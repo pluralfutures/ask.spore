@@ -70,6 +70,8 @@ from app.core import cache
 from app.core.config import get_settings
 from app.core.db import create_engine, session_factory
 from app.core.logging import log
+from app.core.mail import create_mail_sender
+from app.mail.jobs import MailContext
 from app.operator.grants import grant_operator, revoke_operator
 from app.retrieval.ragflow import RagflowClient
 
@@ -512,13 +514,24 @@ async def _worker(args: argparse.Namespace) -> int:
             loop.add_signal_handler(signum, on_signal)
     # The withdrawal job purges answer caches (P1b-03), only through app.core.cache.
     cache.connect(settings.secrets.redis_url.get_secret_value())
+    # P1b-11: platform mail, through the configured provider (None without its key).
+    sender = create_mail_sender(settings)
+    if settings.models.mail is not None and sender is None:
+        log("worker.mail_not_configured", level="warning", status="no_sender")
+    factory = session_factory(engine)
     try:
         async with RagflowClient.from_settings(settings) as client:
             context = worker.Context(
-                factory=session_factory(engine),
+                factory=factory,
                 client=client,
                 tags=load_tags(settings.config_dir),
                 content_root=settings.models.files.content_root,
+                mail=MailContext(
+                    factory=factory,
+                    config=settings.models.mail,
+                    config_dir=settings.config_dir,
+                    sender=sender,
+                ),
             )
             await worker.run(
                 context.factory,
@@ -530,6 +543,8 @@ async def _worker(args: argparse.Namespace) -> int:
     except asyncio.CancelledError:
         log("worker.stopped", status="stopped")
     finally:
+        if sender is not None:
+            await sender.aclose()
         await cache.close()
         await engine.dispose()
     return 0

@@ -50,6 +50,9 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "job_id",
         "job_type",
         "attempts",
+        # Platform mail (P1b-11): which template a send_mail job sent. Never the
+        # recipient's address, the subject or the body.
+        "template",
     }
 )
 

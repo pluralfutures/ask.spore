@@ -290,7 +290,7 @@ async def test_payloads_hold_identifiers_only(
         with pytest.raises(ValueError, match="payload keys not allowed"):
             await enqueue(session, "ingest_source", {"text": "body"}, created_by=None)  # type: ignore[dict-item]
         with pytest.raises(ValueError, match="not a job type"):
-            await enqueue(session, "send_mail", {}, created_by=None)  # type: ignore[arg-type]
+            await enqueue(session, "purge_tenant", {}, created_by=None)  # type: ignore[arg-type]
     for payload in ('{"source_id": "x", "content": "body"}', '"a string"', '{"query": "q"}'):
         with pytest.raises(asyncpg.CheckViolationError):
             await app_conn.execute(

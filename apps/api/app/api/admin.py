@@ -48,6 +48,7 @@ from app.chat.selection import load_entitlement
 from app.core.db import AUTH_ROLE, role_session
 from app.core.logging import log
 from app.llm.catalogue import ModelChoice
+from app.mail.queue import enqueue_invitation
 from app.tenancy.context import RequestContext
 from app.tenancy.entitlements import ModelRefused, check_choice
 from app.tenancy.login_policy import TenantLoginPolicy
@@ -87,9 +88,10 @@ async def invite_user(
 ) -> AdminUserOut:
     """Invite a user of one of the tenant's verified email domains, as ``invited``.
 
-    They then request a sign-in link from their own browser; the first sign-in makes
-    them ``active`` (findings A15). An email that exists in any tenant is refused:
-    Authentik's usernames are emails, and an email maps to one tenant (findings A8).
+    The worker emails them an invitation (P1b-11); they then sign in from their own
+    browser, and the first sign-in makes them ``active`` (findings A15). An email that
+    exists in any tenant is refused: Authentik's usernames are emails, and an email maps
+    to one tenant (findings A8).
     """
     email = normalise_email(body.email)
     if email is None:
@@ -127,6 +129,10 @@ async def invite_user(
         log("tenant_admin.invite_failed", tenant_id=str(admin.tenant_id), error_code=exc.error_code)
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="provisioning_failed") from None
     await session.refresh(user)
+    # P1b-11: the invitation email, sent by the worker; commits with the user.
+    await enqueue_invitation(
+        session, tenant_id=admin.tenant_id, user_id=user.id, created_by=admin.user_id
+    )
     await record(
         session,
         tenant_id=admin.tenant_id,

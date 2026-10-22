@@ -1,6 +1,7 @@
 """The job queue (P1b-02): ``jobs`` rows run by ``ask-spore worker``.
 
-Mirrors alembic revision 0014; the migration is authoritative. Operator-owned and
+Mirrors alembic revisions 0014 and 0030 (``send_mail``, P1b-11); the migrations are
+authoritative. Operator-owned and
 shared, outside tenant RLS: a payload carries identifiers and settings only (a check
 constraint allows a fixed set of keys), and an outcome is ``status`` and ``error_code``
 only, never an error text.
@@ -42,13 +43,22 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 
-JobType = Literal["ingest_source", "withdraw_source", "crawl_site"]
-JOB_TYPES: Final[tuple[JobType, ...]] = ("ingest_source", "withdraw_source", "crawl_site")
+JobType = Literal["ingest_source", "withdraw_source", "crawl_site", "send_mail"]
+JOB_TYPES: Final[tuple[JobType, ...]] = (
+    "ingest_source",
+    "withdraw_source",
+    "crawl_site",
+    "send_mail",
+)
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 FINISHED: Final = frozenset({"succeeded", "failed"})
 PAYLOAD_KEYS: Final = frozenset(
     {"source_id", "site_id", "add_tags", "downloadable", "parse_timeout"}
+    # send_mail (P1b-11): the template and who it is for, identifiers only.
+    | {"template", "tenant_id", "user_id", "notice_id"}
 )
+# What the one-active-job-per-subject index compares besides the type (revision 0030).
+SUBJECT_KEYS: Final = ("source_id", "site_id", "template", "tenant_id", "user_id", "notice_id")
 DEFAULT_MAX_ATTEMPTS: Final = 3
 LEASE_SECONDS: Final = 300
 BACKOFF_BASE_SECONDS: Final = 60
@@ -65,13 +75,17 @@ class Job(Base):
             "status IN ('queued', 'running', 'succeeded', 'failed')", name="status_valid"
         ),
         Index(None, "status", "run_after"),
-        # One queued or running job per subject (revision 0014).
+        # One queued or running job per subject (revisions 0014, 0030).
         Index(
             "uq_jobs_one_active_per_subject",
             "type",
             text("(payload->>'source_id')"),
             text("(payload->>'site_id')"),
             text("(coalesce(payload->'add_tags', '[]'::jsonb))"),
+            text("(payload->>'template')"),
+            text("(payload->>'tenant_id')"),
+            text("(payload->>'user_id')"),
+            text("(payload->>'notice_id')"),
             unique=True,
             postgresql_nulls_not_distinct=True,
             postgresql_where=text("status IN ('queued', 'running')"),
@@ -167,12 +181,12 @@ async def enqueue(
     return existing
 
 
-def _subject(payload: Mapping[str, Any]) -> tuple[Any, Any, tuple[str, ...]]:
-    """What the unique index compares: source, site and added tags."""
+def _subject(payload: Mapping[str, Any]) -> tuple[Any, ...]:
+    """What the unique index compares: source, site, added tags, and a mail's template
+    and recipient (revision 0030)."""
     tags = payload.get("add_tags")
     return (
-        payload.get("source_id"),
-        payload.get("site_id"),
+        *(payload.get(key) for key in SUBJECT_KEYS),
         tuple(tags) if isinstance(tags, list) else (),
     )
 

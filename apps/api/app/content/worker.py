@@ -9,7 +9,9 @@ concurrency stays as tuned in Phase 1a, findings §9). Each job type has a handl
 - ``withdraw_source``: ``app.content.withdraw.withdraw_source`` (P1b-03), which also
   purges the tenants' answer caches;
 - ``crawl_site``: registered by the item that builds it (P1b-04); a job of a type
-  without a handler fails with ``unsupported_job_type``.
+  without a handler fails with ``unsupported_job_type``;
+- ``send_mail`` (P1b-11): ``app.mail.jobs.send_mail``, when the worker was given a mail
+  context; mail failures that may pass (timeouts, 429, 5xx) are retried with backoff.
 
 A handler returns an error code or None; transient RAGFlow failures (timeouts,
 unreachable, 5xx) are retried with backoff until the job's last attempt. While a
@@ -43,6 +45,7 @@ from app.content.jobs import LEASE_SECONDS, ClaimedJob, claim, finish, release, 
 from app.content.tags import TagConfig
 from app.content.withdraw import withdraw_source
 from app.core.logging import log
+from app.mail.jobs import MailContext, send_mail
 from app.retrieval.ragflow import RagflowClient
 
 POLL_INTERVAL_SECONDS: Final = 5.0
@@ -76,6 +79,7 @@ class Context:
     tags: Mapping[str, TagConfig]
     content_root: Path
     parse_poll_interval: float = PARSE_POLL_SECONDS
+    mail: MailContext | None = None  # P1b-11: send_mail jobs
 
 
 def _source_id(job: ClaimedJob) -> UUID | None:
@@ -142,8 +146,28 @@ def withdraw_handler(ctx: Context) -> Handler:
     return handle
 
 
+def mail_handler(mail: MailContext) -> Handler:
+    async def handle(job: ClaimedJob) -> Outcome:
+        result = await send_mail(mail, job)
+        # Metadata only: the job, its template and outcome; never the address or text.
+        log(
+            "mail.job",
+            level="info" if result.error_code is None else "warning",
+            job_id=str(job.id),
+            template=str(job.payload.get("template", ""))[:64],
+            status="sent" if result.error_code is None else "failed",
+            error_code=result.error_code,
+        )
+        return Outcome(result.error_code, retry=result.retry)
+
+    return handle
+
+
 def handlers(ctx: Context) -> dict[str, Handler]:
-    return {"ingest_source": ingest_handler(ctx), "withdraw_source": withdraw_handler(ctx)}
+    registry = {"ingest_source": ingest_handler(ctx), "withdraw_source": withdraw_handler(ctx)}
+    if ctx.mail is not None:
+        registry["send_mail"] = mail_handler(ctx.mail)
+    return registry
 
 
 async def _keep_lease(

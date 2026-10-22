@@ -73,8 +73,9 @@ marked "default" run with the stated value unless the owner says otherwise.
      desk-checked only and recorded as such; Keycloak can serve SAML too if time allows.
    Client IDs and secrets are entered by the owner in the operator console, never
    pasted to a session.
-10. **Backups**: whether the nightly volume backup is in place (owner-handled); the restore
-    test is recorded if the owner has done it, otherwise marked open.
+10. **Backups** (owner, Oct 22, 2026): the nightly volume backup is in place; a restore has
+    not been tested. Recorded as open in findings section 8; the restore test is the
+    owner's, outside this release.
 
 ## Order of work
 

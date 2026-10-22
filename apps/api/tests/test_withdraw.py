@@ -30,8 +30,7 @@ from app.content.withdraw import SUPERSEDED_REASON, purge_answer_cache
 from app.core import cache
 from app.core.db import tenant_session
 from app.tenancy.models import INTERNAL_TENANT_ID
-from tests.conftest import CONSENT_VERSION
-from tests.conftest import CONVERSATION_COLUMNS, CONVERSATION_DEFAULTS
+from tests.conftest import CONSENT_VERSION, CONVERSATION_COLUMNS, CONVERSATION_DEFAULTS
 from tests.fakes import FakeRedis
 from tests.test_api import Harness, api
 from tests.test_ingest import PDF, TAGS, Env, Ingest, content_user, env, meta, source_row

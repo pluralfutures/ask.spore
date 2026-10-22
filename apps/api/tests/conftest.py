@@ -30,6 +30,7 @@ pytest_plugins = ("tests.chat_fixtures",)
 CONSENT_VERSION: str = tomllib.loads(
     (Path(__file__).resolve().parents[3] / "config" / "models.toml").read_text(encoding="utf-8")
 )["consent"]["version"]
+CONSENT_DEFAULTS_SQL = f"consent_version = '{CONSENT_VERSION}', consented_at = now()"
 
 API_DIR = Path(__file__).resolve().parents[1]
 SEED_USERS = "analyst@example.org:Test Analyst,Editor@Example.org:Test Editor"

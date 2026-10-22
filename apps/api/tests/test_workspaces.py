@@ -22,8 +22,8 @@ from app.core.db import session_factory, tenant_session
 from app.retrieval.types import RetrievedChunk
 from app.tenancy import workspaces
 from app.tenancy.models import INTERNAL_TENANT_ID
-from tests.conftest import CONSENT_VERSION
 from tests.chat_fixtures import DATASETS, World, chunks_for
+from tests.conftest import CONSENT_VERSION
 from tests.fakes import FakeRedis, FakeRetriever, delta, sse
 from tests.fakes import OpenAIRecorder as Recorder
 from tests.test_api import Harness, api  # noqa: F401 - fixture

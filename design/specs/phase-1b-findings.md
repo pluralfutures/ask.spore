@@ -300,8 +300,18 @@ Postgres and Redis listen on loopback and the Compose network only.
 
 ### Independent review of Oct 22, 2026 (P1b-16)
 
-Launched by the orchestrating session on the diff 6516048..bd1bc46; its report is recorded
-here verbatim when the owner relays it.
+**Signed, no blocker.** Launched by the orchestrating session on the diff 6516048..bd1bc46;
+the report is `design/specs/phase-1b-independent-review.md`. Its ruling on `jobs`: acceptable
+for this release, with RLS by payload `tenant_id` and a cross-tenant test required before any
+tenant-facing route reads the table. That and its other follow-ups (no `FetchError` message in
+logs, a Compose non-loopback port test, a lower `downloads_days` cap, the re-pins after the
+publishers' changelogs) are backlog lines.
+
+### Section 2: live checks
+
+| Check | Result |
+| --- | --- |
+| 2.1 Platform mail (P1b-11) | **Pass.** Invitation to a new `cc` tenant admin (daniel+cc2; the first address was taken since Phase 1a, 409 `email_taken`, and resend is backlog by decision 15). Job `459fc857-e095-453e-90b0-3226a16bc8e0`: first run failed `mail_not_configured` (F2); re-queued 22:04:50 UTC, `succeeded` 22:04:53, 1 attempt, 481 ms; audit `mail.sent` (template `invitation`, provider `scaleway`). Owner confirmed: delivered, subject "You are invited to SporeBot", first-name greeting, SPF, DKIM and DMARC pass, From "SporeBot" <reply@askspore.myceliumgastronomy.com>. DMARC on the organisation domain is `p=none` (pre-launch backlog). The daniel+cc2 user is removed at close-out. |
 
 ### Issues found and fixed during the release
 

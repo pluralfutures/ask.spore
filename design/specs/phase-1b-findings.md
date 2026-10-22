@@ -275,6 +275,34 @@ Postgres and Redis listen on loopback and the Compose network only.
   dependencies. **1345 passed, 0 failed, 1 deselected** (`test_ragflow_integration`). ruff and
   `mypy --strict` (105 files) clean.
 
+- **1.2 Controls on the new tables** (all in `apps/api/tests/`). The generic checks run over
+  every table in `test_schema.TENANT_TABLES`, which now includes `downloads`, `content_roles`
+  and `tenant_login_policy` (`test_tenant_tables_list_is_complete` fails on a tenant table
+  missing from the list): `test_table_has_forced_rls_policy_and_tenant_first_index`,
+  `test_other_tenant_sees_zero_rows`, `test_no_tenant_set_sees_zero_rows`,
+  `test_cannot_write_rows_for_another_tenant`, `test_cannot_move_rows_to_another_tenant`,
+  `test_app_role_cannot_bypass_rls`.
+
+| Table or object | Tests beyond the generic ones |
+| --- | --- |
+| `content_roles` | `test_register::test_roles_are_internal_only_and_read_only_for_the_app`, `test_proposing_needs_the_editor_role`, `test_an_editor_cannot_approve`, `test_audit_allow_list_takes_roles_and_self_approval_as_scalars_only`; `test_content_console::test_tenant_admins_and_users_cannot_reach_any_content_route`, `test_an_internal_user_without_a_content_role_is_refused`, `test_the_console_never_returns_document_text`; `test_withdraw::test_the_content_role_sees_identifiers_and_flags_only`; `test_eval_service::test_a_service_identity_given_roles_later_is_still_refused` |
+| `tenant_login_policy` | `test_login_policy::test_a_domain_of_tenant_a_never_offers_tenant_bs_methods`, `test_a_domain_claimed_by_two_tenants_offers_nothing_tenant_specific`, `test_discovery_answer_carries_no_tenant_identifiers`, `test_policy_body_takes_no_sso_fields_or_identifiers`, `test_every_new_tenant_gets_a_default_policy`, `test_app_role_reads_its_own_policy_but_cannot_change_it`; `test_sso::test_address_of_another_tenants_user_is_not_provisioned`, `test_a_token_from_a_source_bound_to_tenant_a_cannot_act_in_tenant_b`, `test_nothing_identifying_reaches_the_logs` |
+| `jobs` (shared, outside tenant RLS by design, revisions 0014 and 0030) | `test_jobs::test_payloads_hold_identifiers_only`, `test_a_failed_job_records_an_error_code_and_no_body`, `test_log_lines_take_job_fields_as_scalars_only`; `test_mail::test_rendering_carries_no_identifier_beyond_the_recipient_address`, `test_the_first_admin_invite_sends_an_email_with_no_address_in_any_log`. **Review note:** since 0030 mail jobs carry `tenant_id` and `user_id` in the payload and the application role may read every job; no tenant-facing route reads `jobs` (worker, purge, termination and the content console only). Not a blocker in this review; put to the independent review for a ruling. |
+| `sites`, `site_pages` (shared, no tenant data) | `test_sites::test_sites_are_shared_tables_the_app_cannot_delete_and_the_operator_cannot_read`, `test_registration_checks_roles_input_and_the_host`, `test_a_crawl_never_connects_to_a_rebound_internal_address` |
+| `downloads` | `test_files::test_another_tenants_workspace_is_not_found`, `test_a_file_outside_the_workspace_is_not_downloadable_by_direct_url`, `test_listed_file_that_is_not_downloadable_is_refused`, `test_download_serves_our_stored_copy_once_and_is_audited`; `test_retention_purge::test_purge_deletes_exactly_the_expired_rows` |
+| Consent columns on `users` | `test_consent::test_the_application_role_updates_only_its_tenants_consent`, `test_tenant_admin_pages_are_gated_like_users`, `test_the_refusal_log_line_carries_identifiers_only`, `test_the_tenant_admin_audit_export_includes_acceptance_events`; `test_eval_service::test_the_service_identity_is_not_consent_gated_but_humans_are` |
+| `usage_ledger.reasoning_tokens` | `test_reasoning::test_reasoning_tokens_reach_the_ledger_and_the_log_as_counts`, `test_reasoning_is_never_persisted_cached_audited_or_logged`, `test_reasoning_count_reads_objects_and_mappings_and_defaults_to_zero` |
+| Role `askspore_retention` | `test_retention_purge::test_the_retention_role_reads_no_content_and_needs_a_tenant`, `test_the_application_role_does_not_inherit_the_retention_role`, `test_a_tenant_scoped_purge_reaches_only_that_tenant`, `test_zero_retention_leaves_no_rows_after_the_answer`; `test_termination::test_termination_leaves_no_rows_for_the_tenant_and_writes_the_certificate`, `test_termination_refuses_while_a_tenant_table_is_unknown`; `test_tenant_admin::test_retention_cannot_be_set_above_30_days` |
+
+  The Phase 1a controls keep their tests (findings 1a §10, "Isolation review"); all ran in
+  1.1. **Signed:** the isolation review of the Phase 1b tables passes at bd1bc46, with the
+  `jobs` note above for the independent review.
+
+### Independent review of Oct 22, 2026 (P1b-16)
+
+Launched by the orchestrating session on the diff 6516048..bd1bc46; its report is recorded
+here verbatim when the owner relays it.
+
 ### Issues found and fixed during the release
 
 | # | Item | What | Fix |

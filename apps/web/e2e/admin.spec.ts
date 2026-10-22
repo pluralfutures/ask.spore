@@ -43,10 +43,16 @@ test("an admin saves the instructions as a new version", async ({ page }) => {
 
   const instructions = page.getByLabel("Additional instructions");
   const save = page.getByRole("button", { name: "Save as new version" });
-  for (const text of ["Synthetic first instructions.", "Synthetic second instructions."]) {
+  const texts = ["Synthetic first instructions.", "Synthetic second instructions."];
+  for (const [index, text] of texts.entries()) {
     await instructions.fill(text);
     await save.click();
+    // Wait for the save to land in the reloaded history, not just for the button to be
+    // disabled (it is disabled while the save is pending too): otherwise the next fill
+    // races the first save's completion (P1b-13 f, flaky on PR #35).
+    await expect(page.getByText(`Version history (${index + 1})`)).toBeVisible();
     await expect(save).toBeDisabled();
+    await expect(instructions).toHaveValue(text);
   }
   await page.getByText("Version history (2)").click();
   await expect(page.getByTestId("version-2")).toContainText("Synthetic second instructions.");

@@ -344,10 +344,13 @@ function Instructions({ workspace }: { workspace: Workspace }) {
   const [draft, setDraft] = useState<string | null>(null);
   const text = draft ?? history.data?.[0]?.text ?? "";
   const save = useMutation({
-    mutationFn: () => adminApi.savePrompt(workspace.id, text),
-    onSuccess: async () => {
-      setDraft(null);
+    mutationFn: (saved: string) => adminApi.savePrompt(workspace.id, saved),
+    // The draft stays until the reloaded history holds the saved version (so the field
+    // never shows the previous one in between), and is cleared only if it is still the
+    // text that was saved: an edit typed while the save ran is kept (P1b-13 f).
+    onSuccess: async (_, saved) => {
       await queryClient.invalidateQueries({ queryKey: key });
+      setDraft((current) => (current === saved ? null : current));
     },
   });
 
@@ -371,7 +374,7 @@ function Instructions({ workspace }: { workspace: Workspace }) {
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={() => save.mutate()}
+          onClick={() => save.mutate(text)}
           disabled={save.isPending || draft === null}
           className="rounded bg-slate-900 px-3 py-1 text-white disabled:opacity-50"
         >

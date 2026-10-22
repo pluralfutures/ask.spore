@@ -86,7 +86,7 @@ These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a
 
 6A.4 **Downloads.** A Customer Document is downloadable only by the Customer's own users and only where the Customer's declaration says so. The Customer may change this by written instruction.
 
-6A.5 **Isolation.** Customer Documents are searched, listed and downloadable only within the Customer's own workspaces and are never available to another customer. The Provider uses them only to provide the Service to the Customer and never to train any model.
+6A.5 **Isolation.** Customer Documents are searched, listed and downloadable only within the Customer's own workspaces and are never available to another customer. The Provider uses them only to provide the Service to the Customer and never to train any model. This includes testing the quality of answers on Customer Documents: test questions are written from them and run in the Customer's own workspaces, and the Provider keeps only the resulting scores, never the questions, answers or document text. The Customer may exclude this testing in the order form (A.8).
 
 6A.6 **Withdrawal.** On the Customer's written request the Provider withdraws a Customer Document within [5] working days. If the Provider receives a third party's notice that a Customer Document infringes its rights, the Provider may withdraw the document at once, without waiting for the Customer's instruction, and tells the Customer without undue delay. The Customer may contest the claim; once it is resolved in the Customer's favour, the Provider re-ingests the document on the Customer's instruction.
 
@@ -238,6 +238,7 @@ Chat-history retention: [30] days (maximum 30; the Customer's administrators may
 | Transfer method for files | [secure transfer method] |
 | Limits | [max file size] MB per file, [max files per batch] per batch; PDF, DOCX, PPTX |
 | Withdrawal on request | Within [5] working days |
+| Answer-quality testing on Customer Documents (§6A.5) | [Allowed (default) / Excluded] |
 
 Signed for [Client]: name [ ], title [ ], date [ ]
 

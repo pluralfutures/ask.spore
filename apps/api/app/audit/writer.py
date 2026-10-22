@@ -69,6 +69,8 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "template",
         "job_id",
         "provider",
+        # Failover (P1b-17): which backup answered ("eu" or "external"), or none.
+        "failover",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.

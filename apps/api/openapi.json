@@ -738,6 +738,21 @@
             "title": "Cached",
             "type": "boolean"
           },
+          "failover": {
+            "anyOf": [
+              {
+                "enum": [
+                  "eu",
+                  "external"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failover"
+          },
           "message_id": {
             "format": "uuid",
             "title": "Message Id",
@@ -1355,6 +1370,21 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "failover": {
+            "anyOf": [
+              {
+                "enum": [
+                  "eu",
+                  "external"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failover"
           },
           "id": {
             "format": "uuid",

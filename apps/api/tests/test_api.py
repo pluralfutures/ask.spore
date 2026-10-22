@@ -202,8 +202,9 @@ async def test_ask_streams_tokens_then_citations_then_done(api: Harness) -> None
         "model",
         "reasoning",
         "truncated",
+        "failover",  # P1b-17: none here
     }
-    assert done["truncated"] is False
+    assert done["truncated"] is False and done["failover"] is None
     # Badge data (P1a-11): the tenant default, reasoning off.
     assert (done["model"], done["reasoning"]) == ("deepseek-v4.1-flash", False)
     assert done["unsupported"] is False

@@ -29,8 +29,7 @@ def upgrade() -> None:
     for table in TABLES:
         op.execute(f"GRANT SELECT ON {table} TO {OPERATOR_ROLE}")
         op.execute(
-            f"CREATE POLICY operator_console ON {table} FOR SELECT TO {OPERATOR_ROLE} "
-            "USING (true)"
+            f"CREATE POLICY operator_console ON {table} FOR SELECT TO {OPERATOR_ROLE} USING (true)"
         )
 
 

@@ -1231,6 +1231,8 @@ export interface components {
       abstained: boolean;
       /** Cached */
       cached: boolean;
+      /** Failover */
+      failover?: ("eu" | "external") | null;
       /**
        * Message Id
        * Format: uuid
@@ -1467,6 +1469,8 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+      /** Failover */
+      failover?: ("eu" | "external") | null;
       /**
        * Id
        * Format: uuid

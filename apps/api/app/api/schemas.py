@@ -142,6 +142,9 @@ class MessageOut(BaseModel):
     # reasoning was on.
     model: str | None = None
     reasoning: bool | None = None
+    # P1b-17: a backup model answered (``model`` is not the conversation's): "eu" or
+    # "external" (served outside the EU).
+    failover: Literal["eu", "external"] | None = None
 
 
 class ConversationDetail(ConversationSummary):
@@ -206,6 +209,9 @@ class DoneData(BaseModel):
     reasoning: bool
     # The answer stopped at the output budget and is shown as cut off.
     truncated: bool
+    # P1b-17: a backup model answered because the conversation's model was unavailable:
+    # "eu" (the other EU provider) or "external" (served outside the EU).
+    failover: Literal["eu", "external"] | None = None
 
 
 class ErrorData(BaseModel):

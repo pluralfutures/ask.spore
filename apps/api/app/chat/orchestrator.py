@@ -123,6 +123,9 @@ class DoneEvent:
     reasoning: bool = False
     # The answer stopped at the output budget (finish reason "length"): shown as cut off.
     truncated: bool = False
+    # P1b-17: a backup answered because the conversation's model failed to open:
+    # "eu" (the other EU provider) or "external" (OpenRouter, entitled tenants only).
+    failover: str | None = None
 
 
 @dataclass(frozen=True)
@@ -192,6 +195,7 @@ class _Run:
     cache_hit: bool = False
     retrieved: int = 0
     context: int = 0
+    failover: str | None = None  # P1b-17: which backup answered, if one did
 
     def add_usage(self, usage: Usage | None, model: str) -> None:
         if usage is not None:
@@ -416,12 +420,15 @@ class Orchestrator:
         parts: list[str] = []
         held = not general
         try:
-            stream = await self._llm.answer(
+            # P1b-17: an EU model that fails to open fails over to the other EU provider,
+            # and to OpenRouter only when ``authorize`` found the tenant entitled.
+            stream, run.failover = await self._llm.answer_with_failover(
                 system,
                 [c.for_prompt() for c in context],
                 run.history,
                 run.question,
                 run.auth.choice,
+                run.auth.failover,
             )
             run.model = stream.model
             async for delta in stream:
@@ -467,8 +474,9 @@ class Orchestrator:
         yield CitationsEvent(citations)
 
         # 9. Cache, then persist and audit (cached first: the client may leave after done).
-        # A cut-off or withheld answer is not cached, so asking again gets a fresh one.
-        if not truncated and not withheld:
+        # A cut-off or withheld answer is not cached, so asking again gets a fresh one;
+        # nor is a failover's answer, which is not the conversation's model's (P1b-17).
+        if not truncated and not withheld and run.failover is None:
             await self._cache_set(
                 run.ctx.tenant_id,
                 key,
@@ -546,6 +554,7 @@ class Orchestrator:
             model=run.model or run.conversation.model,
             reasoning=run.conversation.reasoning,
             truncated=truncated,
+            failover=run.failover,
         )
 
     async def _persist(
@@ -640,6 +649,7 @@ class Orchestrator:
             "prompt": run.prompt,
             "instructions_version": run.instructions.version,
             "cache_hit": run.cache_hit,
+            "failover": run.failover,
             "retrieved_chunk_count": run.retrieved,
             "context_chunk_count": run.context,
             "cited_chunk_ids": [c.chunk_id for c in citations],

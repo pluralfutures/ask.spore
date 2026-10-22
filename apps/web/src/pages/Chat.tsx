@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Citation, DoneData } from "../api/types";
 import { AssistantMessage } from "../components/AssistantMessage";
+import { failoverNote } from "../lib/failover";
 import { CitationPanel } from "../components/CitationPanel";
 import { ConversationHeader } from "../components/ConversationHeader";
 import type { StartState } from "./NewConversation";
@@ -153,6 +154,7 @@ export function Chat() {
                 {cutOff.has(m.id) ? (
                   <p className="mt-1 text-sm text-amber-900">{CUT_OFF_NOTE}</p>
                 ) : null}
+                <FailoverNote kind={m.failover} />
               </li>
             ),
           )}
@@ -175,6 +177,7 @@ export function Chat() {
                 {live.done?.truncated ? (
                   <p className="mt-1 text-sm text-amber-900">{CUT_OFF_NOTE}</p>
                 ) : null}
+                <FailoverNote kind={live.done?.failover} />
                 {live.error ? <p className="mt-2 text-red-700">{live.error}</p> : null}
               </li>
             </>
@@ -211,4 +214,13 @@ export function Chat() {
       ) : null}
     </div>
   );
+}
+
+function FailoverNote({ kind }: { kind: "eu" | "external" | null | undefined }) {
+  const note = failoverNote(kind);
+  return note ? (
+    <p data-testid="failover" className="mt-1 text-sm text-slate-600">
+      {note}
+    </p>
+  ) : null;
 }

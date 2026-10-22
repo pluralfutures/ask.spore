@@ -133,6 +133,11 @@ class LlmConfig(_Strict):
     """Which provider the API and the eval harness call (findings M2)."""
 
     provider: Literal["mistral", "scaleway"] = "mistral"
+    # P1b-17 (owner decision 2 of Oct 22, 2026): when the active provider fails to open
+    # an answer (5xx, 429, timeout), the other EU provider answers instead (Stack
+    # Decision, fallback LLM row). Needs that provider's section and key. Tenants with
+    # the external-models entitlement may then fail over to OpenRouter as well.
+    eu_failover: bool = False
 
 
 class ScalewayConfig(_Strict):
@@ -631,6 +636,11 @@ def load_settings(
         *([PROVIDER_SECRETS[provider]] if provider else []),
         *(AUTH_SECRETS[auth_mode] if auth_mode else ()),
     ]
+    if models is not None and models.llm.eu_failover:
+        backup = "mistral" if models.llm.provider == "scaleway" else "scaleway"
+        if backup == "scaleway" and models.scaleway is None:
+            problems.append("llm.eu_failover needs a [scaleway] section")
+        required.append(PROVIDER_SECRETS[backup])
     missing = [name for name in required if not env.get(name, "").strip()]
     if missing:
         problems.append("missing required secrets in the environment: " + ", ".join(missing))

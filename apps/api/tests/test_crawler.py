@@ -353,6 +353,36 @@ async def test_revisit_tells_gone_and_moved_pages_apart() -> None:
         assert (moved.kind, moved.reason, moved.url) == ("missing", "moved", ROOT + "/old")
 
 
+async def test_a_redirect_target_obeys_robots_and_the_scope_rules() -> None:
+    robots = "User-agent: *\nDisallow: /private/\n"
+    site = Site(
+        three_page_site(
+            **{
+                "/robots.txt": (200, {}, robots),
+                "/news/x": (301, {"location": "/private/y"}, ""),
+                "/news/z": (301, {"location": "/drafts/z"}, ""),
+                "/private/y": html("Private", "Hidden"),
+                "/drafts/z": html("Draft", "Unfinished"),
+            }
+        )
+    )
+    async with site.client() as http:
+        crawler = SiteCrawler(
+            http,
+            ROOT + "/",
+            max_pages=5,
+            scope=Scope(deny=("/drafts/*",)),
+            special=no_special,
+            limiter=Clock().limiter(),
+        )
+        await crawler.check()
+        to_private = await crawler.visit(ROOT + "/news/x")
+        to_draft = await crawler.visit(ROOT + "/news/z")
+    assert (to_private.kind, to_private.reason) == ("blocked", "robots")
+    assert (to_draft.kind, to_draft.reason) == ("blocked", "out_of_scope")
+    assert to_private.markdown == "" and to_draft.markdown == ""
+
+
 def test_normalise_strips_fragment_and_tracking_parameters() -> None:
     assert (
         normalise("https://Site.example/a?utm_source=x&id=3&fbclid=y#top")

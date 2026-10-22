@@ -526,3 +526,72 @@ async def test_sites_are_shared_tables_the_app_cannot_delete_and_the_operator_ca
     for table in ("sites", "site_pages"):
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
             await app_conn.fetch(f"SELECT * FROM {table}")
+
+
+# --- review findings: decisions a crawl must not undo ---------------------------------------
+
+
+async def test_a_page_under_takedown_gets_no_new_version_until_the_reviewer_decides(
+    crawls: Crawls, admin_conn: asyncpg.Connection
+) -> None:
+    e = crawls.e
+    site_id = await crawls.approved()
+    await crawls.run()
+    page_a = (await crawls.sources(site_id))[ROOT + "/a"]
+    await record_takedown(
+        e.factory,
+        page_a["id"],
+        e.user_id,
+        reference="TD-WEB-2",
+        requested_on=date(2026, 10, 22),
+        licence_breach=False,
+        licence_grounds=True,
+    )
+    crawls.site.pages["/a"] = html("Page A", "Alpha lightly edited")
+    await crawls.crawl(site_id)
+    current = (await crawls.sources(site_id))[ROOT + "/a"]
+    assert current["id"] == page_a["id"]  # no V2 slipped past the takedown
+    assert current["status"] == "ingested" and current["takedown_reference"] == "TD-WEB-2"
+    # Once withdrawn, a later version of that URL stays out too.
+    await request_withdrawal(e.factory, page_a["id"], e.user_id, reason="takedown")
+    await crawls.run()
+    del crawls.site.pages["/a"]
+    await crawls.crawl(site_id)  # gone for a while
+    crawls.site.pages["/a"] = html("Page A", "Alpha back, edited again")
+    await crawls.crawl(site_id)
+    assert ROOT + "/a" not in await crawls.sources(site_id)
+
+
+async def test_a_page_a_reviewer_withdrew_stays_out_after_it_was_gone_for_a_while(
+    crawls: Crawls,
+) -> None:
+    e = crawls.e
+    site_id = await crawls.approved()
+    await crawls.run()
+    page_b = (await crawls.sources(site_id))[ROOT + "/b"]
+    await request_withdrawal(e.factory, page_b["id"], e.user_id, reason="off topic")
+    page = (await crawls.pages(site_id))[ROOT + "/b"]
+    assert (page["state"], page["reason"]) == ("blocked", "withdrawn")  # at once
+    await crawls.run()
+    del crawls.site.pages["/b"]
+    await crawls.crawl(site_id)
+    crawls.site.pages["/b"] = html("Page B", "Beta returns with new words")
+    await crawls.crawl(site_id)
+    assert ROOT + "/b" not in await crawls.sources(site_id)
+    page = (await crawls.pages(site_id))[ROOT + "/b"]
+    assert (page["state"], page["reason"]) == ("blocked", "withdrawn")
+
+
+async def test_a_reservation_found_mid_crawl_withdraws_the_pages_admitted_before_it(
+    crawls: Crawls, admin_conn: asyncpg.Connection
+) -> None:
+    reserved = (200, {"content-type": "text/html", "tdm-reservation": "1"}, html("B", "Beta"))
+    crawls.site.pages["/b"] = reserved  # /, /a are admitted first, then /b reserves
+    site_id = await crawls.approved()
+    await crawls.run()
+    site = await crawls.site_row(site_id)
+    assert (site["allow_decision"], site["page_count"]) == ("tdm_reserved", 0)
+    assert await crawls.sources(site_id) == {}  # ingested, then withdrawn at once
+    statuses = await admin_conn.fetch("SELECT status FROM sources WHERE site_id = $1", site_id)
+    assert {r["status"] for r in statuses} == {"withdrawn"}
+    assert crawls.e.fake.documents == {}  # nothing of the site left in RAGFlow

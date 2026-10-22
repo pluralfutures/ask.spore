@@ -127,6 +127,7 @@ INPUT_CODES = frozenset(
         "replace_or_keep_both",
         "not_a_replacement_candidate",
         "replacement_choice_required",
+        "already_being_replaced",
     }
 )
 

@@ -333,6 +333,13 @@ async def test_a_possible_replacement_needs_a_valid_choice(
         assert refused.value.code == code
     assert (await source_row(admin_conn, third.source_id))["status"] == "proposed"
     await approve(e.factory, third.source_id, e.user_id, replaces=two.source_id)
+    # A second proposal cannot replace the same source again.
+    rival = await run(
+        SourceFile("p5.md", "markdown", b"# Synthetic 5"), meta("sample-web"), reviewer_id=None
+    )
+    with pytest.raises(RegisterError) as twice:
+        await approve(e.factory, rival.source_id, e.user_id, replaces=two.source_id)
+    assert twice.value.code == "already_being_replaced"
     assert (await source_row(admin_conn, third.source_id))["supersedes_id"] == two.source_id
     # A link no ingested source has needs no choice.
     fourth = await run(

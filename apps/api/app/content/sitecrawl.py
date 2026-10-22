@@ -160,7 +160,7 @@ class _Crawl:
 
     async def apply(self, visit: Visit) -> None:
         known = self.known.get(visit.url)
-        if known is not None and known.reason == "withdrawn":
+        if known is not None and known.reason in ("withdrawn", "taken_down"):
             return  # a reviewer withdrew the page: it stays out, whatever the site does
         if visit.kind == "page":
             await self._page(visit, known)
@@ -190,7 +190,10 @@ class _Crawl:
                 # A reviewer withdrew the page's register row: it stays out.
                 await self._block(visit.url, "withdrawn")
                 return
-            if known.source_sha == sha or known.source_status in ("proposed", "approved"):
+            held = await self._held(known.source_id)
+            if known.source_sha == sha or known.source_status in ("proposed", "approved") or held:
+                # Unchanged, in flight, or under a takedown or pending withdrawal: no new
+                # version may slip past the reviewer's decision.
                 async with self.factory() as session, session.begin():
                     await session.execute(
                         update(SitePage)
@@ -213,7 +216,18 @@ class _Crawl:
                     )
                 )
             ).all()
-            if any(r.status == "withdrawn" and r.takedown_reference for r in same):
+            taken_down_here = await session.scalar(
+                select(func.count())
+                .select_from(Source)
+                .where(
+                    Source.site_id == self.site.id,
+                    Source.canonical_url == visit.url,
+                    Source.takedown_reference.is_not(None),
+                )
+            )
+            if taken_down_here or any(
+                r.status == "withdrawn" and r.takedown_reference for r in same
+            ):
                 reason: str | None = "taken_down"
             elif any(r.status != "withdrawn" for r in same):
                 reason = "duplicate_content"
@@ -233,6 +247,20 @@ class _Crawl:
                 published_on=visit.published_on,
             )
         self.counts["changed" if supersedes else "new"] += 1
+
+    async def _held(self, source_id: UUID | None) -> bool:
+        """A takedown is recorded, or a withdrawal requested, on the page's current row."""
+        if source_id is None:
+            return False
+        async with self.factory() as session:
+            row = (
+                await session.execute(
+                    select(Source.takedown_reference, Source.withdrawal_reason).where(
+                        Source.id == source_id
+                    )
+                )
+            ).first()
+        return row is not None and bool(row.takedown_reference or row.withdrawal_reason)
 
     async def _block(self, url: str, reason: str) -> None:
         async with self.factory() as session, session.begin():
@@ -298,9 +326,17 @@ class _Crawl:
         return new_id
 
     async def block_live(self, reason: str) -> None:
-        for url, known in self.known.items():
-            if known.state == "live":
-                await self._block(url, reason)
+        """Every page live now, those admitted earlier in this crawl included."""
+        async with self.factory() as session:
+            urls = (
+                await session.scalars(
+                    select(SitePage.url).where(
+                        SitePage.site_id == self.site.id, SitePage.state == "live"
+                    )
+                )
+            ).all()
+        for url in urls:
+            await self._block(url, reason)
 
     async def sweep(self) -> None:
         """Withdraw this site's register rows that no live page holds any more."""

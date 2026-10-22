@@ -31,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.audit.writer import record
 from app.content.fetch import Fetched, tdm_reserved
 from app.content.jobs import enqueue
-from app.content.models import Dataset, Source
+from app.content.models import Dataset, SitePage, Source
 from app.content.store import StoredFileError, read, relative_path
 from app.content.tags import TagConfig
 from app.core.db import tenant_session
@@ -65,6 +65,7 @@ SUFFIX_BY_TYPE: Mapping[str, str] = {
 POLL_INTERVAL_SECONDS = 3.0
 PARSE_TIMEOUT_SECONDS = 1800.0
 MAX_ERROR_LENGTH = 2000
+PAGE_GONE_REASON = "crawled page no longer on the site when its ingestion finished"
 
 # proposed and retag_pending wait for a reviewer (P1b-01); refused: not approved;
 # queued: approved, with an ingest_source job for the worker (P1b-02).
@@ -308,6 +309,7 @@ async def ingest_source(
                     Source.file_sha256,
                     Source.ragflow_document_ids,
                     Source.supersedes_id,
+                    Source.site_id,
                 ).where(Source.id == source_id)
             )
         ).first()
@@ -420,6 +422,23 @@ async def ingest_source(
                 {"source_id": str(row.supersedes_id)},
                 created_by=None,
             )
+        if result.status == "ingested" and row.site_id is not None:
+            # P1b-04: a crawled page that left the site (gone, out of scope, a TDM
+            # reservation) while it waited for ingestion is withdrawn at once.
+            live = await session.scalar(
+                select(func.count())
+                .select_from(SitePage)
+                .where(SitePage.source_id == source_id, SitePage.state == "live")
+            )
+            if not live:
+                await session.execute(
+                    update(Source)
+                    .where(Source.id == source_id)
+                    .values(withdrawal_reason=PAGE_GONE_REASON)
+                )
+                await enqueue(
+                    session, "withdraw_source", {"source_id": str(source_id)}, created_by=None
+                )
     return result
 
 

@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.audit.writer import AuditValue, record
 from app.content.ingest import IngestError, SourceFile, SourceMetadata
 from app.content.jobs import enqueue
-from app.content.models import Dataset, Source
+from app.content.models import Dataset, SitePage, Source
 from app.content.roles import EDITOR, REVIEWER, RoleError, require, roles_of
 from app.content.store import STORABLE_TYPES, stage
 from app.content.tags import TagConfig
@@ -305,6 +305,15 @@ async def _review(
             if choice.replaces is not None:
                 if choice.replaces not in candidates:
                     raise RegisterError("not_a_replacement_candidate")
+                taken = await session.scalar(
+                    select(Source.id).where(
+                        Source.supersedes_id == choice.replaces,
+                        Source.id != source_id,
+                        Source.status.in_(("approved", "ingested", "failed")),
+                    )
+                )
+                if taken is not None:  # another approved version already replaces it
+                    raise RegisterError("already_being_replaced")
                 values["supersedes_id"] = choice.replaces
                 extra["replaces"] = str(choice.replaces)
             elif candidates and not choice.keep_both:
@@ -631,6 +640,13 @@ async def request_withdrawal(
             .where(Source.id == source_id)
             .values(withdrawal_reason=note, updated_at=func.now())
         )
+        if row.site_id is not None:
+            # A crawled page a reviewer withdraws stays out of later crawls (P1b-04).
+            await session.execute(
+                update(SitePage)
+                .where(SitePage.site_id == row.site_id, SitePage.source_id == source_id)
+                .values(state="blocked", reason="withdrawn", special_category=None)
+            )
         job_id = await enqueue(
             session, "withdraw_source", {"source_id": str(source_id)}, created_by=reviewer_id
         )

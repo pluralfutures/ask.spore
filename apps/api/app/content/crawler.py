@@ -360,6 +360,10 @@ class SiteCrawler:
         final = normalise(page.url)
         if not _same_site(final, self.host):
             return Visit(url, "blocked", "off_site")
+        if final != url and not self._allowed(final):  # a redirect: the target's rules
+            return Visit(final, "blocked", "robots")
+        if final != url and not self.scope.admits(final):
+            return Visit(final, "blocked", "out_of_scope")
         if tdm_reserved(page.headers, page.content, page.is_html):
             self.status = "tdm_reserved"
             return Visit(final, "blocked", "tdm_reserved")

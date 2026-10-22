@@ -385,13 +385,22 @@ async def test_a_possible_replacement_is_flagged_and_needs_the_reviewers_choice(
     assert (await client.get(f"{API}/sources/{first}")).json()["status"] == "withdrawn"
 
 
-async def test_downloadable_needs_a_licence_basis_or_letter_and_the_letter_is_kept(
+async def test_downloadable_needs_no_letter_and_an_attached_letter_is_kept(
     console: Console,
 ) -> None:
+    """Decision 10 (Oct 22, 2026): a downloadable third-party file needs its licence basis,
+    not a permission letter; a letter may still be attached."""
     await console.roles("content_editor", "content_reviewer")
     client = console.editor()
-    refused = await console.propose(client, PDF.read_bytes(), downloadable="true")
-    assert (refused.status_code, refused.json()["detail"]) == (422, "licence_file_required")
+    variant = PDF.read_bytes() + b"\n% synthetic variant\n"
+    without = await console.propose(client, variant, downloadable="true")
+    assert without.status_code == 201, without.text
+    detail = (await client.get(f"{API}/sources/{without.json()['source_id']}")).json()
+    assert (detail["downloadable"], detail["licence_file"]) == (True, False)
+    no_basis = await console.propose(
+        client, PDF.read_bytes(), downloadable="true", licence_basis=""
+    )
+    assert no_basis.status_code == 422
     letter = b"%PDF-1.4 synthetic permission letter"
     response = await console.propose(client, PDF.read_bytes(), downloadable="true", licence=letter)
     assert response.status_code == 201, response.text

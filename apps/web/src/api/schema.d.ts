@@ -450,8 +450,8 @@ export interface paths {
     /**
      * Propose Source
      * @description An editor proposes a file (upload) or a URL, with the manifest's metadata. The
-     *     download flag needs a licence basis that permits redistribution (own work, an open
-     *     licence) or the permission letter attached.
+     *     licence basis is always required; a licence or permission letter may be attached,
+     *     downloadable or not (decision 10, Oct 22, 2026: no letter is required for now).
      */
     post: operations["propose_source_api_v1_content_sources_post"];
     delete?: never;

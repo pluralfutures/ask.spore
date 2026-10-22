@@ -23,9 +23,11 @@ from app.content.crawler import (
     published_on,
 )
 from app.content.fetch import (
+    MAX_REDIRECTS,
     USER_AGENT,
     FetchError,
-    public_only,
+    fetch,
+    http_client,
     require_public_url,
 )
 from app.content.special import special_category, whitelisted
@@ -56,7 +58,8 @@ class Site:
         path = request.url.raw_path.decode()
         self.requested.append(path)
         self.user_agents.add(request.headers.get("user-agent", ""))
-        if request.url.host != self.host:
+        # The Host header, not the URL: a pinned request is addressed to the IP (P1b-18).
+        if request.headers["host"].split(":")[0] != self.host:
             return httpx.Response(200, html=html("Elsewhere", "off-site"))
         entry = self.pages.get(path)
         if entry is None:
@@ -428,15 +431,141 @@ async def test_only_public_urls_are_fetched(
     assert refused.value.code == code
 
 
-async def test_a_redirect_to_an_internal_host_is_not_followed() -> None:
-    site = Site({"/": (302, {"location": "http://ragflow/v1/datasets"}, "")})
-    resolve = resolver({"site.example": [PUBLIC], "ragflow": ["172.20.0.7"]})
-    async with site.client() as http:
-        public_only(http, resolve)
+class Network:
+    """The far side of a pinned client: records the address each request was sent to,
+    the Host header and the SNI hostname, and answers as ``site`` would."""
+
+    def __init__(self, site: Site) -> None:
+        self.site = site
+        self.sent: list[tuple[str, str, str | None]] = []
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        sni = request.extensions.get("sni_hostname")
+        self.sent.append((request.url.host, request.headers["host"], sni))
+        return self.site.handler(request)
+
+    def connect(self) -> httpx.AsyncBaseTransport:
+        return httpx.MockTransport(self.handler)
+
+
+class Rebinding:
+    """A DNS server that answers with ``first`` once, then ``then`` (DNS rebinding)."""
+
+    def __init__(self, first: list[str], then: list[str]) -> None:
+        self.answers = [first]
+        self.then = then
+        self.lookups = 0
+
+    async def __call__(self, host: str) -> list[str]:
+        self.lookups += 1
+        return self.answers.pop(0) if self.answers else self.then
+
+
+INTERNAL = ["127.0.0.1", "10.0.0.7", "169.254.169.254", "169.254.42.42", "::1", "fd00:ec2::254"]
+
+
+@pytest.mark.parametrize(
+    "address",
+    [*INTERNAL, "100.100.100.200", "::ffff:127.0.0.1", "64:ff9b::a00:7", "224.0.0.1", "ff0e::1"],
+)
+async def test_a_host_resolving_to_an_internal_address_is_refused_at_connect_time(
+    address: str,
+) -> None:
+    network = Network(Site({"/": html("Home", "Welcome")}))
+    async with http_client(resolver({"site.example": [address]}), network.connect) as http:
         with pytest.raises(FetchError) as refused:
-            await http.get(ROOT + "/")
+            await fetch(http, ROOT + "/")
+    assert refused.value.code == "not_public"
+    assert network.sent == []  # nothing left the process
+
+
+async def test_a_public_address_is_connected_to_directly_keeping_host_and_sni() -> None:
+    network = Network(Site({"/": html("Home", "Welcome")}))
+    async with http_client(resolver({"site.example": [PUBLIC]}), network.connect) as http:
+        page = await fetch(http, ROOT + "/")
+    assert page.status == 200 and page.url == ROOT + "/"  # the URL, not the IP
+    assert network.sent == [(PUBLIC, "site.example", "site.example")]
+
+
+async def test_an_ipv6_public_address_is_pinned() -> None:
+    network = Network(Site({"/": html("Home", "Welcome")}))
+    address = "2606:2800:21f:cb07:6820:80da:af6b:8b2c"
+    async with http_client(resolver({"site.example": [address]}), network.connect) as http:
+        await fetch(http, "http://site.example/")
+    assert network.sent == [(address, "site.example", None)]
+
+
+async def test_a_second_lookup_cannot_rebind_the_connection() -> None:
+    """The check and the connection use one lookup: the internal answer a rebinding DNS
+    server gives on a second lookup is never asked for, let alone used."""
+    network = Network(Site({"/": html("Home", "Welcome")}))
+    dns = Rebinding([PUBLIC], ["127.0.0.1"])
+    async with http_client(dns, network.connect) as http:
+        await fetch(http, ROOT + "/")
+    assert dns.lookups == 1
+    assert [address for address, _, _ in network.sent] == [PUBLIC]
+
+
+async def test_a_rebinding_answer_on_a_later_request_is_refused() -> None:
+    network = Network(Site({"/": html("Home", "Welcome"), "/a": html("A", "Alpha")}))
+    async with http_client(Rebinding([PUBLIC], ["10.0.0.7"]), network.connect) as http:
+        await fetch(http, ROOT + "/")
+        with pytest.raises(FetchError) as refused:
+            await fetch(http, ROOT + "/a")
+    assert refused.value.code == "not_public"
+    assert [address for address, _, _ in network.sent] == [PUBLIC]
+
+
+@pytest.mark.parametrize("address", INTERNAL)
+async def test_a_redirect_to_an_internal_address_is_refused(address: str) -> None:
+    site = Site({"/": (302, {"location": "http://ragflow/v1/datasets"}, "")})
+    network = Network(site)
+    resolve = resolver({"site.example": [PUBLIC], "ragflow": [address]})
+    async with http_client(resolve, network.connect) as http:
+        with pytest.raises(FetchError) as refused:
+            await fetch(http, ROOT + "/")
     assert refused.value.code == "not_public"
     assert site.requested == ["/"]  # the internal request never went out
+
+
+async def test_a_redirect_to_an_ip_literal_or_another_port_is_refused() -> None:
+    for location, code in (("http://10.0.0.7/x", "not_public"), (ROOT + ":8080/x", "bad_port")):
+        site = Site({"/": (302, {"location": location}, "")})
+        resolve = resolver({"site.example": [PUBLIC], "10.0.0.7": ["10.0.0.7"]})
+        async with http_client(resolve, Network(site).connect) as http:
+            with pytest.raises(FetchError) as refused:
+                await fetch(http, ROOT + "/")
+        assert refused.value.code == code
+        assert site.requested == ["/"]
+
+
+async def test_a_redirect_to_a_public_host_is_pinned_to_that_hosts_address() -> None:
+    site = Site({"/": (301, {"location": "https://other.example/"}, "")})
+    network = Network(site)
+    resolve = resolver({"site.example": [PUBLIC], "other.example": ["93.184.216.35"]})
+    async with http_client(resolve, network.connect) as http:
+        page = await fetch(http, ROOT + "/")
+    assert page.url == "https://other.example/"
+    assert network.sent == [
+        (PUBLIC, "site.example", "site.example"),
+        ("93.184.216.35", "other.example", "other.example"),
+    ]
+
+
+async def test_redirects_are_capped() -> None:
+    loop = {f"/{n}": (302, {"location": f"/{n + 1}"}, "") for n in range(MAX_REDIRECTS + 2)}
+    site = Site(loop)
+    async with http_client(resolver({"site.example": [PUBLIC]}), Network(site).connect) as http:
+        with pytest.raises(FetchError) as refused:
+            await fetch(http, ROOT + "/0")
+    assert refused.value.code == "redirects"
+    assert len(site.requested) == MAX_REDIRECTS + 1
+
+
+def test_the_pinned_client_ignores_proxy_settings_from_the_environment() -> None:
+    client = http_client()
+    assert client._trust_env is False  # a proxy would resolve the name itself
+    assert client._mounts == {}
 
 
 def test_cli_crawl_arguments() -> None:

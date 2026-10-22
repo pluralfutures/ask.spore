@@ -88,6 +88,9 @@ class ConversationCreated(_Out):
     # the requested model (``external_spend_cap_reached``), with the text to show.
     notice: str | None = None
     notice_text: str | None = None
+    # P1b-14: the tenant keeps no history; the conversation takes one question and is
+    # deleted when its answer ends (never listed or readable).
+    no_history: bool = False
 
 
 class WorkspaceOut(_Out):
@@ -281,6 +284,28 @@ class MeOut(BaseModel):
     tenant_display_name: str
     # P1b-08: the session's access token expiry (OIDC mode); renew before it.
     session_expires_at: datetime | None = None
+    # P1b-10: true until the user accepts the active use and privacy notice.
+    consent_required: bool = False
+
+
+class ConsentNoticeOut(BaseModel):
+    """The active use and privacy notice (P1b-10): Markdown, from the owner's file."""
+
+    version: str
+    title: str
+    summary: str
+    text: str
+    accepted_version: str | None
+    accepted_at: datetime | None
+    required: bool
+
+
+class ConsentAcceptIn(BaseModel):
+    """The notice version the user read and accepts; must be the active one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: str = Field(pattern=r"^v[1-9][0-9]*$")
 
 
 class ModelOptionOut(BaseModel):
@@ -583,8 +608,9 @@ class WorkspaceDefaultsIn(_In):
 
 
 class RetentionIn(_In):
-    # CLAUDE.md: 30 days maximum; a tenant admin may only shorten it.
-    retention_days: int = Field(ge=1, le=30)
+    # CLAUDE.md: 30 days maximum; a tenant admin may only shorten it. 0 is "no history":
+    # a conversation is kept only while its answer streams (P1b-14).
+    retention_days: int = Field(ge=0, le=30)
 
 
 class TenantSettingsOut(BaseModel):

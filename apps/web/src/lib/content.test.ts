@@ -7,7 +7,6 @@ import {
   emptyProposal,
   errorMessage,
   historyLine,
-  needsLicenceLetter,
   pageReason,
   parsePatterns,
   proposalForm,
@@ -53,19 +52,14 @@ describe("proposal form", () => {
     expect("form" in result && result.form.get("url")).toBe("https://example.org/x");
   });
 
-  it("requires a letter for a downloadable third-party file, not for own work", () => {
-    const downloadable = { ...fields, downloadable: true };
-    expect(needsLicenceLetter(downloadable, false)).toBe(true);
-    expect(proposalForm(downloadable, pdf, null)).toEqual({
-      error: expect.stringContaining("permission letter"),
-    });
+  it("needs the licence basis but no letter for a downloadable file (decision 10)", () => {
+    const downloadable = { ...fields, downloadable: true, licenceBasis: "publisher-terms" };
+    const without = proposalForm(downloadable, pdf, null);
+    expect("form" in without && without.form.get("licence_file")).toBeNull();
+    expect(proposalForm({ ...downloadable, licenceBasis: " " }, pdf, null)).toHaveProperty("error");
     const letter = new File(["synthetic"], "letter.pdf");
     const withLetter = proposalForm(downloadable, pdf, letter);
     expect("form" in withLetter && withLetter.form.get("licence_file")).toBeInstanceOf(File);
-    expect(needsLicenceLetter({ ...downloadable, licenceBasis: "own-work" }, false)).toBe(false);
-    expect(needsLicenceLetter({ ...downloadable, licenceBasis: "open-licence" }, false)).toBe(
-      false,
-    );
   });
 
   it("sends every tag and the flag as form fields", () => {

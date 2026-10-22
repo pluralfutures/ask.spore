@@ -1,5 +1,5 @@
 """Tenants, users, entitlements and tenant settings. Mirrors alembic revisions 0001, 0004,
-0006, 0011, 0020 and 0021; the migrations are authoritative. The login policy is in
+0006, 0011, 0020, 0021 and 0032; the migrations are authoritative. The login policy is in
 ``app.tenancy.login_policy``."""
 
 from __future__ import annotations
@@ -81,6 +81,11 @@ class User(Base):
     status: Mapped[str] = mapped_column(Text, server_default=text("'active'"))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_method: Mapped[str | None] = mapped_column(Text)
+    # P1b-10: the use and privacy notice version last accepted, and when; the version
+    # whose change notice email was queued.
+    consent_version: Mapped[str | None] = mapped_column(Text)
+    consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    consent_notice_version: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -128,7 +133,8 @@ class TenantSettings(Base):
 
     __tablename__ = "tenant_settings"
     __table_args__ = (
-        CheckConstraint(f"retention_days BETWEEN 1 AND {MAX_RETENTION_DAYS}", name="retention_cap"),
+        # 0 is "no history" (revision 0040, P1b-14).
+        CheckConstraint(f"retention_days BETWEEN 0 AND {MAX_RETENTION_DAYS}", name="retention_cap"),
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(

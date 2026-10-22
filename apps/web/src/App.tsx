@@ -13,6 +13,7 @@ import {
 } from "./api/client";
 import type { AuthMode } from "./api/types";
 import { AiNotice } from "./components/AiNotice";
+import { ConsentGate } from "./components/ConsentGate";
 import { EmailSignIn } from "./components/EmailSignIn";
 import { SignIn } from "./components/SignIn";
 import { Chat } from "./pages/Chat";
@@ -48,17 +49,19 @@ function Signed({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<ConversationList />} />
-          <Route path="/new" element={<NewConversation />} />
-          <Route path="/c/:id" element={<Chat />} />
-          <Route path="/w/:id/files" element={<WorkspaceFiles />} />
-          <Route path="/admin" element={<TenantAdmin />} />
-          <Route path="/operator" element={<OperatorConsole />} />
-          <Route path="/content/*" element={<ContentConsole />} />
-          <Route path="/operator/tenants/:tenantId" element={<OperatorTenant />} />
-          <Route path="/operator/aggregates" element={<OperatorAggregates />} />
-        </Routes>
+        <ConsentGate>
+          <Routes>
+            <Route path="/" element={<ConversationList />} />
+            <Route path="/new" element={<NewConversation />} />
+            <Route path="/c/:id" element={<Chat />} />
+            <Route path="/w/:id/files" element={<WorkspaceFiles />} />
+            <Route path="/admin" element={<TenantAdmin />} />
+            <Route path="/operator" element={<OperatorConsole />} />
+            <Route path="/content/*" element={<ContentConsole />} />
+            <Route path="/operator/tenants/:tenantId" element={<OperatorTenant />} />
+            <Route path="/operator/aggregates" element={<OperatorAggregates />} />
+          </Routes>
+        </ConsentGate>
       </BrowserRouter>
       {children}
     </QueryClientProvider>

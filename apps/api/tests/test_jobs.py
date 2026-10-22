@@ -295,6 +295,7 @@ def test_crawl_and_mail_handlers_register_together(tmp_path: Path) -> None:
         "withdraw_source",
         "crawl_site",
         "send_mail",
+        "purge_retention",
     }
     assert "send_mail" not in worker.handlers(replace(ctx, mail=None))
 

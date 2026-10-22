@@ -11,6 +11,7 @@ import {
   isTenantAdmin,
   lastLogin,
   parseRetention,
+  retentionSummary,
   userActions,
 } from "../lib/admin";
 import { formatDate } from "../lib/format";
@@ -50,6 +51,7 @@ export function TenantAdmin() {
         <Workspaces />
         <Retention />
         <SignInPolicy />
+        <AuditLog />
       </main>
     </AdminGate>
   );
@@ -470,14 +472,20 @@ function Retention() {
       <h2 className="font-semibold">Chat history retention</h2>
       <p className="text-slate-600">
         Conversations are deleted after this many days, at most {MAX_RETENTION_DAYS}. Shortening it
-        also removes existing conversations older than the new limit.
+        also removes existing conversations older than the new limit. 0 keeps no history: each
+        conversation is deleted as soon as its answer ends.
       </p>
+      {settings.data ? (
+        <p className="text-slate-600" data-testid="retention-summary">
+          {retentionSummary(settings.data.retention_days)}
+        </p>
+      ) : null}
       <form onSubmit={submit} noValidate className="mt-2 flex items-end gap-2">
         <label className="flex flex-col">
           Days
           <input
             type="number"
-            min={1}
+            min={0}
             max={MAX_RETENTION_DAYS}
             value={current}
             onChange={(e) => setValue(e.target.value)}
@@ -494,6 +502,38 @@ function Retention() {
       </form>
       {error ? <p className="text-red-700">{error}</p> : null}
       {refusal(save.error) ? <p className="text-red-700">{refusal(save.error)}</p> : null}
+    </section>
+  );
+}
+
+// P1b-10 (architecture §7.2): the tenant's sign-in, admin, operator and consent events.
+function AuditLog() {
+  const download = useMutation({
+    mutationFn: adminApi.auditLog,
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "audit-log.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+    },
+  });
+  return (
+    <section className="rounded bg-white p-3 text-sm">
+      <h2 className="font-semibold">Audit log</h2>
+      <p className="text-slate-600">
+        Sign-in, administration, operator and notice-acceptance events of the last 90 days, as CSV.
+      </p>
+      <button
+        type="button"
+        disabled={download.isPending}
+        onClick={() => download.mutate()}
+        className="mt-2 rounded bg-slate-900 px-3 py-1 text-white"
+      >
+        Download audit log
+      </button>
+      {refusal(download.error) ? <p className="text-red-700">{refusal(download.error)}</p> : null}
     </section>
   );
 }

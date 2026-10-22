@@ -14,7 +14,10 @@ assume but does not inherit:
 - ``askspore_auth`` (revision 0005): pre-authentication lookups for sign-in links;
 - ``askspore_operator`` (revision 0006): the operator console, outside tenant RLS;
 - ``askspore_content`` (revision 0015): the withdrawal job, which flags citations in
-  every tenant's history and lists tenants for the answer-cache purge.
+  every tenant's history and lists tenants for the answer-cache purge;
+- ``askspore_retention`` (revision 0040): the retention purge job, which lists tenants
+  and then deletes expired rows tenant by tenant, with ``app.tenant_id`` set
+  (``tenant_role_session``), so RLS scopes every deletion.
 """
 
 from __future__ import annotations
@@ -37,6 +40,7 @@ APP_ROLE = "askspore_app"
 AUTH_ROLE = "askspore_auth"
 OPERATOR_ROLE = "askspore_operator"
 CONTENT_ROLE = "askspore_content"
+RETENTION_ROLE = "askspore_retention"
 TENANT_SETTING = "app.tenant_id"
 
 NAMING_CONVENTION = {
@@ -49,7 +53,7 @@ NAMING_CONVENTION = {
 
 
 # Roles the API may switch to inside one transaction; never built from input.
-_SET_ROLES = frozenset({AUTH_ROLE, OPERATOR_ROLE, CONTENT_ROLE})
+_SET_ROLES = frozenset({AUTH_ROLE, OPERATOR_ROLE, CONTENT_ROLE, RETENTION_ROLE})
 
 
 class Base(DeclarativeBase):
@@ -90,6 +94,17 @@ async def role_session(
         raise ValueError(f"not a role the API may assume: {role}")
     async with factory() as session, session.begin():
         await session.execute(text(f"SET LOCAL ROLE {role}"))
+        yield session
+
+
+@asynccontextmanager
+async def tenant_role_session(
+    factory: async_sessionmaker[AsyncSession], role: str, tenant_id: UUID
+) -> AsyncIterator[AsyncSession]:
+    """A transaction run as ``role`` and scoped to ``tenant_id``, so that role's grants
+    and the tenant's RLS policies both apply (the retention purge, P1b-14)."""
+    async with role_session(factory, role) as session:
+        await set_tenant(session, tenant_id)
         yield session
 
 

@@ -283,7 +283,7 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 ### 7.2 Tenant admin features (MVP)
 
 - Invite, deactivate and role-assign users; see last login and login method.
-- Shorten chat-history retention from the 30-day maximum, to 1 day in Phase 1a (expiry is applied at read time, so 0 would hide a conversation before its first answer); a true "no history" setting of 0 comes with the Phase 1b purge job. The maximum cannot be raised.
+- Shorten chat-history retention from the 30-day maximum, down to 0 ("no history", Phase 1b P1b-14: a conversation takes one question and is deleted when its answer ends; the daily purge job deletes expired history, with read-time expiry as the second layer). The maximum cannot be raised.
 - Set the default answer mode among those the operator enabled (cannot enable or disable modes).
 - Usage dashboard: queries per day by mode, active users, top sources (no query text).
 - Download tenant audit log (auth and admin events).

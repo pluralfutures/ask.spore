@@ -77,13 +77,12 @@ from app.content import register, sites
 from app.content.datasets import sync_datasets
 from app.content.fetch import (
     MAX_BYTES,
+    Connector,
     FetchError,
     Resolver,
     fetch,
     http_client,
-    public_only,
     require_http_url,
-    require_public_url,
     resolve_host,
 )
 from app.content.ingest import TYPE_BY_SUFFIX, IngestError, SourceFile, SourceMetadata, from_fetched
@@ -108,8 +107,6 @@ MAX_JOBS = 20
 MAX_ERROR_SHOWN = 500
 MAX_LICENCE_BYTES = 20 * 1024 * 1024
 LICENCE_EXTENSIONS = frozenset({"pdf", "docx", "txt", "eml", "png", "jpg", "jpeg"})
-# Licence bases that permit redistribution from our domain without a letter on file.
-REDISTRIBUTABLE = frozenset({"own-work", "open-licence"})
 # Register and site codes that mean "bad input" (422); the others are state conflicts.
 INPUT_CODES = frozenset(
     {
@@ -142,8 +139,13 @@ async def require_content_user(request: Request) -> ContentUser:
     """401 without a session; 403 unless an Authentik-signed-in internal user with a
     content role."""
     context = request_context(request)
-    if getattr(request.state, IDENTITY_KEY, None) is None:
+    identity = getattr(request.state, IDENTITY_KEY, None)
+    if identity is None:
         log("content.refused", error_code="not_oidc")
+        raise FORBIDDEN
+    if identity.service:
+        # P1b-15 a: the eval harness's credential never opens the content console.
+        log("content.refused", error_code="service_identity")
         raise FORBIDDEN
     if context.tenant_id != INTERNAL_TENANT_ID:
         log("content.refused", tenant_id=str(context.tenant_id), error_code="not_platform")
@@ -522,8 +524,8 @@ async def propose_source(
     licence_file: UploadFile | None = File(default=None),
 ) -> ProposeOut:
     """An editor proposes a file (upload) or a URL, with the manifest's metadata. The
-    download flag needs a licence basis that permits redistribution (own work, an open
-    licence) or the permission letter attached."""
+    licence basis is always required; a licence or permission letter may be attached,
+    downloadable or not (decision 10, Oct 22, 2026: no letter is required for now)."""
     if EDITOR not in user.roles:
         log("content.refused", user_id=str(user.user_id), error_code="not_content_editor")
         raise FORBIDDEN
@@ -533,8 +535,6 @@ async def propose_source(
     licence_ = _text_field(licence_basis, limit=300)
     canonical = _text_field(canonical_url, limit=1000)
     tag_list = [t for t in (_text_field(t, limit=100) for t in tags) if t]
-    if downloadable and licence_ not in REDISTRIBUTABLE and licence_file is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="licence_file_required")
     if canonical is not None:
         try:
             require_http_url(canonical)
@@ -550,10 +550,9 @@ async def propose_source(
         )
     elif url is not None:
         resolve = _resolver(request)
-        client = getattr(request.app.state, "content_http", http_client)
+        connect: Connector | None = getattr(request.app.state, "content_connect", None)
         try:
-            await require_public_url(url.strip(), resolve)
-            async with public_only(client(), resolve) as http:
+            async with http_client(resolve, connect) as http:
                 source = from_fetched(await fetch(http, url.strip()))
         except (FetchError, IngestError) as exc:
             raise _refused(exc) from None

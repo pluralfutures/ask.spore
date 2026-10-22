@@ -81,3 +81,5 @@ export type TagSync = Schemas["TagSyncOut"];
 export type OperatorTag = Schemas["OperatorTagOut"];
 export type TenantSpend = Schemas["TenantSpendOut"];
 export type Aggregates = Schemas["AggregatesOut"];
+// P1b-10: the use and privacy notice and its acceptance.
+export type ConsentNotice = Schemas["ConsentNoticeOut"];

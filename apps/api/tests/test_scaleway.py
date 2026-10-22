@@ -27,7 +27,6 @@ CONFIG = ScalewayConfig(
     base_url="https://api.scaleway.ai",
     chat_model="deepseek-v4.1-flash",
     rewrite_model="deepseek-rewrite-x",
-    judge_model="deepseek-judge-x",
     timeout_seconds=5,
     rate_limit_rps=1000,
     tokens_per_minute=10_000_000,
@@ -117,7 +116,9 @@ async def test_judge_request_contains_only_prompt_passages_and_statements(
     chunks, _ = _prompt_inputs(surrounding_call)
     statements = [Statement(text="Capacity grew by 12 percent in 2025.", cites=(1,))]
 
-    result = await recorder.client().judge("Judge prompt.", chunks, statements)
+    result = await recorder.client().judge(
+        "Judge prompt.", chunks, statements, model="deepseek-judge-x"
+    )
 
     assert result.text == '{"verdicts": [{"n": 1, "verdict": "supported"}]}'
     assert result.usage is not None and result.usage.tokens_in == 40

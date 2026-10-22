@@ -161,6 +161,7 @@ async def test_create_and_list_conversations(api: Harness) -> None:
         "reasoning",
         "notice",
         "notice_text",
+        "no_history",
     }
     assert (body["notice"], body["notice_text"]) == (None, None)
     created = datetime.fromisoformat(body["created_at"])

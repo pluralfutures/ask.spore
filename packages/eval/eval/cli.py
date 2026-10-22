@@ -12,7 +12,7 @@ from pathlib import Path
 
 from app.core.config import ConfigError
 
-from eval import compare, results, sources
+from eval import compare, gate, results, sources
 from eval.schema import V1_MIN_ITEMS, V1_MIN_OUT_OF_CORPUS, json_schema, load_set
 
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
@@ -167,6 +167,56 @@ def cmd_guardrails(args: argparse.Namespace) -> int:
     return 1 if data["regressions"] else 0
 
 
+def cmd_gate(args: argparse.Namespace) -> int:
+    try:
+        outcome = gate.gate(Path(args.results_dir), args.threshold)
+    except (gate.GateError, ValueError) as exc:
+        _err(f"python -m eval gate: {exc}")
+        return 1
+    text = gate.gate_markdown(outcome, args.threshold)
+    _out(text)
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+    return 0 if outcome.ok else 1
+
+
+def cmd_accept_baseline(args: argparse.Namespace) -> int:
+    try:
+        accepted = gate.accept_baseline(
+            Path(args.results_dir),
+            Path(args.run),
+            reason=args.reason,
+            accept_regression=args.accept_regression,
+            threshold=args.threshold,
+        )
+    except (gate.GateError, ValueError) as exc:
+        _err(f"python -m eval accept-baseline: {exc}")
+        return 1
+    _out(
+        f"baseline is now {accepted.run_id} (was {accepted.previous or 'none'}); commit "
+        f"results/{accepted.run_id}/, results/{gate.BASELINE_FILE} and "
+        f"results/{gate.BASELINE_LOG}"
+    )
+    return 0
+
+
+def cmd_keygen(args: argparse.Namespace) -> int:
+    """P1b-15 a: a key pair for the eval service credential."""
+    from app.auth.eval_service import generate_key_pair
+
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    private, public = generate_key_pair()
+    key_path, pub_path = out / "eval-service.key", out / "eval-service.pub"
+    fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(private)
+    pub_path.write_text(public, encoding="utf-8")
+    _out(f"wrote {key_path} (the eval runner's secret EVAL_SERVICE_PRIVATE_KEY; never commit it)")
+    _out(f"wrote {pub_path} (for [auth.eval_service] public_key on the API under test)")
+    return 0
+
+
 def cmd_compare(args: argparse.Namespace) -> int:
     base, new = results.load(Path(args.base)), results.load(Path(args.new))
     outcome = compare.compare(base, new, args.threshold)
@@ -223,8 +273,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_cmd = commands.add_parser(
         "run",
         help="run an eval set through the retrieval step, the API and the judge",
-        description="Needs MISTRAL_API_KEY, RAGFLOW_API_KEY, DATABASE_URL, "
-        "PHASE0_BEARER_TOKEN and EVAL_USER_EMAIL in the environment (see eval/runner.py). "
+        description="Needs the judge provider's key, RAGFLOW_API_KEY, DATABASE_URL, "
+        "EVAL_USER_EMAIL and either EVAL_SERVICE_PRIVATE_KEY (an API in oidc mode with "
+        "[auth.eval_service]) or PHASE0_BEARER_TOKEN in the environment (see eval/runner.py). "
         "Writes results/<timestamp>-<git-sha>/. Exits 1 if any item errored.",
     )
     run_cmd.add_argument("--config", default=str(DEFAULT_CONFIG), help="path to models.toml")
@@ -291,6 +342,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     guard.add_argument("--note", action="append", default=[], help="line for the summary")
     guard.set_defaults(func=cmd_guardrails)
+
+    gate_cmd = commands.add_parser(
+        "gate",
+        help="CI eval gate: committed runs against results/BASELINE (P1b-15 b)",
+        description="Fails when a committed run holds answer or statement text, or when an "
+        "unmocked run newer than the baseline regresses by more than the threshold.",
+    )
+    gate_cmd.add_argument("--results-dir", default=str(DEFAULT_RESULTS))
+    gate_cmd.add_argument("--threshold", type=float, default=compare.DEFAULT_THRESHOLD)
+    gate_cmd.add_argument("--output", help="also write the Markdown verdict to this file")
+    gate_cmd.set_defaults(func=cmd_gate)
+
+    accept = commands.add_parser(
+        "accept-baseline",
+        help="make a run the eval baseline: redact it into results/, record the decision",
+        description="Copies the run into results/<run id>/ with answer and statement text "
+        "redacted (committed-results rule), compares it with the current baseline, and "
+        "refuses a regression unless --accept-regression (an owner decision, given in "
+        "--reason). Updates results/BASELINE and appends to results/BASELINE.md.",
+    )
+    accept.add_argument("run", help="the run's results folder")
+    accept.add_argument("--reason", required=True, help="why; for a regression, the decision")
+    accept.add_argument("--accept-regression", action="store_true")
+    accept.add_argument("--results-dir", default=str(DEFAULT_RESULTS))
+    accept.add_argument("--threshold", type=float, default=compare.DEFAULT_THRESHOLD)
+    accept.set_defaults(func=cmd_accept_baseline)
+
+    keygen = commands.add_parser(
+        "keygen",
+        help="create the eval service credential's Ed25519 key pair (P1b-15 a)",
+        description="Writes eval-service.key (private, mode 0600: the eval runner's "
+        "EVAL_SERVICE_PRIVATE_KEY secret) and eval-service.pub (the API under test's "
+        "[auth.eval_service] public_key). Refuses to overwrite an existing key.",
+    )
+    keygen.add_argument("--out-dir", required=True)
+    keygen.set_defaults(func=cmd_keygen)
 
     compare_cmd = commands.add_parser(
         "compare",

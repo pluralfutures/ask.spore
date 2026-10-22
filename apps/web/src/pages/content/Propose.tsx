@@ -9,14 +9,13 @@ import {
   canEdit,
   emptyProposal,
   errorMessage,
-  needsLicenceLetter,
   proposalForm,
   type ProposalFields,
 } from "../../lib/content";
 
 // The propose form (P1b-05): a file upload or a URL, with the manifest's metadata and
-// tags. Downloadable needs a licence basis that permits redistribution, or the
-// permission letter. Nothing reaches RAGFlow before a reviewer approves.
+// tags. The licence basis is always required; a licence or permission letter is optional,
+// downloadable or not (decision 10). Nothing reaches RAGFlow before a reviewer approves.
 export function Propose({ roles }: { roles: string[] }) {
   const tags = useQuery({ queryKey: ["content", "tags"], queryFn: contentApi.tags });
   const [fields, setFields] = useState<ProposalFields>(emptyProposal);
@@ -130,10 +129,7 @@ export function Propose({ roles }: { roles: string[] }) {
         Users may download the file (only where the licence permits redistribution)
       </label>
       <label className="flex flex-col">
-        Licence or permission letter
-        {needsLicenceLetter(fields, licence !== null) ? (
-          <span className="text-amber-900">required for a downloadable third-party file</span>
-        ) : null}
+        Licence or permission letter (optional)
         <input type="file" onChange={(e) => setLicence(e.target.files?.[0] ?? null)} />
       </label>
       <button

@@ -30,7 +30,7 @@ from app.content.withdraw import SUPERSEDED_REASON, purge_answer_cache
 from app.core import cache
 from app.core.db import tenant_session
 from app.tenancy.models import INTERNAL_TENANT_ID
-from tests.conftest import CONVERSATION_COLUMNS, CONVERSATION_DEFAULTS
+from tests.conftest import CONSENT_VERSION, CONVERSATION_COLUMNS, CONVERSATION_DEFAULTS
 from tests.fakes import FakeRedis
 from tests.test_api import Harness, api
 from tests.test_ingest import PDF, TAGS, Env, Ingest, content_user, env, meta, source_row
@@ -69,9 +69,11 @@ async def other_tenant(admin_conn: asyncpg.Connection) -> tuple[UUID, UUID]:
         f"c-{tenant_id.hex[:12]}",
     )
     user_id = await admin_conn.fetchval(
-        "INSERT INTO users (tenant_id, email, display_name) VALUES ($1, $2, 'Client') RETURNING id",
+        "INSERT INTO users (tenant_id, email, display_name, consent_version, consented_at) "
+        "VALUES ($1, $2, 'Client', $3, now()) RETURNING id",
         tenant_id,
         f"user-{tenant_id.hex[:8]}@example.com",
+        CONSENT_VERSION,
     )
     await admin_conn.execute(
         "INSERT INTO workspaces (tenant_id, slug, name, default_model) "

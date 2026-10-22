@@ -77,11 +77,14 @@ def summary_markdown(data: dict[str, Any]) -> str:
         f"- Code: `{meta['git_sha']}`{' (uncommitted changes)' if meta['git_dirty'] else ''}; "
         f"started {meta['started_at']}, {meta['duration_s']} s",
         f"- Retrieval: top_k {config['top_k']}, similarity threshold "
-        f"{config['similarity_threshold']}, max context tokens {config['max_context_tokens']}, "
+        f"{config['similarity_threshold']}, vector weight "
+        f"{config.get('vector_similarity_weight', 0.3)}, "
+        f"max context tokens {config['max_context_tokens']}, "
         f"embedding `{config['embedding_model']}`, RAGFlow {config['ragflow_version']}",
         f"- Models ({config.get('llm_provider', 'mistral')}): answer `{config['chat_model']}`, "
         f"rewrite `{config['rewrite_model']}`, "
-        f"judge `{config['judge_model']}`; prompts {', '.join(config['prompts'])}",
+        f"judge `{config['judge_model']}` ({config.get('judge_provider', 'same provider')}); "
+        f"prompts {', '.join(config['prompts'])}",
         f"- Corpus version `{meta['corpus_version']}`, {meta['package_datasets']} datasets",
         "",
         "## Outcomes",

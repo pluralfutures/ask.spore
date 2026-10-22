@@ -29,6 +29,8 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "latency_ms",
         "tokens_in",
         "tokens_out",
+        # P1b-15 d: of tokens_out, hidden reasoning tokens (a count).
+        "reasoning_tokens",
         "model",
         "status",
         "source_id",
@@ -55,6 +57,12 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         # Platform mail (P1b-11): which template a send_mail job sent. Never the
         # recipient's address, the subject or the body.
         "template",
+        # Consent gate (P1b-10): a notice version such as "v2". Never the notice text.
+        "consent_version",
+        # Retention purge (P1b-14): which table a count of deleted rows is for.
+        "table",
+        # Termination purge (P1b-14): the certificate of deletion's number.
+        "certificate",
     }
 )
 

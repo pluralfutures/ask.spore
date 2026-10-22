@@ -10,7 +10,7 @@
 
 services:
   ragflow-es:
-    image: elasticsearch:8.11.3
+    image: elasticsearch:8.11.3@sha256:58a3a280935d830215802322e9a0373faaacdfd646477aa7e718939c2f29292a
     volumes:
       - ragflow_esdata:/usr/share/elasticsearch/data
     tmpfs:
@@ -42,7 +42,7 @@ services:
     restart: unless-stopped
 
   ragflow-mysql:
-    image: mysql:8.0.40
+    image: mysql:8.0.40@sha256:d58ac93387f644e4e040c636b8f50494e78e5afc27ca0a87348b2f577da2b7ff
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD:?set MYSQL_PASSWORD in infra/ragflow/.env}
       - TZ=${TZ:-Europe/Paris}
@@ -67,7 +67,7 @@ services:
     restart: unless-stopped
 
   ragflow-minio:
-    image: pgsty/silo:RELEASE.2026-08-06T00-00-00Z
+    image: pgsty/silo:RELEASE.2026-08-06T00-00-00Z@sha256:29a498b24669cae1fed11c1a2fb2b3d73c68829a0a9c0b14e71b386671d38fac
     command: ["server", "--console-address", ":9001", "/data"]
     environment:
       - MINIO_ROOT_USER=${MINIO_USER:?set MINIO_USER in infra/ragflow/.env}
@@ -85,7 +85,7 @@ services:
     restart: unless-stopped
 
   ragflow-redis:
-    image: valkey/valkey:8.1.10
+    image: valkey/valkey:8.1.10@sha256:640c5e62cea04b6d6f2084232651d0cc70362d31f4f805e7be94dbed6855e8f2
     command:
       - redis-server
       - --requirepass
@@ -114,7 +114,7 @@ services:
   # resident: with bge-m3 on CPU, 4096 -> ~4.1 GiB, 8192 -> ~10.4 GiB, upstream's
   # default 16384 -> killed above 15 GiB (findings R2).
   ragflow-tei:
-    image: infiniflow/text-embeddings-inference:cpu-1.8
+    image: infiniflow/text-embeddings-inference:cpu-1.8@sha256:ad4a00f5af757f7f323bdeb9e873313ed71225cf57d94658cbc9c6c17dc67d85
     hostname: tei
     command:
       - --model-id
@@ -127,7 +127,7 @@ services:
     restart: unless-stopped
 
   ragflow:
-    image: infiniflow/ragflow:v0.27.2
+    image: infiniflow/ragflow:v0.27.2@sha256:e6b3f1a185c0a70abb3a72e1092415df8c5c6a4fae0089545554f2936c4b27ab
     # CPU cap so DeepDoc OCR leaves cores for TEI (findings R17). Host-specific: 0 means no
     # limit; on the 8 vCPU Phase 0 Instance infra/ragflow/.env sets RAGFLOW_CPUS=5.
     cpus: ${RAGFLOW_CPUS:-0}

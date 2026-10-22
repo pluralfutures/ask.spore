@@ -13,7 +13,7 @@ import asyncio
 import time
 from collections.abc import Awaitable, Callable
 
-CHARS_PER_TOKEN = 4  # same estimate as the orchestrator's context budget
+CHARS_PER_TOKEN = 4  # a cheap estimate for the throttle reservation only; settled from usage
 
 
 def estimate_tokens(texts: list[str], max_output_tokens: int) -> int:

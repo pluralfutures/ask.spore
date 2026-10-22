@@ -5,13 +5,14 @@
 | Status | **DRAFT** |
 | Date | Oct 19, 2026 |
 | Author | Drafted for owner review (spec item P1a-15) |
+| Revision | Oct 22, 2026, **DRAFT**: "Your own documents" section and the first paragraph, for clients that supply documents (P1b-19 step 1, architecture §15); publish only once P1b-19 step 2 is built |
 | To finalise, the owner must | (1) fill in the contact addresses and legal entity; (2) replace the "External models" location sentence with the outcome of the TIA verification (findings C32); (3) remove the sentence on deletion timing that does not match the build at publication (see the note under "Retention"); (4) link the published sub-processor list; (5) have counsel check it against the DPA and privacy notice. Plain text below the line is the page. |
 
 ---
 
 ## How we handle your data
 
-SporeBot is a research assistant. It answers questions from a curated library of published reports, public websites and our own analysis, and shows the sources for every answer. You do not upload documents to it.
+SporeBot is a research assistant. It answers questions from a curated library of published reports, public websites and our own analysis, and shows the sources for every answer. You do not upload documents to it, unless your contract provides for supplying your own documents (see "Your own documents").
 
 ### Where your data lives
 
@@ -45,6 +46,10 @@ You sign in with a link we email to you. The link works once, for 15 minutes, an
 ### Downloads
 
 You can see the list of files behind each workspace. You can download a file only where its licence allows us to share it, which today mostly means our own analyses. For other files we link to the publisher. Each download link works once, for one minute, and the number of downloads per person per day is limited.
+
+### Your own documents
+
+*DRAFT, Oct 22, 2026; only once built (P1b-19 step 2).* Some organisations send us their own documents to be searched in their workspaces. Those documents are searchable and downloadable only by that organisation's users, stored in Paris, used only to answer that organisation's questions, never used for training, withdrawn on request and deleted at the end of the contract with a certificate. The organisation decides what it sends and is responsible for its rights in it.
 
 ### What we never do
 

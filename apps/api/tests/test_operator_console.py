@@ -31,8 +31,8 @@ pytestmark = pytest.mark.usefixtures("database")
 CLAUDE = "anthropic/claude-opus-5.5"
 MONTH = month_of()
 LAST_MONTH = (MONTH - timedelta(days=1)).replace(day=1)
-QUERY_TEXT = "Synthetic question 7731 about walnut pricing in Lisbon?"
-ANSWER_TEXT = "Synthetic answer 7731 citing [1]."
+QUERY_TEXT = "Synthetic question qzv7731 about walnut pricing in Lisbon?"
+ANSWER_TEXT = "Synthetic answer qzv7731 citing [1]."
 
 
 async def tenant_with_slug(console: Console, op: httpx.AsyncClient, slug: str) -> str:  # noqa: F811
@@ -322,6 +322,6 @@ async def test_no_console_route_returns_query_or_answer_text(console: Console) -
     for path in paths:
         response = await op.get(path)
         assert response.status_code == 200, path
-        for text in ("7731", "walnut", "Lisbon", "Synthetic answer"):
+        for text in ("qzv7731", "walnut", "Lisbon", "Synthetic answer"):
             assert text not in response.text, (path, text)
     assert json.loads((await op.get(f"/api/v1/operator/tenants/{tenant_id}/spend")).text)["models"]

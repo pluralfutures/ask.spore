@@ -7,6 +7,7 @@
 | Status | **DRAFT** (internal; not published) |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
+| Revision | Oct 22, 2026, **DRAFT**: input data for clients that supply documents (§5.4, §2.4; P1b-19 step 1, architecture §15) |
 | Placeholders | [AI literacy owner], [document store], [date], [review date] |
 | To finalise, the owner must | (1) have counsel confirm the classification in §2 and the role in §2.3; (2) decide the Art. 50(2) marking question in §3 (open-questions.md); (3) name who owns AI literacy (§4) and record the training; (4) set a review date; (5) re-run §2 whenever a reassessment trigger in §2.4 occurs. |
 
@@ -45,7 +46,7 @@ Result: **limited-risk AI system** with Art. 50 transparency duties, plus the ge
 
 Re-run this classification when any of these happen:
 
-- a customer tells us, or we learn, that outputs are used for an Annex III purpose (for example screening job applicants or assessing creditworthiness);
+- a customer tells us, or we learn, that outputs are used for an Annex III purpose (for example screening job applicants or assessing creditworthiness), including when the documents a customer supplies suggest such a use (for example CVs or credit files);
 - we add a capability beyond question answering from text: web search (Phase 2), tools, actions, image or audio generation, decisions about individuals;
 - we fine-tune or train a model;
 - the Commission issues guidelines or amendments affecting Art. 6 or Art. 50.
@@ -93,6 +94,7 @@ Versioned files under `config/prompts/<mode>/<version>.md`; the active version i
 ### 5.4 Data: the library
 
 - Sources: published third-party PDFs, crawled public websites and our own DOCX/PPTX analysis. Users upload nothing.
+- *DRAFT addition, Oct 22, 2026 (architecture §15, not built):* for some later customers, **client-supplied documents**: PDF, DOCX and PPTX files the customer (as deployer) chooses and sends for its own workspaces, with a declaration of rights per file. We do not curate their content beyond format, scope and isolation checks; their quality, currency and bias are the customer's choice, and the eval set does not cover them. They are retrieved only in that customer's workspaces, and their text is treated as untrusted data in the prompt. The register records the basis `client-supplied` and the supplying customer.
 - Each source is a row in the source register (publisher, title, date, canonical link, licence basis, tags, downloadable flag). Approval before ingestion from Phase 1b (P1b-01); crawl rules (robots.txt, TDM reservation) from P1b-04; withdrawal cascade from P1b-03.
 - Personal data in sources: `legitimate-interest-assessment.md`, `privacy-notice.md` Part B.
 

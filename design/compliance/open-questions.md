@@ -113,3 +113,27 @@ Only the owner or counsel can answer these. Duplicates across the documents are 
 | I2 | How we verify domain control before registering a verified domain (DNS TXT record or written confirmation) | onboarding-pack | |
 | I3 | Admin MFA reset procedure and the client contact who confirms a reset | onboarding-pack | |
 | I4 | Who signs certificates of deletion; do user deactivation notices come from the client admin or from us? | offboarding-pack | |
+
+## J. Client-supplied documents
+
+Added Oct 22, 2026 (P1b-19 step 1, owner decision 11; architecture §15, compliance guide addendum of Oct 22). **DRAFT**: every question open. None affects the test client `cc`, which supplies nothing.
+
+| # | Question | Files | Answer |
+| --- | --- | --- | --- |
+| J1 | **C** Is our role for personal data in client-supplied files processor (as drafted), and is the client then solely responsible for Art. 14 towards people named in its files? Is a mixed workspace (client files plus our public content, controller) acceptable as drafted, with one prompt carrying data under both roles? | client-dpa-draft 1.3(b), 7A.4; privacy-notice §13; records-of-processing; TIA §2 | |
+| J2 | **C** Warranty and indemnity (terms §6A.2, §6A.3): wording, whether the indemnity is capped or uncapped, and how it sits with the liability cap in §11 | terms-of-service | |
+| J3 | **C** May we tell a person who writes to us which client supplied a document that names them, or only that we forwarded the request (privacy notice §13)? | privacy-notice | |
+| J4 | **C** When a third party claims a client file infringes its rights, may we withdraw it without the client's instruction (terms §6A.6, DPA 7A.5), and does withdrawing on our own initiative sit with the processor role? | terms-of-service, client-dpa-draft | |
+| J5 | Withdrawal window on the client's request: [5] working days as drafted, or the 10 working days of the publisher takedown SLA? | terms-of-service, client-dpa-draft, onboarding-pack, security-questionnaire | |
+| J6 | Intake channel: how clients send files ([secure transfer method]: a shared folder in the owner's document store, an SFTP drop, encrypted email?), and who deletes the transfer copy. A tenant-side upload page is in no phase; add it to the backlog? | architecture §15.2, terms A.8, onboarding-pack 1.8 | |
+| J7 | Limits: [max file size] and [max files per batch]; Markdown and HTML accepted at all? | architecture §15.3, terms 6A.1 | |
+| J8 | Malware scan of supplied files before parsing: required, and with which tool (a new component, so a Stack Decision change), or accept the internal-network parser as the control? | architecture §15.3, risk-register R-37, security-questionnaire 17.10 | |
+| J9 | "Shared tags": confirm the reading that a client-supplied file may sit in a tag owned by its tenant that several of **that tenant's** workspaces share (as `cc-shared` does for `cc`), and never in a platform tag available to more than one tenant | architecture §15.4 | |
+| J10 | Stored excerpts after a client withdraws its own file: keep them labelled "withdrawn" in the client's conversations (decision 5 for non-licence withdrawals), or blank them too, since they are the client's confidential text? | architecture §15.7 | |
+| J11 | Provenance shown and sent to the model for client files: may the declared publisher be the client's own name (a tenant-supplied identifier in the prompt, permitted as drafted like the workspace instructions), or should it be a neutral label such as "Your organisation"? | architecture §15.9, compliance guide addendum | |
+| J12 | Does a client that supplies documents and accepts external models need a separate, explicit acceptance that excerpts of its own (possibly confidential) files go to OpenRouter and its upstream vendors, beyond DPA Annex 4? | client-dpa-draft Annex 4, transfer-impact-assessment §3 | |
+| J13 | Special-category data in client files: barred unless agreed (DPA 7A.1, as drafted), or barred outright? | client-dpa-draft, dpia R13 | |
+| J14 | Register rows after termination: erase descriptive fields and keep ID, tenant and withdrawal date (as drafted), or delete the rows, with audit events keeping only source IDs? Retention of client declarations ([limitation period]) | architecture §15.8, offboarding-pack, records-of-processing C9 | |
+| J15 | A client that asks for a dedicated index or RAGFlow instance: decline (shared instance with tenant-owned datasets, as drafted), or price it as an option? | architecture §15.4, compliance guide | |
+| J16 | Evaluation on a client's own corpus: allowed only with the client's agreement and metrics only, as drafted? Should the terms say so? | architecture §15.9 | |
+| J17 | Pricing for document supply (per document, per GB, onboarding fee) for the order form | terms-of-service Annex A | |

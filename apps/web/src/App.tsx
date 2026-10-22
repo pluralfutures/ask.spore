@@ -21,6 +21,7 @@ import { renewalDelay } from "./lib/session";
 import { FinishSignIn } from "./pages/FinishSignIn";
 import { NewConversation } from "./pages/NewConversation";
 import { OperatorConsole } from "./pages/OperatorConsole";
+import { ContentConsole } from "./pages/content/ContentConsole";
 import { TenantAdmin } from "./pages/TenantAdmin";
 import { WorkspaceFiles } from "./pages/WorkspaceFiles";
 
@@ -52,6 +53,7 @@ function Signed({ children }: { children: React.ReactNode }) {
           <Route path="/w/:id/files" element={<WorkspaceFiles />} />
           <Route path="/admin" element={<TenantAdmin />} />
           <Route path="/operator" element={<OperatorConsole />} />
+          <Route path="/content/*" element={<ContentConsole />} />
         </Routes>
       </BrowserRouter>
       {children}

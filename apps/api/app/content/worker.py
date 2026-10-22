@@ -12,7 +12,10 @@ concurrency stays as tuned in Phase 1a, findings §9). Each job type has a handl
   approved site, at the worker's per-host rate limit; between jobs the worker queues
   the crawls that are due (``app.content.sites.schedule_due_crawls``);
 - ``send_mail`` (P1b-11): ``app.mail.jobs.send_mail``, when the worker was given a mail
-  context; mail failures that may pass (timeouts, 429, 5xx) are retried with backoff.
+  context; mail failures that may pass (timeouts, 429, 5xx) are retried with backoff;
+- ``purge_retention`` (P1b-14): ``app.tenancy.purge.purge_retention``, every tenant's
+  expired history, revoked sessions and old download records; between jobs the worker
+  queues one a day (``app.tenancy.purge.schedule_purge``).
 
 A job of a type without a handler fails with ``unsupported_job_type``.
 
@@ -54,6 +57,7 @@ from app.content.withdraw import withdraw_source
 from app.core.logging import log
 from app.mail.jobs import MailContext, send_mail
 from app.retrieval.ragflow import RagflowClient
+from app.tenancy.purge import purge_retention
 
 POLL_INTERVAL_SECONDS: Final = 5.0
 # RAGFlow failures worth another attempt: the service was briefly unavailable.
@@ -92,6 +96,7 @@ class Context:
     limiter: HostLimiter = field(default_factory=HostLimiter)
     resolve: Resolver = resolve_host
     mail: MailContext | None = None  # P1b-11: send_mail jobs
+    downloads_retention_days: int = 90  # P1b-14: [retention] downloads_days
 
 
 def _source_id(job: ClaimedJob) -> UUID | None:
@@ -197,11 +202,37 @@ def mail_handler(mail: MailContext) -> Handler:
     return handle
 
 
+def purge_handler(ctx: Context) -> Handler:
+    async def handle(job: ClaimedJob) -> Outcome:
+        purged = await purge_retention(ctx.factory, downloads_days=ctx.downloads_retention_days)
+        # Counts per tenant and table only (P1b-14).
+        for tenant in purged:
+            for table, count in tenant.counts.as_dict().items():
+                if count:
+                    log(
+                        "retention.purged",
+                        job_id=str(job.id),
+                        tenant_id=str(tenant.tenant_id),
+                        table=table,
+                        count=count,
+                    )
+        log(
+            "retention.purge_finished",
+            job_id=str(job.id),
+            status="purged",
+            count=sum(t.counts.total for t in purged),
+        )
+        return Outcome()
+
+    return handle
+
+
 def handlers(ctx: Context) -> dict[str, Handler]:
     registry = {
         "ingest_source": ingest_handler(ctx),
         "withdraw_source": withdraw_handler(ctx),
         "crawl_site": crawl_handler(ctx),
+        "purge_retention": purge_handler(ctx),
     }
     if ctx.mail is not None:
         registry["send_mail"] = mail_handler(ctx.mail)

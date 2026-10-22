@@ -201,6 +201,13 @@ content_root = "/srv/ask-spore/content"
 download_url_ttl_seconds = 60     # a download link is single-use and expires after this
 downloads_per_user_per_day = 50   # owner, Oct 19, 2026; per UTC calendar day
 
+[retention]
+# The retention purge (P1b-14): the worker deletes, once a day and tenant by tenant,
+# conversations past their tenant's retention (at most 30 days, CLAUDE.md; 0 is "no
+# history"), revoked_sessions rows past their token's expiry, and downloads records
+# older than this. The download audit events stay. Owner decision, Oct 21, 2026.
+downloads_days = 90
+
 [mail]
 # Platform transactional mail (P1b-11): invitations, operator notices and the consent
 # notice, sent by the worker's send_mail jobs through app.core.mail. Exactly one provider

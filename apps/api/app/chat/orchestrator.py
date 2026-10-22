@@ -18,6 +18,12 @@ model and reasoning (P1a-04); the workspace fixes the package (P1a-05):
    mode the uncited text is withheld and replaced by ``WITHHELD_TEXT``;
 9. persist both messages, citations and usage; write an audit event; cache.
 
+A conversation of a tenant whose retention is 0 days ("no history", P1b-14) is
+created already expired (``expires_at = created_at``), so every read route hides it;
+it takes one question within ``NO_HISTORY_WINDOW`` of its creation, and it is deleted
+with its messages and citations when the answer's stream closes. Its answer is not
+written to the answer cache. The retention purge deletes any that a crash left behind.
+
 No database transaction is held open while waiting on retrieval or the model.
 Nothing identifying the tenant, user, conversation or package reaches the model:
 only ``PromptChunk`` and ``Turn`` values cross into ``app.llm.mistral``.
@@ -25,6 +31,8 @@ only ``PromptChunk`` and ``Turn`` values cross into ``app.llm.mistral``.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import hashlib
 import json
 import re
@@ -36,7 +44,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime
 from typing import Any, Literal
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, exists, func, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -57,6 +65,7 @@ from app.llm.mistral import LLMError, Turn, Usage
 from app.retrieval.protocol import Retriever
 from app.retrieval.ragflow import VECTOR_SIMILARITY_WEIGHT
 from app.retrieval.types import RetrievedChunk
+from app.tenancy.retention import NO_HISTORY_WINDOW
 from app.tenancy.workspaces import NO_INSTRUCTIONS, WorkspaceInstructions, active_instructions
 from app.usage.ledger import record_usage
 
@@ -136,6 +145,17 @@ class ErrorEvent:
 ChatEvent = TokenEvent | CitationsEvent | DoneEvent | ErrorEvent
 
 
+def live_or_awaiting_question() -> Any:
+    """A conversation the user may ask in: not expired, or a "no history" one (created
+    expired, P1b-14) that is fresh and has no message yet."""
+    awaiting = (
+        (Conversation.expires_at == Conversation.created_at)
+        & (Conversation.created_at > func.now() - NO_HISTORY_WINDOW)
+        & ~exists().where(Message.conversation_id == Conversation.id)
+    )
+    return (Conversation.expires_at > func.now()) | awaiting
+
+
 def normalise_query(query: str) -> str:
     text = unicodedata.normalize("NFKC", query).casefold()
     return _SPACE.sub(" ", text).strip().strip("?!.;: ")
@@ -196,6 +216,7 @@ class _Run:
     retrieved: int = 0
     context: int = 0
     failover: str | None = None  # P1b-17: which backup answered, if one did
+    no_history: bool = False  # P1b-14: the tenant keeps no history; deleted after this
 
     def add_usage(self, usage: Usage | None, model: str) -> None:
         if usage is not None:
@@ -248,15 +269,17 @@ class Orchestrator:
                         Conversation.mode,
                         Conversation.model,
                         Conversation.reasoning,
+                        (Conversation.expires_at == Conversation.created_at).label("no_history"),
                     ).where(
                         Conversation.id == conversation_id,
                         Conversation.user_id == ctx.user_id,
-                        Conversation.expires_at > func.now(),
+                        live_or_awaiting_question(),
                     )
                 )
             ).one_or_none()
             if found is None:
                 raise ConversationNotFound(str(conversation_id))
+            run.no_history = bool(found.no_history)
             run.conversation = ConversationSettings(
                 workspace_id=found.workspace_id,
                 mode=found.mode,
@@ -271,7 +294,41 @@ class Orchestrator:
             # P1a-09, P1a-10: the conversation's model checked against the entitlement
             # and the spend cap, before any outbound call.
             run.auth = await authorize(session, self._settings, ctx.tenant_id, conversation_id)
+        if run.no_history:
+            return self._forgetting(run, self._run(run))
         return self._run(run)
+
+    async def _forgetting(
+        self, run: _Run, events: AsyncIterator[ChatEvent]
+    ) -> AsyncIterator[ChatEvent]:
+        """P1b-14, no history: the conversation goes when the stream closes, however it
+        closes (answered, failed, or the client left)."""
+        try:
+            async for event in events:
+                yield event
+        finally:
+            forget = asyncio.ensure_future(self._forget(run))
+            with contextlib.suppress(asyncio.CancelledError):
+                await asyncio.shield(forget)
+
+    async def _forget(self, run: _Run) -> None:
+        try:
+            async with tenant_session(self._db, run.ctx.tenant_id) as session:
+                # Messages, citations and feedback go with it (ON DELETE CASCADE).
+                await session.execute(
+                    delete(Conversation).where(
+                        Conversation.id == run.conversation_id,
+                        Conversation.user_id == run.ctx.user_id,
+                    )
+                )
+        except SQLAlchemyError as exc:
+            # The purge job deletes it later (it expired at creation); class name only.
+            log(
+                "chat.no_history_delete_failed",
+                level="error",
+                conversation_id=str(run.conversation_id),
+                exception=type(exc).__name__,
+            )
 
     async def _history(self, session: AsyncSession, conversation_id: uuid.UUID) -> list[Turn]:
         if self._chat.history_messages == 0:
@@ -476,7 +533,8 @@ class Orchestrator:
         # 9. Cache, then persist and audit (cached first: the client may leave after done).
         # A cut-off or withheld answer is not cached, so asking again gets a fresh one;
         # nor is a failover's answer, which is not the conversation's model's (P1b-17).
-        if not truncated and not withheld and run.failover is None:
+        # Nor, for a tenant that keeps no history (P1b-14), any answer at all.
+        if not truncated and not withheld and run.failover is None and not run.no_history:
             await self._cache_set(
                 run.ctx.tenant_id,
                 key,

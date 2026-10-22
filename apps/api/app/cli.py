@@ -43,7 +43,7 @@ from app.content.ingest import (
     from_fetched,
     load_path,
 )
-from app.content.jobs import wait_for
+from app.content.jobs import enqueue, wait_for
 from app.content.manifest import (
     ManifestError,
     ManifestRow,
@@ -73,6 +73,7 @@ from app.core.mail import create_mail_sender
 from app.mail.jobs import MailContext
 from app.operator.grants import grant_operator, revoke_operator
 from app.retrieval.ragflow import RagflowClient
+from app.tenancy.purge import purge_retention, schedule_purge
 
 
 async def _datasets_sync() -> int:
@@ -478,6 +479,51 @@ async def _sources(args: argparse.Namespace) -> int:
     return 1 if result.status == "failed" else 0
 
 
+async def _worker_tick(factory: async_sessionmaker[AsyncSession]) -> None:
+    """Between jobs: queue the crawls that are due (P1b-04) and the daily purge (P1b-14)."""
+    await schedule_due_crawls(factory)
+    await schedule_purge(factory)
+
+
+async def _purge(args: argparse.Namespace) -> int:
+    """The retention purge (P1b-14): count what is due, or queue the job for the worker."""
+    settings = get_settings()
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    factory = session_factory(engine)
+    try:
+        if args.dry_run:
+            due = await purge_retention(
+                factory, downloads_days=settings.models.retention.downloads_days, dry_run=True
+            )
+            for tenant in due:
+                for table, count in tenant.counts.as_dict().items():
+                    if count:
+                        log(
+                            "retention.due",
+                            tenant_id=str(tenant.tenant_id),
+                            table=table,
+                            count=count,
+                        )
+            log("retention.dry_run", status="dry_run", count=sum(t.counts.total for t in due))
+            return 0
+        async with factory() as session, session.begin():
+            job_id = await enqueue(session, "purge_retention", {}, created_by=None, max_attempts=1)
+        log("retention.queued", job_id=str(job_id), job_type="purge_retention", status="queued")
+        if not args.wait:
+            return 0
+        state = (await wait_for(factory, [job_id]))[job_id]
+        log(
+            "retention.job",
+            level="info" if state.status == "succeeded" else "error",
+            job_id=str(job_id),
+            status=state.status,
+            error_code=state.error_code,
+        )
+        return 0 if state.status == "succeeded" else 1
+    finally:
+        await engine.dispose()
+
+
 async def _worker(args: argparse.Namespace) -> int:
     """Run the job queue until stopped (SIGTERM or SIGINT puts the running job back)."""
     settings = get_settings()
@@ -508,6 +554,7 @@ async def _worker(args: argparse.Namespace) -> int:
                 client=client,
                 tags=load_tags(settings.config_dir),
                 content_root=settings.models.files.content_root,
+                downloads_retention_days=settings.models.retention.downloads_days,
                 mail=MailContext(
                     factory=factory,
                     config=settings.models.mail,
@@ -521,7 +568,7 @@ async def _worker(args: argparse.Namespace) -> int:
                 poll_interval=args.poll_interval,
                 stop=stop,
                 once=args.once,
-                tick=lambda: schedule_due_crawls(context.factory),
+                tick=lambda: _worker_tick(context.factory),
             )
     except asyncio.CancelledError:
         log("worker.stopped", status="stopped")
@@ -779,6 +826,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--poll-interval", type=float, default=5.0, help="seconds between polls when idle"
     )
 
+    purge_cmd = commands.add_parser(
+        "purge",
+        help="the retention purge (P1b-14): expired history, revoked sessions, old downloads",
+        description="Deletes, tenant by tenant under row-level security, conversations past "
+        "their expiry (with messages, citations and feedback), revoked_sessions rows past "
+        "their token's expiry and downloads rows older than [retention] downloads_days. The "
+        "worker runs it once a day; --run queues it now. Output is counts only.",
+    )
+    purge_mode = purge_cmd.add_mutually_exclusive_group(required=True)
+    purge_mode.add_argument(
+        "--dry-run", action="store_true", help="count what is due per tenant; delete nothing"
+    )
+    purge_mode.add_argument(
+        "--run", action="store_true", help="queue a purge_retention job for the worker"
+    )
+    _wait_flag(purge_cmd)
+
     operators = commands.add_parser(
         "operators",
         help="grant or revoke the platform operator role (P1a-03)",
@@ -814,6 +878,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_sources(args))
     if args.command == "worker":
         return asyncio.run(_worker(args))
+    if args.command == "purge":
+        return asyncio.run(_purge(args))
     raise AssertionError("unreachable: argparse enforces the commands")
 
 

@@ -314,7 +314,7 @@ async def test_retention_cannot_be_set_above_30_days(
     app_conn: asyncpg.Connection,
 ) -> None:
     tenant, browser = await admin_of(auth)
-    for days in (31, 365, 0, -1):
+    for days in (31, 365, -1):
         response = await browser.put(
             "/api/v1/admin/settings/retention", json={"retention_days": days}
         )
@@ -388,3 +388,22 @@ async def test_retention_of_one_tenant_does_not_touch_another(auth: Auth) -> Non
     assert (await other_browser.get(f"/api/v1/conversations/{theirs}")).status_code == 200
     assert (await other_browser.get("/api/v1/admin/settings")).json()["retention_days"] == 30
     assert other.id != mine.id
+
+
+async def test_retention_of_zero_days_keeps_no_history(auth: Auth) -> None:  # noqa: F811
+    # P1b-14: 0 is "no history"; existing conversations expire at once and new ones are
+    # created expired (hidden from every read route) for their one question.
+    _, browser = await admin_of(auth)
+    old = (await browser.post("/api/v1/conversations", json={})).json()["id"]
+
+    response = await browser.put("/api/v1/admin/settings/retention", json={"retention_days": 0})
+
+    assert response.status_code == 200
+    assert response.json()["retention_days"] == 0
+    assert (await browser.get(f"/api/v1/conversations/{old}")).status_code == 404
+    created = (await browser.post("/api/v1/conversations", json={})).json()
+    assert created["no_history"] is True
+    assert created["expires_at"] == created["created_at"]
+    assert (await browser.get("/api/v1/conversations")).json() == []
+    await browser.put("/api/v1/admin/settings/retention", json={"retention_days": 30})
+    assert (await browser.post("/api/v1/conversations", json={})).json()["no_history"] is False

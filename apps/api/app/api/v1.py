@@ -218,7 +218,11 @@ async def create_conversation(
     await session.flush()
     await session.refresh(conversation)
     created = ConversationCreated.model_validate(conversation).model_copy(
-        update={"notice": selection.notice, "notice_text": selection.notice_text}
+        update={
+            "notice": selection.notice,
+            "notice_text": selection.notice_text,
+            "no_history": conversation.expires_at <= conversation.created_at,
+        }
     )
     await session.commit()
     return created

@@ -132,6 +132,42 @@
         "title": "AdminUserOut",
         "type": "object"
       },
+      "ApproveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "keep_both": {
+            "default": false,
+            "title": "Keep Both",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "replaces": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces"
+          }
+        },
+        "title": "ApproveIn",
+        "type": "object"
+      },
       "AskIn": {
         "additionalProperties": false,
         "properties": {
@@ -163,6 +199,123 @@
           "mode"
         ],
         "title": "AuthModeOut",
+        "type": "object"
+      },
+      "Body_attach_licence_api_v1_content_sources__source_id__licence_put": {
+        "properties": {
+          "licence_file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Licence File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "licence_file"
+        ],
+        "title": "Body_attach_licence_api_v1_content_sources__source_id__licence_put",
+        "type": "object"
+      },
+      "Body_propose_source_api_v1_content_sources_post": {
+        "properties": {
+          "canonical_url": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Url"
+          },
+          "downloadable": {
+            "default": false,
+            "title": "Downloadable",
+            "type": "boolean"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "licence_basis": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "licence_file": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Licence File"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "publisher": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Publisher",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "title",
+          "publisher",
+          "licence_basis",
+          "tags"
+        ],
+        "title": "Body_propose_source_api_v1_content_sources_post",
         "type": "object"
       },
       "ChatStreamEvents": {
@@ -295,6 +448,463 @@
           "citations"
         ],
         "title": "CitationsData",
+        "type": "object"
+      },
+      "ContentMeOut": {
+        "properties": {
+          "ragflow_ui_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ragflow Ui Url"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "ragflow_ui_url"
+        ],
+        "title": "ContentMeOut",
+        "type": "object"
+      },
+      "ContentSourceDetail": {
+        "properties": {
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "canonical_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Url"
+          },
+          "chunk_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Count"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentLink"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "downloadable": {
+            "title": "Downloadable",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryEntry"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobOut"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "licence_basis": {
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "licence_file": {
+            "title": "Licence File",
+            "type": "boolean"
+          },
+          "possible_replacement": {
+            "title": "Possible Replacement",
+            "type": "boolean"
+          },
+          "possible_replacements": {
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            },
+            "title": "Possible Replacements",
+            "type": "array"
+          },
+          "proposed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed By"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "review_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Date"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "stored": {
+            "title": "Stored",
+            "type": "boolean"
+          },
+          "supersedes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "takedown": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TakedownOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "takedown_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takedown Due On"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "withdrawal_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawal Reason"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "publisher",
+          "published_on",
+          "canonical_url",
+          "licence_basis",
+          "tags",
+          "status",
+          "downloadable",
+          "site_id",
+          "takedown_due_on",
+          "possible_replacement",
+          "created_at",
+          "updated_at",
+          "review_note",
+          "review_date",
+          "proposed_by",
+          "approved_by",
+          "approved_at",
+          "withdrawn_at",
+          "withdrawal_reason",
+          "chunk_count",
+          "error",
+          "licence_file",
+          "stored",
+          "fetched_at",
+          "supersedes",
+          "possible_replacements",
+          "takedown",
+          "documents",
+          "history",
+          "jobs"
+        ],
+        "title": "ContentSourceDetail",
+        "type": "object"
+      },
+      "ContentSourceOut": {
+        "description": "A register row in the list.",
+        "properties": {
+          "canonical_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Url"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "downloadable": {
+            "title": "Downloadable",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "licence_basis": {
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "possible_replacement": {
+            "title": "Possible Replacement",
+            "type": "boolean"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "takedown_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takedown Due On"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "publisher",
+          "published_on",
+          "canonical_url",
+          "licence_basis",
+          "tags",
+          "status",
+          "downloadable",
+          "site_id",
+          "takedown_due_on",
+          "possible_replacement",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ContentSourceOut",
         "type": "object"
       },
       "ConversationCreateIn": {
@@ -638,6 +1248,42 @@
           "sso_kind"
         ],
         "title": "DiscoverOut",
+        "type": "object"
+      },
+      "DocumentLink": {
+        "description": "One RAGFlow document of a source, for chunk spot-checks in the private UI.",
+        "properties": {
+          "dataset_id": {
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "ragflow_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ragflow Url"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "dataset_id",
+          "document_id",
+          "ragflow_url"
+        ],
+        "title": "DocumentLink",
         "type": "object"
       },
       "DoneData": {
@@ -1045,6 +1691,147 @@
         "title": "Health",
         "type": "object"
       },
+      "HistoryEntry": {
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "event": {
+            "title": "Event",
+            "type": "string"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          }
+        },
+        "required": [
+          "event",
+          "at",
+          "actor",
+          "before",
+          "after",
+          "method"
+        ],
+        "title": "HistoryEntry",
+        "type": "object"
+      },
+      "JobOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "status",
+          "error_code",
+          "attempts",
+          "created_at",
+          "finished_at"
+        ],
+        "title": "JobOut",
+        "type": "object"
+      },
+      "JobQueuedOut": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "JobQueuedOut",
+        "type": "object"
+      },
       "LinkCompleteIn": {
         "additionalProperties": false,
         "properties": {
@@ -1409,6 +2196,22 @@
         "title": "ModelOptionOut",
         "type": "object"
       },
+      "NoteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "NoteIn",
+        "type": "object"
+      },
       "NoticeOut": {
         "properties": {
           "created_at": {
@@ -1655,6 +2458,64 @@
         "title": "OperatorWorkspaceOut",
         "type": "object"
       },
+      "PatternsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "patterns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Patterns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "patterns"
+        ],
+        "title": "PatternsIn",
+        "type": "object"
+      },
+      "ProposeOut": {
+        "description": "``proposed``: a new row. Otherwise the file is already in the register:\n``pending`` (waits for a reviewer), ``duplicate`` (ingested in every tag),\n``retag`` (ingested; adding tags needs a reviewer, from the CLI for now) or\n``taken_down`` (withdrawn after a takedown request; not proposed again).",
+        "properties": {
+          "outcome": {
+            "enum": [
+              "proposed",
+              "pending",
+              "duplicate",
+              "retag",
+              "taken_down"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "possible_replacements": {
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            },
+            "title": "Possible Replacements",
+            "type": "array"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "outcome",
+          "status",
+          "possible_replacements"
+        ],
+        "title": "ProposeOut",
+        "type": "object"
+      },
       "RetentionIn": {
         "additionalProperties": false,
         "properties": {
@@ -1691,6 +2552,573 @@
           "metadata_xml"
         ],
         "title": "SamlSourceIn",
+        "type": "object"
+      },
+      "SiteApproveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "SiteApproveIn",
+        "type": "object"
+      },
+      "SiteCreateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Allow Patterns",
+            "type": "array"
+          },
+          "deny_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Deny Patterns",
+            "type": "array"
+          },
+          "licence_basis": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "max_pages": {
+            "default": 50,
+            "maximum": 5000.0,
+            "minimum": 1.0,
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "publisher": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Publisher",
+            "type": "string"
+          },
+          "schedule": {
+            "default": "none",
+            "enum": [
+              "none",
+              "weekly",
+              "monthly"
+            ],
+            "title": "Schedule",
+            "type": "string"
+          },
+          "start_url": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Start Url",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "start_url",
+          "name",
+          "publisher",
+          "licence_basis",
+          "tags"
+        ],
+        "title": "SiteCreateIn",
+        "type": "object"
+      },
+      "SiteDetail": {
+        "properties": {
+          "allow_checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Checked At"
+          },
+          "allow_decision": {
+            "title": "Allow Decision",
+            "type": "string"
+          },
+          "allow_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allow Patterns",
+            "type": "array"
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "blocked_count": {
+            "title": "Blocked Count",
+            "type": "integer"
+          },
+          "deny_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deny Patterns",
+            "type": "array"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobOut"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "last_crawl_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawl At"
+          },
+          "last_crawl_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawl Status"
+          },
+          "licence_basis": {
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "max_pages": {
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_crawl_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Crawl At"
+          },
+          "page_count": {
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/SitePageOut"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "proposed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed By"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "schedule": {
+            "title": "Schedule",
+            "type": "string"
+          },
+          "special_category_allow": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Special Category Allow",
+            "type": "array"
+          },
+          "start_url": {
+            "title": "Start Url",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "start_url",
+          "host",
+          "publisher",
+          "licence_basis",
+          "tags",
+          "status",
+          "schedule",
+          "max_pages",
+          "allow_decision",
+          "allow_checked_at",
+          "last_crawl_at",
+          "last_crawl_status",
+          "next_crawl_at",
+          "page_count",
+          "blocked_count",
+          "allow_patterns",
+          "deny_patterns",
+          "special_category_allow",
+          "review_note",
+          "proposed_by",
+          "approved_by",
+          "approved_at",
+          "pages",
+          "jobs"
+        ],
+        "title": "SiteDetail",
+        "type": "object"
+      },
+      "SiteOut": {
+        "properties": {
+          "allow_checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Checked At"
+          },
+          "allow_decision": {
+            "title": "Allow Decision",
+            "type": "string"
+          },
+          "blocked_count": {
+            "title": "Blocked Count",
+            "type": "integer"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_crawl_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawl At"
+          },
+          "last_crawl_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawl Status"
+          },
+          "licence_basis": {
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "max_pages": {
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_crawl_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Crawl At"
+          },
+          "page_count": {
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "schedule": {
+            "title": "Schedule",
+            "type": "string"
+          },
+          "start_url": {
+            "title": "Start Url",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "start_url",
+          "host",
+          "publisher",
+          "licence_basis",
+          "tags",
+          "status",
+          "schedule",
+          "max_pages",
+          "allow_decision",
+          "allow_checked_at",
+          "last_crawl_at",
+          "last_crawl_status",
+          "next_crawl_at",
+          "page_count",
+          "blocked_count"
+        ],
+        "title": "SiteOut",
+        "type": "object"
+      },
+      "SitePageOut": {
+        "properties": {
+          "fetched_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "special_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special Category"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "state",
+          "reason",
+          "special_category",
+          "source_id",
+          "published_on",
+          "fetched_at"
+        ],
+        "title": "SitePageOut",
+        "type": "object"
+      },
+      "SiteSettingsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Allow Patterns",
+            "type": "array"
+          },
+          "deny_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Deny Patterns",
+            "type": "array"
+          },
+          "max_pages": {
+            "maximum": 5000.0,
+            "minimum": 1.0,
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "schedule": {
+            "enum": [
+              "none",
+              "weekly",
+              "monthly"
+            ],
+            "title": "Schedule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule",
+          "max_pages"
+        ],
+        "title": "SiteSettingsIn",
         "type": "object"
       },
       "SourceDownloadableIn": {
@@ -1766,6 +3194,35 @@
         "title": "SourceOut",
         "type": "object"
       },
+      "SourceRef": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "publisher",
+          "status"
+        ],
+        "title": "SourceRef",
+        "type": "object"
+      },
       "SsoStartOut": {
         "description": "Where the browser goes next: the IdP's sign-in page (P1b-07).",
         "properties": {
@@ -1778,6 +3235,175 @@
           "redirect_url"
         ],
         "title": "SsoStartOut",
+        "type": "object"
+      },
+      "TagOut": {
+        "description": "A tag of ``config/tags.toml`` and its RAGFlow dataset (the ``datasets`` table).",
+        "properties": {
+          "chunk_method": {
+            "title": "Chunk Method",
+            "type": "string"
+          },
+          "chunk_method_by_type": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Chunk Method By Type",
+            "type": "object"
+          },
+          "dataset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Id"
+          },
+          "ragflow_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ragflow Url"
+          },
+          "sources": {
+            "title": "Sources",
+            "type": "integer"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "chunk_method",
+          "chunk_method_by_type",
+          "dataset_id",
+          "ragflow_url",
+          "sources"
+        ],
+        "title": "TagOut",
+        "type": "object"
+      },
+      "TagSyncOut": {
+        "properties": {
+          "dataset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "status",
+          "dataset_id"
+        ],
+        "title": "TagSyncOut",
+        "type": "object"
+      },
+      "TakedownIn": {
+        "additionalProperties": false,
+        "properties": {
+          "licence_breach": {
+            "default": false,
+            "title": "Licence Breach",
+            "type": "boolean"
+          },
+          "licence_grounds": {
+            "default": false,
+            "title": "Licence Grounds",
+            "type": "boolean"
+          },
+          "reference": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Reference",
+            "type": "string"
+          },
+          "requested_on": {
+            "format": "date",
+            "title": "Requested On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "requested_on"
+        ],
+        "title": "TakedownIn",
+        "type": "object"
+      },
+      "TakedownOut": {
+        "properties": {
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "licence_grounds": {
+            "title": "Licence Grounds",
+            "type": "boolean"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "requested_on": {
+            "format": "date",
+            "title": "Requested On",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "working_days_left": {
+            "title": "Working Days Left",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_id",
+          "title",
+          "status",
+          "reference",
+          "requested_on",
+          "due_on",
+          "working_days_left",
+          "licence_grounds"
+        ],
+        "title": "TakedownOut",
         "type": "object"
       },
       "TenantCreateIn": {
@@ -2013,6 +3639,22 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WithdrawIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "WithdrawIn",
         "type": "object"
       },
       "WorkspaceCreateIn": {
@@ -2808,6 +4450,933 @@
           }
         },
         "summary": "Start Sso"
+      }
+    },
+    "/api/v1/content/me": {
+      "get": {
+        "operationId": "content_me_api_v1_content_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentMeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Content Me"
+      }
+    },
+    "/api/v1/content/sites": {
+      "get": {
+        "operationId": "list_sites_api_v1_content_sites_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SiteOut"
+                  },
+                  "title": "Response List Sites Api V1 Content Sites Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sites"
+      },
+      "post": {
+        "description": "An editor registers a site for a reviewer to approve.",
+        "operationId": "create_site_api_v1_content_sites_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Site"
+      }
+    },
+    "/api/v1/content/sites/{site_id}": {
+      "get": {
+        "description": "The site, its settings and every page a crawl met (blocked ones with the reason).",
+        "operationId": "site_detail_api_v1_content_sites__site_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Site Detail"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/approve": {
+      "post": {
+        "operationId": "approve_site_api_v1_content_sites__site_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteApproveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Site"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/crawl": {
+      "post": {
+        "operationId": "crawl_now_api_v1_content_sites__site_id__crawl_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Crawl Now"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/reject": {
+      "post": {
+        "operationId": "reject_site_api_v1_content_sites__site_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Site"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/settings": {
+      "put": {
+        "operationId": "site_settings_api_v1_content_sites__site_id__settings_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Site Settings"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/special-category-allow": {
+      "put": {
+        "operationId": "site_whitelist_api_v1_content_sites__site_id__special_category_allow_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatternsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Site Whitelist"
+      }
+    },
+    "/api/v1/content/sources": {
+      "get": {
+        "description": "The register, newest change first, filtered by status, tag, type and publisher\n(a case-insensitive part of the name); at most 500 rows.",
+        "operationId": "list_sources_api_v1_content_sources_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "publisher",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Publisher"
+            }
+          },
+          {
+            "in": "query",
+            "name": "site_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ContentSourceOut"
+                  },
+                  "title": "Response List Sources Api V1 Content Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sources"
+      },
+      "post": {
+        "description": "An editor proposes a file (upload) or a URL, with the manifest's metadata. The\ndownload flag needs a licence basis that permits redistribution (own work, an open\nlicence) or the permission letter attached.",
+        "operationId": "propose_source_api_v1_content_sources_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_propose_source_api_v1_content_sources_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposeOut"
+                }
+              }
+            },
+            "description": "already in the register"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}": {
+      "get": {
+        "operationId": "source_detail_api_v1_content_sources__source_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSourceDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source Detail"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/approve": {
+      "post": {
+        "description": "A reviewer approves a proposal, which queues its ingestion. For a possible\nreplacement the reviewer names the source it replaces, or keeps both.",
+        "operationId": "approve_source_api_v1_content_sources__source_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/licence": {
+      "get": {
+        "description": "The licence or permission letter on file, as a download.",
+        "operationId": "source_licence_api_v1_content_sources__source_id__licence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source Licence"
+      },
+      "put": {
+        "operationId": "attach_licence_api_v1_content_sources__source_id__licence_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_attach_licence_api_v1_content_sources__source_id__licence_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach Licence"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/reject": {
+      "post": {
+        "operationId": "reject_source_api_v1_content_sources__source_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/retry": {
+      "post": {
+        "operationId": "retry_source_api_v1_content_sources__source_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/takedown": {
+      "post": {
+        "operationId": "record_takedown_api_v1_content_sources__source_id__takedown_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TakedownIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TakedownOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Takedown"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/withdraw": {
+      "post": {
+        "operationId": "withdraw_source_api_v1_content_sources__source_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Source"
+      }
+    },
+    "/api/v1/content/tags": {
+      "get": {
+        "description": "The tags of ``config/tags.toml`` (read-only here) and their datasets.",
+        "operationId": "list_tags_api_v1_content_tags_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TagOut"
+                  },
+                  "title": "Response List Tags Api V1 Content Tags Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Tags"
+      }
+    },
+    "/api/v1/content/tags/sync": {
+      "post": {
+        "description": "A reviewer runs ``datasets sync``: a dataset for every tag in ``config/tags.toml``\n(created or adopted in RAGFlow, server-side), audited. The file is not edited here.",
+        "operationId": "sync_tags_api_v1_content_tags_sync_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TagSyncOut"
+                  },
+                  "title": "Response Sync Tags Api V1 Content Tags Sync Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sync Tags"
+      }
+    },
+    "/api/v1/content/takedowns": {
+      "get": {
+        "description": "The takedown queue, soonest due first, with the SLA timer in working days.",
+        "operationId": "takedowns_api_v1_content_takedowns_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TakedownOut"
+                  },
+                  "title": "Response Takedowns Api V1 Content Takedowns Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Takedowns"
       }
     },
     "/api/v1/conversations": {

@@ -12,6 +12,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.api.admin import router as api_admin
 from app.api.auth import router as api_auth
+from app.api.content import router as api_content
 from app.api.files import router as api_files
 from app.api.operator import router as api_operator
 from app.api.v1 import router as api_v1
@@ -137,6 +138,7 @@ def create_app(retriever: Retriever | None = None) -> FastAPI:
     app.include_router(api_operator)
     app.include_router(api_admin)
     app.include_router(api_files)
+    app.include_router(api_content)
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz() -> dict[str, str]:

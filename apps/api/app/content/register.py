@@ -31,7 +31,7 @@ from app.audit.writer import AuditValue, record
 from app.content.ingest import IngestError, SourceFile, SourceMetadata
 from app.content.jobs import enqueue
 from app.content.models import Dataset, Source
-from app.content.roles import EDITOR, REVIEWER, require
+from app.content.roles import EDITOR, REVIEWER, RoleError, require, roles_of
 from app.content.store import STORABLE_TYPES, stage
 from app.content.tags import TagConfig
 from app.core.db import tenant_session
@@ -444,6 +444,40 @@ async def approve_retag(
         if parse_timeout is not None:
             payload["parse_timeout"] = parse_timeout
         return await enqueue(session, "ingest_source", payload, created_by=reviewer_id)
+
+
+async def set_licence_file(
+    factory: async_sessionmaker[AsyncSession],
+    source_id: UUID,
+    user_id: UUID,
+    licence_file_path: str,
+) -> None:
+    """Attach a licence or permission letter (stored by ``store_licence``) to a source;
+    an editor or a reviewer may, audited. The letter never goes to RAGFlow."""
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        roles = await roles_of(session, user_id)
+        if not roles & {EDITOR, REVIEWER}:
+            raise RoleError("no_content_role")
+        row = await _locked(session, source_id)
+        previous = row.licence_file_path
+        if previous == licence_file_path:
+            return
+        await session.execute(
+            update(Source)
+            .where(Source.id == source_id)
+            .values(licence_file_path=licence_file_path, updated_at=func.now())
+        )
+        await record(
+            session,
+            tenant_id=INTERNAL_TENANT_ID,
+            actor_user_id=user_id,
+            event="source.licence_file_set",
+            metadata={
+                "source_id": str(source_id),
+                "status": "replaced" if previous else "added",
+                "roles": sorted(roles),
+            },
+        )
 
 
 def working_days_after(start: date, days: int) -> date:

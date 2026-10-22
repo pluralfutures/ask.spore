@@ -202,6 +202,14 @@ class RagflowConfig(_Strict):
     timeout_seconds: float = Field(gt=0)
     # Embedding model new datasets are created with, as RAGFlow names it (P0-08).
     embedding_model: str = Field(min_length=1)
+    # P1b-05: the private RAGFlow web UI for chunk spot-checks, linked from the content
+    # console. A loopback URL only (checked at startup): an operator reaches it over an
+    # SSH tunnel to the Instance; it is never published or proxied by the API.
+    admin_ui_url: str | None = None
+    # Paths of a dataset and of one document's chunks in that UI (the pinned RAGFlow
+    # version's routes, infra/ragflow/VERSION).
+    admin_ui_dataset_path: str = "/dataset/dataset/{dataset_id}"
+    admin_ui_document_path: str = "/chunk/parsed/chunks?id={dataset_id}&doc_id={document_id}"
 
 
 class PromptsConfig(_Strict):
@@ -463,7 +471,34 @@ def _check_models(models: ModelsConfig) -> list[str]:
     _check_hosts(problems, eu_outbound, eu, "eu_hosts")
     if "latest" in models.ragflow.embedding_model.lower():
         problems.append("ragflow.embedding_model must name a fixed model, not a '-latest' alias")
+    problems += _check_ragflow_ui(models.ragflow)
     return problems + _check_catalogue(models)
+
+
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _check_ragflow_ui(ragflow: RagflowConfig) -> list[str]:
+    """P1b-05: the console's RAGFlow link points at the loopback admin UI, never a public
+    or Compose-network address (RAGFlow is internal, CLAUDE.md)."""
+    problems: list[str] = []
+    if ragflow.admin_ui_url is not None:
+        parts = urlsplit(ragflow.admin_ui_url)
+        if parts.scheme != "http" or (parts.hostname or "") not in LOOPBACK_HOSTS:
+            problems.append("ragflow.admin_ui_url must be an http://127.0.0.1 (loopback) URL")
+        elif parts.path not in ("", "/") or parts.query or parts.fragment:
+            problems.append("ragflow.admin_ui_url must be a bare origin (http://127.0.0.1:8080)")
+    for name, path in (
+        ("admin_ui_dataset_path", ragflow.admin_ui_dataset_path),
+        ("admin_ui_document_path", ragflow.admin_ui_document_path),
+    ):
+        try:
+            filled = path.format(dataset_id="d", document_id="x")
+        except (KeyError, IndexError, ValueError):
+            filled = ""
+        if not filled.startswith("/") or "//" in filled or "{dataset_id}" not in path:
+            problems.append(f"ragflow.{name} must be a path with {{dataset_id}}")
+    return problems
 
 
 def _check_prompts(prompts: PromptsConfig, directory: Path) -> list[str]:

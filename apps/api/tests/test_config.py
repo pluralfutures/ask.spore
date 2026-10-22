@@ -301,3 +301,30 @@ def test_repository_config_uses_scaleway_on_an_allow_listed_host() -> None:
     assert settings.models.llm.provider == "scaleway"
     assert settings.models.scaleway is not None
     assert "latest" not in settings.models.scaleway.chat_model
+
+
+def test_ragflow_admin_ui_link_is_loopback_only(tmp_path: Path) -> None:
+    # P1b-05: the content console's link to the private RAGFlow UI (over an SSH tunnel).
+    base = 'embedding_model = "BAAI/bge-m3@Builtin"'
+    ok = VALID_TOML.replace(base, base + '\nadmin_ui_url = "http://127.0.0.1:8080"')
+    settings = load_settings(environ=ENV, config_dir=write_config(tmp_path, ok))
+    assert settings.models.ragflow.admin_ui_url == "http://127.0.0.1:8080"
+    for url in (
+        "https://ragflow.example.com",
+        "http://ragflow:80",
+        "http://0.0.0.0:8080",
+        "http://127.0.0.1:8080/admin",
+    ):
+        text = VALID_TOML.replace(base, base + f'\nadmin_ui_url = "{url}"')
+        assert [p for p in problems_for(tmp_path, text) if "admin_ui_url" in p], url
+    bad_path = VALID_TOML.replace(
+        base, base + '\nadmin_ui_document_path = "https://x/{dataset_id}"'
+    )
+    assert problems_for(tmp_path, bad_path) == [
+        "ragflow.admin_ui_document_path must be a path with {dataset_id}"
+    ]
+
+
+def test_repository_ragflow_admin_ui_is_on_the_loopback() -> None:
+    settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
+    assert settings.models.ragflow.admin_ui_url == "http://127.0.0.1:8080"

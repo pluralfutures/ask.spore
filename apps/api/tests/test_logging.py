@@ -46,6 +46,8 @@ def test_allow_list_matches_spec() -> None:
         "attempts",
         "site_id",
         "template",
+        "table",
+        "certificate",
     }
 
 

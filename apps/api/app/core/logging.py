@@ -57,6 +57,8 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "template",
         # Retention purge (P1b-14): which table a count of deleted rows is for.
         "table",
+        # Termination purge (P1b-14): the certificate of deletion's number.
+        "certificate",
     }
 )
 

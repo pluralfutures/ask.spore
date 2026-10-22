@@ -74,6 +74,7 @@ from app.mail.jobs import MailContext
 from app.operator.grants import grant_operator, revoke_operator
 from app.retrieval.ragflow import RagflowClient
 from app.tenancy.purge import purge_retention, schedule_purge
+from app.tenancy.termination import TerminationError, terminate_tenant
 
 
 async def _datasets_sync() -> int:
@@ -524,6 +525,41 @@ async def _purge(args: argparse.Namespace) -> int:
         await engine.dispose()
 
 
+async def _tenant_purge(args: argparse.Namespace) -> int:
+    """Termination purge of one tenant (P1b-14), as the schema owner (MIGRATIONS_DATABASE_URL)."""
+    settings = get_settings()
+    owner_url = os.environ.get("MIGRATIONS_DATABASE_URL", "").strip()
+    if not owner_url:
+        log("tenant.purge_failed", level="error", error_code="no_owner_database_url")
+        return 1
+    cache.connect(settings.secrets.redis_url.get_secret_value())
+    engine = create_engine(owner_url)
+    try:
+        done = await terminate_tenant(
+            session_factory(engine),
+            slug=args.slug,
+            confirm=args.confirm,
+            content_root=settings.models.files.content_root,
+        )
+    except TerminationError as exc:
+        log("tenant.purge_failed", level="error", error_code=exc.code)
+        return 1
+    finally:
+        await cache.close()
+        await engine.dispose()
+    for table, count in done.counts.items():
+        log("tenant.purged_rows", tenant_id=str(done.tenant_id), table=table, count=count)
+    # The certificate's number names its file under content_root/certificates/.
+    log(
+        "tenant.purged",
+        tenant_id=str(done.tenant_id),
+        status="purged",
+        count=done.total,
+        certificate=done.certificate_number,
+    )
+    return 0
+
+
 async def _worker(args: argparse.Namespace) -> int:
     """Run the job queue until stopped (SIGTERM or SIGINT puts the running job back)."""
     settings = get_settings()
@@ -843,6 +879,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _wait_flag(purge_cmd)
 
+    tenant_cmd = commands.add_parser(
+        "tenant", help="tenant lifecycle, operator only (P1b-14: termination purge)"
+    )
+    tenant_commands = tenant_cmd.add_subparsers(dest="tenant_command", required=True)
+    tenant_purge = tenant_commands.add_parser(
+        "purge",
+        help="terminate a tenant: delete its history, account data, workspaces, prompts, "
+        "settings, downloads and sessions, clear its answer cache, write the certificate",
+        description="Runs as the schema owner (MIGRATIONS_DATABASE_URL), in one transaction, "
+        "audited under the internal tenant (tenant.purged). Keeps the audit events and the "
+        "usage ledger. Writes certificates/<number>.json under [files] content_root. The "
+        "tenant's Authentik users and SSO source are removed by hand afterwards (see "
+        "design/compliance/offboarding-pack.md section 1.4). Cannot be undone.",
+    )
+    tenant_purge.add_argument("--slug", required=True, help="the tenant to terminate")
+    tenant_purge.add_argument(
+        "--confirm", required=True, metavar="SLUG", help="the same slug again, to confirm"
+    )
+
     operators = commands.add_parser(
         "operators",
         help="grant or revoke the platform operator role (P1a-03)",
@@ -880,6 +935,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_worker(args))
     if args.command == "purge":
         return asyncio.run(_purge(args))
+    if args.command == "tenant":
+        return asyncio.run(_tenant_purge(args))
     raise AssertionError("unreachable: argparse enforces the commands")
 
 

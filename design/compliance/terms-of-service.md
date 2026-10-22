@@ -7,7 +7,7 @@
 | Status | **DRAFT — not for signature. Counsel must review before it is sent to [Client] or signed.** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Revision | Oct 22, 2026, **DRAFT**: §6A (client-supplied documents: warranty, indemnity, downloads, withdrawal), with changes to §1.1, §1.2, §3.1, §6.1, §11, §13.3, §13.4 and Annex A.8, for customers that supply their own documents (P1b-19 step 1). For the test client, which supplies nothing, keep §1.2 option (a) and delete §6A and A.8. Placeholders added: [5] (working days), [secure transfer method], [max file size], [max files per batch], [indemnity cap] |
+| Revision | Oct 22, 2026, **DRAFT**: §6A (client-supplied documents: warranty, indemnity, downloads, withdrawal), with changes to §1.1, §1.2, §3.1, §6.1, §11, §13.3, §13.4 and Annex A.8, for customers that supply their own documents (P1b-19 step 1). For the test client, which supplies nothing, keep §1.2 option (a) and delete §6A and A.8. Placeholders added: [indemnity cap], [other agreed channel] (withdrawal window, limits and channel filled in by the owner, Oct 22, 2026) |
 | Placeholders | [registered address], [Client], [Client legal name], [date], [price], [currency], [term], [notice period], [liability cap], [Member State], [courts], [privacy contact email], [security contact email], [support email], [support hours], [response time], [payment days], [seats], [workspace name], [tag], [spend cap], [acceptance reference] |
 | To finalise, the owner must | (1) fill in the placeholders, in particular prices, liability cap, governing law and support terms; (2) decide the open points in "Notes for the owner"; (3) have counsel review, especially §8 (output disclaimer), §11 (liability) and §13 (termination); (4) attach the signed DPA (`client-dpa-draft.md`) and the order form (Annex A); (5) check every statement in Annex A against what is enabled in the operator console at signature. |
 
@@ -78,7 +78,7 @@ These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a
 
 *DRAFT addition, Oct 22, 2026 (P1b-19 step 1; architecture §15).* *Only for a customer that supplies documents.*
 
-6A.1 **Supply.** The Customer may send the Provider documents for its workspaces (PDF, DOCX or PPTX, up to [max file size] MB each and [max files per batch] per batch) by [secure transfer method], each file or batch with a written declaration naming the files and stating, for each, whether the Customer's users may download it and whether it contains personal data of people other than the Customer's staff. The Provider reviews each file for its relevance to the purpose of the workspace it is meant for, and may refuse a file that is outside these limits, lacks a declaration, does not fit that purpose, or appears to contain special-category data, and says why.
+6A.1 **Supply.** The Customer may send the Provider documents for its workspaces (PDF, DOCX or PPTX, up to 500 MB each and 100 files per batch) by email, by a link to a file share the Customer controls, or by another agreed channel, each file or batch with a written declaration naming the files and stating, for each, whether the Customer's users may download it and whether it contains personal data of people other than the Customer's staff. The Provider reviews each file for its relevance to the purpose of the workspace it is meant for, and may refuse a file that is outside these limits, lacks a declaration, does not fit that purpose, or appears to contain special-category data, and says why. A file over 500 MB is not ingested until the Provider has consulted the Customer; with the Customer's agreement the Provider may convert it (for example by OCR or conversion to text) to reduce its size, and ingests the converted file.
 
 6A.2 **Customer's warranty.** The Customer warrants that it owns or is licensed to supply each Customer Document for use in the Service as described in this Agreement and the DPA: parsing and indexing it, sending excerpts to the language models named in the DPA, showing excerpts with citations to the Customer's users and, where declared, letting them download it; that doing so infringes no third party's rights or confidentiality obligation; and that any personal data in it may lawfully be processed this way (DPA clause 7A.4).
 
@@ -88,7 +88,7 @@ These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a
 
 6A.5 **Isolation.** Customer Documents are searched, listed and downloadable only within the Customer's own workspaces and are never available to another customer. The Provider uses them only to provide the Service to the Customer and never to train any model. This includes testing the quality of answers on Customer Documents: test questions are written from them and run in the Customer's own workspaces, and the Provider keeps only the resulting scores, never the questions, answers or document text. The Customer may exclude this testing in the order form (A.8).
 
-6A.6 **Withdrawal.** On the Customer's written request the Provider withdraws a Customer Document within [5] working days. If the Provider receives a third party's notice that a Customer Document infringes its rights, the Provider may withdraw the document at once, without waiting for the Customer's instruction, and tells the Customer without undue delay. The Customer may contest the claim; once it is resolved in the Customer's favour, the Provider re-ingests the document on the Customer's instruction.
+6A.6 **Withdrawal.** On the Customer's written request the Provider withdraws a Customer Document within 10 working days. If the Provider receives a third party's notice that a Customer Document infringes its rights, the Provider may withdraw the document at once, without waiting for the Customer's instruction, and tells the Customer without undue delay. The Customer may contest the claim; once it is resolved in the Customer's favour, the Provider re-ingests the document on the Customer's instruction.
 
 6A.7 **Ownership.** The Customer keeps all rights in Customer Documents and grants the Provider, for the term, the non-exclusive right to use them as described in §6A.2, solely to provide the Service to the Customer.
 
@@ -138,7 +138,7 @@ The Provider may suspend a user or the Customer, with notice where practical, if
 
 13.3 **Export window.** Before the end date, administrators may ask for an export of user accounts and the conversations still within retention. The Provider supplies it in a common machine-readable format within [10] working days of the request, provided the request is made at least [15] days before the end date. Conversation export inside the Service is not available yet; the export is produced by the Provider. Where §6A applies, the Provider also returns, on request, the copies of Customer Documents it holds, as received.
 
-13.4 **Deletion.** After termination the Provider deletes Customer Data, including every Customer Document with its parsed text and index entries, as set out in the DPA (clause 10.5) and the offboarding procedure (`offboarding-pack.md`), and issues a certificate of deletion. From Phase 1b (P1b-14) this runs as a tested per-customer purge job that produces the certificate's figures.
+13.4 **Deletion.** After termination the Provider deletes Customer Data, including every Customer Document with its parsed text and index entries and any copy it holds outside the Service, within 30 days, as set out in the DPA (clause 10.5) and the offboarding procedure (`offboarding-pack.md`), and issues a certificate of deletion. From Phase 1b (P1b-14) this runs as a tested per-customer purge job that produces the certificate's figures.
 
 13.5 Sections 3, 8, 9.2, 11 and 13.4 survive termination.
 
@@ -235,9 +235,9 @@ Chat-history retention: [30] days (maximum 30; the Customer's administrators may
 | Customer Documents supplied | [Yes / No] |
 | Customer-owned content tags (one per workspace, plus an optional common tag for the Customer's workspaces only) | [tag], [tag] |
 | Platform content supplementing them | [None / platform tags listed in A.1] |
-| Transfer method for files | [secure transfer method] |
-| Limits | [max file size] MB per file, [max files per batch] per batch; PDF, DOCX, PPTX |
-| Withdrawal on request | Within [5] working days |
+| Transfer method for files | Email, a link to a file share the Customer controls (for example SharePoint), or [other agreed channel] |
+| Limits | 500 MB per file (larger files after consultation, §6A.1), 100 files per batch; PDF, DOCX, PPTX |
+| Withdrawal on request | Within 10 working days |
 | Answer-quality testing on Customer Documents (§6A.5) | [Allowed (default) / Excluded] |
 
 Signed for [Client]: name [ ], title [ ], date [ ]

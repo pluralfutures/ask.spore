@@ -11,6 +11,7 @@ import {
   isTenantAdmin,
   lastLogin,
   parseRetention,
+  retentionSummary,
   userActions,
 } from "../lib/admin";
 import { formatDate } from "../lib/format";
@@ -470,14 +471,20 @@ function Retention() {
       <h2 className="font-semibold">Chat history retention</h2>
       <p className="text-slate-600">
         Conversations are deleted after this many days, at most {MAX_RETENTION_DAYS}. Shortening it
-        also removes existing conversations older than the new limit.
+        also removes existing conversations older than the new limit. 0 keeps no history: each
+        conversation is deleted as soon as its answer ends.
       </p>
+      {settings.data ? (
+        <p className="text-slate-600" data-testid="retention-summary">
+          {retentionSummary(settings.data.retention_days)}
+        </p>
+      ) : null}
       <form onSubmit={submit} noValidate className="mt-2 flex items-end gap-2">
         <label className="flex flex-col">
           Days
           <input
             type="number"
-            min={1}
+            min={0}
             max={MAX_RETENTION_DAYS}
             value={current}
             onChange={(e) => setValue(e.target.value)}

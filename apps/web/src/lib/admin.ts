@@ -11,13 +11,19 @@ export function isTenantAdmin(me: Me | null | undefined): boolean {
   return me?.role === "tenant_admin";
 }
 
-// A whole number of days from 1 to 30; never more than the 30-day maximum.
+// A whole number of days from 0 to 30; never more than the 30-day maximum. 0 is "no
+// history" (P1b-14): a conversation is kept only while its answer streams.
 export function parseRetention(value: string): { days: number } | { error: string } {
   const days = Number(value.trim());
   if (!Number.isInteger(days) || value.trim() === "") return { error: "Enter a number of days." };
   if (days > MAX_RETENTION_DAYS) return { error: "Retention cannot exceed 30 days." };
-  if (days < 1) return { error: "Retention must be at least 1 day." };
+  if (days < 0) return { error: "Retention cannot be negative." };
   return { days };
+}
+
+export function retentionSummary(days: number): string {
+  if (days === 0) return "No history: each conversation is deleted as soon as its answer ends.";
+  return `Conversations are deleted ${days} day${days === 1 ? "" : "s"} after they start.`;
 }
 
 const METHODS: Record<string, string> = { sign_in_link: "sign-in link" };

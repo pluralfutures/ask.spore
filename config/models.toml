@@ -210,9 +210,10 @@ downloads_per_user_per_day = 50   # owner, Oct 19, 2026; per UTC calendar day
 # APIs key) with SCALEWAY_TEM_PROJECT_ID (or SCALEWAY_PROJECT_ID), or MAILGUN_API_KEY.
 # Without the active provider's key nothing is sent (jobs fail with mail_not_configured).
 provider = "scaleway"
-# The sending address: on the domain verified in Transactional Email (SPF, DKIM, DMARC),
-# the same domain as Authentik's AUTHENTIK_EMAIL__FROM. To confirm by the owner.
-from_address = "sporebot@myceliumgastronomy.com"
+# The sending address: on the domain verified in Scaleway Transactional Email (fr-par;
+# SPF, DKIM, DMARC), the same address as Authentik's AUTHENTIK_EMAIL__FROM. Owner
+# decision 13, Oct 22, 2026.
+from_address = "reply@askspore.myceliumgastronomy.com"
 from_name = "SporeBot"
 # Where recipients sign in; the only link a platform email carries.
 app_url = "https://askspore.myceliumgastronomy.com"

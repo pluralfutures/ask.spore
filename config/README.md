@@ -14,6 +14,8 @@
 
 ## Platform mail (P1b-11)
 
+`[mail] from_address` is **`reply@askspore.myceliumgastronomy.com`** (owner decision 13, Oct 22, 2026), on the `askspore.myceliumgastronomy.com` domain verified in Scaleway Transactional Email (fr-par); Authentik's `AUTHENTIK_EMAIL__FROM` uses the same address. The API key is **`SCALEWAY_TEM_API_KEY`** in the Instance's root `.env` (an IAM key with the email-send permission on the project, created by the owner); it is read from the environment only and never committed.
+
 `[mail]` in `models.toml` picks exactly one provider: `scaleway` (Scaleway Transactional Email's HTTP API, fr-par, `[mail.scaleway]` with the pinned `api_version`) or `mailgun` (the backup, Mailgun's EU region, `[mail.mailgun]`, only after its DPA is filed). Both hosts are on `allow_list.eu_hosts`; startup refuses a mail host that is not, and plain HTTP. Keys come from the environment: `SCALEWAY_TEM_API_KEY`, an IAM key whose policy allows Transactional Email on the sending project only (the Generative APIs key's policy does not cover it, and a narrower key limits what a leak exposes), with `SCALEWAY_TEM_PROJECT_ID` (or `SCALEWAY_PROJECT_ID`); or `MAILGUN_API_KEY`. Without the active provider's key the API still starts and nothing is sent: each `send_mail` job fails with `mail_not_configured`.
 
 ## The workspace-instructions slot (P1a-06)

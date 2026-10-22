@@ -272,6 +272,11 @@ def test_repository_mail_config_is_valid() -> None:
     assert MAIL.provider == "scaleway"
     assert MAIL.scaleway is not None and MAIL.scaleway.region == "fr-par"
     assert MAIL.mailgun is None  # the backup is not configured
+    # Decision 13: on the domain verified in Transactional Email, the app's own host.
+    assert MAIL.from_address == "reply@askspore.myceliumgastronomy.com"
+    assert MAIL.app_url == "https://" + MAIL.from_address.split("@")[1]
+    toml = (DEFAULT_CONFIG_DIR / "models.toml").read_text(encoding="utf-8")
+    assert "SCALEWAY_TEM_API_KEY =" not in toml and "api_key" not in toml  # env only
     eu = SETTINGS.models.allow_list.eu_hosts
     assert "api.scaleway.com" in eu and "api.eu.mailgun.net" in eu
 

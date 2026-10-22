@@ -134,13 +134,13 @@ The request log holds the request, our decision, the reasons and the dates. It c
 
 ## 7. Controls and evidence
 
-| Control | Evidence | Status |
+| Control | Evidence | Status (check each against `phase-1b-findings.md` before approval) |
 | --- | --- | --- |
-| Approved register row before ingestion (CC2.3, C1.1) | `sources` status constraint; ingestion job refuses unapproved sources (P1b-02 tests) | Built in Phase 1b |
-| Audited content roles and transitions (CC6.3) | `content_roles`; `source.*` audit events | Built in Phase 1b |
-| robots.txt, TDM reservation, `noai` honoured (DSM Art. 4) | Crawler tests (P1b-04) | Built in Phase 1b |
+| Approved register row before ingestion (CC2.3, C1.1) | `sources` status constraint; ingestion job refuses unapproved sources (P1b-02 tests) | Phase 1b (P1b-01, P1b-02) |
+| Audited content roles and transitions (CC6.3) | `content_roles`; `source.*` audit events | Phase 1b (P1b-01) |
+| robots.txt, TDM reservation, `noai` honoured (DSM Art. 4) | Crawler tests (P1b-04) | robots.txt, TDM and `noai` built before Phase 1b; per-site rules Phase 1b (P1b-04) |
 | Crawler network safety (CC6.6) | P1b-18 tests | Phase 1b (P1b-18) |
-| Withdrawal cascade and takedown timer (CC6.5) | P1b-03 tests; takedown queue | Built in Phase 1b |
+| Withdrawal cascade and takedown timer (CC6.5) | P1b-03 tests; takedown queue | Phase 1b (P1b-03) |
 | Takedown scope per tenant | Per-copy status; scoped withdrawal tests | Designed (P1b-19 step 2) |
 | Tenant-owned tags, client-supplied placement rule (CC6.1, C1.1) | Negative tests in architecture §15.12 | Designed (P1b-19 step 2) |
 | Client declarations on file | Register reference; [document store] | Process, from the first model-2 client |

@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 22, 2026 |
 | Author | Drafted for owner review (gap found in the Phase 1b document set: the compliance guide's SOC 2 policy list names "acceptable use"; owner request of Oct 22, 2026) |
-| Placeholders | [security lead name], [security contact email], [password manager], [document store], [24] (hours to report an incident), [date] |
+| Placeholders | [security lead name], [security contact email], [password manager], [document store], [5] (screen-lock minutes), [24] (hours to report an incident), [date] |
 | To finalise, the owner must | (1) fill in the placeholders; (2) confirm the device rules in §3 match what is in use; (3) have counsel check §7 (monitoring) against Spanish employment and privacy law before any employee or contractor signs it; (4) approve and sign; (5) have every person with access sign §9 before access is granted (`policy-access-control.md`). |
 
 ---

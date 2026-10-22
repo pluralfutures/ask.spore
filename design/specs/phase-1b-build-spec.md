@@ -88,3 +88,18 @@ Build in this order; items in a group can be parallelised. Every tenant-scoped t
 - **Document set authorship (owner, Oct 21, 2026):** drafted by Claude sessions for counsel, as in P1a-15. Counsel review and filing are the owner's.
 - **Downloads retention (owner, Oct 21, 2026):** 90 days (P1b-14).
 - **Content roles (owner, Oct 21, 2026):** the owner holds both roles; self-approval allowed and audited until a second internal user exists (P1b-01).
+
+## Owner decisions of Oct 22, 2026 (after the Group A1, B and C reviews)
+
+| # | Decision | Applies to |
+| --- | --- | --- |
+| 1 | **Product name: SporeBot.** The platform's user-facing name is "SporeBot" (repository, hostnames and internal names stay `ask.spore`). Rename in the web app, the sign-in email template and Authentik subject, the operator and tenant admin pages, and the design documents' user-facing wording. | New item P1b-17 (small), before the release checks |
+| 2 | **Inference backup through OpenRouter: per tenant only.** A tenant with the external-models entitlement (acceptance reference, ZDR routing, spend cap) may fail over to OpenRouter when the EU provider is down; every other tenant keeps the EU-only fallback. Update the architecture (§5.2 step 9, decisions log), the Stack Decision fallback row and the compliance guide addendum accordingly, and build the entitlement-gated fallback with a test proving a tenant without the entitlement never reaches OpenRouter on failover. | Design update in P1b-17; code in P1b-12's session or a small follow-up |
+| 3 | **Tax identification number in the repository drafts: fine.** | P1b-09 |
+| 4 | **Re-ingestion matching:** a new file at an existing canonical link does not replace the old document automatically. It is flagged to the reviewer in the console ("possible replacement of <source>"), who chooses replace or keep both. The manifest's `replaces` is not added. | P1b-03 adjustment, built in Group A2 with P1b-05 |
+| 5 | **Withdrawn-source excerpts:** blanked in stored citations for takedowns on licence grounds (the excerpt is the licensed text); kept, labelled "withdrawn", for other withdrawals. | P1b-03 adjustment, Group A2 |
+| 6 | **Entra group claims:** not mapped to roles; tenant admin roles stay manual (no Graph permission asked of the client). | P1b-07, recorded in findings B |
+| 7 | **Second factor for tenant admins: TOTP accepted.** Hardware keys or passkeys go to the backlog, with a note in the compliance guide that admin MFA is TOTP in Phase 1b. | P1b-08; compliance guide note in P1b-17 |
+
+**P1b-17 Naming and design updates (added Oct 22, 2026).** Rename the user-facing product to SporeBot (decision 1); update the architecture, Stack Decision and compliance guide for the per-tenant OpenRouter fallback (decision 2) and the TOTP note (decision 7); the backlog gains the hardware-key item. Tests: the web app's visible strings carry no "ask.spore"; the email template subject reads SporeBot.
+

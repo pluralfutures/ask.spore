@@ -102,7 +102,8 @@ async def delete(tenant_id: UUID, key: str) -> None:
 
 async def clear_tenant(tenant_id: UUID) -> int:
     """Delete every key in ``tenant_id``'s namespace; how many went. For the termination
-    purge (P1b-14), never on a request path."""
+    purge and the switch to "no history" (P1b-14): rare administrative actions, never on
+    a chat request path."""
     client = _require_client()
     namespace = tenant_key(tenant_id, "x")[:-1]
     names = [

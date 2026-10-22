@@ -57,6 +57,7 @@ from app.auth.links import normalise_email
 from app.auth.provider import ProviderError, SignInLinkProvider
 from app.chat.selection import load_entitlement
 from app.consent.gate import require_consent
+from app.core import cache
 from app.core.db import AUTH_ROLE, role_session
 from app.core.logging import log
 from app.llm.catalogue import ModelChoice
@@ -410,6 +411,11 @@ async def set_retention_days(
     """Shorten (or restore up to 30 days) the tenant's chat-history retention."""
     before = await retention_days(session)
     shortened = await set_retention(session, admin.tenant_id, body.retention_days)
+    if body.retention_days == 0 and before != 0:
+        # P1b-14: a tenant that keeps no history is served no answer cached before the
+        # switch either (new answers are not cached while retention is 0).
+        cleared = await cache.clear_tenant(admin.tenant_id)
+        log("tenant_admin.cache_cleared", tenant_id=str(admin.tenant_id), count=cleared)
     if body.retention_days != before:
         await record(
             session,

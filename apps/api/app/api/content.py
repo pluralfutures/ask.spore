@@ -139,8 +139,13 @@ async def require_content_user(request: Request) -> ContentUser:
     """401 without a session; 403 unless an Authentik-signed-in internal user with a
     content role."""
     context = request_context(request)
-    if getattr(request.state, IDENTITY_KEY, None) is None:
+    identity = getattr(request.state, IDENTITY_KEY, None)
+    if identity is None:
         log("content.refused", error_code="not_oidc")
+        raise FORBIDDEN
+    if identity.service:
+        # P1b-15 a: the eval harness's credential never opens the content console.
+        log("content.refused", error_code="service_identity")
         raise FORBIDDEN
     if context.tenant_id != INTERNAL_TENANT_ID:
         log("content.refused", tenant_id=str(context.tenant_id), error_code="not_platform")

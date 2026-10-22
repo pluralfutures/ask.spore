@@ -26,7 +26,7 @@ from app.tenancy.purge import (
     schedule_purge,
 )
 from tests.chat_fixtures import World
-from tests.fakes import FakeRedis
+from tests.fakes import FakeRedis, delta, sse
 from tests.test_api import Harness, api
 from tests.test_tenancy import Tenant, make_tenant
 
@@ -397,6 +397,23 @@ async def test_zero_retention_deletes_after_a_failed_answer_too(
     events = await api.ask(conversation, "What grew in 2025?")
 
     assert events[-1] == ("error", {"error_code": "retrieval_unavailable"})
+    assert (await internal_history(admin_conn, world.user_id))["conversations"] == 0
+
+
+@pytest.mark.usefixtures("no_history")
+async def test_zero_retention_deletes_when_the_client_leaves_mid_answer(
+    api: Harness, world: World, admin_conn: asyncpg.Connection, redis: FakeRedis
+) -> None:
+    await admin_conn.execute("DELETE FROM conversations WHERE user_id = $1", world.user_id)
+    conversation = (await api.request("POST", "/conversations")).json()["id"]
+    api.recorder.add(sse(delta("Capacity grew [1]."), delta(" And then some.")))
+    orchestrator = api.app.state.orchestrator
+
+    events = await orchestrator.answer(world.ctx, uuid.UUID(conversation), "What grew in 2025?")
+    first = await events.__anext__()
+    await events.aclose()  # the client left after the first event
+
+    assert type(first).__name__ != "DoneEvent"
     assert (await internal_history(admin_conn, world.user_id))["conversations"] == 0
 
 

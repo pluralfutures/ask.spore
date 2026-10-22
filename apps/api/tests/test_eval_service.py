@@ -29,9 +29,10 @@ from app.core.config import DEFAULT_CONFIG_DIR, EvalServiceConfig, Settings, loa
 from app.core.db import create_engine, session_factory
 from app.main import create_app
 from app.operator.grants import create_eval_identity, grant_operator
+from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.chat_fixtures import World, chunks_for
 from tests.conftest import MigratedDatabase
-from tests.fake_idp import FakeSignInLinks, validator_for
+from tests.fake_idp import FakeSignInLinks, sign, validator_for
 from tests.fakes import FakeRedis, FakeRetriever, delta, router, sse
 from tests.fakes import OpenAIRecorder as Recorder
 from tests.test_api import parse_sse
@@ -113,6 +114,95 @@ async def test_the_eval_harness_asks_through_the_oidc_api_with_its_credential(
     for path in ("/api/v1/operator/tenants", "/api/v1/admin/users"):
         refused = await harness.http.get(path, headers={"Authorization": f"Bearer {token}"})
         assert refused.status_code == 403, path
+
+
+async def test_the_service_identity_is_not_consent_gated_but_humans_are(
+    harness: Eval, admin_conn: asyncpg.Connection
+) -> None:
+    """P1b-10 meets P1b-15 a: the eval credential is a service identity with no notice to
+    accept; a person on the same (internal) tenant without the active version is refused."""
+    token = sign_credential(PRIVATE, EMAIL)
+    accepted = await admin_conn.fetchval(
+        "SELECT consent_version FROM users WHERE email = $1", EMAIL
+    )
+    assert accepted is None  # never accepted anything, and never asked to
+    assert [name for name, _ in await harness.ask(token)][-1] == "done"
+    headers = {"Authorization": f"Bearer {token}"}
+    assert (await harness.http.get("/api/v1/conversations", headers=headers)).status_code == 200
+
+    human = await admin_conn.fetchrow(
+        "SELECT email FROM users WHERE tenant_id = $1 AND email <> $2 AND role = 'user' "
+        "ORDER BY email LIMIT 1",
+        INTERNAL_TENANT_ID,
+        EMAIL,
+    )
+    assert human is not None
+    before = await admin_conn.fetchrow(
+        "SELECT consent_version, consented_at FROM users WHERE tenant_id = $1 AND email = $2",
+        INTERNAL_TENANT_ID,
+        human["email"],
+    )
+    assert before is not None
+    try:
+        await admin_conn.execute(
+            "UPDATE users SET consent_version = NULL, consented_at = NULL "
+            "WHERE tenant_id = $1 AND email = $2",
+            INTERNAL_TENANT_ID,
+            human["email"],
+        )
+        idp: FakeSignInLinks = harness.app.state.sign_in_provider
+        person_token = sign(idp.key, email=human["email"], tenant_id=INTERNAL_TENANT_ID)
+        person = {"Authorization": f"Bearer {person_token}"}
+        refused = await harness.http.post("/api/v1/conversations", headers=person, json={})
+        assert refused.status_code == 403 and refused.json()["detail"] == "consent_required"
+    finally:
+        # Other modules rely on the seeded internal users as they were.
+        await admin_conn.execute(
+            "UPDATE users SET consent_version = $3, consented_at = $4 "
+            "WHERE tenant_id = $1 AND email = $2",
+            INTERNAL_TENANT_ID,
+            human["email"],
+            before["consent_version"],
+            before["consented_at"],
+        )
+
+
+async def test_a_service_identity_given_roles_later_is_still_refused(
+    harness: Eval, admin_conn: asyncpg.Connection, owner: Any
+) -> None:
+    """Creation refuses an identity with roles; this proves the request path does too,
+    for roles given afterwards: a promoted row is refused outright, an operator or
+    content row never opens a console."""
+    token = sign_credential(PRIVATE, EMAIL)
+    headers = {"Authorization": f"Bearer {token}"}
+    user_id = await admin_conn.fetchval("SELECT id FROM users WHERE email = $1", EMAIL)
+    try:
+        await admin_conn.execute("UPDATE users SET role = 'tenant_admin' WHERE id = $1", user_id)
+        refused = await harness.http.post("/api/v1/conversations", headers=headers, json={})
+        assert refused.status_code == 401
+        await admin_conn.execute("UPDATE users SET role = 'user' WHERE id = $1", user_id)
+
+        await admin_conn.execute(
+            "INSERT INTO operators (tenant_id, user_id) VALUES ($1, $2)",
+            INTERNAL_TENANT_ID,
+            user_id,
+        )
+        console = await harness.http.get("/api/v1/operator/tenants", headers=headers)
+        assert console.status_code == 403
+        await admin_conn.execute(
+            "INSERT INTO content_roles (tenant_id, user_id, role) "
+            "VALUES ($1, $2, 'content_editor')",
+            INTERNAL_TENANT_ID,
+            user_id,
+        )
+        content = await harness.http.get("/api/v1/content/sources", headers=headers)
+        assert content.status_code == 403
+        # Still a user: its own routes work.
+        assert (await harness.http.get("/api/v1/me", headers=headers)).status_code == 200
+    finally:
+        await admin_conn.execute("DELETE FROM operators WHERE user_id = $1", user_id)
+        await admin_conn.execute("DELETE FROM content_roles WHERE user_id = $1", user_id)
+        await admin_conn.execute("UPDATE users SET role = 'user' WHERE id = $1", user_id)
 
 
 def _claims_token(**overrides: Any) -> str:

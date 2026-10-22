@@ -12,8 +12,12 @@ import asyncpg
 import httpx
 import pytest
 
+from app.core import cache
+from app.tenancy.models import INTERNAL_TENANT_ID
+from tests.chat_fixtures import redis  # noqa: F401 - fixture
 from tests.conftest import CONSENT_VERSION
 from tests.fake_idp import sign
+from tests.fakes import FakeRedis
 from tests.test_auth import Auth, auth  # noqa: F401 - fixture
 from tests.test_tenancy import Tenant
 
@@ -398,16 +402,24 @@ async def test_retention_of_one_tenant_does_not_touch_another(auth: Auth) -> Non
     assert other.id != mine.id
 
 
-async def test_retention_of_zero_days_keeps_no_history(auth: Auth) -> None:  # noqa: F811
+async def test_retention_of_zero_days_keeps_no_history(
+    auth: Auth,  # noqa: F811
+    redis: FakeRedis,  # noqa: F811
+) -> None:
     # P1b-14: 0 is "no history"; existing conversations expire at once and new ones are
     # created expired (hidden from every read route) for their one question.
-    _, browser = await admin_of(auth)
+    tenant, browser = await admin_of(auth)
     old = (await browser.post("/api/v1/conversations", json={})).json()["id"]
+    # Answers cached before the switch go too; another tenant's stay.
+    await cache.set(tenant.id, "answer:synthetic", "{}", ttl=600)
+    await cache.set(INTERNAL_TENANT_ID, "answer:synthetic", "{}", ttl=600)
 
     response = await browser.put("/api/v1/admin/settings/retention", json={"retention_days": 0})
 
     assert response.status_code == 200
     assert response.json()["retention_days"] == 0
+    assert await cache.get(tenant.id, "answer:synthetic") is None
+    assert await cache.get(INTERNAL_TENANT_ID, "answer:synthetic") == "{}"
     assert (await browser.get(f"/api/v1/conversations/{old}")).status_code == 404
     created = (await browser.post("/api/v1/conversations", json={})).json()
     assert created["no_history"] is True

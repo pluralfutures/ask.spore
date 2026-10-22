@@ -133,4 +133,5 @@ class EvalServiceValidator:
             email=self._email,
             tenant_id=INTERNAL_TENANT_ID,
             expires_at=datetime.fromtimestamp(claims["exp"], UTC),
+            service=True,
         )

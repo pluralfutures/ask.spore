@@ -198,3 +198,33 @@ Playwright tests).
 2. **Termination keeps the usage ledger** (E2-3). The ledger rows (tokens and cost per month and model, no user) are kept as the offboarding pack's "usage and spend figures". Keep, or delete them too after the final invoice?
 3. **A distinct judge model** (E2-7). The judge still grades its own model's answers. Candidates pinned today: `qwen3.8-27b` (Scaleway) or Mistral's chat model once the account has quota.
 4. **The tokenizer package** (E2-7). Accept a third-party DeepSeek V4 tokenizer package, or vendor DeepSeek's own `tokenizer.json` (with `tokenizers`) once someone with Hugging Face access checks the file?
+
+## 7. Integration of Groups E1 and E2 (Oct 22, 2026)
+
+Branch `phase-1b/integration-e1-e2`: `main` (after PR #48) plus `phase-1b/group-e1` and
+`phase-1b/group-e2`, by the orchestrating session, with the two groups' independent reviews
+(neither found a blocker). Textual conflicts were all additive (the worker tick, the log field
+allow-list, the web fake API, this file) and were kept both ways. Changes beyond the merge:
+
+| # | Item | What | Why |
+| --- | --- | --- | --- |
+| I-1 | Migrations | 0040 re-parented onto 0032 (chain 0031 → 0032 → 0040 → 0041). | Two heads otherwise. 0032 adds columns to `users` and no table, so the termination purge's table lists needed no change (E2-3). |
+| I-2 | P1b-10 × P1b-15 (a) | The eval harness's signed credential yields a **service identity** (`Identity.service`), and the consent gate does not apply to it. Every human user, including internal-tenant staff, stays gated (tested: a person on the internal tenant without the active version is refused while the credential is not). | The credential is not a natural person and there is no one to show the notice to; the path exists only on the internal tenant and only when `[auth.eval_service]` is configured, which production is not (E2-5). This answers §5 question 2 for the oidc path; the Phase 0 eval account (E1-8) is unchanged. Owner may reverse it: the alternative is `eval-identity create` recording an acceptance. |
+| I-3 | P1b-15 (a) | A service identity is checked at **request time**, not only at creation: a user row given `tenant_admin` is refused outright (401 `service_identity_privileged`); an operator or content role given later never opens the consoles (403 `service_identity`). | E2 review: creation-time refusal alone would let a later grant widen the harness's rights. |
+| I-4 | P1b-14 | Switching a tenant's retention to 0 clears its answer-cache namespace (`cache.clear_tenant`, audited count on the log line `tenant_admin.cache_cleared`); another tenant's keys stay (tested). | E2 review: answers cached before the switch were still served to a "no history" tenant for up to the cache TTL. |
+| I-5 | P1b-14 | Test added: the no-history delete also runs when the client leaves mid-answer (the stream is closed after its first event). | E2 review: the answered and failed paths were tested, the disconnect path was not. |
+
+Noted, not changed (reviews): `auth/sso.py` and `auth/links.py` rebuild the sign-in
+response's `RequestContext` without `consent_version` (harmless, not bound to a gated
+request); the tenant admin's audit export carries `operator_id` on `operator.*` rows;
+`[retention] downloads_days` accepts up to 3650 (owner set 90); the eval credential is
+not revocable within its lifetime (at most 15 minutes, test-only path); the termination
+certificate file is written before the commit (an orphan file on a commit failure);
+`config/consent/v1.md` is still the owner's placeholder and the API only warns.
+
+**Checks on the integration branch:** API ruff, format, `mypy --strict` clean; 1345 tests
+pass against PostgreSQL 16 (1 deselected); eval package ruff, format, mypy, 88 tests and
+`eval gate` pass; web lint, typecheck and 100 unit tests pass; `openapi.json` and
+`schema.d.ts` unchanged by the merge; compose config valid. The image-digest `--check`
+hit Docker Hub's anonymous limit here; the E2 review ran it without the mirror and every
+pin matched.

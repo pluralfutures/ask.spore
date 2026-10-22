@@ -112,6 +112,11 @@ class AuthMiddleware:
         if context is None:
             await reject(send, "unknown_user")
             return
+        if identity.service and context.role != "user":
+            # P1b-15 a: the eval harness acts with a user's rights only, whatever the
+            # user row was given since the identity was created.
+            await reject(send, "service_identity_privileged")
+            return
         bind(scope, context)
         await self.app(scope, receive, send)
 

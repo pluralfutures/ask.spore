@@ -301,3 +301,27 @@ def test_repository_config_uses_scaleway_on_an_allow_listed_host() -> None:
     assert settings.models.llm.provider == "scaleway"
     assert settings.models.scaleway is not None
     assert "latest" not in settings.models.scaleway.chat_model
+
+
+# --- deploy version (P1b-13 e) ------------------------------------------------------------
+
+
+def test_deploy_version_comes_from_the_environment(tmp_path: Path) -> None:
+    env = {**ENV, "ASK_SPORE_DEPLOY_VERSION": "0f3e244a1b2c"}
+    assert load_settings(environ=env, config_dir=write_config(tmp_path)).deploy_version == (
+        "0f3e244a1b2c"
+    )
+
+
+def test_deploy_version_falls_back_to_a_hash_of_the_config(tmp_path: Path) -> None:
+    config = write_config(tmp_path)
+    first = load_settings(environ=ENV, config_dir=config).deploy_version
+    assert first.startswith("files-")
+    assert load_settings(environ=ENV, config_dir=config).deploy_version == first
+    (config / "prompts" / "corpus_only" / "v1.md").write_text("Changed prompt.\n")
+    assert load_settings(environ=ENV, config_dir=config).deploy_version != first
+
+
+def test_rejects_a_malformed_deploy_version(tmp_path: Path) -> None:
+    problems = problems_for(tmp_path, VALID_TOML, {**ENV, "ASK_SPORE_DEPLOY_VERSION": "a b;c"})
+    assert any("ASK_SPORE_DEPLOY_VERSION" in p for p in problems)

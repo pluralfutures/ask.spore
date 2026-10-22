@@ -93,6 +93,11 @@ services:
         required: false
     environment:
       ASK_SPORE_CONFIG_DIR: /srv/config
+      # P1b-13 (e): the deployed commit, in the answer cache key so a deploy never serves
+      # answers cached by the previous code. Deploy with
+      # ASK_SPORE_DEPLOY_VERSION=$(git rev-parse --short=12 HEAD) docker compose ... up -d;
+      # unset, the API uses a hash of its config and code instead.
+      ASK_SPORE_DEPLOY_VERSION: ${ASK_SPORE_DEPLOY_VERSION:-}
       DATABASE_URL: postgresql+asyncpg://askspore_app:${APP_DB_PASSWORD:-askspore-app-dev}@postgres:5432/askspore
       REDIS_URL: redis://redis:6379/0
     volumes:
@@ -129,6 +134,11 @@ services:
         required: false
     environment:
       ASK_SPORE_CONFIG_DIR: /srv/config
+      # P1b-13 (e): the deployed commit, in the answer cache key so a deploy never serves
+      # answers cached by the previous code. Deploy with
+      # ASK_SPORE_DEPLOY_VERSION=$(git rev-parse --short=12 HEAD) docker compose ... up -d;
+      # unset, the API uses a hash of its config and code instead.
+      ASK_SPORE_DEPLOY_VERSION: ${ASK_SPORE_DEPLOY_VERSION:-}
       DATABASE_URL: postgresql+asyncpg://askspore_app:${APP_DB_PASSWORD:-askspore-app-dev}@postgres:5432/askspore
       REDIS_URL: redis://redis:6379/0
     volumes:

@@ -27,10 +27,11 @@ Error messages name the offending setting or variable, never a secret value.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import tomllib
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -43,6 +44,12 @@ from app.chat.prompts import check_slot
 
 CONFIG_DIR_ENV = "ASK_SPORE_CONFIG_DIR"
 DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[4] / "config"
+# P1b-13 (e), findings 1a F10: the deployed build, part of the answer cache key, so a
+# deploy never serves answers cached by the previous code. Set by the Compose file from
+# the deploy step (the git commit); without it, a hash of the configuration and code.
+DEPLOY_VERSION_ENV = "ASK_SPORE_DEPLOY_VERSION"
+APP_DIR = Path(__file__).resolve().parents[1]
+_DEPLOY_VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:+-]{0,63}$")
 
 # Environment variables that must be set and non-empty, plus the active LLM provider's
 # key (PROVIDER_SECRETS) and the authentication mode's (AUTH_SECRETS).
@@ -321,6 +328,27 @@ class Settings:
     models: ModelsConfig
     secrets: Secrets
     config_dir: Path
+    # The deployed build (``deploy_version``); in the answer cache key.
+    deploy_version: str = "unversioned"
+
+
+def _tree_bytes(root: Path, pattern: str) -> Iterator[bytes]:
+    for path in sorted(p for p in root.rglob(pattern) if p.is_file()):
+        yield path.relative_to(root).as_posix().encode("utf-8") + b"\x00"
+        yield path.read_bytes() + b"\x00"
+
+
+def deploy_version(env: Mapping[str, str], config_dir: Path) -> str:
+    """``ASK_SPORE_DEPLOY_VERSION`` (the git commit or image build ID the Compose file
+    passes), or, when it is unset, ``files-`` and a hash of every file in the config
+    directory and of the API's own code, so a change to either still changes it."""
+    value = env.get(DEPLOY_VERSION_ENV, "").strip()
+    if value:
+        return value
+    digest = hashlib.sha256()
+    for part in (*_tree_bytes(config_dir, "*"), *_tree_bytes(APP_DIR, "*.py")):
+        digest.update(part)
+    return "files-" + digest.hexdigest()[:16]
 
 
 def _host(url: str) -> str | None:
@@ -524,6 +552,12 @@ def load_settings(
             f"PHASE0_BEARER_TOKEN must be at least {MIN_BEARER_TOKEN_LENGTH} characters"
         )
 
+    version = env.get(DEPLOY_VERSION_ENV, "").strip()
+    if version and not _DEPLOY_VERSION.fullmatch(version):
+        problems.append(
+            f"{DEPLOY_VERSION_ENV} must be a commit or build ID (letters, digits, . _ : + -)"
+        )
+
     project = env.get(SCALEWAY_PROJECT_ENV, "").strip() or None
     if project is not None and not _UUID.fullmatch(project):
         problems.append(f"{SCALEWAY_PROJECT_ENV} must be a project UUID")
@@ -547,7 +581,12 @@ def load_settings(
         authentik_api_token=optional("AUTHENTIK_API_TOKEN"),
         openrouter_api_key=optional(OPENROUTER_SECRET),
     )
-    return Settings(models=models, secrets=secrets, config_dir=directory)
+    return Settings(
+        models=models,
+        secrets=secrets,
+        config_dir=directory,
+        deploy_version=deploy_version(env, directory),
+    )
 
 
 @lru_cache(maxsize=1)

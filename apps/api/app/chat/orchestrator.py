@@ -7,7 +7,8 @@ model and reasoning (P1a-04); the workspace fixes the package (P1a-05):
 1. load the last N turns of the conversation (bounded by tokens);
 2. rewrite a follow-up into a standalone query (skipped for a first question);
 3. answer-cache lookup keyed by tenant + workspace + mode + model + reasoning +
-   prompt version + normalised query + corpus version + retrieval settings;
+   prompt version + normalised query + corpus version + retrieval settings + deploy
+   version;
 4. retrieve from every dataset of the conversation's workspace (``top_k``, threshold);
 5. abstain, without any LLM call, when nothing passes the threshold;
 6. de-duplicate and cap context tokens; assemble the prompt;
@@ -298,7 +299,8 @@ class Orchestrator:
         The retrieval settings are part of it (findings D7), so a threshold, ``top_k``,
         context cap or vector weight change never serves answers retrieved under the
         old settings. ``prompt_ref`` names the template version and the workspace's
-        instructions version, so either change misses.
+        instructions version, so either change misses. The deploy version (P1b-13 e,
+        findings 1a F10) makes every deploy miss the answers cached before it.
         """
         conversation = run.conversation
         material = "\x00".join(
@@ -315,6 +317,7 @@ class Orchestrator:
                 f"threshold={self._chat.similarity_threshold!r}",
                 f"max_context={self._chat.max_context_tokens}",
                 f"vector_weight={VECTOR_SIMILARITY_WEIGHT!r}",
+                f"deploy={self._settings.deploy_version}",
             ]
         )
         digest = hashlib.sha256(material.encode("utf-8")).hexdigest()

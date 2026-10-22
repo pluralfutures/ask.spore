@@ -140,6 +140,10 @@ services:
         condition: service_healthy
       ragflow-redis:
         condition: service_healthy
+      # The embedding service: without it every parse fails and no query can be
+      # embedded (Phase 1b release, findings 1b §8 F3).
+      ragflow-tei:
+        condition: service_started
     command:
       - --enable-adminserver
       - --init-model-provider-tables

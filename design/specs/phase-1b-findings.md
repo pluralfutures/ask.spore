@@ -334,9 +334,21 @@ SSO notes: (1) the runbook expected audit `method = sso:<kind>`; the build recor
 | 3.2 Audit export | **Pass.** Columns `created_at,event,actor_user_id,metadata`; 25 data rows, equal to the `cc` events in the export's allow-list at that time; includes `consent.accepted`; no free-text column. Owner input 3 (download events) was already applied on Oct 22 (decision 18, eba1c77, tested in `test_consent.py`). |
 | 3.3 | Version not bumped on the Instance. |
 
+### Section 4: content pipeline drills (P1b-01 to P1b-05)
+
+Baseline before the drills (RAGFlow's own counts per dataset, documents/chunks): identical to the
+Oct 20 figures (findings 1a §9): `cc-team1-healthcare-gpo` 60/4,037, `cc-team2-college-universities`
+64/4,087, `cc-team3-commercial-restaurants` 22/1,145, `sample-reports` 59/2,580, `cc-shared`,
+`sample-analysis` and `sample-web` 0/0.
+
+| Check | Result |
+| --- | --- |
+| 4.1 Propose, approve, ingest | Synthetic `packages/eval/fixtures/corpus/brightwater-heat-pumps-note.docx`, tag `sample-analysis` (internal `research` workspace only; no `cc` workspace carries it), `--downloadable`, proposed and approved by the operator (both content roles): source `24999170-d74e-43b6-8ab3-0ec073b0bd28`. First run `parse_failed` in 8 s (F3); after the fix, `sources retry`: **`ingested`**, 1 RAGFlow document, 1 chunk, 17 s. Audit: `source.proposed`, `source.approved` (`self_approval=true`), `source.failed`, `source.retried` (`self_approval=true`), `source.ingested`. `sample-analysis` dataset 0/0 → 1/1, the others unchanged. |
+
 ### Issues found and fixed during the release
 
 | # | Item | What | Fix |
 | --- | --- | --- | --- |
 | F1 | Runbook 0.5 | `migrate` builds its own image (`ask-spore-dev-migrate`), which the runbook's build line (`build api web-build worker`) omits: `up -d migrate` ran the Phase 1a image, exited 0 and left the database at 0012. | Built `migrate` too and re-ran: head 0041. Runbook 0.5 now builds `migrate`. (The README deploy line, `up -d --build api worker`, also builds the `migrate` dependency it starts.) |
 | F2 | Runbook 2.1, P1b-11 | `SCALEWAY_TEM_API_KEY` was not in the root `.env` (the runbook's fixed values said it was, Oct 22); the worker started with `worker.mail_not_configured` (`status=no_sender`, a warning only), and the invitation for the new `cc` admin (job `459fc857-e095-453e-90b0-3226a16bc8e0`, created 21:55:55 UTC) failed at its first attempt at 21:56:00 with `mail_not_configured`, permanent, before any provider call. No resend action exists (backlog, decision 15). | The owner added the key to `.env` in their own terminal; `worker` and `api` recreated (no startup warning). Owner decision (a): the job re-queued by hand as the schema owner at 22:04:50 UTC (`status` `queued`, `attempts` 0, `error_code` cleared); it succeeded at 22:04:53 (1 attempt, 481 ms), audit `mail.sent` (template `invitation`, provider `scaleway`). |
+| F3 | Runbook 0.5, RAGFlow compose | `ragflow-tei` (the embedding service) was not running: runbook 0.5 starts `api worker caddy` only, RAGFlow was started by hand with `up -d ragflow`, and the `ragflow` service does not depend on `ragflow-tei`. The 4.1 ingestion failed `parse_failed` (RAGFlow could not resolve `ragflow-tei`); every chat question would also have failed to embed its query. No question was asked in the period (no `chat.query` events). | `ragflow-tei` started (RAGFlow's embed call 200), the source retried and ingested. `infra/ragflow/docker-compose.yml`: `ragflow` depends on `ragflow-tei` (`service_started`); runbook 0.5 starts `ragflow` with the api. Not applied to the running RAGFlow container (TEI already up); takes effect at the next start. |

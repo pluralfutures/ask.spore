@@ -3,6 +3,7 @@ import { readEvents } from "../lib/sse";
 import type {
   AdminInviteIn,
   AdminUser,
+  Aggregates,
   AuthMode,
   ChatStreamEvent,
   ConversationCreated,
@@ -25,10 +26,12 @@ import type {
   NoticeOut,
   OperatorOptions,
   OperatorSource,
+  OperatorTag,
   OperatorWorkspace,
   TenantCreateIn,
   TenantOut,
   TenantSettings,
+  TenantSpend,
   UserChangeIn,
   UserInviteIn,
   Workspace,
@@ -36,6 +39,19 @@ import type {
   WorkspaceDefaultsIn,
   WorkspaceFiles,
   WorkspacePrompt,
+  ApproveIn,
+  ContentMe,
+  ContentSite,
+  ContentSiteDetail,
+  ContentSource,
+  ContentSourceDetail,
+  ContentTag,
+  ProposeOut,
+  SiteCreateIn,
+  SiteSettingsIn,
+  TagSync,
+  Takedown,
+  TakedownIn,
 } from "./types";
 
 const BASE = "/api/v1";
@@ -128,6 +144,19 @@ async function send(method: string, path: string, body?: unknown, signal?: Abort
 
 async function json<T>(method: string, path: string, body?: unknown): Promise<T> {
   return (await (await send(method, path, body)).json()) as T;
+}
+
+// A multipart form (uploads in the content console, P1b-05); the browser sets the
+// boundary, so no Content-Type here.
+async function sendForm(method: string, path: string, form: FormData): Promise<Response> {
+  const response = await fetch(`${BASE}${path}`, {
+    method,
+    body: form,
+    credentials: "same-origin",
+  });
+  if (response.status === 401) onUnauthorized();
+  if (!response.ok) throw new ApiError(response.status, await errorCode(response));
+  return response;
 }
 
 export async function authMode(): Promise<AuthMode> {
@@ -287,6 +316,15 @@ export const adminApi = {
 export const operatorApi = {
   options: () => json<OperatorOptions>("GET", "/operator/options"),
   tenants: () => json<TenantOut[]>("GET", "/operator/tenants"),
+  // P1b-12: one tenant per page, its users and spend, and the cross-tenant totals.
+  tenant: (tenantId: string) => json<TenantOut>("GET", `/operator/tenants/${tenantId}`),
+  tenantTags: (tenantId: string) =>
+    json<OperatorTag[]>("GET", `/operator/tenants/${tenantId}/tags`),
+  tenantUsers: (tenantId: string) =>
+    json<AdminUser[]>("GET", `/operator/tenants/${tenantId}/users`),
+  tenantSpend: (tenantId: string) =>
+    json<TenantSpend>("GET", `/operator/tenants/${tenantId}/spend`),
+  aggregates: () => json<Aggregates>("GET", "/operator/aggregates"),
   createTenant: (body: TenantCreateIn) => json<TenantOut>("POST", "/operator/tenants", body),
   inviteAdmin: (tenantId: string, body: AdminInviteIn) =>
     json<{ user_id: string; status: "invited" }>(
@@ -318,4 +356,62 @@ export const operatorApi = {
     json<OperatorWorkspace>("PUT", `/operator/tenants/${tenantId}/workspaces/${workspaceId}/tags`, {
       tag_ids: tagIds,
     }),
+};
+
+// Content console (P1b-05). The API answers 403 to anyone without a content role, and
+// to an editor on a reviewer's action. Register metadata only, never document text.
+export interface SourceFilters {
+  status?: string;
+  tag?: string;
+  type?: string;
+  publisher?: string;
+  site_id?: string;
+}
+
+function query(params: object): string {
+  const entries = Object.entries(params).filter(
+    (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1] !== "",
+  );
+  return entries.length ? `?${new URLSearchParams(entries).toString()}` : "";
+}
+
+export const contentApi = {
+  me: () => json<ContentMe>("GET", "/content/me"),
+  sources: (filters: SourceFilters = {}) =>
+    json<ContentSource[]>("GET", `/content/sources${query(filters)}`),
+  source: (id: string) => json<ContentSourceDetail>("GET", `/content/sources/${id}`),
+  licenceUrl: (id: string) => `${BASE}/content/sources/${id}/licence`,
+  propose: async (form: FormData) =>
+    (await (await sendForm("POST", "/content/sources", form)).json()) as ProposeOut,
+  attachLicence: async (id: string, form: FormData) => {
+    await sendForm("PUT", `/content/sources/${id}/licence`, form);
+  },
+  approve: (id: string, body: ApproveIn) =>
+    json<{ job_id: string }>("POST", `/content/sources/${id}/approve`, body),
+  reject: async (id: string, note: string) => {
+    await send("POST", `/content/sources/${id}/reject`, { note });
+  },
+  retry: (id: string) => json<{ job_id: string }>("POST", `/content/sources/${id}/retry`),
+  withdraw: (id: string, reason: string) =>
+    json<{ job_id: string }>("POST", `/content/sources/${id}/withdraw`, { reason }),
+  takedown: (id: string, body: TakedownIn) =>
+    json<Takedown>("POST", `/content/sources/${id}/takedown`, body),
+  takedowns: () => json<Takedown[]>("GET", "/content/takedowns"),
+  sites: () => json<ContentSite[]>("GET", "/content/sites"),
+  site: (id: string) => json<ContentSiteDetail>("GET", `/content/sites/${id}`),
+  createSite: (body: SiteCreateIn) => json<ContentSite>("POST", "/content/sites", body),
+  approveSite: (id: string, note: string | null) =>
+    json<{ job_id: string }>("POST", `/content/sites/${id}/approve`, { note }),
+  rejectSite: async (id: string, note: string) => {
+    await send("POST", `/content/sites/${id}/reject`, { note });
+  },
+  siteSettings: async (id: string, body: SiteSettingsIn) => {
+    await send("PUT", `/content/sites/${id}/settings`, body);
+  },
+  siteWhitelist: async (id: string, patterns: string[]) => {
+    await send("PUT", `/content/sites/${id}/special-category-allow`, { patterns });
+  },
+  crawl: (id: string) => json<{ job_id: string }>("POST", `/content/sites/${id}/crawl`),
+  tags: () => json<ContentTag[]>("GET", "/content/tags"),
+  syncTags: () => json<TagSync[]>("POST", "/content/tags/sync"),
 };

@@ -7,7 +7,8 @@ model and reasoning (P1a-04); the workspace fixes the package (P1a-05):
 1. load the last N turns of the conversation (bounded by tokens);
 2. rewrite a follow-up into a standalone query (skipped for a first question);
 3. answer-cache lookup keyed by tenant + workspace + mode + model + reasoning +
-   prompt version + normalised query + corpus version + retrieval settings;
+   prompt version + normalised query + corpus version + retrieval settings + deploy
+   version;
 4. retrieve from every dataset of the conversation's workspace (``top_k``, threshold);
 5. abstain, without any LLM call, when nothing passes the threshold;
 6. de-duplicate and cap context tokens; assemble the prompt;
@@ -122,6 +123,9 @@ class DoneEvent:
     reasoning: bool = False
     # The answer stopped at the output budget (finish reason "length"): shown as cut off.
     truncated: bool = False
+    # P1b-17: a backup answered because the conversation's model failed to open:
+    # "eu" (the other EU provider) or "external" (OpenRouter, entitled tenants only).
+    failover: str | None = None
 
 
 @dataclass(frozen=True)
@@ -191,6 +195,7 @@ class _Run:
     cache_hit: bool = False
     retrieved: int = 0
     context: int = 0
+    failover: str | None = None  # P1b-17: which backup answered, if one did
 
     def add_usage(self, usage: Usage | None, model: str) -> None:
         if usage is not None:
@@ -298,7 +303,8 @@ class Orchestrator:
         The retrieval settings are part of it (findings D7), so a threshold, ``top_k``,
         context cap or vector weight change never serves answers retrieved under the
         old settings. ``prompt_ref`` names the template version and the workspace's
-        instructions version, so either change misses.
+        instructions version, so either change misses. The deploy version (P1b-13 e,
+        findings 1a F10) makes every deploy miss the answers cached before it.
         """
         conversation = run.conversation
         material = "\x00".join(
@@ -315,6 +321,7 @@ class Orchestrator:
                 f"threshold={self._chat.similarity_threshold!r}",
                 f"max_context={self._chat.max_context_tokens}",
                 f"vector_weight={VECTOR_SIMILARITY_WEIGHT!r}",
+                f"deploy={self._settings.deploy_version}",
             ]
         )
         digest = hashlib.sha256(material.encode("utf-8")).hexdigest()
@@ -413,12 +420,15 @@ class Orchestrator:
         parts: list[str] = []
         held = not general
         try:
-            stream = await self._llm.answer(
+            # P1b-17: an EU model that fails to open fails over to the other EU provider,
+            # and to OpenRouter only when ``authorize`` found the tenant entitled.
+            stream, run.failover = await self._llm.answer_with_failover(
                 system,
                 [c.for_prompt() for c in context],
                 run.history,
                 run.question,
                 run.auth.choice,
+                run.auth.failover,
             )
             run.model = stream.model
             async for delta in stream:
@@ -464,8 +474,9 @@ class Orchestrator:
         yield CitationsEvent(citations)
 
         # 9. Cache, then persist and audit (cached first: the client may leave after done).
-        # A cut-off or withheld answer is not cached, so asking again gets a fresh one.
-        if not truncated and not withheld:
+        # A cut-off or withheld answer is not cached, so asking again gets a fresh one;
+        # nor is a failover's answer, which is not the conversation's model's (P1b-17).
+        if not truncated and not withheld and run.failover is None:
             await self._cache_set(
                 run.ctx.tenant_id,
                 key,
@@ -543,6 +554,7 @@ class Orchestrator:
             model=run.model or run.conversation.model,
             reasoning=run.conversation.reasoning,
             truncated=truncated,
+            failover=run.failover,
         )
 
     async def _persist(
@@ -637,6 +649,7 @@ class Orchestrator:
             "prompt": run.prompt,
             "instructions_version": run.instructions.version,
             "cache_hit": run.cache_hit,
+            "failover": run.failover,
             "retrieved_chunk_count": run.retrieved,
             "context_chunk_count": run.context,
             "cited_chunk_ids": [c.chunk_id for c in citations],

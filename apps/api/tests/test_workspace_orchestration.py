@@ -196,6 +196,31 @@ async def test_cache_misses_when_anything_in_the_key_changes(
     assert not cached and len(retriever.calls) == 2
 
 
+async def test_cache_misses_after_a_deploy(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    """P1b-13 (e), findings 1a F10: a new deploy version never serves the old answers."""
+    before = dataclasses.replace(settings, deploy_version="0f3e244a1b2c")
+    after = dataclasses.replace(settings, deploy_version="9cddd53d4e5f")
+    retriever, cached = await _ask_twice(
+        world,
+        (before, await world.new_conversation()),
+        (after, await world.new_conversation()),
+        engine,
+        chunks_for(world),
+    )
+    assert not cached and len(retriever.calls) == 2
+    assert len(redis.store) == 2
+    retriever, cached = await _ask_twice(  # positive control: the same version hits
+        world,
+        (after, await world.new_conversation()),
+        (after, await world.new_conversation()),
+        engine,
+        chunks_for(world),
+    )
+    assert cached
+
+
 async def test_same_settings_still_hit_the_cache(
     settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
 ) -> None:

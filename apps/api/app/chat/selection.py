@@ -18,7 +18,7 @@ fixed at creation); ``conversation_choice`` reads them back for every answer and
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy import select
@@ -29,12 +29,14 @@ from app.chat.models import Conversation
 from app.core.config import CatalogueEntry, Settings
 from app.llm import catalogue
 from app.llm.catalogue import ModelChoice
+from app.llm.factory import Failover
 from app.tenancy.entitlements import (
     ModelEntitlement,
     ModelRefused,
     RefusalCode,
     check_choice,
     eu_fallback_choice,
+    usable_models,
 )
 from app.tenancy.models import TenantEntitlements
 from app.usage.ledger import cap_reached
@@ -105,6 +107,31 @@ class Authorization:
     model: CatalogueEntry | None
     refusal: RefusalCode | None
     entitlement: ModelEntitlement | None = None
+    # P1b-17: the OpenRouter model the answer may fail over to; None for every tenant
+    # without the external-models entitlement (``external_failover``).
+    failover: Failover = field(default_factory=Failover)
+
+
+async def external_failover(
+    session: AsyncSession,
+    settings: Settings,
+    tenant_id: uuid.UUID,
+    ent: ModelEntitlement,
+    model: CatalogueEntry,
+) -> CatalogueEntry | None:
+    """The OpenRouter model an EU conversation may fail over to (owner decision 2 of
+    Oct 22, 2026): only for a tenant with the external-models entitlement, the client's
+    acceptance reference on file and a spend cap that is set and not reached; the
+    tenant's first enabled external model in catalogue order. None otherwise, so the
+    router never reaches OpenRouter for any other tenant."""
+    if model.external or not ent.external_models_enabled:
+        return None
+    if not ent.external_acceptance_reference or ent.external_spend_cap_cents is None:
+        return None
+    external = [e for e in usable_models(settings, ent) if e.external]
+    if not external or await cap_reached(session, settings, tenant_id, ent):
+        return None
+    return external[0]
 
 
 async def authorize(
@@ -122,7 +149,8 @@ async def authorize(
         model = check_choice(settings, ent, choice)
         if model.external and await cap_reached(session, settings, tenant_id, ent):
             raise ModelRefused("spend_cap_reached")
-        return Authorization(choice, model, None, ent)
+        backup = await external_failover(session, settings, tenant_id, ent, model)
+        return Authorization(choice, model, None, ent, Failover(external=backup))
     except ModelRefused as exc:
         return Authorization(choice, None, exc.code, ent)
 

@@ -4,7 +4,7 @@ import { setupKey, validCode } from "./mfa";
 
 describe("setupKey", () => {
   it("shows the secret of an otpauth URI in groups of four", () => {
-    expect(setupKey("otpauth://totp/ask.spore:x?secret=jbswy3dpehpk3pxp&issuer=ask.spore")).toBe(
+    expect(setupKey("otpauth://totp/SporeBot:x?secret=jbswy3dpehpk3pxp&issuer=SporeBot")).toBe(
       "JBSW Y3DP EHPK 3PXP",
     );
   });

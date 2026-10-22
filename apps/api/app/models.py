@@ -4,7 +4,7 @@ from app.audit.models import AuditEvent
 from app.auth.models import MfaChallenge, RevokedSession, SignInLink, SsoAttempt
 from app.chat.models import Citation, Conversation, Feedback, Message
 from app.content.jobs import Job
-from app.content.models import ContentRole, Dataset, Source
+from app.content.models import ContentRole, Dataset, Site, SitePage, Source
 from app.core.db import Base
 from app.files.models import Download
 from app.operator.models import Operator, OperatorNotice
@@ -29,6 +29,8 @@ __all__ = [
     "OperatorNotice",
     "RevokedSession",
     "SignInLink",
+    "Site",
+    "SitePage",
     "Source",
     "SpendNotice",
     "SsoAttempt",

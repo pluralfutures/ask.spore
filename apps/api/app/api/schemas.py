@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -141,6 +142,9 @@ class MessageOut(BaseModel):
     # reasoning was on.
     model: str | None = None
     reasoning: bool | None = None
+    # P1b-17: a backup model answered (``model`` is not the conversation's): "eu" or
+    # "external" (served outside the EU).
+    failover: Literal["eu", "external"] | None = None
 
 
 class ConversationDetail(ConversationSummary):
@@ -205,6 +209,9 @@ class DoneData(BaseModel):
     reasoning: bool
     # The answer stopped at the output budget and is shown as cut off.
     truncated: bool
+    # P1b-17: a backup model answered because the conversation's model was unavailable:
+    # "eu" (the other EU provider) or "external" (served outside the EU).
+    failover: Literal["eu", "external"] | None = None
 
 
 class ErrorData(BaseModel):
@@ -319,6 +326,9 @@ class AcceptanceIn(_In):
 
 
 class EntitlementsIn(_In):
+    # P1b-12 (Phase 1a findings F2): the tenant of the console page the save was made on.
+    # It must equal the tenant in the path, or nothing is saved (409 tenant_mismatch).
+    tenant_id: UUID
     answer_modes: list[Literal["corpus_only", "general_knowledge"]] = Field(min_length=1)
     enabled_models: list[str] = Field(min_length=1, max_length=20)
     external_models_enabled: bool
@@ -446,6 +456,65 @@ class OperatorOptionsOut(BaseModel):
     answer_modes: list[str]
     models: list[str]
     tags: list[str]  # config/tags.toml, assignable to workspaces (P1a-04)
+
+
+class OperatorTagOut(BaseModel):
+    """A tag a tenant's workspaces may use (P1b-12): its own, or shared by all tenants."""
+
+    tag: str
+    shared: bool
+
+
+class ModelSpendOut(BaseModel):
+    """One model's month-to-date usage, from ``usage_ledger`` (P1b-12)."""
+
+    model: str
+    display_name: str
+    external: bool
+    tokens_in: int
+    tokens_out: int
+    cost_cents: Decimal  # euro cents, as the ledger holds them
+
+
+class SpendThresholdOut(BaseModel):
+    percent: int  # 80 or 100
+    cents: Decimal  # the threshold in euro cents of the tenant's cap
+    reached: bool
+    notified_at: datetime | None  # the operator notice for this month, if written
+
+
+class TenantSpendOut(BaseModel):
+    """A tenant's month-to-date usage by model and its external spend against the cap."""
+
+    tenant_id: UUID
+    month: str  # YYYY-MM, UTC
+    models: list[ModelSpendOut]
+    external_spent_cents: Decimal
+    external_models_enabled: bool
+    external_spend_cap_cents: int | None
+    thresholds: list[SpendThresholdOut]
+
+
+class AggregateModelOut(ModelSpendOut):
+    provider: str
+    tenants: int  # how many tenants used the model this month
+
+
+class ProviderTotalOut(BaseModel):
+    provider: str
+    tokens_in: int
+    tokens_out: int
+    cost_cents: Decimal
+
+
+class AggregatesOut(BaseModel):
+    """Cross-tenant totals for the month (P1b-12): no tenant is named, no text exists."""
+
+    month: str
+    tenants: int
+    tenants_with_usage: int
+    models: list[AggregateModelOut]
+    providers: list[ProviderTotalOut]
 
 
 TAG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"

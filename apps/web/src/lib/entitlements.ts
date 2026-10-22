@@ -26,10 +26,13 @@ export function formFrom(current: EntitlementsOut): EntitlementsForm {
 
 // Mirrors the API's rules so the operator sees the reason before saving: switching
 // external models on needs the client's acceptance (DPA document and date) and a cap.
+// P1b-12 (Phase 1a findings F2): the save names the tenant of the page it was made on,
+// both in the path and in the body; the API refuses it when the two differ.
 export function toRequest(
+  pageTenantId: string,
   form: EntitlementsForm,
   current: EntitlementsOut,
-): { body: EntitlementsIn } | { error: string } {
+): { tenantId: string; body: EntitlementsIn } | { error: string } {
   const cap =
     form.spendCapEuros.trim() === "" ? null : Math.round(Number(form.spendCapEuros) * 100);
   if (cap !== null && (!Number.isFinite(cap) || cap < 0))
@@ -44,7 +47,9 @@ export function toRequest(
     }
   }
   return {
+    tenantId: pageTenantId,
     body: {
+      tenant_id: pageTenantId,
       answer_modes: form.answerModes as EntitlementsIn["answer_modes"],
       enabled_models: form.enabledModels,
       external_models_enabled: form.externalModelsEnabled,

@@ -44,7 +44,16 @@ def test_allow_list_matches_spec() -> None:
         "job_id",
         "job_type",
         "attempts",
+        "site_id",
+        "template",
     }
+
+
+def test_site_id_takes_a_scalar_only() -> None:
+    # P1b-04: a site is logged by its ID; a mapping (e.g. its settings) is refused.
+    assert json.loads(format_line("job.finished", site_id="s1"))["site_id"] == "s1"
+    with pytest.raises(ForbiddenLogField):
+        log("job.finished", site_id={"start_url": "https://example.org/"})  # type: ignore[arg-type]
 
 
 def test_allowed_fields_render_as_one_json_line() -> None:

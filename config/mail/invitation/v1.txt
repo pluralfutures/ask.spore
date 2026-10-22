@@ -1,0 +1,13 @@
+Subject: You are invited to $product
+
+Hello,
+
+You have been invited to $product, the research assistant that answers from your organisation's research package.
+
+To sign in, open $app_url and enter this email address: $recipient_email
+
+$product then takes you to your organisation's sign-in page, or sends you a sign-in link. A sign-in link works once, in the browser where you asked for it, and expires in 15 minutes.
+
+If you were not expecting this invitation, you can ignore this email.
+
+$product

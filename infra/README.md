@@ -32,6 +32,17 @@ All host ports bind to `127.0.0.1`, except Caddy's 80 and 443 (profile `public`,
 and HTTP API (`9380`) publish nothing; the API container reaches RAGFlow at
 `http://ragflow:9380` on the `ragflow` network.
 
+Deploys set `ASK_SPORE_DEPLOY_VERSION` (P1b-13 e), which the API and worker read at
+startup and put in the answer cache key, so answers cached by the previous code are
+never served after a deploy (Phase 1a findings F10):
+
+```
+ASK_SPORE_DEPLOY_VERSION=$(git rev-parse --short=12 HEAD) docker compose -f infra/compose.dev.yml up -d --build api worker
+```
+
+Without it the API uses a hash of `config/` and its own code, which also changes with
+any code or configuration change.
+
 The one-shot `migrate` service runs `alembic upgrade head` as the owner before the API
 starts. `PHASE0_INTERNAL_USERS` in the root `.env` lists the users the first migration
 seeds. `infra/postgres/10-app-role.sh` creates the `askspore_app` login role on a fresh

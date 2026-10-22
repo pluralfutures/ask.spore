@@ -58,3 +58,26 @@ export type WorkspaceFile = Schemas["WorkspaceFileOut"];
 export type WorkspaceSite = Schemas["WorkspaceSiteOut"];
 export type DownloadLink = Schemas["DownloadLinkOut"];
 export type OperatorSource = Schemas["OperatorSourceOut"];
+// Content console (P1b-05).
+export type ContentMe = Schemas["ContentMeOut"];
+export type ContentSource = Schemas["ContentSourceOut"];
+export type ContentSourceDetail = Schemas["ContentSourceDetail"];
+export type SourceRef = Schemas["SourceRef"];
+export type DocumentLink = Schemas["DocumentLink"];
+export type HistoryEntry = Schemas["HistoryEntry"];
+export type ContentJob = Schemas["JobOut"];
+export type ProposeOut = Schemas["ProposeOut"];
+export type ApproveIn = Schemas["ApproveIn"];
+export type TakedownIn = Schemas["TakedownIn"];
+export type Takedown = Schemas["TakedownOut"];
+export type ContentSite = Schemas["SiteOut"];
+export type ContentSiteDetail = Schemas["SiteDetail"];
+export type SitePage = Schemas["SitePageOut"];
+export type SiteCreateIn = Schemas["SiteCreateIn"];
+export type SiteSettingsIn = Schemas["SiteSettingsIn"];
+export type ContentTag = Schemas["TagOut"];
+export type TagSync = Schemas["TagSyncOut"];
+// Operator console, one tenant per page (P1b-12).
+export type OperatorTag = Schemas["OperatorTagOut"];
+export type TenantSpend = Schemas["TenantSpendOut"];
+export type Aggregates = Schemas["AggregatesOut"];

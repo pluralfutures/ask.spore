@@ -42,6 +42,9 @@ class ModelEntitlement:
     enabled_models: tuple[str, ...]
     external_models_enabled: bool
     external_spend_cap_cents: int | None
+    # The client's signed acceptance (P1a-03); the failover to OpenRouter needs it on
+    # file (P1b-17), as the database already does for the switch itself.
+    external_acceptance_reference: str | None = None
 
     @classmethod
     def of(cls, row: TenantEntitlements | None) -> ModelEntitlement:
@@ -51,6 +54,7 @@ class ModelEntitlement:
             tuple(row.enabled_models),
             bool(row.external_models_enabled),
             row.external_spend_cap_cents,
+            row.external_acceptance_reference,
         )
 
 

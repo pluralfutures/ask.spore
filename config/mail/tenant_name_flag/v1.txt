@@ -1,0 +1,9 @@
+Subject: $product operator notice: workspace instructions name a tenant
+
+A tenant admin saved workspace instructions that contain the tenant's name, one of its domains, or a name or address of one of its users.
+
+This is permitted (the instructions are the tenant's own text) and is flagged for review. Nothing was shown to the tenant.
+
+The operator console's notices name the tenant: $app_url/operator
+
+This email names no tenant on purpose: platform mail carries no identifier beyond the recipient's address.

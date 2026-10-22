@@ -1,0 +1,11 @@
+Subject: $product: our use and privacy notice has changed
+
+Hello,
+
+We have updated the $product use and privacy notice.
+
+The next time you sign in at $app_url, $product shows you the new notice with a short summary of what changed, and asks you to accept it before your next conversation.
+
+This email was sent to $recipient_email because you have a $product account.
+
+$product

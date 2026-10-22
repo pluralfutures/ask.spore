@@ -538,6 +538,81 @@
         "title": "CitationsData",
         "type": "object"
       },
+      "ConsentAcceptIn": {
+        "additionalProperties": false,
+        "description": "The notice version the user read and accepts; must be the active one.",
+        "properties": {
+          "version": {
+            "pattern": "^v[1-9][0-9]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "ConsentAcceptIn",
+        "type": "object"
+      },
+      "ConsentNoticeOut": {
+        "description": "The active use and privacy notice (P1b-10): Markdown, from the owner's file.",
+        "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "accepted_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Version"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "title",
+          "summary",
+          "text",
+          "accepted_version",
+          "accepted_at",
+          "required"
+        ],
+        "title": "ConsentNoticeOut",
+        "type": "object"
+      },
       "ContentMeOut": {
         "properties": {
           "ragflow_ui_url": {
@@ -2094,6 +2169,11 @@
       },
       "MeOut": {
         "properties": {
+          "consent_required": {
+            "default": false,
+            "title": "Consent Required",
+            "type": "boolean"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -4278,6 +4358,50 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/audit-log": {
+      "get": {
+        "description": "The tenant's audit events since ``since`` (default 90 days), oldest first, as CSV.",
+        "operationId": "export_audit_log_api_v1_admin_audit_log_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "the tenant's audit events"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Audit Log"
+      }
+    },
     "/api/v1/admin/login-policy": {
       "get": {
         "description": "How the tenant's users sign in, as the operator configured it with the client's\nIT (architecture §7.4): shown, never changed here (self-service SSO is Phase 3).",
@@ -4756,6 +4880,62 @@
         "summary": "Start Sso"
       }
     },
+    "/api/v1/consent": {
+      "get": {
+        "description": "The active notice in full, its summary, and what the user has accepted.",
+        "operationId": "get_consent_api_v1_consent_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentNoticeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Consent"
+      },
+      "post": {
+        "description": "Accept the active notice version (idempotent: a second acceptance records nothing).",
+        "operationId": "accept_consent_api_v1_consent_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentAcceptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentNoticeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Consent"
+      }
+    },
     "/api/v1/content/me": {
       "get": {
         "operationId": "content_me_api_v1_content_me_get",
@@ -5213,7 +5393,7 @@
         "summary": "List Sources"
       },
       "post": {
-        "description": "An editor proposes a file (upload) or a URL, with the manifest's metadata. The\ndownload flag needs a licence basis that permits redistribution (own work, an open\nlicence) or the permission letter attached.",
+        "description": "An editor proposes a file (upload) or a URL, with the manifest's metadata. The\nlicence basis is always required; a licence or permission letter may be attached,\ndownloadable or not (decision 10, Oct 22, 2026: no letter is required for now).",
         "operationId": "propose_source_api_v1_content_sources_post",
         "requestBody": {
           "content": {

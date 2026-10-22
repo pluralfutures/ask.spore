@@ -12,7 +12,8 @@ A job's payload names a template and its recipient by identifier (``app.mail.que
   ``askspore_operator``.
 
 The worker renders the template at send time with the recipient's own address and the
-app URL only (``app.core.mailtemplates``) and sends it with ``app.core.mail``. A sent
+app URL only, plus, for the invitation, the recipient's own first name
+(``app.core.mailtemplates``) and sends it with ``app.core.mail``. A sent
 email is audited under the recipient's tenant (``mail.sent``: template, version, job,
 provider). The outcome is an error code and whether to retry, which the worker records
 on the job; nothing here logs, and no address, subject or body reaches a log line, the
@@ -70,16 +71,19 @@ def _uuid(value: Any) -> UUID | None:
         return None
 
 
-async def _tenant_user_email(
+async def _tenant_user(
     factory: async_sessionmaker[AsyncSession], tenant_id: UUID, user_id: UUID, status: str
-) -> str | None:
+) -> tuple[str, str] | None:
+    """The recipient's address and display name."""
     async with tenant_session(factory, tenant_id) as session:
-        email: str | None = await session.scalar(
-            select(User.email).where(
-                User.tenant_id == tenant_id, User.id == user_id, User.status == status
+        row = (
+            await session.execute(
+                select(User.email, User.display_name).where(
+                    User.tenant_id == tenant_id, User.id == user_id, User.status == status
+                )
             )
-        )
-        return email
+        ).first()
+        return None if row is None else (row.email, row.display_name)
 
 
 async def _operator_email(factory: async_sessionmaker[AsyncSession], user_id: UUID) -> str | None:
@@ -120,6 +124,7 @@ async def send_mail(ctx: MailContext, job: ClaimedJob) -> MailOutcome:
     if template not in TEMPLATE_NAMES:
         return MailOutcome("bad_payload")
     user_id = _uuid(payload.get("user_id"))
+    display_name: str | None = None
     if template in OPERATOR_TEMPLATES:
         notice = _uuid(payload.get("notice_id"))
         if notice is None:
@@ -134,9 +139,10 @@ async def send_mail(ctx: MailContext, job: ClaimedJob) -> MailOutcome:
         if tenant_id is None or user_id is None:
             return MailOutcome("bad_payload")
         audit_tenant = tenant_id
-        email = await _tenant_user_email(
+        recipient = await _tenant_user(
             ctx.factory, tenant_id, user_id, RECIPIENT_STATUS[str(template)]
         )
+        email, display_name = recipient if recipient is not None else (None, None)
     if email is None:
         return MailOutcome("recipient_gone")
     if ctx.sender is None or ctx.config is None:
@@ -146,7 +152,12 @@ async def send_mail(ctx: MailContext, job: ClaimedJob) -> MailOutcome:
         loaded = load_template(ctx.config_dir, str(template), version)
     except MailTemplateError:
         return MailOutcome("template_error")
-    mail = render(loaded, recipient_email=email, app_url=ctx.config.app_url)
+    mail = render(
+        loaded,
+        recipient_email=email,
+        app_url=ctx.config.app_url,
+        recipient_display_name=display_name,
+    )
     try:
         await ctx.sender.send(email, mail)
     except MailError as exc:

@@ -58,6 +58,8 @@ export interface FakeOptions {
   // External models fall back to this model, with the notice, as at the spend cap.
   spendCapFallback?: string;
   role?: "user" | "tenant_admin";
+  // P1b-10: the user has not accepted the active notice yet; the API refuses until then.
+  consentPending?: boolean;
 }
 
 // The API's text (app.chat.selection.SPEND_CAP_TEXT).
@@ -100,8 +102,12 @@ export class FakeApi {
   readonly asked: { conversation: string; body: unknown }[] = [];
   private readonly conversations = new Map<string, Conversation>();
   private next = 1;
+  readonly accepted: unknown[] = []; // P1b-10: bodies of POST /consent
+  private consented: boolean;
 
-  constructor(private readonly options: FakeOptions) {}
+  constructor(private readonly options: FakeOptions) {
+    this.consented = !options.consentPending;
+  }
 
   private id(prefix: string): string {
     const n = String(this.next++).padStart(12, "0");
@@ -272,8 +278,29 @@ export class FakeApi {
           display_name: "Synthetic Analyst",
           role: this.options.role ?? "user",
           tenant_display_name: "Synthetic Client",
+          consent_required: !this.consented,
         },
       });
+    }
+    if (path === "/consent") {
+      if (method === "POST") {
+        this.accepted.push(request.postDataJSON());
+        this.consented = true;
+      }
+      return route.fulfill({
+        json: {
+          version: "v1",
+          title: "Synthetic Notice",
+          summary: "Synthetic plain-language summary.",
+          text: "Synthetic full wording of the notice.",
+          accepted_version: this.consented ? "v1" : null,
+          accepted_at: this.consented ? NOW : null,
+          required: !this.consented,
+        },
+      });
+    }
+    if (!this.consented) {
+      return route.fulfill({ status: 403, json: { detail: "consent_required" } });
     }
     if (path === "/workspaces") return route.fulfill({ json: this.options.workspaces });
     if (path.startsWith("/admin") || /^\/workspaces\/[^/]+\/prompts?$/.test(path)) {

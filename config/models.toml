@@ -193,6 +193,13 @@ rewrite = "v1"
 # Faithfulness judge of the eval harness (packages/eval, P0-18); the API does not use it.
 judge = "v1"
 
+[consent]
+# The use and privacy notice every user accepts before their first conversation
+# (P1b-10): config/consent/<version>.md. A new version re-prompts every user and queues
+# one consent_notice email per user who accepted an earlier one. Never edit a released
+# version. v1 is a placeholder until the owner supplies the final wording.
+version = "v1"
+
 [files]
 # Workspace file list and downloads (P1a-14). content_root holds our own copies of the
 # ingested PDF, DOCX and PPTX files, named by content hash (never the original file name),
@@ -210,9 +217,10 @@ downloads_per_user_per_day = 50   # owner, Oct 19, 2026; per UTC calendar day
 # APIs key) with SCALEWAY_TEM_PROJECT_ID (or SCALEWAY_PROJECT_ID), or MAILGUN_API_KEY.
 # Without the active provider's key nothing is sent (jobs fail with mail_not_configured).
 provider = "scaleway"
-# The sending address: on the domain verified in Transactional Email (SPF, DKIM, DMARC),
-# the same domain as Authentik's AUTHENTIK_EMAIL__FROM. To confirm by the owner.
-from_address = "sporebot@myceliumgastronomy.com"
+# The sending address: on the domain verified in Scaleway Transactional Email (fr-par;
+# SPF, DKIM, DMARC), the same address as Authentik's AUTHENTIK_EMAIL__FROM. Owner
+# decision 13, Oct 22, 2026.
+from_address = "reply@askspore.myceliumgastronomy.com"
 from_name = "SporeBot"
 # Where recipients sign in; the only link a platform email carries.
 app_url = "https://askspore.myceliumgastronomy.com"
@@ -233,7 +241,7 @@ region = "fr-par"
 [mail.templates]
 # Active versions of config/mail/<name>/<version>.txt and .html; never edit a released
 # version (app.core.mailtemplates).
-invitation = "v1"
+invitation = "v2"  # v2: greets the recipient by first name (decision 16)
 spend_cap_80 = "v1"
 spend_cap_100 = "v1"
 tenant_name_flag = "v1"

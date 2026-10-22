@@ -12,8 +12,6 @@ export const SOURCE_STATUSES = [
 ] as const;
 export const SOURCE_TYPES = ["pdf", "docx", "pptx", "html", "markdown"] as const;
 export const SCHEDULES = ["none", "weekly", "monthly"] as const;
-// Licence bases that permit redistribution from our domain without a letter on file.
-export const REDISTRIBUTABLE = ["own-work", "open-licence"];
 export const LICENCE_BASES = ["public", "open-licence", "publisher-terms", "own-work"];
 
 export const EDITOR = "content_editor";
@@ -76,8 +74,6 @@ const ERRORS = {
     "This file is at the link of an ingested source: choose whether it replaces it, or keep both.",
   not_a_replacement_candidate: "That source is not an ingested source at the same link.",
   replace_or_keep_both: "Choose replace or keep both, not both.",
-  licence_file_required:
-    "A downloadable third-party file needs the permission letter, or a licence basis of own-work or open-licence.",
   file_or_url: "Give either a file or a URL.",
   not_public: "That address is not on the public internet.",
   note_required: "A note is required.",
@@ -124,10 +120,6 @@ export const emptyProposal: ProposalFields = {
   url: "",
 };
 
-export function needsLicenceLetter(fields: ProposalFields, hasLetter: boolean): boolean {
-  return fields.downloadable && !REDISTRIBUTABLE.includes(fields.licenceBasis) && !hasLetter;
-}
-
 /** The multipart body of a proposal, or the reason it cannot be sent. */
 export function proposalForm(
   fields: ProposalFields,
@@ -140,7 +132,6 @@ export function proposalForm(
     return { error: "Title, publisher and licence basis are required." };
   }
   if (fields.tags.length === 0) return { error: "Choose at least one tag." };
-  if (needsLicenceLetter(fields, licence !== null)) return { error: ERRORS.licence_file_required };
   const form = new FormData();
   form.append("title", fields.title.trim());
   form.append("publisher", fields.publisher.trim());

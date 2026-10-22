@@ -6,10 +6,13 @@ released version is never edited. The text file's first line is ``Subject: …``
 a blank line, then the plain-text body; the HTML file is the HTML body.
 
 A template may use three placeholders and nothing else (``$product``, ``$app_url``,
-``$recipient_email``), checked at startup (``app.core.config``) and again when a
-template is loaded. So a rendered email can carry no identifier beyond the
-recipient's own address: no tenant, user, workspace, notice or job ID, no tenant name
-and no display name, by construction. Values are HTML-escaped in the HTML body.
+``$recipient_email``), and the invitation a fourth, ``$first_name``: the recipient's own
+first name, the first word of their display name (owner decision 16, Oct 22, 2026).
+Checked at startup (``app.core.config``) and again when a template is loaded. So a
+rendered email can carry nothing beyond the recipient's own address and, in the
+invitation, their own first name: no tenant, user, workspace, notice or job ID, no
+tenant name, no inviter and no other name, by construction; operator notices stay
+tenant-free. Values are HTML-escaped in the HTML body.
 """
 
 from __future__ import annotations
@@ -35,6 +38,12 @@ OPERATOR_TEMPLATES: Final[frozenset[str]] = frozenset(
     {"spend_cap_80", "spend_cap_100", "tenant_name_flag"}
 )
 PLACEHOLDERS: Final[frozenset[str]] = frozenset({"product", "app_url", "recipient_email"})
+# Decision 16: the invitation may greet the recipient by their own first name.
+FIRST_NAME: Final = "first_name"
+EXTRA_PLACEHOLDERS: Final[dict[str, frozenset[str]]] = {"invitation": frozenset({FIRST_NAME})}
+# The greeting's word when the display name gives no usable first name.
+NO_FIRST_NAME: Final = "there"
+MAX_FIRST_NAME_CHARS: Final = 60
 # The user-facing product name (owner decision 1 of Oct 22, 2026); internal names stay
 # ask.spore.
 PRODUCT_NAME: Final = "SporeBot"
@@ -72,16 +81,32 @@ def _paths(config_dir: Path, name: str, version: str) -> tuple[Path, Path]:
     return base / f"{version}.txt", base / f"{version}.html"
 
 
-def _problems(parts: dict[str, str]) -> list[str]:
+def placeholders(name: str) -> frozenset[str]:
+    """The placeholders template ``name`` may use."""
+    return PLACEHOLDERS | EXTRA_PLACEHOLDERS.get(name, frozenset())
+
+
+def first_name(display_name: str | None) -> str:
+    """The first word of a display name, for the invitation's greeting; ``there`` when
+    there is none or it looks like an address."""
+    words = (display_name or "").split()
+    word = "".join(c for c in words[0] if c.isprintable()) if words else ""
+    if not word or "@" in word:
+        return NO_FIRST_NAME
+    return word[:MAX_FIRST_NAME_CHARS]
+
+
+def _problems(name: str, parts: dict[str, str]) -> list[str]:
+    allowed = placeholders(name)
     problems: list[str] = []
     for part, text in parts.items():
         template = Template(text)
         if not template.is_valid():
             problems.append(f"{part} has a malformed placeholder ('$$' writes a dollar sign)")
             continue
-        unknown = sorted(set(template.get_identifiers()) - PLACEHOLDERS)
+        unknown = sorted(set(template.get_identifiers()) - allowed)
         if unknown:
-            problems.append(f"{part} uses placeholders other than {sorted(PLACEHOLDERS)}")
+            problems.append(f"{part} uses placeholders other than {sorted(allowed)}")
     return problems
 
 
@@ -95,7 +120,7 @@ def _parse(name: str, version: str, text_file: str, html_file: str) -> MailTempl
     body = rest.lstrip("\n")
     if not body.strip() or not html_file.strip():
         raise MailTemplateError(f"{name}/{version} has an empty body")
-    problems = _problems({"subject": subject, "text": body, "html": html_file})
+    problems = _problems(name, {"subject": subject, "text": body, "html": html_file})
     if problems:
         raise MailTemplateError(f"{name}/{version}: " + "; ".join(problems))
     return MailTemplate(name, version, subject, body, html_file)
@@ -122,9 +147,19 @@ def check_template(config_dir: Path, name: str, version: str) -> list[str]:
     return []
 
 
-def render(template: MailTemplate, *, recipient_email: str, app_url: str) -> RenderedMail:
-    """Fill the three placeholders; the HTML body gets HTML-escaped values."""
+def render(
+    template: MailTemplate,
+    *,
+    recipient_email: str,
+    app_url: str,
+    recipient_display_name: str | None = None,
+) -> RenderedMail:
+    """Fill the placeholders; the HTML body gets HTML-escaped values. Only a template
+    allowed ``$first_name`` (the invitation) gets one, from the recipient's own display
+    name."""
     values = {"product": PRODUCT_NAME, "app_url": app_url, "recipient_email": recipient_email}
+    if FIRST_NAME in placeholders(template.name):
+        values[FIRST_NAME] = first_name(recipient_display_name)
     escaped = {key: html.escape(value) for key, value in values.items()}
     return RenderedMail(
         subject=Template(template.subject).substitute(values),

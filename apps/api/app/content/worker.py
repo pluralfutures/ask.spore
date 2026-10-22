@@ -34,11 +34,10 @@ from pathlib import Path
 from typing import Final
 from uuid import UUID
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.content.crawler import HostLimiter
-from app.content.fetch import Resolver, http_client, resolve_host
+from app.content.fetch import Connector, Resolver, resolve_host
 from app.content.ingest import (
     PARSE_TIMEOUT_SECONDS,
     add_tags,
@@ -87,8 +86,9 @@ class Context:
     tags: Mapping[str, TagConfig]
     content_root: Path
     parse_poll_interval: float = PARSE_POLL_SECONDS
-    # Crawling (P1b-04): a fresh HTTP client per crawl, one rate limiter per worker.
-    http: Callable[[], httpx.AsyncClient] = http_client
+    # Crawling (P1b-04): a fresh pinned HTTP client per crawl (P1b-18), one rate
+    # limiter per worker. ``connect`` replaces the network for tests only.
+    connect: Connector | None = None
     limiter: HostLimiter = field(default_factory=HostLimiter)
     resolve: Resolver = resolve_host
     mail: MailContext | None = None  # P1b-11: send_mail jobs
@@ -164,15 +164,14 @@ def crawl_handler(ctx: Context) -> Handler:
             site_id = UUID(str(job.payload["site_id"]))
         except (KeyError, ValueError):
             return Outcome("bad_payload")
-        async with ctx.http() as http:
-            result = await crawl_site(
-                ctx.factory,
-                site_id,
-                http=http,
-                content_root=ctx.content_root,
-                limiter=ctx.limiter,
-                resolve=ctx.resolve,
-            )
+        result = await crawl_site(
+            ctx.factory,
+            site_id,
+            content_root=ctx.content_root,
+            limiter=ctx.limiter,
+            resolve=ctx.resolve,
+            connect=ctx.connect,
+        )
         # A site that disallows us or reserves its rights is a recorded decision, not a
         # failure; an unreachable site waits for its next scheduled crawl.
         return Outcome(result.error_code, site_id=site_id)

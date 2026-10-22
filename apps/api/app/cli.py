@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.auth.authentik import oidc_services
 from app.auth.provider import ProviderError
+from app.consent.notices import ConsentNoticeTick
 from app.content import worker
 from app.content.datasets import sync_datasets
 from app.content.fetch import FetchError, fetch, http_client
@@ -478,6 +479,12 @@ async def _sources(args: argparse.Namespace) -> int:
     return 1 if result.status == "failed" else 0
 
 
+async def _tick(factory: async_sessionmaker[AsyncSession], notices: ConsentNoticeTick) -> None:
+    """Before each claim: due crawls (P1b-04) and consent notices (P1b-10)."""
+    await schedule_due_crawls(factory)
+    await notices()
+
+
 async def _worker(args: argparse.Namespace) -> int:
     """Run the job queue until stopped (SIGTERM or SIGINT puts the running job back)."""
     settings = get_settings()
@@ -501,6 +508,8 @@ async def _worker(args: argparse.Namespace) -> int:
     if settings.models.mail is not None and sender is None:
         log("worker.mail_not_configured", level="warning", status="no_sender")
     factory = session_factory(engine)
+    # P1b-10: one consent-notice email per user when the notice version changes.
+    notices = ConsentNoticeTick(factory, settings.models.consent.version)
     try:
         async with RagflowClient.from_settings(settings) as client:
             context = worker.Context(
@@ -521,7 +530,7 @@ async def _worker(args: argparse.Namespace) -> int:
                 poll_interval=args.poll_interval,
                 stop=stop,
                 once=args.once,
-                tick=lambda: schedule_due_crawls(context.factory),
+                tick=lambda: _tick(context.factory, notices),
             )
     except asyncio.CancelledError:
         log("worker.stopped", status="stopped")

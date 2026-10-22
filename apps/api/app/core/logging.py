@@ -55,6 +55,8 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         # Platform mail (P1b-11): which template a send_mail job sent. Never the
         # recipient's address, the subject or the body.
         "template",
+        # Consent gate (P1b-10): a notice version such as "v2". Never the notice text.
+        "consent_version",
     }
 )
 

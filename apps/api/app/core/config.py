@@ -45,6 +45,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 from app.chat.prompts import check_slot
+from app.consent.notice import check_notice
 from app.core.mailtemplates import TEMPLATE_NAMES, check_template
 
 CONFIG_DIR_ENV = "ASK_SPORE_CONFIG_DIR"
@@ -248,6 +249,12 @@ class PromptsConfig(_Strict):
     judge: str = Field(pattern=r"^v[1-9][0-9]*$")
 
 
+class ConsentConfig(_Strict):
+    """The use and privacy notice users must accept (P1b-10): ``consent/<version>.md``."""
+
+    version: str = Field(pattern=r"^v[1-9][0-9]*$")
+
+
 class ChatConfig(_Strict):
     """Orchestrator parameters (P0-14). Token counts are estimates (~4 characters each)."""
 
@@ -375,6 +382,7 @@ class ModelsConfig(_Strict):
     pricing: PricingConfig = PricingConfig()
     ragflow: RagflowConfig
     prompts: PromptsConfig
+    consent: ConsentConfig
     chat: ChatConfig
     files: FilesConfig = FilesConfig()
     # Platform mail (P1b-11); without it the API and worker send nothing.
@@ -624,6 +632,10 @@ def _check_prompts(prompts: PromptsConfig, directory: Path) -> list[str]:
     return problems
 
 
+def _check_consent(consent: ConsentConfig, directory: Path) -> list[str]:
+    return [f"consent.version: {problem}" for problem in check_notice(directory, consent.version)]
+
+
 def _check_mail_templates(mail: MailConfig | None, directory: Path) -> list[str]:
     if mail is None:
         return []
@@ -663,6 +675,7 @@ def load_settings(
         problems += _check_models(models)
         problems += _check_prompts(models.prompts, directory)
         problems += _check_mail_templates(models.mail, directory)
+        problems += _check_consent(models.consent, directory)
 
     provider = models.llm.provider if models is not None else None
     auth_mode = models.auth.mode if models is not None else None

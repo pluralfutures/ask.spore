@@ -37,7 +37,7 @@ The corpus and the manifest live on the Phase 0 Instance only. Never commit them
 | `language` | no | ISO 639-1, e.g. `en`, `de` | For spot-checking only; not used by retrieval in Phase 0. |
 | `max_pages` | no | Integer | `site` rows only; caps the crawl. |
 | `notes` | no | Free text | Anything the content editor wants recorded. Not sent to RAGFlow or the LLM. |
-| `downloadable` | no (optional column) | `true` or `false`; empty means `false` | P1a-14, licence-gated downloads: `true` only where the licence permits redistribution from our domain (our own analyses; third-party files only with the permission recorded per source). Only `pdf`, `docx` and `pptx` rows. Read for new sources, and for an already-ingested source when its row adds a tag (re-tagging, below; the change is audited); otherwise re-running the manifest does not change the flag, and the operator console does, audited. The column may be left out entirely, or placed anywhere. |
+| `downloadable` | no (optional column) | `true` or `false`; empty means `false` | P1a-14, licence-gated downloads: `true` only where the licence permits redistribution from our domain (our own analyses; third-party files where the row's `licence_basis` records the permission). No permission letter is required, in the manifest or in the console's propose form (owner decision 10, Oct 22, 2026); a letter may still be attached to a source in the console. Only `pdf`, `docx` and `pptx` rows. Read for new sources, and for an already-ingested source when its row adds a tag (re-tagging, below; the change is audited); otherwise re-running the manifest does not change the flag, and the operator console does, audited. The column may be left out entirely, or placed anywhere. |
 
 ## Rules
 

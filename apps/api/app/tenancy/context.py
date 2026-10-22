@@ -31,6 +31,8 @@ class RequestContext:
     user_id: UUID
     role: str  # users.role: "user" or "tenant_admin"
     status: str = "active"  # users.status before this sign-in ("invited" on the first one)
+    # P1b-10: the notice version the user last accepted (None before the first time).
+    consent_version: str | None = None
 
     @property
     def is_tenant_admin(self) -> bool:
@@ -63,7 +65,7 @@ async def resolve_user(
     """
     statuses = ("active", "invited") if allow_invited else ("active",)
     query = (
-        select(User.id, User.role, User.status)
+        select(User.id, User.role, User.status, User.consent_version)
         .join(Tenant, Tenant.id == User.tenant_id)
         .where(
             User.tenant_id == tenant_id,
@@ -83,4 +85,10 @@ async def resolve_user(
         row = (await session.execute(query)).one_or_none()
     if row is None:
         return None
-    return RequestContext(tenant_id=tenant_id, user_id=row.id, role=row.role, status=row.status)
+    return RequestContext(
+        tenant_id=tenant_id,
+        user_id=row.id,
+        role=row.role,
+        status=row.status,
+        consent_version=row.consent_version,
+    )

@@ -18,7 +18,7 @@ Only the owner or counsel can answer these. Duplicates across the documents are 
 
 | # | Question | Files | Answer |
 | --- | --- | --- | --- |
-| A1 | Legal entity name, form, address and company number of the contracting party (Plural Futures or Mycelium Gastronomy?) | all || **Answered Oct 21, 2026:** Estefania Simon-Sasyk y Otro CB (comunidad de bienes), trading as Mycelium Gastronomy Network, NIF E19824093. Filled into every draft; the registered address is still open. See A7 and A8 |
+| A1 | Legal entity name, form, address and company number of the contracting party (Plural Futures or Mycelium Gastronomy?) | all | **Answered Oct 21, 2026:** Estefania Simon-Sasyk y Otro CB (comunidad de bienes), trading as Mycelium Gastronomy Network, NIF E19824093. Filled into every draft; the registered address is still open. See A7 and A8 |
 | A2 | **C** Is a DPO required, or is a named privacy contact enough? Who is it? | privacy-notice, records-of-processing | |
 | A3 | Lead supervisory authority and Member State | privacy-notice, dpia, incident-runbook, policy-incident-response | |
 | A4 | Contact addresses: privacy, security, takedown, support; incident lead phone, a deputy, counsel contact | privacy-notice, incident-runbook, policy-business-continuity, onboarding-pack | |

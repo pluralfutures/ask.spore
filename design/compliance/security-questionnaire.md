@@ -66,7 +66,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | 5.6 | Can provider staff read customer conversations? | No | The operator database role has no privilege on conversations, messages, citations, feedback or sign-in links (revision 0006, tested). Support access to a specific conversation only at the customer's request; time-boxed, logged support mode is not yet built |
 | 5.7 | Customer can deactivate its users | Yes | Tenant administrator deactivates a user; the next request is refused; audited (`tenant_admin.user_changed`) |
 | 5.8 | Quarterly access reviews | No | Written into `policy-access-control.md`; first review after approval |
-| 5.9 | Session timeout | Yes | Session valid 8 hours; access token revoked on sign-out (live check in P1b-08); refresh before expiry from Phase 1b (P1b-08) |
+| 5.9 | Session timeout | Partial | Session valid 8 hours; the session cookie is cleared on sign-out and the token's revocation is verified live in Phase 1b (P1b-08); refresh before expiry from Phase 1b (P1b-08) |
 | 5.10 | Customer can see sign-in and admin events for its users | Partial | Every sign-in, sign-out and admin action is written to the audit log. A download of the audit log for tenant administrators is not built; until it is, we provide an export on request |
 
 ## 6. Cryptography

@@ -39,7 +39,7 @@ Conversations are never more than 30 days old (fewer if the client shortened ret
 
 ### 1.4 Purge
 
-**From Phase 1b (P1b-14):** the per-tenant termination purge deletes the tenant's conversations, messages, citations, feedback, downloads records, sign-in link records, tenant settings, workspaces and users, removes the tenant's users from Authentik, clears the tenant's answer-cache keys (all keys under the tenant's prefix), and writes the figures for the certificate (section 2). It is tested: after the purge no row for the tenant remains outside the audit log.
+**From Phase 1b (P1b-14):** the per-tenant termination purge deletes the tenant's conversations, messages, citations, feedback, downloads records, sign-in link records, tenant settings, workspaces and users, clears the tenant's answer-cache keys (all keys under the tenant's prefix), and writes the figures for the certificate (section 2). The tenant's Authentik users are removed by the operator in Authentik's admin interface as a separate, audited step (not part of P1b-14). It is tested: after the purge no row for the tenant remains outside the audit log.
 
 **Until P1b-14 is live:** the operator runs the same deletions by hand as the schema owner, in one transaction per table group, following a written script [owner: attach the script], records the row counts before and after, deletes the Authentik users through Authentik's admin interface, and clears the cache keys under the tenant prefix through `app.core.cache` tooling. The certificate then says "manual procedure".
 

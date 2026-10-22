@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Placeholders | [Client], [sending domain], [sender address], [support email], [privacy contact email], [security contact email], [client IT contact], [Entra redirect URI], [Google redirect URI], [OIDC redirect URI], [SAML ACS URL], [SAML entity ID], [secret transfer method], [recipient first name], [inviter name], [workspace name], [notice version], [notice summary], [notice path], [date] |
-| To finalise, the owner must | (1) fill in the placeholders, using `askspore.myceliumgastronomy.com` for askspore.myceliumgastronomy.com unless a client-facing host replaces it; (2) choose the [secret transfer method] for SSO client secrets and SAML keys (section 1.5); (3) check the email templates in section 2 against the copy that P1b-11 and the Authentik template ship with, and keep the two in step; (4) remove the "not yet built" notes once the matching spec items pass their tests; (5) run the live scanner test (P1b-13(a)) with [Client]'s IT contact before the first `customculinary.com` user is invited, and record the result in the Phase 1b findings; (6) have counsel check section 2.3 (consent notice) against `privacy-notice.md` and `terms-of-service.md`. |
+| To finalise, the owner must | (1) fill in the placeholders, using `askspore.myceliumgastronomy.com` for [app hostname] unless a client-facing host replaces it; (2) choose the [secret transfer method] for SSO client secrets and SAML keys (section 1.5); (3) check the email templates in section 2 against the copy that P1b-11 and the Authentik template ship with, and keep the two in step; (4) remove the "not yet built" notes once the matching spec items pass their tests; (5) run the live scanner test (P1b-13(a)) with [Client]'s IT contact before the first `[client domain]` user is invited, and record the result in the Phase 1b findings; (6) have counsel check section 2.3 (consent notice) against `privacy-notice.md` and `terms-of-service.md`. |
 
 Section 1 goes to [Client]'s IT contact. Sections 2 and 3 are templates and guidance used by us and by [Client]'s tenant administrator. Section 4 goes to the tenant administrator.
 
@@ -57,7 +57,7 @@ Single sign-on is configured by our operator together with you; there is no self
 
 Whichever option you choose:
 
-- **Verified domains.** You tell us the email domains your users sign in with (for example `customculinary.com`). One domain belongs to one organisation on SporeBot. We check that you control it before we register it.
+- **Verified domains.** You tell us the email domains your users sign in with (for example `[client domain]`). One domain belongs to one organisation on SporeBot. We check that you control it before we register it.
 - **Which organisation a user belongs to** is decided by us, from the SSO connection the user arrives through. It is never taken from a claim your identity provider sends. A user of one organisation cannot land in another's (tested).
 - **Just-in-time accounts.** If you want, users who sign in through your SSO get an account on first sign-in, but only for an address on a verified domain. If you switch this off, only invited users can sign in.
 - **What we receive from your identity provider:** email address, name if sent, and optionally a group membership to mark administrators. We do not need, and do not ask for, any directory read access.
@@ -215,4 +215,4 @@ For tenant administrators. Until P1b-08 ships, administrators sign in with an em
 
 **Models.** Your users can choose, per conversation, among the models our operator enabled for you. By default these are models run by Scaleway in Paris. **External models** (Claude Opus 5.5 and GPT-6.1 Sol, served outside the EU through OpenRouter) are off. They are switched on only after your organisation signs the acceptance in Annex 4 of the data processing agreement, with a monthly spend cap, and after we have completed our own checks. When they are on, the model picker tells users that these models are served outside the EU.
 
-**Where to look things up.** How we handle data: the trust page and `privacy-notice.md`. Terms: `terms-of-service.md`. How answers are produced and their limits: `ai-transparency-note.md`.
+**Where to look things up.** How we handle data: `privacy-notice.md` (a public trust page follows in Phase 2). Terms: `terms-of-service.md`. How answers are produced and their limits: `ai-transparency-note.md`.

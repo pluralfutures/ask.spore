@@ -71,3 +71,6 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 - Phase 1b release follow-up (independent review, Oct 22, 2026): a test that fails when a Compose service publishes a port on a non-loopback address, except Caddy's 80 and 443.
 - Phase 1b release follow-up (independent review, Oct 22, 2026): cap `[retention] downloads_days` nearer the owner's 90 days; the config accepts up to 3650 today.
 - Pre-launch, Oct 22, 2026 (Phase 1b release 2.1): the organisation domain's DMARC policy is `p=none`; move to `quarantine` or `reject` once the platform mail's reports are clean, before the first customculinary.com user is invited.
+- Phase 1b release follow-up (Oct 22, 2026, findings 1b §8): record the SSO source kind in the login audit (`method` `sso:<kind>` or a `sso_kind` key), so an audit export shows which IdP signed a user in without the source history.
+- Phase 1b release follow-up (Oct 22, 2026, findings 1b §8): refuse an out-of-domain SSO sign-in through an Authentik policy or a mapping return value rather than an exception, so a refusal is not an HTTP 500 with `configuration_error` events in Authentik.
+- Phase 1b release follow-up (Oct 22, 2026, owner): after "Remove SSO source" the operator console's source form still shows the old kind, issuer and client ID; clear it on removal.

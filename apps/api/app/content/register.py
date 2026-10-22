@@ -143,6 +143,7 @@ async def replacement_candidates(
         .where(
             Source.canonical_url == canonical_url,
             Source.status == "ingested",
+            Source.site_id.is_(None),
         )
         .order_by(Source.created_at)
     )

@@ -109,9 +109,11 @@ services:
       - authentik  # http://authentik-server:9000, on this network only
     restart: unless-stopped
 
-  # Background jobs (P1b-02): ingestion of approved sources, one job at a time, from the
-  # `jobs` table. Same image, configuration and secrets as the API; no published port and
-  # no HTTP server, so the image's API healthcheck is turned off here.
+  # Background jobs (P1b-02): ingestion of approved sources, withdrawals and site crawls
+  # (P1b-04), one job at a time, from the `jobs` table; it also queues the crawls that are
+  # due. Same image, configuration and secrets as the API; no published port and no HTTP
+  # server, so the image's API healthcheck is turned off here. Crawls go out to the
+  # public internet over the `app` network, public addresses only (app.content.fetch).
   worker:
     build:
       context: ../apps/api
@@ -133,7 +135,8 @@ services:
       REDIS_URL: redis://redis:6379/0
     volumes:
       - ../config:/srv/config:ro
-      # Reads the files staged at proposal and writes nothing else ([files] content_root).
+      # Reads the files staged at proposal; writes crawled pages and their raw HTML
+      # snapshots, and deletes withdrawn copies ([files] content_root).
       - content:/srv/ask-spore/content
     healthcheck:
       disable: true

@@ -2,7 +2,7 @@
 
 Implemented by `ask-spore ingest-manifest` (P0-11, `apps/api/app/content/manifest.py`; since Phase 1b through the source register and the job queue, see "Register, approval and the worker" below); the licence basis vocabulary is enforced as proposed below unless the owner amends it. Columns are matched by header name in any order. Two details the command fixes: `canonical_url` is required unless `licence_basis` is `own-work`, and a `site` row without `max_pages` crawls at most 50 pages.
 
-Format for the manifest that drives batch ingestion of the Phase 0 sample corpus (spec items P0-09, P0-10, P0-11). The columns map one-to-one onto the `ask-spore ingest` and `ask-spore crawl` flags and onto the `sources` table (P0-05).
+Format for the manifest that drives batch ingestion of the Phase 0 sample corpus (spec items P0-09, P0-10, P0-11). The columns map one-to-one onto the `ask-spore ingest` and `ask-spore crawl` flags and onto the `sources` table (P0-05); since Phase 1b a `site` row maps onto the `sites` table (P1b-04, "Sites" below).
 
 Status: proposal from the coding session, 2026-10-18. The licence basis vocabulary needs confirmation from the research lead before the team fills in rows.
 
@@ -76,6 +76,14 @@ Row statuses in the summary (log lines and `--summary` CSV):
 | `failed` | With an error code: the job's (`parse_failed`, `no_chunks`, `ragflow_…`), `taken_down`, or `needs_retry` (a failed source waiting for a reviewer's `sources retry`). |
 
 Site rows report `ok`, `failed`, or the first waiting status of their pages.
+
+## Sites (Phase 1b, P1b-04)
+
+A `site` row registers the site in the `sites` table (the content console's Sites page), with the row's `title` as the site's name, its `publisher`, `licence_basis`, `tags` and `max_pages`; the row's `published_on` and `canonical_url` are not used for sites (each page's date comes from its own metadata, and its URL is its canonical link). With `--approve-as` the reviewer approves the site, which queues a `crawl_site` job for the worker; a site approved earlier gets a crawl now. Without it the row reports `proposed` until a reviewer approves the site in the console. A rejected site fails with `site_rejected`. With `--wait` the run waits for the crawl and then for the pages it queued.
+
+`ask-spore crawl <url> --tag … --max-pages … --licence … [--publisher …] [--name …] [--allow /path/*] [--deny /path/*] [--schedule none|weekly|monthly] [--approve-as …] [--wait]` does the same for one site. The `--out-dir` and `--crawl-dir` flags of Phase 0 are gone: pages are staged under `[files] content_root`, with their raw HTML snapshot.
+
+The worker's crawl honours robots.txt, the crawl delay and the TDM reservation (the site's allow decision), stays within the scope rules and the page budget, waits at least a second between requests to one host, skips special-category pages unless a reviewer whitelists their path, takes publication dates from explicit page metadata only, re-ingests changed pages (the new version replaces the old one) and withdraws pages that are gone. Each page is a register row in the reviewer's name: the reviewer's approval of the site covers its pages.
 
 Source register states: `proposed → approved → ingested → withdrawn`, plus `failed` (a reviewer retries it) and `rejected` (a reviewer declined the proposal, with a note).
 

@@ -12,7 +12,8 @@ One job per source (architecture §6.3), run by the worker, idempotent on retry:
    blanked as well, for this source and the earlier versions it replaced (owner
    decision 5, Oct 22, 2026); every other withdrawal keeps them;
 3. mark the register row ``withdrawn`` with its date and reason, audited;
-4. delete our stored copy of the file, unless another live source has the same content;
+4. delete our stored copy of the file, unless another live source has the same content,
+   and a crawled page's raw HTML snapshot (P1b-04) likewise;
 5. purge every tenant's answer-cache entries that cite the source (cache values record
    their source IDs from P1b-03 on; older values are matched by their citations).
 
@@ -244,6 +245,23 @@ async def withdraw_source(
                 remove(content_root, relative_path(row.file_sha256, row.type))
             except (StoredFileError, ValueError):
                 pass  # nothing usable to remove
+    # A crawled page's raw HTML snapshot (P1b-04) goes with it, unless shared.
+    if row.snapshot_path is not None:
+        async with factory() as session:
+            shared = await session.scalar(
+                select(func.count())
+                .select_from(Source)
+                .where(
+                    Source.snapshot_path == row.snapshot_path,
+                    Source.id != source_id,
+                    Source.status != "withdrawn",
+                )
+            )
+        if not shared:
+            try:
+                remove(content_root, row.snapshot_path)
+            except StoredFileError:
+                pass
 
     # 5. Cached answers, every tenant.
     try:

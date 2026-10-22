@@ -20,7 +20,6 @@ import asyncio
 import contextlib
 import os
 import signal
-import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -34,7 +33,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.auth.authentik import oidc_services
 from app.auth.provider import ProviderError
 from app.content import worker
-from app.content.crawler import crawl, page_markdown, write_pages
 from app.content.datasets import sync_datasets
 from app.content.fetch import FetchError, fetch, http_client
 from app.content.ingest import (
@@ -64,7 +62,8 @@ from app.content.register import (
     retry,
 )
 from app.content.roles import RoleError, grant_role, revoke_role, user_by_email
-from app.content.submit import settle, submit
+from app.content.sites import SiteSpec, schedule_due_crawls
+from app.content.submit import settle, settle_site, submit, submit_site
 from app.content.tags import TagConfig, load_tags
 from app.core import cache
 from app.core.config import get_settings
@@ -195,56 +194,35 @@ async def _crawl_site(
     tags: Mapping[str, TagConfig],
     factory: async_sessionmaker[AsyncSession],
     *,
-    site_url: str,
-    tag: Sequence[str],
-    max_pages: int,
-    licence: str,
-    publisher: str | None,
-    out_dir: str | None,
-    parse_timeout: float,
+    spec: SiteSpec,
     actors: _Actors,
-    content_root: Path,
+    wait: bool,
 ) -> tuple[str, list[IngestResult]]:
-    """Crawl one site and submit every page; returns the crawl status and the results.
-
-    Raises FetchError when the start URL cannot be fetched at all.
-    """
-    async with http_client() as http:
-        report = await crawl(http, site_url, max_pages)
-    for reason, count in sorted(report.skipped.items()):
-        log("crawl.skipped", status=reason, chunk_count=count)
+    """Register a site and, with a reviewer, approve it (or ask for a crawl now); the
+    worker crawls it (P1b-04). Returns the site's status (``proposed``, ``queued``,
+    ``ok``, or an error code) and, after ``--wait``, the page ingestions the crawl
+    queued, still to be settled. Raises RegisterError, RoleError or FetchError."""
+    submission = await submit_site(
+        factory,
+        tags,
+        spec,
+        proposer_id=actors.proposer_id,
+        reviewer_id=actors.reviewer_id,
+    )
+    log("crawl.submitted", status=submission.status, error_code=submission.error_code)
+    if submission.status == "failed":
+        return submission.error_code or "failed", []
+    if not wait or submission.status != "queued":
+        return submission.status, []
+    log("jobs.waiting", status="waiting", count=1)
+    status, results = await settle_site(factory, submission)
     log(
         "crawl.finished",
-        level="info" if report.status == "ok" else "error",
-        status=report.status,
-        chunk_count=len(report.pages),
+        level="info" if status == "ok" else "error",
+        status=status,
+        count=len(results),
     )
-    if report.status != "ok":
-        return report.status, []
-
-    paths = write_pages(report.pages, Path(out_dir or tempfile.mkdtemp(prefix="ask-spore-crawl-")))
-    publisher = publisher or (urlsplit(site_url).hostname or site_url)
-    results: list[IngestResult] = []
-    for page, path in zip(report.pages, paths, strict=True):
-        result = await submit(
-            factory,
-            tags,
-            SourceFile(path.name, "markdown", page_markdown(page).encode()),
-            SourceMetadata(
-                tags=tuple(tag),
-                title=page.title,
-                publisher=publisher,
-                licence_basis=licence,
-                canonical_url=page.url,
-            ),
-            content_root=content_root,
-            proposer_id=actors.proposer_id,
-            reviewer_id=actors.reviewer_id,
-            parse_timeout=parse_timeout,
-        )
-        _log_ingest(result)
-        results.append(result)
-    return "ok", results
+    return status, results
 
 
 async def _crawl(args: argparse.Namespace) -> int:
@@ -253,35 +231,36 @@ async def _crawl(args: argparse.Namespace) -> int:
     unknown = [tag for tag in args.tag if tag not in tags]
     if unknown:
         raise SystemExit(f"ask-spore crawl: tags not in config/tags.toml: {', '.join(unknown)}")
+    host = urlsplit(args.site_url).hostname or args.site_url
+    spec = SiteSpec(
+        start_url=args.site_url,
+        name=args.name or host,
+        publisher=args.publisher or host,
+        licence_basis=args.licence,
+        tags=tuple(args.tag),
+        allow_patterns=tuple(args.allow or ()),
+        deny_patterns=tuple(args.deny or ()),
+        schedule=args.schedule,
+        max_pages=args.max_pages,
+    )
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     try:
         factory = session_factory(engine)
         actors = await _actors(factory, args.propose_as, args.approve_as)
-        status, results = await _crawl_site(
-            tags,
-            factory,
-            site_url=args.site_url,
-            tag=args.tag,
-            max_pages=args.max_pages,
-            licence=args.licence,
-            publisher=args.publisher,
-            out_dir=args.out_dir,
-            parse_timeout=args.parse_timeout,
-            actors=actors,
-            content_root=settings.models.files.content_root,
-        )
-        if args.wait and results:
-            results = await _wait(factory, results, args.wait)
-            for result in results:
-                _log_ingest(result)
+        status, results = await _crawl_site(tags, factory, spec=spec, actors=actors, wait=args.wait)
+        results = await _wait(factory, results, args.wait)
+        for result in results:
+            _log_ingest(result)
     except FetchError as exc:
-        raise SystemExit(f"ask-spore crawl: {exc}") from None
-    except (IngestError, RoleError, RegisterError) as exc:
+        log("crawl.rejected", level="error", status="rejected", error_code=exc.code)
+        raise SystemExit(f"ask-spore crawl: {exc.code}") from None
+    except (RoleError, RegisterError) as exc:
         log("crawl.rejected", level="error", status="rejected", error_code=exc.code)
         raise SystemExit(f"ask-spore crawl: {exc.code}") from None
     finally:
         await engine.dispose()
-    return 1 if status != "ok" or any(r.status == "failed" for r in results) else 0
+    waiting = ("ok", "proposed", "queued")
+    return 1 if status not in waiting or any(r.status == "failed" for r in results) else 0
 
 
 def _log_outcomes(outcomes: Sequence[RowOutcome]) -> None:
@@ -359,26 +338,22 @@ async def _ingest_manifest(args: argparse.Namespace) -> int:
         async def crawl_site(row: ManifestRow) -> tuple[str, list[IngestResult]]:
             if row.url is None:
                 raise AssertionError("validated site rows have a URL")
+            spec = SiteSpec(
+                start_url=row.url,
+                name=row.metadata.title,
+                publisher=row.metadata.publisher,
+                licence_basis=row.metadata.licence_basis,
+                tags=row.metadata.tags,
+                max_pages=row.max_pages,
+            )
             try:
                 status, results = await _crawl_site(
-                    tags,
-                    factory,
-                    site_url=row.url,
-                    tag=row.metadata.tags,
-                    max_pages=row.max_pages,
-                    licence=row.metadata.licence_basis,
-                    publisher=row.metadata.publisher,
-                    out_dir=str(Path(args.crawl_dir) / f"line-{row.line}")
-                    if args.crawl_dir
-                    else None,
-                    parse_timeout=args.parse_timeout,
-                    actors=actors,
-                    content_root=content_root,
+                    tags, factory, spec=spec, actors=actors, wait=args.wait
                 )
             except FetchError as exc:
                 log("crawl.failed", level="error", status="failed", error_code=exc.code)
                 status, results = exc.code, []
-            except (IngestError, RoleError, RegisterError) as exc:
+            except (RoleError, RegisterError) as exc:
                 raise SystemExit(
                     f"ask-spore ingest-manifest: line {row.line}: {exc.code}"
                 ) from None
@@ -533,6 +508,7 @@ async def _worker(args: argparse.Namespace) -> int:
                 poll_interval=args.poll_interval,
                 stop=stop,
                 once=args.once,
+                tick=lambda: schedule_due_crawls(context.factory),
             )
     except asyncio.CancelledError:
         log("worker.stopped", status="stopped")
@@ -650,19 +626,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     crawl_cmd = commands.add_parser(
         "crawl",
-        help="crawl one site and ingest each page as Markdown",
-        description="Honours robots.txt and crawl delay; a text-and-data-mining reservation "
-        "(TDMRep) anywhere on the site blocks the whole site. Same host only, no scheduling.",
+        help="register a site for crawling (P1b-04); with --approve-as, approve and crawl it",
+        description="Registers the site in the sites table (the content console's Sites "
+        "page shows it). The worker crawls an approved site: robots.txt, crawl delay and "
+        "the text-and-data-mining reservation are honoured, special-category pages are "
+        "skipped, and each page becomes a register row. Same host only.",
     )
     crawl_cmd.add_argument("site_url", help="start URL; only pages on its host are crawled")
     crawl_cmd.add_argument("--tag", action="append", required=True, help="content tag")
     crawl_cmd.add_argument("--max-pages", type=int, required=True, help="page budget")
     crawl_cmd.add_argument("--licence", required=True, help="licence basis for the site")
     crawl_cmd.add_argument("--publisher", help="publisher name (defaults to the host name)")
+    crawl_cmd.add_argument("--name", help="the site's name (defaults to the host name)")
     crawl_cmd.add_argument(
-        "--out-dir", help="directory for the rendered Markdown files (default: a new temp dir)"
+        "--allow", action="append", metavar="PATTERN", help="path pattern to crawl, e.g. /reports/*"
     )
-    crawl_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
+    crawl_cmd.add_argument(
+        "--deny", action="append", metavar="PATTERN", help="path pattern never to crawl"
+    )
+    crawl_cmd.add_argument(
+        "--schedule", choices=("none", "weekly", "monthly"), default="none", help="re-crawl"
+    )
     _actor_flags(crawl_cmd)
     _wait_flag(crawl_cmd)
 
@@ -683,9 +667,6 @@ def build_parser() -> argparse.ArgumentParser:
     manifest_cmd.add_argument("--check", action="store_true", help="validate only; upload nothing")
     manifest_cmd.add_argument(
         "--summary", help="also write the summary table to this CSV file (no titles or content)"
-    )
-    manifest_cmd.add_argument(
-        "--crawl-dir", help="directory for crawled Markdown, one sub-folder per site row"
     )
     manifest_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
     _actor_flags(manifest_cmd)

@@ -70,6 +70,8 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "replaces",
         "keep_both",
         "excerpts_blanked",
+        # Crawl management (P1b-04): which registered site.
+        "site_id",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.
@@ -110,6 +112,13 @@ CHANGE_FIELDS: Final[frozenset[str]] = frozenset(
         "takedown_reference",
         "takedown_due_on",
         "takedown_licence_grounds",
+        # Crawl management (P1b-04): a site's scope rules, schedule, page budget and the
+        # reviewer's special-category whitelist (path patterns).
+        "allow_patterns",
+        "deny_patterns",
+        "schedule",
+        "max_pages",
+        "special_category_allow",
     }
 )
 CHANGE_KEYS: Final = frozenset({"before", "after"})

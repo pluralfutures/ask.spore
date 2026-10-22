@@ -257,6 +257,7 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 - Identify with a descriptive user agent and contact address.
 - Rate-limit per host; never crawl behind logins; strip tracking parameters; skip pages that match obvious special-category patterns (health, religion, politics about named individuals) unless a reviewer whitelists them.
 - Store the HTML snapshot for provenance; serve users only excerpts and links.
+- Phase 1b (P1b-04): sites live in a `sites` table with scope rules (path allow and deny patterns), schedule (none, weekly, monthly), page budget, the allow decision and the last crawl; each page URL is a `site_pages` row (live, blocked with its reason, or removed). A reviewer's approval of a site covers its pages: each crawl records new and changed pages as approved register rows in the reviewer's name, audited. The worker and API fetch only public http(s) addresses on the default ports (no private, loopback or link-local hosts, redirects included).
 
 ---
 

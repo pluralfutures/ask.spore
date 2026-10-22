@@ -12,7 +12,9 @@ Pages (HTML, Markdown) are never downloadable, so they never get a ``stored_path
 Since P1b-02 every proposed file, pages included, is also *staged* here by the same
 naming rule (``stage``): the ingestion worker runs in its own container and reads the
 file from this store, so a job's payload never carries document contents. A licence or
-permission letter (P1b-01) is kept as ``licences/<sha256>.<ext>`` (``store_licence``).
+permission letter (P1b-01) is kept as ``licences/<sha256>.<ext>`` (``store_licence``), and
+a crawled page's raw HTML snapshot (P1b-04, provenance) as ``snapshots/<sha256>.html``
+(``store_snapshot``); neither ever goes to RAGFlow.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from pathlib import Path
 STORABLE_TYPES = ("pdf", "docx", "pptx")
 STAGED_TYPES = ("pdf", "docx", "pptx", "html", "markdown")
 LICENCE_DIR = "licences"
+SNAPSHOT_DIR = "snapshots"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _EXTENSION = re.compile(r"^[a-z0-9]{1,8}$")
 
@@ -85,6 +88,15 @@ def store_licence(root: Path, content: bytes, extension: str) -> str:
     if not _EXTENSION.fullmatch(extension) or not content:
         raise ValueError("not a licence file")
     relative = f"{LICENCE_DIR}/{hashlib.sha256(content).hexdigest()}.{extension}"
+    _write_once(root, relative, content)
+    return relative
+
+
+def store_snapshot(root: Path, content: bytes) -> str:
+    """Keep a crawled page's raw HTML as ``snapshots/<sha256>.html``; return the path."""
+    if not content:
+        raise ValueError("empty snapshot")
+    relative = f"{SNAPSHOT_DIR}/{hashlib.sha256(content).hexdigest()}.html"
     _write_once(root, relative, content)
     return relative
 

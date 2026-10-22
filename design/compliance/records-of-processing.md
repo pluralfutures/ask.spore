@@ -168,6 +168,21 @@ Note: the audit rows used here are part of the client's audit trail (Part 2). We
 | Retention | Term of the contract plus 5 years (general limitation period for contract claims under Spanish law; owner decision Oct 22, 2026, counsel to confirm), then destroyed |
 | TOMs | `policy-access-control.md` |
 
+### C10. Website contact form and server logs
+
+*DRAFT addition, Oct 22, 2026 (owner: the public website has a contact form and sets no cookies).*
+
+| Field | Entry |
+| --- | --- |
+| Purpose | Answering enquiries from prospects and others; keeping the website secure |
+| Legal basis | Legitimate interests, Art. 6(1)(f); pre-contract steps at the person's request, Art. 6(1)(b) |
+| Data subjects | People who write to us through the form; website visitors (server logs) |
+| Categories | Name, email address, organisation if given, message; IP address, time, page, browser type |
+| Recipients | Our staff; [website host] and [form provider] as our processors [confirm whether the same company] |
+| Transfers | [confirm the location of the website host and form provider; a DPA is needed with each] |
+| Retention | Messages [2 years] after the matter is closed, or moved to C7 if it leads to a contract; server logs per [website host] [confirm] |
+| TOMs | No cookies, analytics or tracking on the website; HTTPS; form submissions not stored in the SporeBot platform |
+
 ---
 
 ## Part 2 — Processor register (Art. 30(2))

@@ -74,7 +74,7 @@ Only the owner or counsel can answer these. Duplicates across the documents are 
 | E1 | Retention of expired sign-in link rows (not in P1b-14 as written), licence files after a source is removed | policy-data-retention-disposal | |
 | E2 | `usage_ledger` (tenant, month, model, tokens, cost; no user): confirm it is our own billing record as controller and not user personal data; retention 7 years or the statutory accounting period? | records-of-processing | |
 | E3 | Retention of support, privacy and takedown correspondence (drafted [2 years] in the notice, 3 years in the records) and of business contacts after the contract | privacy-notice, records-of-processing | |
-| E4 | Public website: analytics, cookies, contact form, and the legal basis for each | privacy-notice | |
+| E4 | Public website: analytics, cookies, contact form, and the legal basis for each | privacy-notice | **Answered by the owner, Oct 22, 2026:** a contact form, no cookies planned. Privacy notice §3 (contact form, server logs, cookies statement) and records of processing C10 updated. **Still open:** who hosts the website and receives form submissions ([website host], [form provider]), where, and with which DPA; the host's server-log retention. Keep the no-cookie statement true: no fonts, maps, videos or scripts loaded from third-party servers, which would also send visitors' IP addresses elsewhere |
 
 ## F. Corpus, licensing and GDPR basis
 

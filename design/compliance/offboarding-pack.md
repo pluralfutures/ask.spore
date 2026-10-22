@@ -48,7 +48,7 @@ Conversations are never more than 30 days old (fewer if the client shortened ret
 - **Audit events** of the tenant's users (sign-ins, admin actions, query and download metadata; never question or answer text) for the rest of their 12-month retention, to evidence security and compliance (DPA clauses 10.4 and 10.5). They name user IDs, not email addresses.
 - **Backups** that were taken before the purge, until they age out after [backup retention days] days. They are encrypted and not restored except for disaster recovery; if one is ever restored, the purge is re-run before the service resumes.
 - **Usage and spend figures** in aggregated form, and our contract and billing records, as required by law.
-- **Nothing in the corpus**: the client uploaded no documents, so there is no corpus content to return or delete.
+- **Nothing in the corpus**: the client uploaded no documents, so there is no corpus content to return or delete. *DRAFT, Oct 22, 2026 (P1b-19, architecture §15.8):* for a client that supplied documents under the terms §6A, the purge first withdraws every source the client supplied (RAGFlow file, parsed text, chunks and embeddings in every dataset), deletes the datasets of the client's own tags, deletes the files and declarations under the client's content-store directory, and erases the descriptive fields of the register rows (title, publisher, canonical link, hash), keeping an ID, the tenant ID and the withdrawal date and reason. Copies are returned on request before the end date (terms §13.3). Declarations we keep as contract evidence are listed under contract records.
 
 Model providers hold nothing to delete: prompts are processed under zero-retention terms.
 
@@ -77,6 +77,9 @@ Model providers hold nothing to delete: prompts are processed under zero-retenti
 > | Download records deleted | [n] |
 > | Workspaces and settings deleted | [n] |
 > | Cached answers removed | All entries under the Client's cache prefix |
+> | Client-supplied documents deleted (file, text, index) *[only if the Client supplied documents; DRAFT, Oct 22, 2026]* | [n] |
+> | Client-owned content collections deleted *[same]* | [n] |
+> | Stored copies of client-supplied documents removed *[same]* | [n] |
 >
 > **Retained, and until when:**
 >
@@ -84,7 +87,7 @@ Model providers hold nothing to delete: prompts are processed under zero-retenti
 > - Encrypted backups made before the deletion date: until [date] ([backup retention days] days), after which they are overwritten.
 > - Contract and billing records: as required by law.
 >
-> The Client uploaded no documents to the Service, so no document content was held. Language-model providers processed requests under zero-data-retention terms and hold no Client data.
+> [The Client uploaded no documents to the Service, so no document content was held. / The documents the Client supplied are deleted as counted above, and the copies returned on [date] if requested.] Language-model providers processed requests under zero-data-retention terms and hold no Client data.
 >
 > Signed for Estefania Simon-Sasyk y Otro CB: [signatory name], [signatory title], [date]
 

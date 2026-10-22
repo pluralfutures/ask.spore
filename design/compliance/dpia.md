@@ -7,6 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
+| Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15): scope note in §1, risks R12 to R14, review trigger |
 | Placeholders | [DPO or privacy contact name], [privacy contact email], [takedown contact email], [Client], [supervisory authority], [date] |
 | To finalise, the owner must | (1) confirm the scope in §1 and the risk ratings in §5; (2) decide the open points in §8; (3) ask the DPO or privacy contact for advice and record it (Art. 35(2)); (4) have counsel review; (5) sign §9; (6) set the review date. |
 
@@ -15,6 +16,8 @@
 ## 1. Why we do a DPIA, and its scope
 
 We index published sources that name people, at a scale that is not small, and we use AI models to answer questions from them. Clients' users type research questions that can reveal what their company is working on and may name people. The compliance guide advises a DPIA for this mix (large-scale processing of public personal data plus new technology). It is kept short and focuses on data-subject rights and accuracy, as the guide says.
+
+*DRAFT addition, Oct 22, 2026:* the design for client-supplied documents (architecture §15, not built) is assessed in R12 to R14 below; for those documents we are processor and this DPIA supports the supplying client's own assessment. The test client supplies none.
 
 Scope: the platform as built on Oct 21, 2026 (Phase 1a, single Instance in Paris), plus the Phase 1b changes that affect personal data (SSO, consent gate, platform mail, purge job, content console, crawl management). Two roles are covered:
 
@@ -68,6 +71,9 @@ Likelihood and severity on a 1 to 3 scale; risk = likelihood × severity, before
 | R9 | **Mailbox takeover gives account access.** Anyone who controls a user's mailbox can sign in by link; a mail scanner could consume a link | 2 | 2 | 4 |
 | R10 | **Body text in logs or errors** exposes questions to operators | 1 | 2 | 2 |
 | R11 | **Personal data typed into questions**, including about third parties, is sent to the model | 2 | 1 | 2 |
+| R12 | **Client-supplied document reaches another client** (placed in a shared tag or another tenant's workspace, merged by de-duplication) and its contents, including people named in it, are shown to the wrong customer. *DRAFT, Oct 22, 2026* | 1 | 3 | 3 |
+| R13 | **More personal data than declared in client files** (staff data, special categories), indexed and sent to the model. *DRAFT* | 2 | 2 | 4 |
+| R14 | **Client file not removed** on withdrawal or termination (a copy left in a dataset, the content store or a cache). *DRAFT* | 1 | 2 | 2 |
 
 ## 5. Measures and residual risk
 
@@ -84,6 +90,9 @@ Likelihood and severity on a 1 to 3 scale; risk = likelihood × severity, before
 | R9 | Single-use, 15-minute, browser-bound links consumed only by a POST from the landing page; 5 links per user per window; no enumeration | Client SSO (P1b-07); admin MFA (P1b-08); per-IP rate limit (P1b-08); links switched off per tenant once its SSO is live, unless the operator enables them for that tenant (P1b-06; owner decision Oct 21, 2026) | Medium for link-only tenants; low with SSO |
 | R10 | Logging allow-list with static check; ErrorBoundary; `hide_parameters=True`; control characters refused | Same rules for the worker (P1b-02) | Low |
 | R11 | No identifiers added by us; ZDR; terms tell users not to enter special-category data | First-login notice (P1b-10) | Low |
+| R12 | Dataset IDs resolved server-side; forced RLS; out-of-package chunks dropped; tenant-prefixed cache | Tenant-owned tags with the placement rule checked by API, worker and database; per-owner de-duplication; negative CI tests (P1b-19 step 2, architecture §15.4) | Low once step 2 ships; clause 7A not offered before |
+| R13 | — | Client declaration per batch; reviewer check before ingestion; DPA clause 7A.1 bars special categories unless agreed; client is controller (Art. 14 is its duty) | Medium; depends on the client |
+| R14 | Withdrawal cascade (P1b-03) | Content-store copies per tenant; termination purge step and certificate figures (P1b-19 step 2 with P1b-14) | Low |
 
 ## 6. Data-subject rights in practice
 
@@ -116,4 +125,4 @@ Not required, in our view. After the measures in §5 no risk is rated high. The 
 
 ## 10. Review
 
-Review by [date], and at once when: external models are enabled for any tenant; web-search mode (Phase 2) or tenant-edited prompts (Phase 2) start; a new data category enters the prompt; a new sub-processor is added; a client uses outputs for decisions about individuals (also see `ai-act-technical-documentation.md`); a personal data breach occurs.
+Review by [date], and at once when: external models are enabled for any tenant; the first client supplies documents (architecture §15); web-search mode (Phase 2) or tenant-edited prompts (Phase 2) start; a new data category enters the prompt; a new sub-processor is added; a client uses outputs for decisions about individuals (also see `ai-act-technical-documentation.md`); a personal data breach occurs.

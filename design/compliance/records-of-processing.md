@@ -7,6 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
+| Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1): C1 scope note, C9 (client declarations), and the Part 2 template row for clients that supply documents. Placeholders added: [limitation period] |
 | Placeholders | [registered address], [DPO or privacy contact name], [privacy contact email], [takedown contact email], [Client], [Client legal name], [Client address], [date], [SCC module], [document store], [representative, if any] |
 | To finalise, the owner must | (1) fill in the entity, contact and DPO placeholders; (2) decide whether a DPO is required (see open-questions.md) or name a privacy contact; (3) confirm the reasoning on the usage ledger in Part 1, row C5; (4) confirm the retention periods marked [confirm]; (5) add one Part 2 sheet per client at signature, starting with [Client]; (6) have counsel review; (7) review every six months and on every change to `sub-processors.md`. |
 
@@ -50,6 +51,8 @@ Where a measure is not built yet, the row says so and names the spec item.
 | Storage | RAGFlow index and file store on our Scaleway Instance in Paris; original files in the content store (`[files] content_root`) on the same Instance; source register in PostgreSQL |
 | Retention | While the source is licensed and relevant. Removed on takedown or a successful objection. The withdrawal cascade (index, cache, stored citations flagged) comes from Phase 1b (P1b-03); until then withdrawal is a manual operator procedure |
 | TOMs | Source register with licence basis; robots.txt, TDMRep and `noai`/`noindex` honoured by the crawler today, per-site decisions from P1b-04; downloads only for sources flagged `downloadable`; citations and excerpts, no full-document viewer; RAGFlow has no public listener |
+
+Scope note (DRAFT addition, Oct 22, 2026 (P1b-19 step 1; architecture §15).): C1 covers platform-gathered sources only. Documents a client supplies for its own workspaces are processed as processor and recorded in that client's Part 2 sheet, not here; public content we add to supplement a client stays in C1.
 
 ### C2. Own analysis (DOCX and PPTX written by our team)
 
@@ -149,6 +152,22 @@ Note: operator actions on a client tenant are audited **under that client's tena
 
 Note: the audit rows used here are part of the client's audit trail (Part 2). We use them for the security of the service under the DPA clause 1.4 position (controller for our own security monitoring).
 
+### C9. Client declarations for supplied documents
+
+*DRAFT addition, Oct 22, 2026 (P1b-19 step 1; architecture §15).*
+
+| Field | Entry |
+| --- | --- |
+| Purpose | Evidencing the client's declaration of rights and downloadability for documents it supplies (terms §6A) |
+| Legal basis | Legitimate interests (contract evidence, defence of claims), Art. 6(1)(f); contract with the client |
+| Data subjects | The client's signatory |
+| Categories | Name, title, signature, date; file names and declarations |
+| Recipients | Our operators; counsel where needed |
+| Transfers | None |
+| Storage | [document store]; reference in the source register (`client_declaration_ref`) |
+| Retention | Term of the contract plus [limitation period] |
+| TOMs | `policy-access-control.md` |
+
 ---
 
 ## Part 2 — Processor register (Art. 30(2))
@@ -174,7 +193,7 @@ One sheet per client. The first is [Client].
 
 ### Template for further clients
 
-Copy the sheet above, replace [Client], and record: the date of the DPA, whether external models are enabled (acceptance reference and date), whether any answer mode beyond corpus-only is enabled, the retention set by the client, and the SSO source kind (P1b-07).
+Copy the sheet above, replace [Client], and record: whether the client supplies documents (DPA clause 7A; DRAFT addition, Oct 22, 2026 (P1b-19 step 1; architecture §15).); if so, add to "Categories of processing" "(7) parsing, indexing and searching documents [Client] supplies, showing excerpts to its users, sending excerpts to language models, and serving downloads where declared", to "Categories of personal data" "personal data in client-supplied documents as declared", to "Retention" "client-supplied documents until withdrawn, deleted at termination with the certificate", and to "Data subjects" "people named in client-supplied documents"; the date of the DPA, whether external models are enabled (acceptance reference and date), whether any answer mode beyond corpus-only is enabled, the retention set by the client, and the SSO source kind (P1b-07).
 
 ---
 
@@ -183,3 +202,4 @@ Copy the sheet above, replace [Client], and record: the date of the DPA, whether
 | Date | Change |
 | --- | --- |
 | Oct 21, 2026 | First draft (P1b-09) |
+| Oct 22, 2026 | DRAFT: client-supplied documents (P1b-19 step 1) |

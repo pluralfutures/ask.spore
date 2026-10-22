@@ -22,6 +22,8 @@ Processing of personal data that appears in:
 
 The people concerned are mostly authors, company executives, spokespeople and people quoted. We are the controller (owner decision of Oct 20, 2026). Clients' questions and conversations are not covered here; we process those as processor.
 
+*DRAFT addition, Oct 22, 2026 (P1b-19 step 1; architecture §15):* documents a client supplies for its own workspaces are not covered either. We process them as processor on the client's instructions; the client is controller and needs its own legal basis and Art. 14 transparency for people named in them. Public content we gather to supplement a client stays within this assessment.
+
 ## 2. Purpose test
 
 | Question | Answer |

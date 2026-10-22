@@ -288,13 +288,15 @@ def test_scaleway_rejects_alias_or_malformed_model_names(tmp_path: Path, model: 
 
 
 def test_repository_config_pins_a_separate_judge() -> None:
-    # P1b-15 c: [eval] names the judge on its own (today the answer model, by decision).
+    # P1b-15 c: [eval] names the judge on its own; owner decision 22 (Oct 22, 2026): a model
+    # other than the answer model, so the judge does not grade its own answers.
     settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
     assert settings.models.eval is not None
     assert (settings.models.eval.judge_provider, settings.models.eval.judge_model) == (
         "scaleway",
-        "deepseek-v4.1-flash",
+        "qwen3.8-27b",
     )
+    assert settings.models.eval.judge_model != settings.models.scaleway.chat_model
 
 
 @pytest.mark.parametrize(

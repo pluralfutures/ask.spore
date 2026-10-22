@@ -114,7 +114,9 @@ def test_config_meta_names_the_active_providers_models() -> None:
 
     meta = _config_meta(settings())
     assert meta["llm_provider"] == "scaleway"  # repository config (findings M2)
-    assert meta["chat_model"] == meta["judge_model"] == "deepseek-v4.1-flash"
-    # P1b-15 c, e: the judge is pinned on its own; the vector weight is recorded.
+    assert meta["chat_model"] == "deepseek-v4.1-flash"
+    # P1b-15 c, e: the judge is pinned on its own and is not the answer model (owner
+    # decision 22, Oct 22, 2026); the vector weight is recorded.
     assert meta["judge_provider"] == "scaleway"
+    assert meta["judge_model"] == "qwen3.8-27b"
     assert meta["vector_similarity_weight"] == 0.3

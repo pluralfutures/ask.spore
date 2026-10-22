@@ -346,3 +346,93 @@ def test_reasoning_on_a_model_without_a_switch_is_refused(tmp_path: Any) -> None
     with pytest.raises(ModelRefused) as excinfo:
         check_choice(mistral, ent, ModelChoice("mistral-large-2512", True))
     assert excinfo.value.code == "reasoning_unsupported"
+
+
+# --- reasoning tokens counted (P1b-15 d) -------------------------------------------------
+
+REASONING_USAGE: dict[str, Any] = {
+    "prompt_tokens": 900,
+    "completion_tokens": 40,
+    "total_tokens": 940,
+    "completion_tokens_details": {"reasoning_tokens": 30},
+}
+
+
+def _answer_lines(out: str) -> list[dict[str, Any]]:
+    return [
+        json.loads(line)
+        for line in out.splitlines()
+        if line.startswith("{") and '"event":"chat.answer"' in line
+    ]
+
+
+@pytest.mark.parametrize(
+    ("stream", "outcome"),
+    [
+        (
+            sse(
+                chunk({"role": "assistant", "reasoning_content": SECRETS[0]}),
+                chunk({"content": "Capacity grew [1]."}),
+                chunk({}, REASONING_USAGE),
+            ),
+            "answered",
+        ),
+        (
+            sse(
+                chunk({"role": "assistant", "reasoning_content": SECRETS[0]}),
+                {
+                    **chunk({}, REASONING_USAGE),
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": "length"}],
+                },
+            ),
+            "error",
+        ),
+    ],
+)
+async def test_reasoning_tokens_reach_the_ledger_and_the_log_as_counts(
+    settings: Settings,
+    engine: AsyncEngine,
+    world: World,
+    redis: FakeRedis,
+    internal_entitlement: Any,
+    capsys: pytest.CaptureFixture[str],
+    stream: Any,
+    outcome: str,
+) -> None:
+    await internal_entitlement([DEEPSEEK, QWEN])
+    await fixed_choice(world, ModelChoice(QWEN, True))
+    orch = Orchestrator(
+        settings=settings,
+        db_factory=session_factory(engine),
+        retriever=FakeRetriever(chunks_for(world)),
+        llm=router(settings, OpenAIRecorder(stream)),
+    )
+    spent_sql = (
+        "SELECT coalesce(sum(reasoning_tokens), 0) FROM usage_ledger "
+        "WHERE tenant_id = $1 AND model = $2"
+    )
+    before = await world.admin.fetchval(spent_sql, world.ctx.tenant_id, QWEN)
+    capsys.readouterr()
+
+    [e async for e in await orch.answer(world.ctx, world.conversation_id, "Capacity?")]
+
+    assert await world.admin.fetchval(spent_sql, world.ctx.tenant_id, QWEN) - before == 30
+    out = capsys.readouterr().out
+    (line,) = _answer_lines(out)
+    assert line["status"] == outcome
+    assert line["reasoning_tokens"] == 30 and type(line["reasoning_tokens"]) is int
+    assert line["tokens_out"] == 40
+    assert_no_reasoning(out)
+
+
+def test_reasoning_count_reads_objects_and_mappings_and_defaults_to_zero() -> None:
+    from types import SimpleNamespace
+
+    from app.llm.mistral import reasoning_tokens
+
+    assert reasoning_tokens(REASONING_USAGE) == 30
+    details = SimpleNamespace(reasoning_tokens=7)
+    assert reasoning_tokens(SimpleNamespace(completion_tokens_details=details)) == 7
+    assert reasoning_tokens({"completion_tokens": 3}) == 0
+    assert reasoning_tokens(SimpleNamespace(completion_tokens_details=None)) == 0
+    assert reasoning_tokens({"completion_tokens_details": {"reasoning_tokens": "x"}}) == 0

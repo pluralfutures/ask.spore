@@ -42,8 +42,10 @@ TERMINAL_RUNS = frozenset({RUN_DONE, RUN_FAILED, RUN_CANCELLED})
 # RAGFlow's ``knn_top_k`` (formerly ``top_k``) is the size of the vector-recall
 # candidate pool, not the number of results; that is ``page_size``. Keep its default.
 KNN_TOP_K = 1024
-# Weight of vector vs. keyword similarity in RAGFlow's hybrid score (its default).
-VECTOR_SIMILARITY_WEIGHT = 0.3
+# Weight of vector vs. keyword similarity in RAGFlow's hybrid score: RAGFlow's default,
+# used when no setting is given; the API and the harness pass [chat]
+# vector_similarity_weight (P1b-15 e).
+DEFAULT_VECTOR_SIMILARITY_WEIGHT = 0.3
 
 
 class RagflowError(RuntimeError):
@@ -154,7 +156,10 @@ class RagflowClient:
         api_key: str,
         timeout_seconds: float,
         transport: httpx.AsyncBaseTransport | None = None,
+        *,
+        vector_similarity_weight: float = DEFAULT_VECTOR_SIMILARITY_WEIGHT,
     ) -> None:
+        self._vector_similarity_weight = vector_similarity_weight
         self._http = httpx.AsyncClient(
             base_url=base_url.rstrip("/") + API_PREFIX,
             headers={"Authorization": f"Bearer {api_key}"},
@@ -172,6 +177,7 @@ class RagflowClient:
             api_key=settings.secrets.ragflow_api_key.get_secret_value(),
             timeout_seconds=settings.models.ragflow.timeout_seconds,
             transport=transport,
+            vector_similarity_weight=settings.models.chat.vector_similarity_weight,
         )
 
     async def __aenter__(self) -> Self:
@@ -331,7 +337,7 @@ class RagflowClient:
             "page": 1,
             "page_size": top_k,
             "similarity_threshold": similarity_threshold,
-            "vector_similarity_weight": VECTOR_SIMILARITY_WEIGHT,
+            "vector_similarity_weight": self._vector_similarity_weight,
             "knn_top_k": KNN_TOP_K,
             "keyword": False,
             "cross_languages": [],

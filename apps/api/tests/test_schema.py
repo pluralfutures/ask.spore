@@ -60,8 +60,9 @@ LATER_TENANT_TABLES = (
 # One row per tenant, created with the tenant (revision 0020's trigger): another tenant
 # sees its own row only.
 ROW_PER_TENANT = {"tenant_login_policy"}
-# Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
-SET_ROLES = {"askspore_auth", "askspore_operator", "askspore_content"}
+# Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006,
+# 0015 and 0040).
+SET_ROLES = {"askspore_auth", "askspore_operator", "askspore_content", "askspore_retention"}
 # Tenant tables the application role cannot read (only a SET role does). Since revision
 # 0008 it may INSERT operator notices (P1a-07, and the spend notices of P1a-10, revision
 # 0009), still without reading them.

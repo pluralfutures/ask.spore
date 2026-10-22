@@ -3,13 +3,18 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { ApiError, api } from "../api/client";
+import type { ConversationCreated } from "../api/types";
 import { StartPanel } from "../components/StartPanel";
+import { keepsNoHistory } from "../lib/noHistory";
 import { createBody, initialChoice, refusalText, type StartChoice } from "../lib/startPanel";
 
-// What the chat page needs from the start: the first question and the spend-cap notice.
+// What the chat page needs from the start: the first question, the spend-cap notice, and,
+// for a tenant that keeps no history (P1b-14), the conversation itself, which no read
+// route returns.
 export interface StartState {
   question: string;
   notice: string | null;
+  conversation?: ConversationCreated | null;
 }
 
 // P1a-12: the conversation is created with its first question, so the panel's choice
@@ -23,7 +28,11 @@ export function NewConversation() {
   const create = useMutation({
     mutationFn: (choice: StartChoice) => api.createConversation(createBody(choice)),
     onSuccess: (created) => {
-      const state: StartState = { question: question.trim(), notice: created.notice_text ?? null };
+      const state: StartState = {
+        question: question.trim(),
+        notice: created.notice_text ?? null,
+        conversation: keepsNoHistory(created) ? created : null,
+      };
       navigate(`/c/${created.id}`, { state });
     },
   });

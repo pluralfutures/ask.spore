@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.audit.writer import record
 from app.auth.provider import SignInLinkProvider
+from app.content.models import ContentRole
 from app.core.db import tenant_session
 from app.operator.models import Operator
 from app.tenancy.models import INTERNAL_TENANT_ID, User
@@ -98,3 +99,48 @@ async def revoke_operator(
             metadata={"before": {"user_id": str(removed), "role": "operator"}, "after": {}},
         )
     return "revoked"
+
+
+ServiceIdentityResult = Literal["created", "exists", "has_roles"]
+
+
+async def create_eval_identity(
+    owner_factory: async_sessionmaker[AsyncSession], *, email: str
+) -> ServiceIdentityResult:
+    """P1b-15 a: the eval harness's service identity, a plain active user of the internal
+    tenant (role ``user``). It is never provisioned in Authentik, so it signs in only
+    with the eval service credential (``app.auth.eval_service``), where an API accepts
+    one. An existing user with the operator or a content role is refused: the harness
+    must never act with more than a user's rights."""
+    email = email.strip().lower()
+    async with tenant_session(owner_factory, INTERNAL_TENANT_ID) as session:
+        user = await session.scalar(
+            select(User).where(User.tenant_id == INTERNAL_TENANT_ID, User.email == email)
+        )
+        if user is not None:
+            roles = await session.scalar(
+                select(Operator.user_id).where(Operator.user_id == user.id)
+            ) or await session.scalar(
+                select(ContentRole.user_id).where(ContentRole.user_id == user.id)
+            )
+            if roles is not None or user.role != "user":
+                return "has_roles"
+            return "exists"
+        user = User(
+            id=uuid.uuid4(),
+            tenant_id=INTERNAL_TENANT_ID,
+            email=email,
+            display_name="Eval service",
+            status="active",
+            role="user",
+        )
+        session.add(user)
+        await session.flush()
+        await record(
+            session,
+            tenant_id=INTERNAL_TENANT_ID,
+            actor_user_id=None,
+            event="eval_identity.created",
+            metadata={"before": {}, "after": {"user_id": str(user.id), "role": "user"}},
+        )
+    return "created"

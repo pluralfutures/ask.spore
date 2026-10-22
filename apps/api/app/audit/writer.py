@@ -77,6 +77,10 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "template",
         "job_id",
         "provider",
+        # Termination purge (P1b-14): the certificate of deletion's number and the
+        # SHA-256 of its JSON file; the per-table counts are in the file.
+        "certificate",
+        "certificate_sha256",
         # Failover (P1b-17): which backup answered ("eu" or "external"), or none.
         "failover",
     }

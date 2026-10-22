@@ -122,3 +122,51 @@ async def test_error_event_incomplete_stream_and_http_errors() -> None:
     failed = await pipeline(api).ask("q")
     assert (failed.outcome, failed.error_code) == ("error", "http_503")
     assert api.requests[-1].method == "DELETE"  # cleaned up even on failure
+
+
+async def test_oidc_path_signs_a_fresh_service_credential_per_request() -> None:
+    # P1b-15 a: with the service key, no Phase 0 headers; each request carries an
+    # EdDSA credential the API's EvalServiceValidator accepts for the service identity.
+    from app.auth.eval_service import EvalServiceValidator, generate_key_pair
+
+    private, public = generate_key_pair()
+    api = FakeApi(
+        frames(("token", {"text": "Grew [1]."}), ("citations", {"citations": []}), done())
+    )
+    oidc = ApiPipeline(
+        "http://api.test/",
+        "",
+        "eval-service@example.org",
+        transport=httpx.MockTransport(api),
+        service_key=private,
+    )
+    await oidc.check()
+    result = await oidc.ask("What grew?")
+    assert result.outcome == "answered"
+    validator = EvalServiceValidator(public, "eval-service@example.org", 900)
+    tokens = []
+    for request in api.requests:
+        assert "x-user-email" not in request.headers
+        scheme, token = request.headers["authorization"].split(" ")
+        assert scheme == "Bearer"
+        assert validator.validate(token).email == "eval-service@example.org"
+        tokens.append(token)
+    assert [r.url.path for r in api.requests][:2] == ["/api/v1/healthz", "/api/v1/me"]
+    assert len(set(tokens)) == len(tokens)  # never reused
+
+
+def test_keygen_writes_a_private_key_only_its_owner_reads(tmp_path: Any) -> None:
+    import stat
+
+    from eval.cli import main
+
+    assert main(["keygen", "--out-dir", str(tmp_path)]) == 0
+    key = tmp_path / "eval-service.key"
+    assert stat.S_IMODE(key.stat().st_mode) == 0o600
+    assert "PUBLIC KEY" in (tmp_path / "eval-service.pub").read_text()
+    try:
+        main(["keygen", "--out-dir", str(tmp_path)])
+    except FileExistsError:
+        pass
+    else:
+        raise AssertionError("keygen overwrote an existing key")

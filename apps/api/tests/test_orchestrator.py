@@ -561,3 +561,40 @@ async def test_source_in_two_datasets_is_cited_once(
     assert text_of(events) == "Doubled [1]."
     citations = citations_of(events).citations
     assert [(c.source_id, c.chunk_id) for c in citations] == [(str(source_id), "c-1")]
+
+
+async def test_history_cap_counts_tokens_with_the_tokenizer(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    # P1b-15 f: 10 + 12 = 22 tokens fit a cap of 25; at 4 characters per token they
+    # would count 15 + 18 = 33 and the older turn would be dropped.
+    from dataclasses import replace
+
+    from app.core.db import tenant_session
+
+    for role, content, outcome in (
+        ("user", " apple" * 10, None),
+        ("assistant", " stone" * 12, "answered"),
+    ):
+        await world.admin.execute(
+            "INSERT INTO messages (tenant_id, conversation_id, role, content, outcome) "
+            "VALUES ($1, $2, $3, $4, $5)",
+            INTERNAL_TENANT_ID,
+            world.conversation_id,
+            role,
+            content,
+            outcome,
+        )
+    chat = settings.models.chat.model_copy(update={"history_max_tokens": 25})
+    capped = replace(settings, models=settings.models.model_copy(update={"chat": chat}))
+    orch = orchestrator(capped, engine, FakeRetriever([]), Recorder())
+    async with tenant_session(session_factory(engine), INTERNAL_TENANT_ID) as session:
+        turns = await orch._history(session, world.conversation_id)
+    assert [t.role for t in turns] == ["user", "assistant"]
+
+    chat = settings.models.chat.model_copy(update={"history_max_tokens": 21})
+    tighter = replace(settings, models=settings.models.model_copy(update={"chat": chat}))
+    orch = orchestrator(tighter, engine, FakeRetriever([]), Recorder())
+    async with tenant_session(session_factory(engine), INTERNAL_TENANT_ID) as session:
+        turns = await orch._history(session, world.conversation_id)
+    assert [t.role for t in turns] == ["assistant"]  # newest first within the cap

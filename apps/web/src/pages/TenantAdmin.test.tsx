@@ -2,7 +2,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import type { AdminUser, Me } from "../api/types";
-import { lastLogin, parseRetention, userActions } from "../lib/admin";
+import { lastLogin, parseRetention, retentionSummary, userActions } from "../lib/admin";
 import { AdminGate, VersionHistory } from "./TenantAdmin";
 
 // Synthetic people only (CLAUDE.md).
@@ -61,13 +61,22 @@ describe("retention", () => {
     expect(parseRetention("365")).toEqual({ error: "Retention cannot exceed 30 days." });
   });
 
-  it("accepts 1 to 30 whole days", () => {
+  it("accepts 0 to 30 whole days", () => {
     expect(parseRetention("30")).toEqual({ days: 30 });
     expect(parseRetention(" 7 ")).toEqual({ days: 7 });
     expect(parseRetention("1")).toEqual({ days: 1 });
-    expect("error" in parseRetention("0")).toBe(true);
+    expect(parseRetention("0")).toEqual({ days: 0 });
+    expect(parseRetention("-1")).toEqual({ error: "Retention cannot be negative." });
     expect("error" in parseRetention("2.5")).toBe(true);
     expect("error" in parseRetention("")).toBe(true);
+  });
+});
+
+describe("retention summary", () => {
+  it("says what 0 means", () => {
+    expect(retentionSummary(0)).toContain("No history");
+    expect(retentionSummary(1)).toBe("Conversations are deleted 1 day after they start.");
+    expect(retentionSummary(30)).toBe("Conversations are deleted 30 days after they start.");
   });
 });
 

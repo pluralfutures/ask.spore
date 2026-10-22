@@ -28,7 +28,7 @@ streamed. Each failover is logged with the model and the error code only.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final, Literal
 
 from app.core.config import CatalogueEntry, Settings
@@ -86,6 +86,16 @@ def create_llm_client(settings: Settings, rewrite_system: str) -> LLMClient:
     if secrets.mistral_api_key is None:
         raise RuntimeError("mistral provider without key")  # load_settings checks it
     return MistralClient(models.mistral, secrets.mistral_api_key, rewrite_system)
+
+
+def create_judge_client(settings: Settings) -> LLMClient:
+    """The eval judge's own client (P1b-15 c): ``[eval] judge_provider``, else the
+    active provider. Called by the eval harness only; the API never judges."""
+    judge = settings.models.eval
+    provider = judge.judge_provider if judge is not None else settings.models.llm.provider
+    llm = settings.models.llm.model_copy(update={"provider": provider})
+    models = settings.models.model_copy(update={"llm": llm})
+    return create_llm_client(replace(settings, models=models), "")
 
 
 def create_eu_backup(settings: Settings, rewrite_system: str) -> LLMClient | None:
@@ -161,9 +171,17 @@ class LLMRouter:
         return await self._default.rewrite(query, history)
 
     async def judge(
-        self, system: str, passages: Sequence[PromptChunk], statements: Sequence[Statement]
+        self,
+        system: str,
+        passages: Sequence[PromptChunk],
+        statements: Sequence[Statement],
+        *,
+        model: str | None = None,
+        reasoning_effort: str = "none",
     ) -> JudgeResult:
-        return await self._default.judge(system, passages, statements)
+        return await self._default.judge(
+            system, passages, statements, model=model, reasoning_effort=reasoning_effort
+        )
 
     async def answer(
         self,

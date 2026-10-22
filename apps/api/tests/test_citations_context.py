@@ -8,8 +8,9 @@ from datetime import date
 import pytest
 
 from app.chat.citations import MarkerFilter, filter_markers, strip_markers
-from app.chat.context import CHARS_PER_TOKEN, select_context
+from app.chat.context import select_context
 from app.chat.package import Provenance
+from app.chat.tokens import count_tokens, truncate_tokens
 from app.retrieval.types import RetrievedChunk
 
 
@@ -89,10 +90,11 @@ def test_select_context_token_cap_skips_what_does_not_fit() -> None:
     s = uuid.uuid4()
     provenance = {"d": _prov(s)}
     chunks = [
-        _chunk("a", "d", "a" * 40 * CHARS_PER_TOKEN, 0.9),
-        _chunk("b", "d", "b" * 80 * CHARS_PER_TOKEN, 0.8),
-        _chunk("c", "d", "c" * 50 * CHARS_PER_TOKEN, 0.7),
+        _chunk("a", "d", " apple" * 40, 0.9),  # 40 tokens
+        _chunk("b", "d", " river" * 80, 0.8),  # 80 tokens
+        _chunk("c", "d", " stone" * 50, 0.7),  # 50 tokens
     ]
+    assert [count_tokens(c.text) for c in chunks] == [40, 80, 50]
     selected = select_context(
         chunks, provenance, dataset_ids=["ds-a"], similarity_threshold=0, max_tokens=100
     )
@@ -101,12 +103,25 @@ def test_select_context_token_cap_skips_what_does_not_fit() -> None:
 
 def test_select_context_truncates_a_single_oversized_chunk() -> None:
     provenance = {"d": _prov(uuid.uuid4())}
-    chunks = [_chunk("big", "d", "x" * 500 * CHARS_PER_TOKEN, 0.9)]
+    chunks = [_chunk("big", "d", " apple" * 500, 0.9)]
     selected = select_context(
         chunks, provenance, dataset_ids=["ds-a"], similarity_threshold=0, max_tokens=100
     )
     assert len(selected) == 1
-    assert len(selected[0].chunk.text) == 100 * CHARS_PER_TOKEN
+    assert selected[0].chunk.text == " apple" * 100
+    assert count_tokens(selected[0].chunk.text) == 100
+
+
+def test_token_counts_come_from_the_tokenizer_not_characters() -> None:
+    # P1b-15 f: a real tokenizer, not 4 characters per token (which would say 9 here).
+    english = "Capacity grew by 12 percent in 2025."
+    assert count_tokens(english) == 11
+    # Text that is short in characters can be long in tokens, and the reverse.
+    assert count_tokens("容量增长了百分之十二。") < len("容量增长了百分之十二。")
+    assert count_tokens("") == 0
+    # Truncation keeps whole characters.
+    assert truncate_tokens("€€€€", 1) == "€"
+    assert truncate_tokens(english, 100) == english
 
 
 def test_prompt_chunk_from_context_carries_no_ids() -> None:

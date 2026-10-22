@@ -1718,6 +1718,11 @@ export interface components {
       mode: string;
       /** Model */
       model: string;
+      /**
+       * No History
+       * @default false
+       */
+      no_history: boolean;
       /** Notice */
       notice?: string | null;
       /** Notice Text */

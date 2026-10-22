@@ -61,9 +61,44 @@ cited-answer rate on factual and synthesis items (the cost side of abstention). 
 `eval/metrics.py`. `compare` exits 1 when any of them drops by more than `--threshold` points
 (default 3).
 
-Environment: `MISTRAL_API_KEY` (judge), `RAGFLOW_API_KEY` and `DATABASE_URL` (retrieval step;
-the database is only read), `PHASE0_BEARER_TOKEN` and `EVAL_USER_EMAIL` (a seeded internal user,
-for the API). `--ragflow-url` (or `EVAL_RAGFLOW_URL`) points the retrieval step at RAGFlow when
+Environment: the judge provider's key (`SCALEWAY_API_KEY` or `MISTRAL_API_KEY`, per `[eval]`
+judge_provider), `RAGFLOW_API_KEY` and `DATABASE_URL` (retrieval step; the database is only
+read), `EVAL_USER_EMAIL` (the user the API answers as), and either `EVAL_SERVICE_PRIVATE_KEY`
+(an API in `oidc` mode, below) or `PHASE0_BEARER_TOKEN` (an API in `phase0` mode).
+
+### Under `[auth] mode = "oidc"`: the eval service credential (P1b-15 a)
+
+The harness signs a short-lived credential (an EdDSA JWT, at most `max_lifetime_seconds`, a
+fresh one per request) for a **service identity**: a plain user of the internal tenant, never
+in Authentik, with no operator or content role. The API under test accepts it only when its
+config has an `[auth.eval_service]` section with that email and the **public** key; the
+repository's `config/models.toml` (production) has none, and a test keeps it so. There is no
+bearer token in any production config: the API holds a public key only.
+
+One-time setup, on the Instance:
+
+```
+uv run --directory packages/eval python -m eval keygen --out-dir /srv/ask-spore/eval-keys
+docker compose -f infra/compose.dev.yml run --rm api ask-spore eval-identity create --email eval-service@<internal domain>
+```
+
+Keep `eval-service.key` as the eval runner's secret `EVAL_SERVICE_PRIVATE_KEY` (GitHub
+environment secret or a root-only file); never commit it.
+
+**Release step (P1b-16 and every eval gate run):** start a temporary api container from the
+release image whose config copy differs from production only by the section
+
+```
+[auth.eval_service]
+email = "eval-service@<internal domain>"
+public_key = """<contents of eval-service.pub>"""
+```
+
+(`docker compose run --no-deps --name askspore-eval-api -p 127.0.0.1:8001:8000 ...`, as in
+findings 1a G7, but `[auth] mode` stays `oidc`), run the harness against it with
+`EVAL_USER_EMAIL` set to the service identity and `EVAL_SERVICE_PRIVATE_KEY` set, then remove
+the container. The live api never carries the section. If the key is ever exposed, run
+`keygen` again and replace the public key; the old credentials expire within 15 minutes. `--ragflow-url` (or `EVAL_RAGFLOW_URL`) points the retrieval step at RAGFlow when
 `ragflow.base_url` does not resolve where the harness runs; it must be a private or loopback
 address. The harness and the API under test must run the same `config/` (the harness records its
 own configuration in the results; the API does not report its own).
@@ -76,6 +111,32 @@ corpus, and publisher text does not belong in the repository. Full outputs stay 
 cache key includes the retrieval settings, the prompt versions, the workspace, model and reasoning,
 but not RAGFlow's own state (a re-parse without a register change), so a run meant to measure the
 model should still start from a flushed cache.
+
+### The eval gate and the baseline (P1b-15 b)
+
+`results/BASELINE` names the accepted baseline run (now the Phase 0 real-corpus run
+`20261018T234701Z-a981e7bd8911`, which the Phase 1a gate runs were compared with) and the newest run
+that was reviewed when it was accepted; `results/BASELINE.md` records every acceptance with its
+reason. Two places enforce it:
+
+- **CI, every push** (`.github/workflows/ci.yml`, Eval job): `python -m eval gate` fails when a
+  committed `results.json` holds answer, statement or excerpt text (committed-results rule), or
+  when an unmocked run committed after the baseline regresses against it by more than 3 points.
+- **The eval workflow** (`eval.yml`, a live run against a target): the new run is compared with the
+  committed baseline and the job fails on a regression.
+
+**Accepting a new baseline** (after a release's eval, or an owner decision to accept a trade):
+
+```
+uv run --directory packages/eval python -m eval accept-baseline <run folder> --reason "P1b-16 release run"
+# a regression is refused unless the owner accepts it, named in the reason:
+uv run --directory packages/eval python -m eval accept-baseline <run folder> --accept-regression \
+    --reason "Owner decision Oct 21, 2026: -10.4 cited-answer rate for +80 abstention (findings 1a G7)"
+```
+
+It writes `results/<run id>/` with the answer and judged-statement text redacted (metrics,
+counts, retrieval and judge verdicts kept), points `results/BASELINE` at it and appends to
+`results/BASELINE.md`; commit the three in one commit. Never commit an unredacted run folder.
 
 ### In GitHub Actions (P0-19)
 

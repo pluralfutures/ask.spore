@@ -160,3 +160,16 @@ async def test_an_answer_without_sentences_is_not_sent_to_the_judge() -> None:
 
     record = await Judge(client(httpx.MockTransport(fail)), "J.").judge("  \n", [], {})
     assert record.statements == [] and record.faithfulness is None and record.error is None
+
+
+async def test_judge_calls_the_pinned_judge_model() -> None:
+    # P1b-15 c: [eval] judge_model reaches the wire, not the client's chat model.
+    models: list[str] = []
+
+    def record(request: httpx.Request) -> httpx.Response:
+        models.append(json.loads(request.content)["model"])
+        return mock.handler(request)
+
+    judge = Judge(client(httpx.MockTransport(record)), "J.", model="mistral-small-2603")
+    await judge.judge("Capacity reached 4.2 GW. [1]", [citation(1, "c1")], {"c1": "4.2 GW."})
+    assert models == ["mistral-small-2603"]

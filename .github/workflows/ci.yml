@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     services:
       postgres:
-        image: postgres:16.15-bookworm
+        image: postgres:16.15-bookworm@sha256:d81f7b51697014367236d07ec58b54153fc28f828b72bf247fe5c7487520bcb0
         env:
           POSTGRES_USER: askspore
           POSTGRES_PASSWORD: ci-only-password
@@ -63,6 +63,12 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run pytest
+      - name: Eval gate (committed runs against results/BASELINE, P1b-15 b)
+        run: |
+          uv run python -m eval gate --output "$RUNNER_TEMP/gate.md"
+          status=$?
+          cat "$RUNNER_TEMP/gate.md" >> "$GITHUB_STEP_SUMMARY"
+          exit $status
       - name: Validate eval sets
         run: |
           uv run python -m eval validate sets/synthetic-v0.jsonl --min-items 30 --min-out-of-corpus 6

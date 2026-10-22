@@ -44,7 +44,7 @@ from app.content.ingest import (
     from_fetched,
     load_path,
 )
-from app.content.jobs import wait_for
+from app.content.jobs import enqueue, wait_for
 from app.content.manifest import (
     ManifestError,
     ManifestRow,
@@ -72,8 +72,10 @@ from app.core.db import create_engine, session_factory
 from app.core.logging import log
 from app.core.mail import create_mail_sender
 from app.mail.jobs import MailContext
-from app.operator.grants import grant_operator, revoke_operator
+from app.operator.grants import create_eval_identity, grant_operator, revoke_operator
 from app.retrieval.ragflow import RagflowClient
+from app.tenancy.purge import purge_retention, schedule_purge
+from app.tenancy.termination import TerminationError, terminate_tenant
 
 
 async def _datasets_sync() -> int:
@@ -480,9 +482,84 @@ async def _sources(args: argparse.Namespace) -> int:
 
 
 async def _tick(factory: async_sessionmaker[AsyncSession], notices: ConsentNoticeTick) -> None:
-    """Before each claim: due crawls (P1b-04) and consent notices (P1b-10)."""
+    """Between jobs: due crawls (P1b-04), the daily purge (P1b-14), consent notices (P1b-10)."""
     await schedule_due_crawls(factory)
+    await schedule_purge(factory)
     await notices()
+
+
+async def _purge(args: argparse.Namespace) -> int:
+    """The retention purge (P1b-14): count what is due, or queue the job for the worker."""
+    settings = get_settings()
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    factory = session_factory(engine)
+    try:
+        if args.dry_run:
+            due = await purge_retention(
+                factory, downloads_days=settings.models.retention.downloads_days, dry_run=True
+            )
+            for tenant in due:
+                for table, count in tenant.counts.as_dict().items():
+                    if count:
+                        log(
+                            "retention.due",
+                            tenant_id=str(tenant.tenant_id),
+                            table=table,
+                            count=count,
+                        )
+            log("retention.dry_run", status="dry_run", count=sum(t.counts.total for t in due))
+            return 0
+        async with factory() as session, session.begin():
+            job_id = await enqueue(session, "purge_retention", {}, created_by=None, max_attempts=1)
+        log("retention.queued", job_id=str(job_id), job_type="purge_retention", status="queued")
+        if not args.wait:
+            return 0
+        state = (await wait_for(factory, [job_id]))[job_id]
+        log(
+            "retention.job",
+            level="info" if state.status == "succeeded" else "error",
+            job_id=str(job_id),
+            status=state.status,
+            error_code=state.error_code,
+        )
+        return 0 if state.status == "succeeded" else 1
+    finally:
+        await engine.dispose()
+
+
+async def _tenant_purge(args: argparse.Namespace) -> int:
+    """Termination purge of one tenant (P1b-14), as the schema owner (MIGRATIONS_DATABASE_URL)."""
+    settings = get_settings()
+    owner_url = os.environ.get("MIGRATIONS_DATABASE_URL", "").strip()
+    if not owner_url:
+        log("tenant.purge_failed", level="error", error_code="no_owner_database_url")
+        return 1
+    cache.connect(settings.secrets.redis_url.get_secret_value())
+    engine = create_engine(owner_url)
+    try:
+        done = await terminate_tenant(
+            session_factory(engine),
+            slug=args.slug,
+            confirm=args.confirm,
+            content_root=settings.models.files.content_root,
+        )
+    except TerminationError as exc:
+        log("tenant.purge_failed", level="error", error_code=exc.code)
+        return 1
+    finally:
+        await cache.close()
+        await engine.dispose()
+    for table, count in done.counts.items():
+        log("tenant.purged_rows", tenant_id=str(done.tenant_id), table=table, count=count)
+    # The certificate's number names its file under content_root/certificates/.
+    log(
+        "tenant.purged",
+        tenant_id=str(done.tenant_id),
+        status="purged",
+        count=done.total,
+        certificate=done.certificate_number,
+    )
+    return 0
 
 
 async def _worker(args: argparse.Namespace) -> int:
@@ -517,6 +594,7 @@ async def _worker(args: argparse.Namespace) -> int:
                 client=client,
                 tags=load_tags(settings.config_dir),
                 content_root=settings.models.files.content_root,
+                downloads_retention_days=settings.models.retention.downloads_days,
                 mail=MailContext(
                     factory=factory,
                     config=settings.models.mail,
@@ -540,6 +618,22 @@ async def _worker(args: argparse.Namespace) -> int:
         await cache.close()
         await engine.dispose()
     return 0
+
+
+async def _eval_identity(args: argparse.Namespace) -> int:
+    """Create the eval harness's service identity (P1b-15 a), as the schema owner."""
+    owner_url = os.environ.get("MIGRATIONS_DATABASE_URL", "").strip()
+    if not owner_url:
+        log("eval_identity.failed", level="error", error_code="no_owner_database_url")
+        return 1
+    engine = create_engine(owner_url)
+    try:
+        result = await create_eval_identity(session_factory(engine), email=args.email)
+    finally:
+        await engine.dispose()
+    failed = result == "has_roles"
+    log("eval_identity.create", level="error" if failed else "info", status=result)
+    return 1 if failed else 0
 
 
 async def _operators(args: argparse.Namespace) -> int:
@@ -788,6 +882,55 @@ def build_parser() -> argparse.ArgumentParser:
         "--poll-interval", type=float, default=5.0, help="seconds between polls when idle"
     )
 
+    purge_cmd = commands.add_parser(
+        "purge",
+        help="the retention purge (P1b-14): expired history, revoked sessions, old downloads",
+        description="Deletes, tenant by tenant under row-level security, conversations past "
+        "their expiry (with messages, citations and feedback), revoked_sessions rows past "
+        "their token's expiry and downloads rows older than [retention] downloads_days. The "
+        "worker runs it once a day; --run queues it now. Output is counts only.",
+    )
+    purge_mode = purge_cmd.add_mutually_exclusive_group(required=True)
+    purge_mode.add_argument(
+        "--dry-run", action="store_true", help="count what is due per tenant; delete nothing"
+    )
+    purge_mode.add_argument(
+        "--run", action="store_true", help="queue a purge_retention job for the worker"
+    )
+    _wait_flag(purge_cmd)
+
+    tenant_cmd = commands.add_parser(
+        "tenant", help="tenant lifecycle, operator only (P1b-14: termination purge)"
+    )
+    tenant_commands = tenant_cmd.add_subparsers(dest="tenant_command", required=True)
+    tenant_purge = tenant_commands.add_parser(
+        "purge",
+        help="terminate a tenant: delete its history, account data, workspaces, prompts, "
+        "settings, downloads and sessions, clear its answer cache, write the certificate",
+        description="Runs as the schema owner (MIGRATIONS_DATABASE_URL), in one transaction, "
+        "audited under the internal tenant (tenant.purged). Keeps the audit events and the "
+        "usage ledger. Writes certificates/<number>.json under [files] content_root. The "
+        "tenant's Authentik users and SSO source are removed by hand afterwards (see "
+        "design/compliance/offboarding-pack.md section 1.4). Cannot be undone.",
+    )
+    tenant_purge.add_argument("--slug", required=True, help="the tenant to terminate")
+    tenant_purge.add_argument(
+        "--confirm", required=True, metavar="SLUG", help="the same slug again, to confirm"
+    )
+
+    eval_cmd = commands.add_parser(
+        "eval-identity",
+        help="the eval harness's service identity under oidc (P1b-15 a)",
+        description="Runs as the schema owner (MIGRATIONS_DATABASE_URL). Creates a plain "
+        "active user of the internal tenant (role user, no operator or content role, not "
+        "in Authentik) for the eval harness's signed credential; an API accepts it only "
+        "with [auth.eval_service] set to that email and the harness's public key "
+        "(packages/eval/README.md).",
+    )
+    eval_commands = eval_cmd.add_subparsers(dest="eval_identity_command", required=True)
+    eval_create = eval_commands.add_parser("create", help="create the service identity")
+    eval_create.add_argument("--email", required=True)
+
     operators = commands.add_parser(
         "operators",
         help="grant or revoke the platform operator role (P1a-03)",
@@ -823,6 +966,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_sources(args))
     if args.command == "worker":
         return asyncio.run(_worker(args))
+    if args.command == "purge":
+        return asyncio.run(_purge(args))
+    if args.command == "eval-identity":
+        return asyncio.run(_eval_identity(args))
+    if args.command == "tenant":
+        return asyncio.run(_tenant_purge(args))
     raise AssertionError("unreachable: argparse enforces the commands")
 
 

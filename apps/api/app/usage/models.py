@@ -1,5 +1,5 @@
-"""Usage ledger and spend notices. Mirrors alembic revision 0009; the migration is
-authoritative."""
+"""Usage ledger and spend notices. Mirrors alembic revisions 0009 and 0041 (reasoning
+tokens, P1b-15 d); the migrations are authoritative."""
 
 from __future__ import annotations
 
@@ -34,6 +34,10 @@ class UsageLedger(Base):
         CheckConstraint(
             "tokens_in >= 0 AND tokens_out >= 0 AND cost_cents >= 0", name="non_negative"
         ),
+        CheckConstraint(
+            "reasoning_tokens >= 0 AND reasoning_tokens <= tokens_out",
+            name="reasoning_within_output",
+        ),
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -43,6 +47,8 @@ class UsageLedger(Base):
     model: Mapped[str] = mapped_column(Text, primary_key=True)
     tokens_in: Mapped[int] = mapped_column(BigInteger, server_default=text("0"))
     tokens_out: Mapped[int] = mapped_column(BigInteger, server_default=text("0"))
+    # Of tokens_out, hidden reasoning, where the provider reports it (P1b-15 d).
+    reasoning_tokens: Mapped[int] = mapped_column(BigInteger, server_default=text("0"))
     # Euro cents, fractional: priced from the catalogue at the time of the call.
     cost_cents: Mapped[Decimal] = mapped_column(Numeric(16, 6), server_default=text("0"))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -60,6 +60,9 @@ export interface FakeOptions {
   role?: "user" | "tenant_admin";
   // P1b-10: the user has not accepted the active notice yet; the API refuses until then.
   consentPending?: boolean;
+  // P1b-14: the tenant keeps no history (retention 0): conversations are never listed
+  // or readable, and each is deleted once its answer is sent.
+  noHistory?: boolean;
 }
 
 // The API's text (app.chat.selection.SPEND_CAP_TEXT).
@@ -145,6 +148,7 @@ export class FakeApi {
       ...summary(conversation),
       notice: notice ? "external_spend_cap_reached" : null,
       notice_text: notice,
+      no_history: Boolean(this.options.noHistory),
     };
   }
 
@@ -359,7 +363,7 @@ export class FakeApi {
     }
     if (path === "/conversations") {
       return route.fulfill({
-        json: [...this.conversations.values()].map(summary),
+        json: this.options.noHistory ? [] : [...this.conversations.values()].map(summary),
       });
     }
     const ask = path.match(/^\/conversations\/([^/]+)\/messages$/);
@@ -368,6 +372,7 @@ export class FakeApi {
       if (!conversation) return route.fulfill({ status: 404, json: { detail: "not_found" } });
       const body = request.postDataJSON() as { question: string };
       this.asked.push({ conversation: ask[1], body });
+      if (this.options.noHistory) this.conversations.delete(ask[1]);
       return route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -376,7 +381,7 @@ export class FakeApi {
     }
     const detail = path.match(/^\/conversations\/([^/]+)$/);
     if (detail) {
-      const conversation = this.conversations.get(detail[1]);
+      const conversation = this.options.noHistory ? undefined : this.conversations.get(detail[1]);
       return conversation
         ? route.fulfill({ json: conversation })
         : route.fulfill({ status: 404, json: { detail: "not_found" } });

@@ -157,7 +157,14 @@ async def test_cache_misses_on_a_prompt_version_change(
 
 @pytest.mark.parametrize(
     "change",
-    ["workspace", "reasoning", "top_k", "similarity_threshold", "max_context_tokens"],
+    [
+        "workspace",
+        "reasoning",
+        "top_k",
+        "similarity_threshold",
+        "max_context_tokens",
+        "vector_similarity_weight",
+    ],
 )
 async def test_cache_misses_when_anything_in_the_key_changes(
     settings: Settings,
@@ -181,7 +188,12 @@ async def test_cache_misses_when_anything_in_the_key_changes(
         second = await world.new_conversation(reasoning=True)
     else:
         chat = settings.models.chat
-        value = {"top_k": 8, "similarity_threshold": 0.3, "max_context_tokens": 5000}[change]
+        value = {
+            "top_k": 8,
+            "similarity_threshold": 0.3,
+            "max_context_tokens": 5000,
+            "vector_similarity_weight": 0.5,
+        }[change]
         models = settings.models.model_copy(
             update={"chat": chat.model_copy(update={change: value})}
         )

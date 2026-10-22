@@ -98,3 +98,17 @@ async def scan(tenant_id: UUID, prefix: str) -> AsyncIterator[tuple[str, str]]:
 
 async def delete(tenant_id: UUID, key: str) -> None:
     await _require_client().delete(tenant_key(tenant_id, key))
+
+
+async def clear_tenant(tenant_id: UUID) -> int:
+    """Delete every key in ``tenant_id``'s namespace; how many went. For the termination
+    purge (P1b-14), never on a request path."""
+    client = _require_client()
+    namespace = tenant_key(tenant_id, "x")[:-1]
+    names = [
+        name.decode("utf-8") if isinstance(name, bytes) else name
+        async for name in client.scan_iter(match=namespace + "*", count=500)
+    ]
+    for start in range(0, len(names), 500):
+        await client.delete(*names[start : start + 500])
+    return len(names)

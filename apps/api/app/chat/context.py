@@ -2,25 +2,20 @@
 
 from __future__ import annotations
 
-import math
 import re
 import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 
 from app.chat.package import Provenance
+from app.chat.tokens import count_tokens, truncate_tokens
 from app.llm.mistral import PromptChunk
 from app.retrieval.types import RetrievedChunk
 
-CHARS_PER_TOKEN = 4  # estimate; no tokenizer dependency in Phase 0
 # RAGFlow gives DOCX, HTML and Markdown chunks a pseudo-position on page 1, so a page
 # or slide number is real only for these source types (findings R14).
 PAGED_SOURCE_TYPES = frozenset({"pdf", "pptx"})
 _SPACE = re.compile(r"\s+")
-
-
-def estimate_tokens(text: str) -> int:
-    return math.ceil(len(text) / CHARS_PER_TOKEN)
 
 
 def _normalise(text: str) -> str:
@@ -93,7 +88,7 @@ def select_context(
             for kept, kept_norm in selected
         ):
             continue
-        cost = estimate_tokens(chunk.text)
+        cost = count_tokens(chunk.text)
         if selected and used + cost > max_tokens:
             continue  # a later, shorter chunk may still fit
         selected.append((ContextChunk(chunk, source), norm))
@@ -101,7 +96,7 @@ def select_context(
     if selected and used > max_tokens:
         # Only possible when the single best chunk alone exceeds the cap: truncate it.
         first, _ = selected[0]
-        text = first.chunk.text[: max_tokens * CHARS_PER_TOKEN]
+        text = truncate_tokens(first.chunk.text, max_tokens)
         trimmed = RetrievedChunk(
             chunk_id=first.chunk.chunk_id,
             document_id=first.chunk.document_id,

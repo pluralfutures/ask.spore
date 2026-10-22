@@ -1,7 +1,7 @@
 """The job queue (P1b-02): ``jobs`` rows run by ``ask-spore worker``.
 
-Mirrors alembic revisions 0014 and 0030 (``send_mail``, P1b-11); the migrations are
-authoritative. Operator-owned and
+Mirrors alembic revisions 0014, 0030 (``send_mail``, P1b-11) and 0040
+(``purge_retention``, P1b-14); the migrations are authoritative. Operator-owned and
 shared, outside tenant RLS: a payload carries identifiers and settings only (a check
 constraint allows a fixed set of keys), and an outcome is ``status`` and ``error_code``
 only, never an error text.
@@ -43,12 +43,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 
-JobType = Literal["ingest_source", "withdraw_source", "crawl_site", "send_mail"]
+JobType = Literal["ingest_source", "withdraw_source", "crawl_site", "send_mail", "purge_retention"]
 JOB_TYPES: Final[tuple[JobType, ...]] = (
     "ingest_source",
     "withdraw_source",
     "crawl_site",
     "send_mail",
+    "purge_retention",
 )
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 FINISHED: Final = frozenset({"succeeded", "failed"})

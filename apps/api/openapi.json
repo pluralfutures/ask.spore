@@ -1154,6 +1154,11 @@
             "title": "Model",
             "type": "string"
           },
+          "no_history": {
+            "default": false,
+            "title": "No History",
+            "type": "boolean"
+          },
           "notice": {
             "anyOf": [
               {
@@ -2811,7 +2816,7 @@
         "properties": {
           "retention_days": {
             "maximum": 30.0,
-            "minimum": 1.0,
+            "minimum": 0.0,
             "title": "Retention Days",
             "type": "integer"
           }

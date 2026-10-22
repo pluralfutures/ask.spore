@@ -78,6 +78,28 @@ class PromptChunk:
 class Usage:
     tokens_in: int
     tokens_out: int
+    # P1b-15 d: of ``tokens_out``, the hidden reasoning tokens, where the provider
+    # reports them (``completion_tokens_details.reasoning_tokens``); a count only.
+    reasoning_tokens: int = 0
+
+
+def reasoning_tokens(info: Any) -> int:
+    """``completion_tokens_details.reasoning_tokens`` of a usage object or mapping; 0
+    when the provider does not report it."""
+    details = (
+        info.get("completion_tokens_details")
+        if isinstance(info, dict)
+        else getattr(info, "completion_tokens_details", None)
+    )
+    raw = (
+        details.get("reasoning_tokens")
+        if isinstance(details, dict)
+        else getattr(details, "reasoning_tokens", None)
+    )
+    try:
+        return max(int(raw or 0), 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 @dataclass(frozen=True)
@@ -187,6 +209,7 @@ def _usage(info: Any) -> Usage | None:
     return Usage(
         tokens_in=int(getattr(info, "prompt_tokens", 0) or 0),
         tokens_out=int(getattr(info, "completion_tokens", 0) or 0),
+        reasoning_tokens=reasoning_tokens(info),
     )
 
 
@@ -296,17 +319,25 @@ class MistralClient:
         return RewriteResult(query=_clean_query(raw, query), usage=_usage(response.usage))
 
     async def judge(
-        self, system: str, passages: Sequence[PromptChunk], statements: Sequence[Statement]
+        self,
+        system: str,
+        passages: Sequence[PromptChunk],
+        statements: Sequence[Statement],
+        *,
+        model: str | None = None,
+        reasoning_effort: str = "none",
     ) -> JudgeResult:
         """Faithfulness verdicts for ``statements`` (eval harness, P0-18), as JSON text.
 
-        Uses the pinned chat model (Mistral Large) at temperature 0.
+        ``model`` is ``[eval] judge_model`` (P1b-15 c), else the pinned chat model, at
+        temperature 0. Mistral has no reasoning switch; ``reasoning_effort`` is unused.
         """
+        del reasoning_effort
         messages = judge_messages(system, passages, statements)
         for attempt in range(RETRIES_ON_5XX + 1):
             try:
                 response = await self._sdk.chat.complete_async(
-                    model=self._config.chat_model,
+                    model=model or self._config.chat_model,
                     messages=messages,  # type: ignore[arg-type]
                     temperature=JUDGE_TEMPERATURE,
                     max_tokens=JUDGE_MAX_TOKENS,

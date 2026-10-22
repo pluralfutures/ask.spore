@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import type { Citation, DoneData } from "../api/types";
 import { AssistantMessage } from "../components/AssistantMessage";
 import { failoverNote } from "../lib/failover";
+import { NO_HISTORY_NOTE, sameChoice } from "../lib/noHistory";
 import { CitationPanel } from "../components/CitationPanel";
 import { ConversationHeader } from "../components/ConversationHeader";
 import type { StartState } from "./NewConversation";
@@ -42,21 +43,27 @@ const CUT_OFF_NOTE = "This answer was cut off at the length limit.";
 export function Chat() {
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
+  // From the start panel (P1a-12): the first question, sent once, and the spend-cap
+  // fallback notice, kept for this visit.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [start] = useState<StartState | null>(() => location.state as StartState | null);
+  // P1b-14: a tenant that keeps no history. Its conversations take one question each and
+  // are never readable, so this visit's turns live here only.
+  const noHistory = start?.conversation?.no_history ? start.conversation : null;
   const conversation = useQuery({
     queryKey: ["conversation", id],
     queryFn: () => api.getConversation(id),
+    enabled: noHistory === null,
   });
+  const [past, setPast] = useState<Live[]>([]);
+  const used = useRef(false); // the current no-history conversation took its question
   const [question, setQuestion] = useState("");
   const [live, setLive] = useState<Live | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   // Answers that stopped at the output budget, for this visit (the flag is not stored).
   const [cutOff, setCutOff] = useState<ReadonlySet<string>>(new Set());
   const abort = useRef<AbortController | null>(null);
-  // From the start panel (P1a-12): the first question, sent once, and the spend-cap
-  // fallback notice, kept for this visit.
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [start] = useState<StartState | null>(() => location.state as StartState | null);
 
   useEffect(() => () => abort.current?.abort(), []);
 
@@ -73,8 +80,14 @@ export function Chat() {
     const state: Live = { question: text, text: "", citations: [], done: null, error: null };
     setLive(state);
     abort.current = new AbortController();
+    let target = id;
     try {
-      for await (const e of api.ask(id, text, abort.current.signal)) {
+      if (noHistory) {
+        // Each question after the first starts a new one-question conversation.
+        if (used.current) target = (await api.createConversation(sameChoice(noHistory))).id;
+        used.current = true;
+      }
+      for await (const e of api.ask(target, text, abort.current.signal)) {
         if (e.event === "token") state.text += e.data.text;
         else if (e.event === "citations") state.citations = e.data.citations;
         else if (e.event === "done") {
@@ -87,6 +100,12 @@ export function Chat() {
     } catch {
       state.error = "The answer could not be completed.";
       setLive({ ...state });
+      return;
+    }
+    if (noHistory) {
+      // Nothing to reload: the answer is gone from the server once it ends.
+      setPast((turns) => [...turns, { ...state }]);
+      setLive(null);
       return;
     }
     if (state.done) {
@@ -110,10 +129,11 @@ export function Chat() {
   }, [start]);
 
   const messages = conversation.data?.messages ?? [];
-  const citationsFor = (key: string): Citation[] =>
-    key === "live"
-      ? (live?.citations ?? [])
-      : (messages.find((m) => m.id === key)?.citations ?? []);
+  const citationsFor = (key: string): Citation[] => {
+    if (key === "live") return live?.citations ?? [];
+    if (key.startsWith("past-")) return past[Number(key.slice(5))]?.citations ?? [];
+    return messages.find((m) => m.id === key)?.citations ?? [];
+  };
   const busy = live !== null && !live.done && !live.error;
   const persisted = live?.done ? messages.some((m) => m.id === live.done?.message_id) : false;
 
@@ -128,14 +148,28 @@ export function Chat() {
             {conversation.data?.title ?? "New conversation"}
           </h1>
           {conversation.data ? <ConversationHeader conversation={conversation.data} /> : null}
+          {noHistory ? (
+            <p data-testid="no-history" className="mt-2 text-sm text-slate-600">
+              {NO_HISTORY_NOTE}
+            </p>
+          ) : null}
           {start?.notice ? (
             <p role="status" className="mt-2 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">
               {start.notice}
             </p>
           ) : null}
         </header>
-        {conversation.isError ? <p className="text-red-700">Conversation not found.</p> : null}
+        {conversation.isError && !noHistory ? (
+          <p className="text-red-700">Conversation not found.</p>
+        ) : null}
         <ol className="flex flex-col gap-3">
+          {past.map((turn, i) => (
+            <PastTurn
+              key={`past-${i}`}
+              turn={turn}
+              onCite={(marker) => setSelection({ key: `past-${i}`, marker })}
+            />
+          ))}
           {messages.map((m) =>
             m.role === "user" ? (
               <li key={m.id} className="self-end rounded bg-slate-200 px-3 py-2">
@@ -168,7 +202,7 @@ export function Chat() {
                     citations={live.citations}
                     unsupported={live.done?.unsupported ?? false}
                     abstained={live.done?.abstained ?? false}
-                    messageId={live.done?.message_id ?? null}
+                    messageId={noHistory ? null : (live.done?.message_id ?? null)}
                     onCite={(marker) => setSelection({ key: "live", marker })}
                   />
                 ) : (
@@ -213,6 +247,33 @@ export function Chat() {
         />
       ) : null}
     </div>
+  );
+}
+
+// A no-history turn of this visit (P1b-14): shown as answered, with no feedback, since
+// the message no longer exists on the server.
+function PastTurn({ turn, onCite }: { turn: Live; onCite: (marker: number) => void }) {
+  return (
+    <>
+      <li className="self-end rounded bg-slate-200 px-3 py-2">{turn.question}</li>
+      <li>
+        {turn.text || turn.done ? (
+          <AssistantMessage
+            text={turn.text}
+            citations={turn.citations}
+            unsupported={turn.done?.unsupported ?? false}
+            abstained={turn.done?.abstained ?? false}
+            messageId={null}
+            onCite={onCite}
+          />
+        ) : null}
+        {turn.done?.truncated ? (
+          <p className="mt-1 text-sm text-amber-900">{CUT_OFF_NOTE}</p>
+        ) : null}
+        <FailoverNote kind={turn.done?.failover} />
+        {turn.error ? <p className="mt-2 text-red-700">{turn.error}</p> : null}
+      </li>
+    </>
   );
 }
 

@@ -133,7 +133,8 @@ class TenantSettings(Base):
 
     __tablename__ = "tenant_settings"
     __table_args__ = (
-        CheckConstraint(f"retention_days BETWEEN 1 AND {MAX_RETENTION_DAYS}", name="retention_cap"),
+        # 0 is "no history" (revision 0040, P1b-14).
+        CheckConstraint(f"retention_days BETWEEN 0 AND {MAX_RETENTION_DAYS}", name="retention_cap"),
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(

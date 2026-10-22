@@ -22,6 +22,9 @@ dependencies = [
     "pyjwt[crypto]~=2.15.1",
     # File uploads in the content console (P1b-05): FastAPI reads multipart forms with it.
     "python-multipart~=0.0.32",
+    # Token counts for the history and context caps (P1b-15 f): the DeepSeek V4 tokenizer,
+    # pure Python with its tokenizer.json in the wheel, so it works offline.
+    "deepseek-tokenizer~=0.3.0",
 ]
 
 [project.scripts]

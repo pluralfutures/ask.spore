@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from datetime import date
 from typing import Any
 from uuid import UUID
@@ -32,13 +33,14 @@ from app.content.sites import (
 from app.content.submit import settle, settle_site, submit_site
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.fakes import FakeRedis
-from tests.test_crawler import ROOT, Clock, Site, html, resolver
+from tests.test_crawler import ROOT, Clock, Rebinding, Site, html, resolver
 from tests.test_ingest import TAGS, Env, Ingest, content_user, env
 from tests.test_withdraw import cite, flags
 
 __all__ = ["env"]  # the fixture, imported for its use here
 
-PUBLIC = {"site.example": ["93.184.216.34"]}
+PUBLIC_IP = "93.184.216.34"
+PUBLIC = {"site.example": [PUBLIC_IP]}
 DATED = '<meta property="article:published_time" content="2026-02-10">'
 
 
@@ -66,7 +68,7 @@ class Crawls:
             tags=TAGS,
             content_root=e.content_root,
             parse_poll_interval=0,
-            http=self.site.client,
+            connect=self.site.transport,
             limiter=HostLimiter(clock=lambda: self.clock.now, sleep=self.clock.sleep),
             resolve=resolver(PUBLIC),
         )
@@ -595,3 +597,18 @@ async def test_a_reservation_found_mid_crawl_withdraws_the_pages_admitted_before
     statuses = await admin_conn.fetch("SELECT status FROM sources WHERE site_id = $1", site_id)
     assert {r["status"] for r in statuses} == {"withdrawn"}
     assert crawls.e.fake.documents == {}  # nothing of the site left in RAGFlow
+
+
+async def test_a_crawl_never_connects_to_a_rebound_internal_address(
+    crawls: Crawls, admin_conn: asyncpg.Connection
+) -> None:
+    """P1b-18: the site passes the check before the crawl, then its DNS answers with an
+    internal address; the crawl's own requests resolve once each and are refused, so
+    nothing reaches the internal address and nothing is ingested."""
+    site_id = await crawls.approved()
+    crawls.site.requested.clear()
+    crawls.context = replace(crawls.context, resolve=Rebinding([PUBLIC_IP], ["127.0.0.1"]))
+    await crawls.run()
+    assert crawls.site.requested == []
+    assert (await crawls.site_row(site_id))["last_crawl_status"] == "unreachable"
+    assert await crawls.sources(site_id) == {}

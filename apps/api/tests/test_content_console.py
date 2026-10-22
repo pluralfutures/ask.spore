@@ -122,7 +122,7 @@ class Console:
             update={"files": files, "ragflow": ragflow}
         )
         state.content_resolve = resolver(PUBLIC)
-        state.content_http = self.site.client
+        state.content_connect = self.site.transport
         state.content_ragflow = RagflowClients(e.fake)
 
     def as_user(self, email: str, tenant_id: UUID = INTERNAL_TENANT_ID) -> httpx.AsyncClient:
@@ -144,7 +144,7 @@ class Console:
             tags=TAGS,
             content_root=self.e.content_root,
             parse_poll_interval=0,
-            http=self.site.client,
+            connect=self.site.transport,
             limiter=HostLimiter(clock=lambda: self.clock.now, sleep=self.clock.sleep),
             resolve=resolver(PUBLIC),
         )

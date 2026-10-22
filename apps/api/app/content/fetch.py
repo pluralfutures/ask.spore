@@ -52,15 +52,6 @@ class Fetched:
         return self.content_type in {"text/html", "application/xhtml+xml"}
 
 
-def http_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        headers={"User-Agent": USER_AGENT},
-        timeout=TIMEOUT_SECONDS,
-        follow_redirects=True,
-        max_redirects=MAX_REDIRECTS,
-    )
-
-
 def require_http_url(url: str) -> None:
     parts = urlsplit(url)
     if parts.scheme not in {"http", "https"} or not parts.hostname:
@@ -68,7 +59,16 @@ def require_http_url(url: str) -> None:
 
 
 Resolver = Callable[[str], Awaitable[list[str]]]
+# Opens the connection for one pinned request; tests pass an httpx.MockTransport.
+Connector = Callable[[], httpx.AsyncBaseTransport]
 PUBLIC_PORTS = frozenset({None, 80, 443})
+# Cloud instance metadata services (AWS/GCP/Azure, Scaleway, AWS over IPv6, Alibaba). All
+# are already non-global; named so a change to ``ipaddress`` cannot let one through.
+METADATA_ADDRESSES = frozenset(
+    ipaddress.ip_address(address)
+    for address in ("169.254.169.254", "169.254.42.42", "fd00:ec2::254", "100.100.100.200")
+)
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
 
 
 async def resolve_host(host: str) -> list[str]:
@@ -77,12 +77,26 @@ async def resolve_host(host: str) -> list[str]:
     return [str(info[4][0]) for info in infos]
 
 
-async def require_public_url(url: str, resolve: Resolver = resolve_host) -> None:
-    """Refuse a URL the API or the worker must not fetch for a content editor: anything
-    but http(s) on the default ports, or a host that resolves to a private, loopback,
-    link-local or otherwise non-global address (the Compose network, RAGFlow, the
-    database). FetchError codes: ``bad_url``, ``bad_port``, ``unresolvable``,
-    ``not_public``. Checked at registration and again before each crawl."""
+def is_public_address(address: str) -> bool:
+    """True for a global unicast address that is not a metadata service. IPv4-mapped and
+    NAT64 IPv6 addresses are judged by the IPv4 address they carry."""
+    try:
+        ip: ipaddress.IPv4Address | ipaddress.IPv6Address = ipaddress.ip_address(
+            address.split("%")[0]
+        )
+    except ValueError:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        elif ip in _NAT64:
+            ip = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+    return ip.is_global and not ip.is_multicast and ip not in METADATA_ADDRESSES
+
+
+def _public_target(url: str) -> str:
+    """The host of an http(s) URL on a default port; FetchError ``bad_url`` or
+    ``bad_port`` otherwise."""
     require_http_url(url)
     parts = urlsplit(url)
     try:
@@ -91,32 +105,97 @@ async def require_public_url(url: str, resolve: Resolver = resolve_host) -> None
         raise FetchError("bad_url", "not a valid port") from None
     if port not in PUBLIC_PORTS:
         raise FetchError("bad_port", "only the default http(s) ports are crawled")
-    host = parts.hostname or ""
+    return parts.hostname or ""
+
+
+async def public_addresses(host: str, resolve: Resolver = resolve_host) -> list[str]:
+    """Resolve ``host`` once; every address it resolves to must be public (FetchError
+    ``unresolvable`` or ``not_public`` otherwise)."""
     try:
         addresses = await resolve(host)
     except (OSError, UnicodeError):
         raise FetchError("unresolvable", "the host does not resolve") from None
     if not addresses:
         raise FetchError("unresolvable", "the host does not resolve")
-    for address in addresses:
-        try:
-            ip = ipaddress.ip_address(address.split("%")[0])
-        except ValueError:
-            raise FetchError("not_public", "the host has an unusable address") from None
-        if not ip.is_global:
-            raise FetchError("not_public", "the host is not on the public internet")
+    if not all(is_public_address(address) for address in addresses):
+        raise FetchError("not_public", "the host is not on the public internet")
+    return addresses
 
 
-def public_only(http: httpx.AsyncClient, resolve: Resolver = resolve_host) -> httpx.AsyncClient:
-    """Check every request ``http`` sends, redirects included, with ``require_public_url``
-    before it goes out; a refused one raises FetchError from the request."""
+async def require_public_url(url: str, resolve: Resolver = resolve_host) -> None:
+    """Refuse a URL the API or the worker must not fetch for a content editor: anything
+    but http(s) on the default ports, or a host that resolves to a private, loopback,
+    link-local, multicast, metadata or otherwise non-global address (the Compose
+    network, RAGFlow, the database). FetchError codes: ``bad_url``, ``bad_port``,
+    ``unresolvable``, ``not_public``. Checked at registration and before each crawl;
+    the connection itself is guarded by ``PinnedTransport``."""
+    await public_addresses(_public_target(url), resolve)
 
-    async def guard(request: httpx.Request) -> None:
-        await require_public_url(str(request.url), resolve)
 
-    hooks = http.event_hooks
-    http.event_hooks = {"request": [guard, *hooks["request"]], "response": hooks["response"]}
-    return http
+class PinnedTransport(httpx.AsyncBaseTransport):
+    """Connects only to an address it has just checked (P1b-18, decision 9).
+
+    For every request, so for every redirect hop the client follows, the URL is checked
+    as in ``require_public_url``, the host is resolved once, and the connection goes to
+    the first resolved address: the request is re-addressed to that IP, keeping the Host
+    header and, for https, the hostname for SNI and certificate verification. Nothing
+    resolves the name a second time, so a DNS answer that changes between the check and
+    the connection (DNS rebinding) cannot reach an internal address. Connections are
+    pooled per hostname, so one host's request never rides another host's TLS session.
+    A refused request raises FetchError before anything is sent."""
+
+    def __init__(self, resolve: Resolver = resolve_host, connect: Connector | None = None):
+        self._resolve = resolve
+        self._connect: Connector = connect or httpx.AsyncHTTPTransport
+        self._pools: dict[str, httpx.AsyncBaseTransport] = {}
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        host = _public_target(str(request.url))
+        address = (await public_addresses(host, self._resolve))[0]
+        extensions = dict(request.extensions)
+        if request.url.scheme == "https" and not _is_ip_literal(host):
+            extensions["sni_hostname"] = host
+        pinned = httpx.Request(
+            request.method,
+            request.url.copy_with(host=address.split("%")[0]),
+            headers=request.headers,  # carries the original Host header
+            stream=request.stream,
+            extensions=extensions,
+        )
+        pool = self._pools.get(host)
+        if pool is None:
+            pool = self._pools[host] = self._connect()
+        return await pool.handle_async_request(pinned)
+
+    async def aclose(self) -> None:
+        pools, self._pools = list(self._pools.values()), {}
+        for pool in pools:
+            await pool.aclose()
+
+
+def _is_ip_literal(host: str) -> bool:
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return True
+
+
+def http_client(
+    resolve: Resolver = resolve_host, connect: Connector | None = None
+) -> httpx.AsyncClient:
+    """The client for every server-side fetch of an editor-supplied, manifest or crawled
+    URL: public addresses only, pinned per request (``PinnedTransport``), at most
+    ``MAX_REDIRECTS`` redirects, each re-checked. Proxy settings from the environment
+    are ignored, as a proxy would resolve the name itself."""
+    return httpx.AsyncClient(
+        transport=PinnedTransport(resolve, connect),
+        headers={"User-Agent": USER_AGENT},
+        timeout=TIMEOUT_SECONDS,
+        follow_redirects=True,
+        max_redirects=MAX_REDIRECTS,
+        trust_env=False,
+    )
 
 
 def tdm_reserved(headers: httpx.Headers, content: bytes = b"", is_html: bool = False) -> bool:

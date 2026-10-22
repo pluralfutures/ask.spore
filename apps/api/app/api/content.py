@@ -77,13 +77,12 @@ from app.content import register, sites
 from app.content.datasets import sync_datasets
 from app.content.fetch import (
     MAX_BYTES,
+    Connector,
     FetchError,
     Resolver,
     fetch,
     http_client,
-    public_only,
     require_http_url,
-    require_public_url,
     resolve_host,
 )
 from app.content.ingest import TYPE_BY_SUFFIX, IngestError, SourceFile, SourceMetadata, from_fetched
@@ -550,10 +549,9 @@ async def propose_source(
         )
     elif url is not None:
         resolve = _resolver(request)
-        client = getattr(request.app.state, "content_http", http_client)
+        connect: Connector | None = getattr(request.app.state, "content_connect", None)
         try:
-            await require_public_url(url.strip(), resolve)
-            async with public_only(client(), resolve) as http:
+            async with http_client(resolve, connect) as http:
                 source = from_fetched(await fetch(http, url.strip()))
         except (FetchError, IngestError) as exc:
             raise _refused(exc) from None

@@ -46,7 +46,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.audit.writer import Change, record
 from app.content.crawler import HostLimiter, Scope, SiteCrawler, Visit
-from app.content.fetch import FetchError, Resolver, public_only, require_public_url, resolve_host
+from app.content.fetch import (
+    Connector,
+    FetchError,
+    Resolver,
+    http_client,
+    require_public_url,
+    resolve_host,
+)
 from app.content.jobs import enqueue
 from app.content.models import Site, SitePage, Source
 from app.content.roles import REVIEWER, roles_of
@@ -430,12 +437,14 @@ async def crawl_site(
     factory: async_sessionmaker[AsyncSession],
     site_id: UUID,
     *,
-    http: httpx.AsyncClient,
     content_root: Path,
     limiter: HostLimiter,
     resolve: Resolver = resolve_host,
+    connect: Connector | None = None,
 ) -> CrawlResult:
-    """Run one crawl of ``site_id`` (see the module docstring)."""
+    """Run one crawl of ``site_id`` (see the module docstring). Every request, redirects
+    included, goes through ``http_client(resolve, connect)``: public addresses only,
+    connected to the address that was checked (P1b-18)."""
     async with factory() as session:
         site = await session.scalar(select(Site).where(Site.id == site_id))
     if site is None:
@@ -451,7 +460,18 @@ async def crawl_site(
         await _finish(factory, site, exc.code, counts=Counter(), decision=None)
         return CrawlResult(site_id, "unreachable", exc.code)
 
-    public_only(http, resolve)
+    async with http_client(resolve, connect) as http:
+        return await _crawl(factory, site, http, limiter, content_root)
+
+
+async def _crawl(
+    factory: async_sessionmaker[AsyncSession],
+    site: Site,
+    http: httpx.AsyncClient,
+    limiter: HostLimiter,
+    content_root: Path,
+) -> CrawlResult:
+    site_id = site.id
     allow = list(site.special_category_allow)
 
     def special(url: str, title: str) -> str | None:

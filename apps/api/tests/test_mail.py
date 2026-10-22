@@ -33,6 +33,7 @@ from app.core.mailtemplates import (
     OPERATOR_TEMPLATES,
     TEMPLATE_NAMES,
     check_template,
+    first_name,
     load_template,
     render,
 )
@@ -42,7 +43,13 @@ from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.fakes import Recorder
 from tests.test_auth import Auth, auth  # noqa: F401 - fixture
 from tests.test_config import ENV, VALID_TOML, write_config
-from tests.test_operator import Console, console, create, owner  # noqa: F401 - fixtures
+from tests.test_operator import (  # noqa: F401 - fixtures
+    OPERATOR_EMAIL,
+    Console,
+    console,
+    create,
+    owner,
+)
 from tests.test_tenant_admin import admin_of
 
 SETTINGS = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
@@ -89,8 +96,10 @@ def test_rendering_carries_no_identifier_beyond_the_recipient_address(name: str)
         load_template(DEFAULT_CONFIG_DIR, name, version),
         recipient_email=RECIPIENT,
         app_url=MAIL.app_url,
+        recipient_display_name="Ada Synthetic-Surname",
     )
     for part in (mail.subject, mail.text, mail.html):
+        assert "Synthetic-Surname" not in part  # never more of the name than the first word
         assert set(EMAIL_PATTERN.findall(part)) <= {RECIPIENT}
         assert UUID_PATTERN.search(part) is None
         assert all(url.startswith(MAIL.app_url) for url in URL_PATTERN.findall(part))
@@ -111,6 +120,71 @@ def test_subjects_read_sporebot(name: str) -> None:
         assert "ask.spore" not in part.lower() and "ask spore" not in part.lower()
 
 
+def test_the_invitation_greets_the_recipient_by_first_name_and_nothing_else_does() -> None:
+    """Decision 16: ``$first_name`` (the recipient's own) in the invitation only."""
+    for name in TEMPLATE_NAMES:
+        template = load_template(DEFAULT_CONFIG_DIR, name, getattr(MAIL.templates, name))
+        mail = render(
+            template,
+            recipient_email=RECIPIENT,
+            app_url=MAIL.app_url,
+            recipient_display_name="Ada Synthetic",
+        )
+        if name == "invitation":
+            assert "Hello Ada," in mail.text and "Hello Ada," in mail.html
+        else:
+            assert "Ada" not in mail.subject + mail.text + mail.html
+
+
+@pytest.mark.parametrize(
+    ("display_name", "expected"),
+    [
+        ("Ada Synthetic", "Ada"),
+        ("  Ada\tSynthetic ", "Ada"),
+        ("Ada", "Ada"),
+        ("", "there"),
+        (None, "there"),
+        ("ada@client.example", "there"),
+        ("A\x00da", "Ada"),
+        ("x" * 200, "x" * 60),
+    ],
+)
+def test_first_name_is_the_first_word_of_the_display_name(
+    display_name: str | None, expected: str
+) -> None:
+    assert first_name(display_name) == expected
+
+
+def test_the_first_name_is_escaped_in_html() -> None:
+    template = load_template(DEFAULT_CONFIG_DIR, "invitation", MAIL.templates.invitation)
+    mail = render(
+        template,
+        recipient_email=RECIPIENT,
+        app_url=MAIL.app_url,
+        recipient_display_name="<b>Ada</b> Synthetic",
+    )
+    assert "&lt;b&gt;Ada&lt;/b&gt;" in mail.html and "<b>Ada" not in mail.html
+
+
+@pytest.mark.parametrize("name", sorted(set(TEMPLATE_NAMES) - {"invitation"}))
+def test_another_template_using_first_name_refuses_startup(tmp_path: Path, name: str) -> None:
+    """Operator notices stay tenant-free and name nobody; the consent notice too."""
+    config = _config_copy(tmp_path)
+    version = getattr(MAIL.templates, name)
+    text = config / "mail" / name / f"{version}.txt"
+    text.write_text(text.read_text(encoding="utf-8") + "\nHello $first_name.\n", encoding="utf-8")
+    assert check_template(config, name, version)
+    with pytest.raises(ConfigError) as excinfo:
+        load_settings(environ=ENV, config_dir=config)
+    assert any(p.startswith(f"mail.templates.{name}") for p in excinfo.value.problems)
+
+
+def test_released_invitation_v1_is_unchanged_and_still_valid() -> None:
+    v1 = load_template(DEFAULT_CONFIG_DIR, "invitation", "v1")
+    assert "$first_name" not in v1.text + v1.html
+    assert MAIL.templates.invitation == "v2"
+
+
 def test_html_values_are_escaped(tmp_path: Path) -> None:
     template = load_template(DEFAULT_CONFIG_DIR, "invitation", MAIL.templates.invitation)
     mail = render(template, recipient_email="a<b>@client.example", app_url=MAIL.app_url)
@@ -123,7 +197,9 @@ def _config_copy(tmp_path: Path) -> Path:
     return config
 
 
-@pytest.mark.parametrize("placeholder", ["$tenant_name", "${user_id}", "$display_name"])
+@pytest.mark.parametrize(
+    "placeholder", ["$tenant_name", "${user_id}", "$display_name", "$inviter_name", "$last_name"]
+)
 def test_a_template_with_another_placeholder_refuses_startup(
     tmp_path: Path, placeholder: str
 ) -> None:
@@ -394,7 +470,13 @@ async def test_the_first_admin_invite_sends_an_email_with_no_address_in_any_log(
     assert body["to"] == [{"email": email}]
     assert "SporeBot" in body["subject"] and email in body["text"]
     assert MAIL.app_url in body["text"]
-    assert str(tenant_id) not in request.content.decode() and "Synthetic" not in body["text"]
+    # The recipient's own first name (decision 16), not the rest of it, nor the inviter's.
+    assert "Hello Synthetic," in body["text"] and "First Admin" not in request.content.decode()
+    inviter = await console.auth.admin.fetchval(
+        "SELECT display_name FROM users WHERE lower(email) = $1", OPERATOR_EMAIL
+    )
+    assert inviter and inviter not in request.content.decode()
+    assert str(tenant_id) not in request.content.decode()
 
     (job,) = await mail_jobs(jobs)
     assert (job["status"], job["error_code"], job["attempts"]) == ("succeeded", None, 1)
@@ -410,7 +492,7 @@ async def test_the_first_admin_invite_sends_an_email_with_no_address_in_any_log(
     # The log line: metadata only. No address, subject or body text, anywhere.
     logged = output(capsys, caplog)
     assert '"event":"mail.job"' in logged and '"template":"invitation"' in logged
-    for text in (email, body["subject"], body["text"].splitlines()[2], "SporeBot"):
+    for text in (email, body["subject"], body["text"].splitlines()[2], "SporeBot", "Synthetic"):
         assert text not in logged
 
 

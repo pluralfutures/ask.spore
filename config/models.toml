@@ -233,7 +233,7 @@ region = "fr-par"
 [mail.templates]
 # Active versions of config/mail/<name>/<version>.txt and .html; never edit a released
 # version (app.core.mailtemplates).
-invitation = "v1"
+invitation = "v2"  # v2: greets the recipient by first name (decision 16)
 spend_cap_80 = "v1"
 spend_cap_100 = "v1"
 tenant_name_flag = "v1"

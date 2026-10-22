@@ -236,8 +236,7 @@ The Instance runs `main` at **bd1bc46** (`ASK_SPORE_DEPLOY_VERSION=bd1bc464ca60`
 
 ### Release status
 
-In progress. Section 0 done; section 1.3 (independent review) waits for the orchestrating
-session.
+In progress (paused Oct 22, 2026, 23:45 UTC, Instance powered down). Done: sections 0 to 5, 6.1. Open: 6.2 (owner step 6.2a: invite the `ssotest` admin, add workspace `drill`), 6.3, 7, 8.
 
 ### Section 0: bring-up
 
@@ -355,6 +354,7 @@ Oct 20 figures (findings 1a §9): `cc-team1-healthcare-gpo` 60/4,037, `cc-team2-
 | --- | --- |
 | 5.1 One tenant per page | `cc` opened, entitlements saved unchanged: the save landed on `cc` only (its `tenant_entitlements.updated_at` 23:28:50; `ssotest` and `internal` untouched). No audit event: `operator.entitlements_changed` is written only when a value changes, by design; the runbook expected one. The console shows no confirmation after a save (backlog). |
 | 5.1 Tag picker | Offered `cc-shared`, `cc-team1-…`, `cc-team2-…`, `cc-team3-…` **and the three `sample-*` tags marked shared** (no `tenant` in `tags.toml`, so shared with every tenant). Owner decision (a): `sample-*` belong to the internal tenant (F4). |
+| 5.2 Spend | **Pass.** `cc` → Spend, month to date: DeepSeek V4.1 Flash 30,389 in, 15,606 out, €0.05; Qwen 3.8 27B 25,632 in, 10,904 out, €0.05; external off, €0.00: equal to `usage_ledger` (4.63 and 5.14 cents). Aggregates page: scaleway 1,734,788 in, 111,253 out, €1.26; DeepSeek 2 tenants 1,709,156 / 100,349 / €1.21; Qwen 1 tenant 25,632 / 10,904 / €0.05; "2 of 3 tenants": equal to the ledger sums (125.75 cents in all); no question text on the page. |
 
 ### Section 6: retention (P1b-14)
 

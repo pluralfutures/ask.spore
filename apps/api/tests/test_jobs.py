@@ -263,9 +263,19 @@ async def test_job_types_without_a_handler_fail_with_a_code(
         job_id = await enqueue(
             session, "crawl_site", {"site_id": str(uuid.uuid4())}, created_by=None
         )
-    await worker.run_once(e.factory, worker.handlers(context(e)))
+    registry = worker.handlers(context(e))
+    del registry["crawl_site"]
+    await worker.run_once(e.factory, registry)
     job = await job_row(admin_conn, job_id)
     assert (job["status"], job["error_code"]) == ("failed", "unsupported_job_type")
+    # P1b-04 registers the handler: a crawl of a site that does not exist is refused.
+    async with tenant_session(e.factory, INTERNAL_TENANT_ID) as session:
+        job_id = await enqueue(
+            session, "crawl_site", {"site_id": str(uuid.uuid4())}, created_by=None
+        )
+    await worker.run_once(e.factory, worker.handlers(context(e)))
+    job = await job_row(admin_conn, job_id)
+    assert (job["status"], job["error_code"]) == ("failed", "no_site")
 
 
 async def test_a_crashing_handler_fails_the_job_not_the_worker(

@@ -50,6 +50,8 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "job_id",
         "job_type",
         "attempts",
+        # Crawl management (P1b-04): which registered site (an identifier, never its URL).
+        "site_id",
     }
 )
 

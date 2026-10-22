@@ -64,6 +64,14 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         # reviewer approves their own proposal (allowed and audited, owner decision).
         "roles",
         "self_approval",
+        # Re-ingestion choice (owner decision 4, Oct 22, 2026): the source an approved
+        # proposal replaces, or the reviewer's "keep both"; and whether a withdrawal on
+        # licence grounds blanked the stored excerpts (decision 5).
+        "replaces",
+        "keep_both",
+        "excerpts_blanked",
+        # Crawl management (P1b-04): which registered site.
+        "site_id",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.
@@ -103,6 +111,14 @@ CHANGE_FIELDS: Final[frozenset[str]] = frozenset(
         # Takedown queue (P1b-03): the request's reference and due date.
         "takedown_reference",
         "takedown_due_on",
+        "takedown_licence_grounds",
+        # Crawl management (P1b-04): a site's scope rules, schedule, page budget and the
+        # reviewer's special-category whitelist (path patterns).
+        "allow_patterns",
+        "deny_patterns",
+        "schedule",
+        "max_pages",
+        "special_category_allow",
     }
 )
 CHANGE_KEYS: Final = frozenset({"before", "after"})

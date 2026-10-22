@@ -110,10 +110,15 @@ class FakeRagflow:
         if self.fail_delete is not None:
             raise self.fail_delete
         for document_id in document_ids:
+            if document_id not in self.documents:
+                # RAGFlow answers an unknown document with a data error (code 102).
+                raise RagflowError("delete_documents", 102, "document not found")
             self.deleted.append(document_id)
             del self.documents[document_id]
 
     async def get_document(self, dataset_id: str, document_id: str) -> RagflowDocument:
+        if document_id not in self.documents:
+            raise RagflowError("get_document", "not_found")
         document = self.documents[document_id]
         if document.run == "RUNNING":
             # Keyed by a suffix of the uploaded file name, e.g. ".pptx".

@@ -21,6 +21,15 @@ Pinned RAGFlow retrieval tier. Version: see `VERSION` (currently `v0.27.2`).
 | Secrets required (`:?`) instead of upstream's well-known defaults | No default passwords |
 | `TZ` defaults to `Europe/Paris` | Upstream defaults to `Asia/Shanghai` |
 
+## The web UI from the content console (P1b-05)
+
+The content console links each source's documents to this UI for chunk spot-checks
+(`[ragflow] admin_ui_url` in `config/models.toml`, checked at startup to be a loopback
+URL). The UI is never published: an operator opens the links over an SSH tunnel to the
+Instance, `ssh -L 8080:127.0.0.1:${RAGFLOW_UI_PORT:-8080} <instance>`. The route templates
+(`admin_ui_dataset_path`, `admin_ui_document_path`) follow the pinned UI version; check
+them when `VERSION` changes.
+
 ## First run
 
 ```

@@ -293,7 +293,9 @@ def row_outcome(
             error_code=result.error_code,
         )
     failed = [r for r in results if r.status == "failed"]
-    if crawl_status != "ok" or failed:
+    if crawl_status in _SITE_WAITING:  # the site waits for a reviewer, or for its crawl
+        status = crawl_status
+    elif crawl_status != "ok" or failed:
         status = "failed"
     else:
         statuses = {r.status for r in results}
@@ -306,7 +308,7 @@ def row_outcome(
         seconds=seconds,
         source_ids=tuple(r.source_id for r in results),
         error_code=crawl_status
-        if crawl_status != "ok"
+        if crawl_status not in ("ok", *_SITE_WAITING)
         else (failed[0].error_code if failed else None),
     )
 

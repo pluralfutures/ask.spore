@@ -116,6 +116,8 @@ async def test_proposing_needs_the_editor_role(
         await proposal(e)
     assert refused.value.code == "not_content_editor"
     assert await admin_conn.fetchval("SELECT count(*) FROM sources") == 0
+    # The role is checked before the file is staged: no orphan copy on disk.
+    assert not e.content_root.exists() or not any(p.is_file() for p in e.content_root.rglob("*"))
 
 
 async def test_an_editor_cannot_approve(
@@ -419,6 +421,32 @@ def test_cli_flags() -> None:
         cli.build_parser().parse_args(
             ["content-roles", "grant", "--email", "a@example.org", "--role", "operator"]
         )
+
+
+def test_cli_replacement_choice_and_licence_grounds_flags() -> None:
+    source, old = str(uuid.UUID(int=1)), uuid.UUID(int=2)
+    parse = cli.build_parser().parse_args
+    args = parse(["sources", "approve", source, "--as", "r@example.org", "--replace", str(old)])
+    assert (args.replace, args.keep_both) == (old, False)
+    args = parse(["sources", "approve", source, "--as", "r@example.org", "--keep-both"])
+    assert (args.replace, args.keep_both) == (None, True)
+    with pytest.raises(SystemExit):  # one choice or the other
+        parse(["sources", "approve", source, "--as", "r", "--keep-both", "--replace", str(old)])
+    args = parse(
+        [
+            "sources",
+            "takedown",
+            source,
+            "--as",
+            "r@example.org",
+            "--reference",
+            "TD-1",
+            "--requested-on",
+            "2026-10-22",
+            "--licence-grounds",
+        ]
+    )
+    assert (args.licence_grounds, args.licence_breach) == (True, False)
 
 
 def test_migration_maps_phase0_statuses() -> None:

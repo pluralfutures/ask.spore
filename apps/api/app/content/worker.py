@@ -8,8 +8,11 @@ concurrency stays as tuned in Phase 1a, findings §9). Each job type has a handl
   ``add_tags`` when the payload names tags to add;
 - ``withdraw_source``: ``app.content.withdraw.withdraw_source`` (P1b-03), which also
   purges the tenants' answer caches;
-- ``crawl_site``: registered by the item that builds it (P1b-04); a job of a type
-  without a handler fails with ``unsupported_job_type``.
+- ``crawl_site``: ``app.content.sitecrawl.crawl_site`` (P1b-04), one crawl of one
+  approved site, at the worker's per-host rate limit; between jobs the worker queues
+  the crawls that are due (``app.content.sites.schedule_due_crawls``).
+
+A job of a type without a handler fails with ``unsupported_job_type``.
 
 A handler returns an error code or None; transient RAGFlow failures (timeouts,
 unreachable, 5xx) are retried with backoff until the job's last attempt. While a
@@ -24,13 +27,16 @@ import asyncio
 import contextlib
 import time
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 from uuid import UUID
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.content.crawler import HostLimiter
+from app.content.fetch import Resolver, http_client, resolve_host
 from app.content.ingest import (
     PARSE_TIMEOUT_SECONDS,
     add_tags,
@@ -40,6 +46,7 @@ from app.content.ingest import (
     POLL_INTERVAL_SECONDS as PARSE_POLL_SECONDS,
 )
 from app.content.jobs import LEASE_SECONDS, ClaimedJob, claim, finish, release, renew
+from app.content.sitecrawl import crawl_site
 from app.content.tags import TagConfig
 from app.content.withdraw import withdraw_source
 from app.core.logging import log
@@ -64,6 +71,7 @@ class Outcome:
     error_code: str | None = None
     retry: bool = False
     source_id: UUID | None = None
+    site_id: UUID | None = None
 
 
 Handler = Callable[[ClaimedJob], Awaitable[Outcome]]
@@ -76,6 +84,10 @@ class Context:
     tags: Mapping[str, TagConfig]
     content_root: Path
     parse_poll_interval: float = PARSE_POLL_SECONDS
+    # Crawling (P1b-04): a fresh HTTP client per crawl, one rate limiter per worker.
+    http: Callable[[], httpx.AsyncClient] = http_client
+    limiter: HostLimiter = field(default_factory=HostLimiter)
+    resolve: Resolver = resolve_host
 
 
 def _source_id(job: ClaimedJob) -> UUID | None:
@@ -142,8 +154,34 @@ def withdraw_handler(ctx: Context) -> Handler:
     return handle
 
 
+def crawl_handler(ctx: Context) -> Handler:
+    async def handle(job: ClaimedJob) -> Outcome:
+        try:
+            site_id = UUID(str(job.payload["site_id"]))
+        except (KeyError, ValueError):
+            return Outcome("bad_payload")
+        async with ctx.http() as http:
+            result = await crawl_site(
+                ctx.factory,
+                site_id,
+                http=http,
+                content_root=ctx.content_root,
+                limiter=ctx.limiter,
+                resolve=ctx.resolve,
+            )
+        # A site that disallows us or reserves its rights is a recorded decision, not a
+        # failure; an unreachable site waits for its next scheduled crawl.
+        return Outcome(result.error_code, site_id=site_id)
+
+    return handle
+
+
 def handlers(ctx: Context) -> dict[str, Handler]:
-    return {"ingest_source": ingest_handler(ctx), "withdraw_source": withdraw_handler(ctx)}
+    return {
+        "ingest_source": ingest_handler(ctx),
+        "withdraw_source": withdraw_handler(ctx),
+        "crawl_site": crawl_handler(ctx),
+    }
 
 
 async def _keep_lease(
@@ -193,6 +231,7 @@ async def run_once(
         job_id=str(job.id),
         job_type=job.type,
         source_id=str(outcome.source_id) if outcome.source_id else None,
+        site_id=str(outcome.site_id) if outcome.site_id else None,
         status=status,
         attempts=job.attempts,
         error_code=outcome.error_code,
@@ -208,12 +247,17 @@ async def run(
     poll_interval: float = POLL_INTERVAL_SECONDS,
     stop: asyncio.Event | None = None,
     once: bool = False,
+    tick: Callable[[], Awaitable[object]] | None = None,
 ) -> None:
-    """Run jobs one at a time until ``stop`` is set (or, with ``once``, the queue is empty)."""
+    """Run jobs one at a time until ``stop`` is set (or, with ``once``, the queue is empty).
+
+    ``tick`` runs before each claim (the crawl scheduler)."""
     stop = stop or asyncio.Event()
     log("worker.started", status="running")
     while not stop.is_set():
         try:
+            if tick is not None:
+                await tick()
             ran = await run_once(factory, registry)
         except asyncio.CancelledError:
             raise

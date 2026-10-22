@@ -245,11 +245,11 @@ No document reaches RAGFlow without an approved register row. This is both the l
 | Crawled website | Editor registers the site, scope rules and crawl schedule → worker checks robots.txt and TDM opt-out, crawls, renders Markdown, computes hashes → changed pages are re-ingested, removed pages are withdrawn → register updated per page; the page URL is the canonical link |
 | Own analysis (DOCX/PPTX) | Editor uploads with target tags → ingested with "naive"/"presentation" method → optional metadata (project, client package) attached; the original file is kept in platform storage and served as a download link to users whose package includes the tag |
 
-Re-ingestion is versioned: a new parse creates new chunk IDs, old chunks are withdrawn, stored citations keep pointing at the old chunk ID and are shown as "superseded" in the UI. A re-ingestion is a file with new content at the canonical link of exactly one ingested source; the old source is then withdrawn as in §6.3, its citations flagged superseded rather than withdrawn (Phase 1b findings A1-14).
+Re-ingestion is versioned: a new parse creates new chunk IDs, old chunks are withdrawn, stored citations keep pointing at the old chunk ID and are shown as "superseded" in the UI. A file with new content at the canonical link of an ingested source is flagged to the reviewer as a possible replacement; the reviewer chooses "replace" (the old source is then withdrawn as in §6.3 once the new one is ingested, its citations flagged superseded rather than withdrawn) or "keep both" (owner decision 4, Oct 22, 2026; Phase 1b findings A1-14, A2). A crawled page's new version replaces the old one by its site and URL (§6.4).
 
 ### 6.3 Withdrawal and takedown cascade
 
-A single job per source ID: delete the document from every RAGFlow dataset it is in (which removes file, parsed text, chunks and embeddings), purge cache entries, mark the register row withdrawn with reason and date, and flag citations in stored chat history as withdrawn. Target window: 10 working days from a valid request, immediately for licence breaches we identify ourselves.
+A single job per source ID: delete the document from every RAGFlow dataset it is in (which removes file, parsed text, chunks and embeddings), purge cache entries, mark the register row withdrawn with reason and date, and flag citations in stored chat history as withdrawn. For a takedown on licence grounds the stored excerpts are blanked as well, the citation keeping its provenance and the "withdrawn" label; other withdrawals keep the excerpt (owner decision 5, Oct 22, 2026). Target window: 10 working days from a valid request, immediately for licence breaches we identify ourselves.
 
 ### 6.4 Crawler policy
 
@@ -257,6 +257,7 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 - Identify with a descriptive user agent and contact address.
 - Rate-limit per host; never crawl behind logins; strip tracking parameters; skip pages that match obvious special-category patterns (health, religion, politics about named individuals) unless a reviewer whitelists them.
 - Store the HTML snapshot for provenance; serve users only excerpts and links.
+- Phase 1b (P1b-04): sites live in a `sites` table with scope rules (path allow and deny patterns), schedule (none, weekly, monthly), page budget, the allow decision and the last crawl; each page URL is a `site_pages` row (live, blocked with its reason, or removed). A reviewer's approval of a site covers its pages: each crawl records new and changed pages as approved register rows in the reviewer's name, audited. The worker and API fetch only public http(s) addresses on the default ports (no private, loopback or link-local hosts, redirects included).
 
 ---
 

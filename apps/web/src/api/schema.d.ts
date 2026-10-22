@@ -289,6 +289,364 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/content/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Content Me */
+    get: operations["content_me_api_v1_content_me_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Sites */
+    get: operations["list_sites_api_v1_content_sites_get"];
+    put?: never;
+    /**
+     * Create Site
+     * @description An editor registers a site for a reviewer to approve.
+     */
+    post: operations["create_site_api_v1_content_sites_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Site Detail
+     * @description The site, its settings and every page a crawl met (blocked ones with the reason).
+     */
+    get: operations["site_detail_api_v1_content_sites__site_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Approve Site */
+    post: operations["approve_site_api_v1_content_sites__site_id__approve_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}/crawl": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Crawl Now */
+    post: operations["crawl_now_api_v1_content_sites__site_id__crawl_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}/reject": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reject Site */
+    post: operations["reject_site_api_v1_content_sites__site_id__reject_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Site Settings */
+    put: operations["site_settings_api_v1_content_sites__site_id__settings_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}/special-category-allow": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Site Whitelist */
+    put: operations["site_whitelist_api_v1_content_sites__site_id__special_category_allow_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Sources
+     * @description The register, newest change first, filtered by status, tag, type and publisher
+     *     (a case-insensitive part of the name); at most 500 rows.
+     */
+    get: operations["list_sources_api_v1_content_sources_get"];
+    put?: never;
+    /**
+     * Propose Source
+     * @description An editor proposes a file (upload) or a URL, with the manifest's metadata. The
+     *     download flag needs a licence basis that permits redistribution (own work, an open
+     *     licence) or the permission letter attached.
+     */
+    post: operations["propose_source_api_v1_content_sources_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sources/{source_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Source Detail */
+    get: operations["source_detail_api_v1_content_sources__source_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sources/{source_id}/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Approve Source
+     * @description A reviewer approves a proposal, which queues its ingestion. For a possible
+     *     replacement the reviewer names the source it replaces, or keeps both.
+     */
+    post: operations["approve_source_api_v1_content_sources__source_id__approve_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sources/{source_id}/licence": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Source Licence
+     * @description The licence or permission letter on file, as a download.
+     */
+    get: operations["source_licence_api_v1_content_sources__source_id__licence_get"];
+    /** Attach Licence */
+    put: operations["attach_licence_api_v1_content_sources__source_id__licence_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sources/{source_id}/reject": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reject Source */
+    post: operations["reject_source_api_v1_content_sources__source_id__reject_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sources/{source_id}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Retry Source */
+    post: operations["retry_source_api_v1_content_sources__source_id__retry_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sources/{source_id}/takedown": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Record Takedown */
+    post: operations["record_takedown_api_v1_content_sources__source_id__takedown_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sources/{source_id}/withdraw": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Withdraw Source */
+    post: operations["withdraw_source_api_v1_content_sources__source_id__withdraw_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/tags": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Tags
+     * @description The tags of ``config/tags.toml`` (read-only here) and their datasets.
+     */
+    get: operations["list_tags_api_v1_content_tags_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/tags/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sync Tags
+     * @description A reviewer runs ``datasets sync``: a dataset for every tag in ``config/tags.toml``
+     *     (created or adopted in RAGFlow, server-side), audited. The file is not edited here.
+     */
+    post: operations["sync_tags_api_v1_content_tags_sync_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/takedowns": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Takedowns
+     * @description The takedown queue, soonest due first, with the SLA timer in working days.
+     */
+    get: operations["takedowns_api_v1_content_takedowns_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/conversations": {
     parameters: {
       query?: never;
@@ -876,6 +1234,18 @@ export interface components {
       /** Status */
       status: string;
     };
+    /** ApproveIn */
+    ApproveIn: {
+      /**
+       * Keep Both
+       * @default false
+       */
+      keep_both: boolean;
+      /** Note */
+      note?: string | null;
+      /** Replaces */
+      replaces?: string | null;
+    };
     /** AskIn */
     AskIn: {
       /** Question */
@@ -888,6 +1258,37 @@ export interface components {
        * @enum {string}
        */
       mode: "phase0" | "oidc";
+    };
+    /** Body_attach_licence_api_v1_content_sources__source_id__licence_put */
+    Body_attach_licence_api_v1_content_sources__source_id__licence_put: {
+      /** Licence File */
+      licence_file: string;
+    };
+    /** Body_propose_source_api_v1_content_sources_post */
+    Body_propose_source_api_v1_content_sources_post: {
+      /** Canonical Url */
+      canonical_url?: string | null;
+      /**
+       * Downloadable
+       * @default false
+       */
+      downloadable: boolean;
+      /** File */
+      file?: string | null;
+      /** Licence Basis */
+      licence_basis: string;
+      /** Licence File */
+      licence_file?: string | null;
+      /** Published On */
+      published_on?: string | null;
+      /** Publisher */
+      publisher: string;
+      /** Tags */
+      tags: string[];
+      /** Title */
+      title: string;
+      /** Url */
+      url?: string | null;
     };
     /**
      * ChatStreamEvents
@@ -939,6 +1340,134 @@ export interface components {
     CitationsData: {
       /** Citations */
       citations: components["schemas"]["CitationOut"][];
+    };
+    /** ContentMeOut */
+    ContentMeOut: {
+      /** Ragflow Ui Url */
+      ragflow_ui_url: string | null;
+      /** Roles */
+      roles: string[];
+    };
+    /** ContentSourceDetail */
+    ContentSourceDetail: {
+      /** Approved At */
+      approved_at: string | null;
+      /** Approved By */
+      approved_by: string | null;
+      /** Canonical Url */
+      canonical_url: string | null;
+      /** Chunk Count */
+      chunk_count: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Documents */
+      documents: components["schemas"]["DocumentLink"][];
+      /** Downloadable */
+      downloadable: boolean;
+      /** Error */
+      error: string | null;
+      /** Fetched At */
+      fetched_at: string | null;
+      /** History */
+      history: components["schemas"]["HistoryEntry"][];
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Jobs */
+      jobs: components["schemas"]["JobOut"][];
+      /** Licence Basis */
+      licence_basis: string;
+      /** Licence File */
+      licence_file: boolean;
+      /** Possible Replacement */
+      possible_replacement: boolean;
+      /** Possible Replacements */
+      possible_replacements: components["schemas"]["SourceRef"][];
+      /** Proposed By */
+      proposed_by: string | null;
+      /** Published On */
+      published_on: string | null;
+      /** Publisher */
+      publisher: string;
+      /** Review Date */
+      review_date: string | null;
+      /** Review Note */
+      review_note: string | null;
+      /** Site Id */
+      site_id: string | null;
+      /** Status */
+      status: string;
+      /** Stored */
+      stored: boolean;
+      supersedes: components["schemas"]["SourceRef"] | null;
+      /** Tags */
+      tags: string[];
+      takedown: components["schemas"]["TakedownOut"] | null;
+      /** Takedown Due On */
+      takedown_due_on: string | null;
+      /** Title */
+      title: string;
+      /** Type */
+      type: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Withdrawal Reason */
+      withdrawal_reason: string | null;
+      /** Withdrawn At */
+      withdrawn_at: string | null;
+    };
+    /**
+     * ContentSourceOut
+     * @description A register row in the list.
+     */
+    ContentSourceOut: {
+      /** Canonical Url */
+      canonical_url: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Downloadable */
+      downloadable: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Licence Basis */
+      licence_basis: string;
+      /** Possible Replacement */
+      possible_replacement: boolean;
+      /** Published On */
+      published_on: string | null;
+      /** Publisher */
+      publisher: string;
+      /** Site Id */
+      site_id: string | null;
+      /** Status */
+      status: string;
+      /** Tags */
+      tags: string[];
+      /** Takedown Due On */
+      takedown_due_on: string | null;
+      /** Title */
+      title: string;
+      /** Type */
+      type: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
     };
     /**
      * ConversationCreateIn
@@ -1086,6 +1615,20 @@ export interface components {
       /** Sso Kind */
       sso_kind: ("entra" | "google" | "oidc" | "saml") | null;
     };
+    /**
+     * DocumentLink
+     * @description One RAGFlow document of a source, for chunk spot-checks in the private UI.
+     */
+    DocumentLink: {
+      /** Dataset Id */
+      dataset_id: string;
+      /** Document Id */
+      document_id: string;
+      /** Ragflow Url */
+      ragflow_url: string | null;
+      /** Tag */
+      tag: string;
+    };
     /** DoneData */
     DoneData: {
       /** Abstained */
@@ -1228,6 +1771,55 @@ export interface components {
        * @constant
        */
       status: "ok";
+    };
+    /** HistoryEntry */
+    HistoryEntry: {
+      /** Actor */
+      actor: string | null;
+      /** After */
+      after: string | null;
+      /**
+       * At
+       * Format: date-time
+       */
+      at: string;
+      /** Before */
+      before: string | null;
+      /** Event */
+      event: string;
+      /** Method */
+      method: string | null;
+    };
+    /** JobOut */
+    JobOut: {
+      /** Attempts */
+      attempts: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Error Code */
+      error_code: string | null;
+      /** Finished At */
+      finished_at: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Status */
+      status: string;
+      /** Type */
+      type: string;
+    };
+    /** JobQueuedOut */
+    JobQueuedOut: {
+      /**
+       * Job Id
+       * Format: uuid
+       */
+      job_id: string;
     };
     /** LinkCompleteIn */
     LinkCompleteIn: {
@@ -1387,6 +1979,11 @@ export interface components {
       /** Reasoning Switch */
       reasoning_switch: boolean;
     };
+    /** NoteIn */
+    NoteIn: {
+      /** Note */
+      note: string;
+    };
     /** NoticeOut */
     NoticeOut: {
       /**
@@ -1496,6 +2093,34 @@ export interface components {
        */
       tenant_id: string;
     };
+    /** PatternsIn */
+    PatternsIn: {
+      /** Patterns */
+      patterns: string[];
+    };
+    /**
+     * ProposeOut
+     * @description ``proposed``: a new row. Otherwise the file is already in the register:
+     *     ``pending`` (waits for a reviewer), ``duplicate`` (ingested in every tag),
+     *     ``retag`` (ingested; adding tags needs a reviewer, from the CLI for now) or
+     *     ``taken_down`` (withdrawn after a takedown request; not proposed again).
+     */
+    ProposeOut: {
+      /**
+       * Outcome
+       * @enum {string}
+       */
+      outcome: "proposed" | "pending" | "duplicate" | "retag" | "taken_down";
+      /** Possible Replacements */
+      possible_replacements: components["schemas"]["SourceRef"][];
+      /**
+       * Source Id
+       * Format: uuid
+       */
+      source_id: string;
+      /** Status */
+      status: string;
+    };
     /** RetentionIn */
     RetentionIn: {
       /** Retention Days */
@@ -1510,6 +2135,168 @@ export interface components {
       kind: "saml";
       /** Metadata Xml */
       metadata_xml: string;
+    };
+    /** SiteApproveIn */
+    SiteApproveIn: {
+      /** Note */
+      note?: string | null;
+    };
+    /** SiteCreateIn */
+    SiteCreateIn: {
+      /** Allow Patterns */
+      allow_patterns?: string[];
+      /** Deny Patterns */
+      deny_patterns?: string[];
+      /** Licence Basis */
+      licence_basis: string;
+      /**
+       * Max Pages
+       * @default 50
+       */
+      max_pages: number;
+      /** Name */
+      name: string;
+      /** Publisher */
+      publisher: string;
+      /**
+       * Schedule
+       * @default none
+       * @enum {string}
+       */
+      schedule: "none" | "weekly" | "monthly";
+      /** Start Url */
+      start_url: string;
+      /** Tags */
+      tags: string[];
+    };
+    /** SiteDetail */
+    SiteDetail: {
+      /** Allow Checked At */
+      allow_checked_at: string | null;
+      /** Allow Decision */
+      allow_decision: string;
+      /** Allow Patterns */
+      allow_patterns: string[];
+      /** Approved At */
+      approved_at: string | null;
+      /** Approved By */
+      approved_by: string | null;
+      /** Blocked Count */
+      blocked_count: number;
+      /** Deny Patterns */
+      deny_patterns: string[];
+      /** Host */
+      host: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Jobs */
+      jobs: components["schemas"]["JobOut"][];
+      /** Last Crawl At */
+      last_crawl_at: string | null;
+      /** Last Crawl Status */
+      last_crawl_status: string | null;
+      /** Licence Basis */
+      licence_basis: string;
+      /** Max Pages */
+      max_pages: number;
+      /** Name */
+      name: string;
+      /** Next Crawl At */
+      next_crawl_at: string | null;
+      /** Page Count */
+      page_count: number;
+      /** Pages */
+      pages: components["schemas"]["SitePageOut"][];
+      /** Proposed By */
+      proposed_by: string | null;
+      /** Publisher */
+      publisher: string;
+      /** Review Note */
+      review_note: string | null;
+      /** Schedule */
+      schedule: string;
+      /** Special Category Allow */
+      special_category_allow: string[];
+      /** Start Url */
+      start_url: string;
+      /** Status */
+      status: string;
+      /** Tags */
+      tags: string[];
+    };
+    /** SiteOut */
+    SiteOut: {
+      /** Allow Checked At */
+      allow_checked_at: string | null;
+      /** Allow Decision */
+      allow_decision: string;
+      /** Blocked Count */
+      blocked_count: number;
+      /** Host */
+      host: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Last Crawl At */
+      last_crawl_at: string | null;
+      /** Last Crawl Status */
+      last_crawl_status: string | null;
+      /** Licence Basis */
+      licence_basis: string;
+      /** Max Pages */
+      max_pages: number;
+      /** Name */
+      name: string;
+      /** Next Crawl At */
+      next_crawl_at: string | null;
+      /** Page Count */
+      page_count: number;
+      /** Publisher */
+      publisher: string;
+      /** Schedule */
+      schedule: string;
+      /** Start Url */
+      start_url: string;
+      /** Status */
+      status: string;
+      /** Tags */
+      tags: string[];
+    };
+    /** SitePageOut */
+    SitePageOut: {
+      /** Fetched At */
+      fetched_at: string | null;
+      /** Published On */
+      published_on: string | null;
+      /** Reason */
+      reason: string | null;
+      /** Source Id */
+      source_id: string | null;
+      /** Special Category */
+      special_category: string | null;
+      /** State */
+      state: string;
+      /** Url */
+      url: string;
+    };
+    /** SiteSettingsIn */
+    SiteSettingsIn: {
+      /** Allow Patterns */
+      allow_patterns?: string[];
+      /** Deny Patterns */
+      deny_patterns?: string[];
+      /** Max Pages */
+      max_pages: number;
+      /**
+       * Schedule
+       * @enum {string}
+       */
+      schedule: "none" | "weekly" | "monthly";
     };
     /** SourceDownloadableIn */
     SourceDownloadableIn: {
@@ -1536,6 +2323,20 @@ export interface components {
       /** Withdrawn */
       withdrawn: boolean;
     };
+    /** SourceRef */
+    SourceRef: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Publisher */
+      publisher: string;
+      /** Status */
+      status: string;
+      /** Title */
+      title: string;
+    };
     /**
      * SsoStartOut
      * @description Where the browser goes next: the IdP's sign-in page (P1b-07).
@@ -1543,6 +2344,83 @@ export interface components {
     SsoStartOut: {
       /** Redirect Url */
       redirect_url: string;
+    };
+    /**
+     * TagOut
+     * @description A tag of ``config/tags.toml`` and its RAGFlow dataset (the ``datasets`` table).
+     */
+    TagOut: {
+      /** Chunk Method */
+      chunk_method: string;
+      /** Chunk Method By Type */
+      chunk_method_by_type: {
+        [key: string]: string;
+      };
+      /** Dataset Id */
+      dataset_id: string | null;
+      /** Ragflow Url */
+      ragflow_url: string | null;
+      /** Sources */
+      sources: number;
+      /** Tag */
+      tag: string;
+    };
+    /** TagSyncOut */
+    TagSyncOut: {
+      /** Dataset Id */
+      dataset_id: string | null;
+      /** Status */
+      status: string;
+      /** Tag */
+      tag: string;
+    };
+    /** TakedownIn */
+    TakedownIn: {
+      /**
+       * Licence Breach
+       * @default false
+       */
+      licence_breach: boolean;
+      /**
+       * Licence Grounds
+       * @default false
+       */
+      licence_grounds: boolean;
+      /** Reference */
+      reference: string;
+      /**
+       * Requested On
+       * Format: date
+       */
+      requested_on: string;
+    };
+    /** TakedownOut */
+    TakedownOut: {
+      /**
+       * Due On
+       * Format: date
+       */
+      due_on: string;
+      /** Licence Grounds */
+      licence_grounds: boolean;
+      /** Reference */
+      reference: string;
+      /**
+       * Requested On
+       * Format: date
+       */
+      requested_on: string;
+      /**
+       * Source Id
+       * Format: uuid
+       */
+      source_id: string;
+      /** Status */
+      status: string;
+      /** Title */
+      title: string;
+      /** Working Days Left */
+      working_days_left: number;
     };
     /** TenantCreateIn */
     TenantCreateIn: {
@@ -1627,6 +2505,11 @@ export interface components {
       msg: string;
       /** Error Type */
       type: string;
+    };
+    /** WithdrawIn */
+    WithdrawIn: {
+      /** Reason */
+      reason: string;
     };
     /** WorkspaceCreateIn */
     WorkspaceCreateIn: {
@@ -2204,6 +3087,676 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  content_me_api_v1_content_me_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ContentMeOut"];
+        };
+      };
+    };
+  };
+  list_sites_api_v1_content_sites_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SiteOut"][];
+        };
+      };
+    };
+  };
+  create_site_api_v1_content_sites_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SiteCreateIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SiteOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  site_detail_api_v1_content_sites__site_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SiteDetail"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  approve_site_api_v1_content_sites__site_id__approve_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SiteApproveIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobQueuedOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  crawl_now_api_v1_content_sites__site_id__crawl_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobQueuedOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reject_site_api_v1_content_sites__site_id__reject_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NoteIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  site_settings_api_v1_content_sites__site_id__settings_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SiteSettingsIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  site_whitelist_api_v1_content_sites__site_id__special_category_allow_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PatternsIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_sources_api_v1_content_sources_get: {
+    parameters: {
+      query?: {
+        status?: string | null;
+        tag?: string | null;
+        type?: string | null;
+        publisher?: string | null;
+        site_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ContentSourceOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  propose_source_api_v1_content_sources_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_propose_source_api_v1_content_sources_post"];
+      };
+    };
+    responses: {
+      /** @description already in the register */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProposeOut"];
+        };
+      };
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProposeOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  source_detail_api_v1_content_sources__source_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ContentSourceDetail"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  approve_source_api_v1_content_sources__source_id__approve_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ApproveIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobQueuedOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  source_licence_api_v1_content_sources__source_id__licence_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  attach_licence_api_v1_content_sources__source_id__licence_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_attach_licence_api_v1_content_sources__source_id__licence_put"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reject_source_api_v1_content_sources__source_id__reject_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NoteIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  retry_source_api_v1_content_sources__source_id__retry_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobQueuedOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  record_takedown_api_v1_content_sources__source_id__takedown_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TakedownIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TakedownOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  withdraw_source_api_v1_content_sources__source_id__withdraw_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WithdrawIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobQueuedOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_tags_api_v1_content_tags_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TagOut"][];
+        };
+      };
+    };
+  };
+  sync_tags_api_v1_content_tags_sync_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TagSyncOut"][];
+        };
+      };
+    };
+  };
+  takedowns_api_v1_content_takedowns_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TakedownOut"][];
         };
       };
     };

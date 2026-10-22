@@ -37,3 +37,30 @@ Real calls in items 4 and 9 to 11 use a synthetic question, never a client query
 | Public privacy notice covering public-source personal data and our controller processing | Owner | Open |
 | Second factor for tenant administrators configured in Authentik | Engineering | Open |
 | Deletion wording in the DPA matched to the build (read-time expiry until the Phase 1b purge job) | Owner | Open |
+
+## Phase 1b document set
+
+Added Oct 21, 2026 (spec item P1b-09). Each document is a draft for owner and counsel review under `design/compliance/`. "Counsel review" says whether counsel must review before the document is used; "Filed" is the date and location of the approved version (signed copies in [document store]). The open questions across the set are collected in `open-questions.md`. The P1b-10 consent gate shows the privacy notice and the AI transparency note; they must be approved before that gate goes live.
+
+| # | Document | File | Owner | Counsel review | Status | Filed |
+| --- | --- | --- | --- | --- | --- | --- |
+| D1 | Public privacy notice (Art. 13, Art. 14 section for people named in indexed sources) | `privacy-notice.md` | Owner | Required | Drafted | [date, location] |
+| D2 | Terms of service / MSA with order form (Annex A) | `terms-of-service.md` | Owner | Required | Drafted | [date, location] |
+| D3 | Information security policy | `policy-information-security.md` | Owner (security lead) | Optional | Drafted | [date, location] |
+| D4 | Access control policy | `policy-access-control.md` | Owner (security lead) | Optional | Drafted | [date, location] |
+| D5 | Change management policy | `policy-change-management.md` | Owner (engineering) | Optional | Drafted | [date, location] |
+| D6 | Incident response policy | `policy-incident-response.md` | Owner (security lead) | Optional | Drafted | [date, location] |
+| D7 | Vendor management policy | `policy-vendor-management.md` | Owner (security lead) | Optional | Drafted | [date, location] |
+| D8 | Data retention and disposal policy | `policy-data-retention-disposal.md` | Owner | Recommended (must match the DPA) | Drafted | [date, location] |
+| D9 | Business continuity policy | `policy-business-continuity.md` | Owner | Optional | Drafted | [date, location] |
+| D10 | Records of processing (Art. 30, controller and processor registers) | `records-of-processing.md` | Owner | Recommended | Drafted | [date, location] |
+| D11 | DPIA for the platform | `dpia.md` | Owner | Required | Drafted | [date, location] |
+| D12 | Legitimate-interest assessment for the public-source corpus | `legitimate-interest-assessment.md` | Owner | Required | Drafted | [date, location] |
+| D13 | Incident runbook with breach-notification templates | `incident-runbook.md` | Owner (security lead) | Recommended (notification windows) | Drafted | [date, location] |
+| D14 | Risk register | `risk-register.md` | Owner (security lead) | Optional | Drafted | [date, location] |
+| D15 | EU AI Act technical documentation | `ai-act-technical-documentation.md` | Owner | Required (classification and Art. 50) | Drafted | [date, location] |
+| D16 | AI transparency note for users | `ai-transparency-note.md` | Owner | Recommended | Drafted | [date, location] |
+| D17 | Onboarding pack (IT and SSO sheet, email templates, admin MFA guidance, first-week checklist) | `onboarding-pack.md` | Owner | Optional | Drafted | [date, location] |
+| D18 | Pre-filled security questionnaire | `security-questionnaire.md` | Owner (security lead) | Optional | Drafted | [date, location] |
+| D19 | Offboarding pack (termination and deletion procedure, certificate of deletion, deactivation and exit notices) | `offboarding-pack.md` | Owner | Recommended (deletion wording must match the DPA) | Drafted | [date, location] |
+| D20 | Open questions for the owner and counsel | `open-questions.md` | Owner | Required | Open | n/a |

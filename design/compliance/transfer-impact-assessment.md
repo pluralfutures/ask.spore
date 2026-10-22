@@ -18,7 +18,7 @@ A tenant with the operator-set external-models entitlement lets its users pick C
 | Party | Role for the prompt contents | Contract |
 | --- | --- | --- |
 | [Client] (the tenant) | Controller of its users' questions and conversations | Client DPA (`client-dpa-draft.md`) |
-| [Owner legal entity] (we) | Processor for the client's user data; controller for the public-corpus chunks in the prompt (roles position **pending the owner's confirmation**) | — |
+| Estefania Simon-Sasyk y Otro CB (we) | Processor for the client's user data; controller for the public-corpus chunks in the prompt (roles position confirmed by the owner, Oct 20, 2026) | — |
 | OpenRouter, Inc. (United States) | Our sub-processor; routes the request | OpenRouter DPA with SCCs, §5 |
 | Amazon Web Services (Bedrock), for Claude | OpenRouter's sub-processor (upstream vendor) | Between OpenRouter and AWS; checked against OpenRouter's published upstream list |
 | Microsoft (Azure), for GPT-6.1 Sol | OpenRouter's sub-processor (upstream vendor) | Between OpenRouter and Microsoft; same check |

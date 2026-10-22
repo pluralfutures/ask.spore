@@ -11,7 +11,7 @@
 
 ## How we handle your data
 
-[Product name] is a research assistant. It answers questions from a curated library of published reports, public websites and our own analysis, and shows the sources for every answer. You do not upload documents to it.
+SporeBot is a research assistant. It answers questions from a curated library of published reports, public websites and our own analysis, and shows the sources for every answer. You do not upload documents to it.
 
 ### Where your data lives
 

@@ -3,10 +3,14 @@
 One job per source (architecture §6.3), run by the worker, idempotent on retry:
 
 1. delete the source's document from every RAGFlow dataset it is in (the register's
-   ``ragflow_document_ids``), recording what is left after each deletion;
+   ``ragflow_document_ids``), recording what is left after each deletion; a document
+   RAGFlow no longer has counts as deleted;
 2. flag the stored citations of the source in every tenant's history, as
    ``askspore_content`` (identifier and flag columns only): ``superseded_at`` when a
-   re-ingested version of the file replaced it, ``withdrawn_at`` otherwise;
+   re-ingested version of the file replaced it, ``withdrawn_at`` otherwise. For a
+   takedown on licence grounds the stored excerpts are the licensed text and are
+   blanked as well, for this source and the earlier versions it replaced (owner
+   decision 5, Oct 22, 2026); every other withdrawal keeps them;
 3. mark the register row ``withdrawn`` with its date and reason, audited;
 4. delete our stored copy of the file, unless another live source has the same content;
 5. purge every tenant's answer-cache entries that cite the source (cache values record
@@ -19,7 +23,7 @@ a supersession is enqueued by the ingestion of the replacing source.
 from __future__ import annotations
 
 import json
-from collections.abc import Container
+from collections.abc import Collection, Container
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -100,6 +104,44 @@ async def flag_citations(
     return int(getattr(result, "rowcount", 0) or 0)
 
 
+async def blank_excerpts(
+    factory: async_sessionmaker[AsyncSession], source_ids: Collection[UUID]
+) -> int:
+    """Blank the stored excerpts of the sources' citations in every tenant; the citation,
+    its provenance and its flags stay. ``askspore_content`` may write only ''."""
+    if not source_ids:
+        return 0
+    async with role_session(factory, CONTENT_ROLE) as session:
+        result = await session.execute(
+            update(Citation)
+            .where(Citation.source_id.in_(list(source_ids)))
+            .values(excerpt="")
+            .execution_options(synchronize_session=False)
+        )
+    return int(getattr(result, "rowcount", 0) or 0)
+
+
+async def _versions(session: AsyncSession, source_id: UUID) -> list[UUID]:
+    """The source and every earlier version it replaced, newest first."""
+    chain = [source_id]
+    current: UUID | None = await session.scalar(
+        select(Source.supersedes_id).where(Source.id == source_id)
+    )
+    while current is not None and current not in chain:
+        chain.append(current)
+        current = await session.scalar(select(Source.supersedes_id).where(Source.id == current))
+    return chain
+
+
+async def _gone(client: RagflowClient, dataset_id: str, document_id: str) -> bool:
+    """True when RAGFlow no longer has the document (deleted earlier, or by hand)."""
+    try:
+        await client.get_document(dataset_id, document_id)
+    except RagflowError as exc:
+        return exc.code in ("not_found", 404)
+    return False
+
+
 async def _kind(session: AsyncSession, source_id: UUID) -> Kind:
     replacement = await session.scalar(
         select(Source.id).where(Source.supersedes_id == source_id, Source.status == "ingested")
@@ -120,6 +162,8 @@ async def withdraw_source(
         if row is None:
             return WithdrawResult(source_id, "refused", error_code="no_source")
         kind = await _kind(session, source_id)
+        licence_takedown = bool(row.takedown_reference) and row.takedown_licence_grounds
+        versions = await _versions(session, source_id) if licence_takedown else []
     if row.status not in ("ingested", "failed", "withdrawn"):
         return WithdrawResult(source_id, "refused", kind, error_code="not_withdrawable")
 
@@ -127,7 +171,12 @@ async def withdraw_source(
     remaining: dict[str, str] = dict(row.ragflow_document_ids or {})
     try:
         for dataset_id, document_id in list(remaining.items()):
-            await client.delete_documents(dataset_id, [document_id])
+            try:
+                await client.delete_documents(dataset_id, [document_id])
+            except RagflowError as exc:
+                # Not found means already deleted: done, not a failure to retry.
+                if exc.code != 404 and not await _gone(client, dataset_id, document_id):
+                    raise
             del remaining[dataset_id]
     except RagflowError as exc:
         async with factory() as session, session.begin():
@@ -138,8 +187,10 @@ async def withdraw_source(
             )
         return WithdrawResult(source_id, "failed", kind, error_code=exc.error_code)
 
-    # 2. Stored history, every tenant.
+    # 2. Stored history, every tenant; excerpts blanked for a licence-ground takedown.
     flagged = await flag_citations(factory, source_id, kind)
+    if licence_takedown:
+        await blank_excerpts(factory, versions)
 
     # 3. The register row, audited.
     if row.status != "withdrawn":
@@ -172,6 +223,7 @@ async def withdraw_source(
                     "after": {"status": "withdrawn"},
                     "outcome": kind,
                     "count": flagged,
+                    "excerpts_blanked": licence_takedown,
                 },
             )
 

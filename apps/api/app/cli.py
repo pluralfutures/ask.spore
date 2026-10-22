@@ -452,6 +452,7 @@ async def _sources(args: argparse.Namespace) -> int:
                 reference=args.reference,
                 requested_on=args.requested_on,
                 licence_breach=args.licence_breach,
+                licence_grounds=args.licence_grounds,
             )
             log("sources.takedown", source_id=str(source_id), status="recorded")
             return 0
@@ -473,7 +474,13 @@ async def _sources(args: argparse.Namespace) -> int:
             return 0
         if args.sources_command == "approve":
             job_id = await approve(
-                factory, source_id, reviewer_id, note=args.note, parse_timeout=args.parse_timeout
+                factory,
+                source_id,
+                reviewer_id,
+                note=args.note,
+                parse_timeout=args.parse_timeout,
+                replaces=args.replace,
+                keep_both=args.keep_both,
             )
         else:
             job_id = await retry(factory, source_id, reviewer_id, parse_timeout=args.parse_timeout)
@@ -716,6 +723,21 @@ def build_parser() -> argparse.ArgumentParser:
         if name != "reject":
             source_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
             _wait_flag(source_cmd)
+        if name == "approve":
+            # Owner decision 4 (Oct 22, 2026): a proposal at the canonical link of an
+            # ingested source needs the reviewer's choice.
+            choice = source_cmd.add_mutually_exclusive_group()
+            choice.add_argument(
+                "--replace",
+                type=UUID,
+                metavar="SOURCE_ID",
+                help="the ingested source at the same canonical link that this file replaces",
+            )
+            choice.add_argument(
+                "--keep-both",
+                action="store_true",
+                help="keep the ingested source at the same canonical link beside this one",
+            )
 
     withdraw_cmd = sources_commands.add_parser(
         "withdraw",
@@ -738,7 +760,15 @@ def build_parser() -> argparse.ArgumentParser:
     takedown_cmd.add_argument(
         "--requested-on", type=date.fromisoformat, required=True, help="YYYY-MM-DD"
     )
-    takedown_cmd.add_argument("--licence-breach", action="store_true")
+    takedown_cmd.add_argument(
+        "--licence-breach", action="store_true", help="a breach we found ourselves: due today"
+    )
+    takedown_cmd.add_argument(
+        "--licence-grounds",
+        action="store_true",
+        help="the request is on licence grounds: the withdrawal blanks stored excerpts "
+        "(implied by --licence-breach)",
+    )
 
     worker_cmd = commands.add_parser(
         "worker",

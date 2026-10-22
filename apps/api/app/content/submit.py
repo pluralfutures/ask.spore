@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.content.ingest import IngestResult, SourceFile, SourceMetadata
 from app.content.jobs import Job, wait_for
 from app.content.models import Source
-from app.content.register import approve, approve_retag, propose, retry
+from app.content.register import RegisterError, approve, approve_retag, propose, retry
 from app.content.tags import TagConfig
 
 
@@ -56,9 +56,11 @@ async def submit(
 
     Raises IngestError on bad input (nothing recorded), RoleError when a named user lacks
     the role. The result's status is ``proposed`` or ``retag_pending`` while a reviewer
-    has to decide, ``queued`` (with the job) once approved, ``duplicate`` when there is
-    nothing to do, or ``failed`` (``taken_down``; ``needs_retry`` for a failed source
-    without a reviewer).
+    has to decide (``proposed`` with ``possible_replacement`` when the file sits at the
+    canonical link of an ingested source: the reviewer chooses replace or keep both),
+    ``queued`` (with the job) once approved, ``duplicate`` when there is nothing to do,
+    or ``failed`` (``taken_down``; ``needs_retry`` for a failed source without a
+    reviewer).
     """
     submission = await propose(
         factory, tags_config, source, metadata, content_root=content_root, proposer_id=proposer_id
@@ -92,8 +94,18 @@ async def submit(
         return IngestResult(source_id=source_id, status="proposed")
     if submission.status == "failed":
         job_id = await retry(factory, source_id, reviewer_id, parse_timeout=parse_timeout)
-    else:
+        return IngestResult(source_id=source_id, status="queued", job_id=job_id)
+    try:
         job_id = await approve(factory, source_id, reviewer_id, parse_timeout=parse_timeout)
+    except RegisterError as exc:
+        if exc.code != "replacement_choice_required":
+            raise
+        # Owner decision 4 (Oct 22, 2026): a file at the canonical link of an ingested
+        # source waits for the reviewer's choice, replace or keep both, in the console
+        # (or ``sources approve --replace | --keep-both``); the CLI never decides it.
+        return IngestResult(
+            source_id=source_id, status="proposed", error_code="possible_replacement"
+        )
     return IngestResult(source_id=source_id, status="queued", job_id=job_id)
 
 

@@ -1,5 +1,5 @@
 import type { Citation } from "../api/types";
-import { CITATION_STATUS_NOTE, citationStatus } from "../lib/citations";
+import { CITATION_STATUS_NOTE, EXCERPT_REMOVED_NOTE, citationStatus } from "../lib/citations";
 import { formatDate, pageLabel } from "../lib/format";
 
 interface Props {
@@ -52,7 +52,13 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
                 {c.publisher} · {formatDate(c.published_on)}
                 {page ? ` · ${page}` : ""}
               </p>
-              <blockquote className="mt-2 border-l-2 pl-2 text-slate-700">{c.excerpt}</blockquote>
+              {c.excerpt ? (
+                <blockquote className="mt-2 border-l-2 pl-2 text-slate-700">{c.excerpt}</blockquote>
+              ) : (
+                <p data-testid={`citation-no-excerpt-${c.marker}`} className="mt-2 text-slate-500">
+                  {EXCERPT_REMOVED_NOTE}
+                </p>
+              )}
               {c.canonical_url ? (
                 <a
                   href={c.canonical_url}

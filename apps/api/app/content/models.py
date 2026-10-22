@@ -1,6 +1,6 @@
 """Source register and tag-to-dataset mapping. Shared corpus metadata, not tenant-scoped.
 
-Mirrors alembic revisions 0001, 0003, 0012, 0013 and 0015; the migrations are
+Mirrors alembic revisions 0001, 0003, 0012, 0013, 0015 and 0023; the migrations are
 authoritative.
 """
 
@@ -71,6 +71,10 @@ class Source(Base):
             "AND takedown_due_on >= takedown_requested_on)",
             name="takedown_recorded",
         ),
+        CheckConstraint(
+            "NOT takedown_licence_grounds OR takedown_requested_on IS NOT NULL",
+            name="licence_grounds_need_takedown",
+        ),
         Index(None, "takedown_due_on"),
     )
 
@@ -117,6 +121,9 @@ class Source(Base):
     )
     takedown_requested_on: Mapped[date | None] = mapped_column(Date)
     takedown_due_on: Mapped[date | None] = mapped_column(Date)
+    # Revision 0023 (owner decision 5, Oct 22, 2026): the takedown is on licence grounds,
+    # so the withdrawal blanks the excerpts stored in users' history.
+    takedown_licence_grounds: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

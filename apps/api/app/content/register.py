@@ -61,7 +61,18 @@ class Submission:
     outcome: SubmissionOutcome
     status: str
     new_tags: tuple[str, ...] = ()
-    supersedes_id: UUID | None = None  # proposed: the ingested source it will replace
+    # proposed: ingested sources at the same canonical link, which the reviewer may
+    # choose to replace (owner decision 4, Oct 22, 2026); nothing is replaced unasked.
+    possible_replacements: tuple[UUID, ...] = ()
+
+
+@dataclass(frozen=True)
+class Choice:
+    """The reviewer's answer to "possible replacement of <source>": replace that source,
+    or keep both (owner decision 4, Oct 22, 2026)."""
+
+    replaces: UUID | None = None
+    keep_both: bool = False
 
 
 class RegisterError(ValueError):
@@ -116,6 +127,30 @@ async def _audit(
     )
 
 
+async def replacement_candidates(
+    session: AsyncSession, canonical_url: str | None, *, exclude: UUID | None = None
+) -> list[UUID]:
+    """Ingested sources at ``canonical_url`` that a new file there may replace.
+
+    Owner decision 4 (Oct 22, 2026): a new file at an existing canonical link does not
+    replace the old document automatically; the reviewer chooses "replace" or "keep
+    both" when approving. Crawled pages are matched by their site instead (P1b-04).
+    """
+    if not canonical_url:
+        return []
+    query = (
+        select(Source.id)
+        .where(
+            Source.canonical_url == canonical_url,
+            Source.status == "ingested",
+        )
+        .order_by(Source.created_at)
+    )
+    if exclude is not None:
+        query = query.where(Source.id != exclude)
+    return list((await session.scalars(query)).all())
+
+
 async def propose(
     factory: async_sessionmaker[AsyncSession],
     tags_config: Mapping[str, TagConfig],
@@ -124,19 +159,22 @@ async def propose(
     *,
     content_root: Path,
     proposer_id: UUID | None,
+    licence_file_path: str | None = None,
 ) -> Submission:
     """Record ``source`` as a proposal; raises IngestError, recording nothing, on bad input.
 
-    The file is staged under ``content_root`` by hash, so ingestion can run elsewhere.
-    ``proposer_id`` must hold ``content_editor``; None means the operator's shell (the
-    manifest CLI run without a proposer), recorded as such in the audit event.
+    ``proposer_id`` must hold ``content_editor`` (checked before anything is written);
+    None means the operator's shell (the manifest CLI run without a proposer), recorded
+    as such in the audit event. The file is staged under ``content_root`` by hash, so
+    ingestion can run elsewhere, only once the proposal is to be recorded.
     """
     tags = _validate(tags_config, source, metadata)
-    try:
-        staged = stage(content_root, source.sha256, source.type, source.content)
-    except OSError as exc:
-        raise IngestError("store_failed", f"cannot store the file: {exc.strerror}") from None
-    stored_path = staged if source.type in STORABLE_TYPES else None
+
+    def staged() -> str:
+        try:
+            return stage(content_root, source.sha256, source.type, source.content)
+        except OSError as exc:
+            raise IngestError("store_failed", f"cannot store the file: {exc.strerror}") from None
 
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         if proposer_id is not None:
@@ -170,9 +208,11 @@ async def propose(
             return Submission(taken_down.id, "taken_down", "withdrawn")
         ingested = next((r for r in same if r.status == "ingested"), None)
         if ingested is not None:
-            if ingested.stored_path is None and stored_path is not None:
+            # A re-tag reads the staged copy; sources ingested before P1b-02 have none.
+            path = staged()
+            if ingested.stored_path is None and source.type in STORABLE_TYPES:
                 await session.execute(
-                    update(Source).where(Source.id == ingested.id).values(stored_path=stored_path)
+                    update(Source).where(Source.id == ingested.id).values(stored_path=path)
                 )
             new_tags = tuple(tag for tag in tags if tag not in ingested.tags)
             if new_tags:
@@ -181,21 +221,9 @@ async def propose(
         waiting = next((r for r in same if r.status in ("proposed", "approved", "failed")), None)
         if waiting is not None:
             return Submission(waiting.id, "pending", waiting.status)
-        # P1b-03: a changed file (new hash) at the canonical link of exactly one ingested
-        # source is its new version; once ingested, it replaces that source.
-        supersedes: UUID | None = None
-        if metadata.canonical_url:
-            linked = (
-                await session.scalars(
-                    select(Source.id).where(
-                        Source.canonical_url == metadata.canonical_url,
-                        Source.status == "ingested",
-                    )
-                )
-            ).all()
-            if len(linked) == 1:
-                supersedes = linked[0]
+        candidates = await replacement_candidates(session, metadata.canonical_url)
 
+        path = staged()
         row = Source(
             type=source.type,
             title=metadata.title.strip(),
@@ -206,10 +234,10 @@ async def propose(
             tags=list(tags),
             status="proposed",
             file_sha256=source.sha256,
-            stored_path=stored_path,
+            stored_path=path if source.type in STORABLE_TYPES else None,
             downloadable=metadata.downloadable,
             proposed_by=proposer_id,
-            supersedes_id=supersedes,
+            licence_file_path=licence_file_path,
         )
         session.add(row)
         await session.flush()
@@ -222,7 +250,7 @@ async def propose(
             "proposed",
             method="cli" if proposer_id is None else "editor",
         )
-        return Submission(row.id, "proposed", "proposed", supersedes_id=supersedes)
+        return Submission(row.id, "proposed", "proposed", possible_replacements=tuple(candidates))
 
 
 async def _locked(session: AsyncSession, source_id: UUID) -> Source:
@@ -251,9 +279,15 @@ async def _review(
     event: str,
     note: str | None,
     parse_timeout: float | None = None,
+    choice: Choice | None = None,
 ) -> UUID | None:
-    """The transition; the ``ingest_source`` job's ID when the row becomes approved."""
+    """The transition; the ``ingest_source`` job's ID when the row becomes approved.
+
+    With ``choice`` (a first approval), a proposal at the canonical link of ingested
+    sources needs the reviewer's decision: replace one of them, or keep both.
+    """
     job_id: UUID | None = None
+    extra: dict[str, AuditValue] = {}
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
@@ -263,6 +297,19 @@ async def _review(
         values: dict[str, object] = {"status": to, "updated_at": func.now()}
         if to == "approved":
             values |= {"approved_by": reviewer_id, "approved_at": func.now(), "error": None}
+        if choice is not None:
+            candidates = await replacement_candidates(session, row.canonical_url, exclude=source_id)
+            if choice.replaces is not None and choice.keep_both:
+                raise RegisterError("replace_or_keep_both")
+            if choice.replaces is not None:
+                if choice.replaces not in candidates:
+                    raise RegisterError("not_a_replacement_candidate")
+                values["supersedes_id"] = choice.replaces
+                extra["replaces"] = str(choice.replaces)
+            elif candidates and not choice.keep_both:
+                raise RegisterError("replacement_choice_required")
+            elif candidates:
+                extra["keep_both"] = True
         if note is not None:
             values["review_note"] = note
         await session.execute(update(Source).where(Source.id == source_id).values(**values))
@@ -281,6 +328,7 @@ async def _review(
             to,
             roles=sorted(roles),
             self_approval=self_approval,
+            **extra,
         )
     return job_id
 
@@ -292,9 +340,18 @@ async def approve(
     *,
     note: str | None = None,
     parse_timeout: float | None = None,
+    replaces: UUID | None = None,
+    keep_both: bool = False,
 ) -> UUID:
     """``proposed -> approved``; returns the ``ingest_source`` job it enqueued. The
-    reviewer may be the proposer (audited as such)."""
+    reviewer may be the proposer (audited as such).
+
+    When ingested sources share the proposal's canonical link, the reviewer must choose
+    (owner decision 4, Oct 22, 2026): ``replaces`` names the one the new file replaces
+    (once ingested, the old one is withdrawn and its citations show as superseded), or
+    ``keep_both`` keeps them side by side. Without a choice the approval is refused
+    (``replacement_choice_required``).
+    """
     job_id = await _review(
         factory,
         source_id,
@@ -304,6 +361,7 @@ async def approve(
         event="source.approved",
         note=_note(note, required=False),
         parse_timeout=parse_timeout,
+        choice=Choice(replaces, keep_both),
     )
     if job_id is None:
         raise AssertionError("an approval always enqueues a job")
@@ -413,8 +471,15 @@ async def record_takedown(
     reference: str,
     requested_on: date,
     licence_breach: bool,
+    licence_grounds: bool = False,
 ) -> date:
-    """Put a source on the takedown queue with its due date; returns the due date."""
+    """Put a source on the takedown queue with its due date; returns the due date.
+
+    ``licence_grounds``: the request is on licence grounds (a licence breach we find
+    ourselves always is), so the withdrawal blanks the stored citation excerpts (owner
+    decision 5, Oct 22, 2026).
+    """
+    licence_grounds = licence_grounds or licence_breach
     reference = reference.strip()
     if not reference or len(reference) > MAX_REFERENCE_LENGTH:
         raise RegisterError("bad_reference")
@@ -427,6 +492,7 @@ async def record_takedown(
         before: dict[str, str | int | float | bool | list[str] | None] = {
             "takedown_reference": row.takedown_reference,
             "takedown_due_on": row.takedown_due_on.isoformat() if row.takedown_due_on else None,
+            "takedown_licence_grounds": row.takedown_licence_grounds,
         }
         await session.execute(
             update(Source)
@@ -435,6 +501,7 @@ async def record_takedown(
                 takedown_reference=reference,
                 takedown_requested_on=requested_on,
                 takedown_due_on=due,
+                takedown_licence_grounds=licence_grounds,
                 updated_at=func.now(),
             )
         )
@@ -446,7 +513,11 @@ async def record_takedown(
             metadata={
                 "source_id": str(source_id),
                 "before": before,
-                "after": {"takedown_reference": reference, "takedown_due_on": due.isoformat()},
+                "after": {
+                    "takedown_reference": reference,
+                    "takedown_due_on": due.isoformat(),
+                    "takedown_licence_grounds": licence_grounds,
+                },
                 "roles": sorted(roles),
             },
         )
@@ -460,6 +531,8 @@ class TakedownItem:
     reference: str
     requested_on: date
     due_on: date
+    title: str = ""
+    licence_grounds: bool = False
 
     def working_days_left(self, today: date) -> int:
         """Working days until the due date; negative when overdue."""
@@ -483,13 +556,21 @@ async def takedown_queue(session: AsyncSession) -> list[TakedownItem]:
             Source.takedown_reference,
             Source.takedown_requested_on,
             Source.takedown_due_on,
+            Source.title,
+            Source.takedown_licence_grounds,
         )
         .where(Source.takedown_due_on.is_not(None), Source.status != "withdrawn")
         .order_by(Source.takedown_due_on, Source.created_at)
     )
     return [
         TakedownItem(
-            r.id, r.status, r.takedown_reference, r.takedown_requested_on, r.takedown_due_on
+            r.id,
+            r.status,
+            r.takedown_reference,
+            r.takedown_requested_on,
+            r.takedown_due_on,
+            r.title,
+            r.takedown_licence_grounds,
         )
         for r in rows
     ]

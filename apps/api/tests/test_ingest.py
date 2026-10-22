@@ -244,7 +244,15 @@ async def test_pptx_in_analysis_gets_presentation_method_docx_does_not(
 ) -> None:
     e, run = env
     pptx = await run(load_path(PPTX), meta("sample-analysis", title="Kestrel briefing"))
-    docx = await run(load_path(DOCX), meta("sample-analysis", title="Brightwater note"))
+    docx = await run(
+        load_path(DOCX),
+        SourceMetadata(
+            **{
+                **meta("sample-analysis", title="Brightwater note").__dict__,
+                "canonical_url": "https://example.org/brightwater",
+            }
+        ),
+    )
     assert (pptx.status, docx.status) == ("ingested", "ingested")
     [pptx_doc] = pptx.document_ids.values()
     [docx_doc] = docx.document_ids.values()

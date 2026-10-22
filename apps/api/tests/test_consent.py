@@ -299,8 +299,18 @@ async def test_the_tenant_admin_audit_export_includes_acceptance_events(
         tenant.id,
         member.user_id,
     )
+    # Decision 18 (Oct 22, 2026): the tenant's download events are in, metadata only.
+    await auth.admin.execute(
+        "INSERT INTO audit_events (tenant_id, actor_user_id, event, metadata) "
+        'VALUES ($1, $2, \'download\', \'{"source_id": "synthetic", "workspace_id": "w"}\')',
+        tenant.id,
+        member.user_id,
+    )
 
     rows = export_rows(await browser.get("/api/v1/admin/audit-log"))
+    downloads = [r for r in rows if r["event"] == "download"]
+    assert [r["actor_user_id"] for r in downloads] == [str(member.user_id)]
+    assert json.loads(downloads[0]["metadata"]) == {"source_id": "synthetic", "workspace_id": "w"}
     accepted = [r for r in rows if r["event"] == "consent.accepted"]
     assert {r["actor_user_id"] for r in accepted} == {str(tenant.user_id), str(member.user_id)}
     assert all(json.loads(r["metadata"]) == {"version": CONSENT_VERSION} for r in accepted)

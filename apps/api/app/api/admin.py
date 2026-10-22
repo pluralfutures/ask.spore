@@ -17,8 +17,9 @@ and nothing here takes a tenant ID from the request.
 - Retention: shorten chat-history retention to between 1 and 30 days
   (``app.tenancy.retention``); never above 30 (CLAUDE.md).
 - Audit log (architecture §7.2, P1b-10): a CSV download of the tenant's sign-in, admin,
-  operator and consent events (``EXPORTED_EVENTS``), metadata only as recorded. Query,
-  feedback and download events and the operator-only tenant-name flags are not in it.
+  operator, consent and download events (``EXPORTED_EVENTS``), metadata only as recorded
+  (owner decision 18, Oct 22, 2026, for downloads). Query and feedback events and the
+  operator-only tenant-name flags are not in it.
 
 Every route is also behind the consent gate (``app.consent.gate``, P1b-10).
 
@@ -318,6 +319,8 @@ EXPORTED_EVENTS: Final[tuple[str, ...]] = (
     "tenant_admin.",
     "operator.",
     "consent.",
+    "download",
+    "download.refused",
     "workspace.prompt_saved",
 )
 MAX_EXPORT_ROWS: Final = 10_000

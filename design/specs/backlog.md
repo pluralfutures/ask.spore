@@ -63,3 +63,4 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 - Phase 1b or 2: "restore" action for a crawled page a reviewer withdrew, which otherwise stays out of later crawls for good (owner decision Oct 22, 2026, findings A2-7).
 - Phase 1b or 2: "resend invitation" action in the operator console and the tenant admin pages for a user still in `invited` state, re-queuing the invitation mail (owner decision Oct 22, 2026, findings D5).
 
+- Phase 2: vendor DeepSeek's own `tokenizer.json` (with `tokenizers`) in place of the third-party `deepseek-tokenizer` package once someone with Hugging Face access has compared the two files (owner decision 23, Oct 22, 2026; findings 1b E2-7).

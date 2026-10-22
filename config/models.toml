@@ -208,11 +208,11 @@ downloads_per_user_per_day = 50   # owner, Oct 19, 2026; per UTC calendar day
 
 [eval]
 # The eval harness's faithfulness judge (P1b-15 c), pinned separately from the answer
-# model so the two can differ. It is the answer model for now: the judge grades its own
-# model's answers (findings D6). A distinct judge is an owner decision (it must be a
-# model its EU provider pins: Scaleway's models list, or Mistral's chat/rewrite model).
+# model so the judge does not grade its own model's answers (findings D6). Owner decision
+# 22, Oct 22, 2026: Qwen on Scaleway. It must be a model its EU provider pins (Scaleway's
+# models list, or Mistral's chat/rewrite model).
 judge_provider = "scaleway"
-judge_model = "deepseek-v4.1-flash"
+judge_model = "qwen3.8-27b"
 judge_reasoning_effort = "none"
 
 [retention]

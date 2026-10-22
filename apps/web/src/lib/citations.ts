@@ -38,3 +38,17 @@ export function markerFromHref(href: string | undefined): number | null {
   const n = Number(href.slice(CITE_HREF_PREFIX.length));
   return Number.isInteger(n) && n > 0 ? n : null;
 }
+
+/** What happened to a cited source since the answer (P1b-03): withdrawn wins over superseded. */
+export type CitationStatus = "withdrawn" | "superseded" | null;
+
+export function citationStatus(c: { superseded?: boolean; withdrawn?: boolean }): CitationStatus {
+  if (c.withdrawn) return "withdrawn";
+  if (c.superseded) return "superseded";
+  return null;
+}
+
+export const CITATION_STATUS_NOTE: Record<Exclude<CitationStatus, null>, string> = {
+  withdrawn: "This source has been withdrawn from the research package since this answer.",
+  superseded: "A newer version of this source has replaced the one this answer quoted.",
+};

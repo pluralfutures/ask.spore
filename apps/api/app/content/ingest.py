@@ -1,11 +1,13 @@
-"""Ingestion (P0-09): one source into the register and into RAGFlow.
+"""Ingestion (P0-09, P1b-01): one approved source into RAGFlow.
 
-``ingest`` creates a ``sources`` row, uploads the file to the dataset of every
-given tag, sets the per-type chunking method where the tag overrides it, triggers
-parsing, polls to completion, and records the outcome on the row: ``ingested``
-with the chunk count and ``{dataset_id: document_id}``, or ``failed`` with the
-error. A failed source leaves nothing retrievable behind: the documents it
-uploaded are deleted from RAGFlow, so no chunk of a failed source can be cited.
+A source is proposed and approved first (``app.content.register``). ``ingest_source``
+then reads the file staged under ``[files] content_root``, uploads it to the dataset
+of every tag of the row, sets the per-type chunking method where the tag overrides
+it, triggers parsing, polls to completion, and records the outcome on the row:
+``ingested`` with the chunk count and ``{dataset_id: document_id}``, or ``failed``
+with the error. A failed source leaves nothing retrievable behind: the documents it
+uploaded are deleted from RAGFlow, so no chunk of a failed source can be cited. A
+source that is not ``approved`` is refused without any call to RAGFlow.
 
 Dataset IDs come only from the ``datasets`` table (``ask-spore datasets sync``).
 """
@@ -16,7 +18,7 @@ import asyncio
 import hashlib
 import re
 import time
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Container, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -28,8 +30,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.audit.writer import record
 from app.content.fetch import Fetched, tdm_reserved
+from app.content.jobs import enqueue
 from app.content.models import Dataset, Source
-from app.content.store import STORABLE_TYPES, store
+from app.content.store import StoredFileError, read, relative_path
 from app.content.tags import TagConfig
 from app.core.db import tenant_session
 from app.retrieval.ragflow import RUN_DONE, RagflowClient, RagflowDocument, RagflowError
@@ -63,7 +66,18 @@ POLL_INTERVAL_SECONDS = 3.0
 PARSE_TIMEOUT_SECONDS = 1800.0
 MAX_ERROR_LENGTH = 2000
 
-Status = Literal["ingested", "failed", "duplicate", "retagged"]
+# proposed and retag_pending wait for a reviewer (P1b-01); refused: not approved;
+# queued: approved, with an ingest_source job for the worker (P1b-02).
+Status = Literal[
+    "ingested",
+    "failed",
+    "duplicate",
+    "retagged",
+    "refused",
+    "proposed",
+    "retag_pending",
+    "queued",
+]
 
 
 class IngestError(ValueError):
@@ -106,6 +120,8 @@ class IngestResult:
     error: str | None = None
     document_ids: dict[str, str] = field(default_factory=dict)
     tags_added: tuple[str, ...] = ()  # retagged only
+    job_id: UUID | None = None  # queued, and after waiting for the job
+    seconds: float = 0.0  # the job's run time, after waiting for it
 
 
 class _Failure(Exception):
@@ -194,12 +210,14 @@ async def _upload_and_parse(
     parse_timeout: float,
     sleep: Callable[[float], Awaitable[None]],
     clock: Callable[[], float],
+    on_upload: Callable[[dict[str, str]], Awaitable[None]] | None = None,
 ) -> tuple[dict[str, str], int, _Failure | None]:
     """Upload ``source`` to each tag's dataset and parse it to completion.
 
     Returns ``{dataset_id: document_id}``, the chunk count and the failure, if any. On
     failure the documents uploaded here are deleted; the mapping returned then holds
-    only those whose deletion failed (named in the failure's message).
+    only those whose deletion failed (named in the failure's message). ``on_upload``
+    is told the mapping after each upload, so an interrupted run can be cleaned up.
     """
     uploaded: dict[str, str] = {}  # dataset_id -> document_id
     chunk_count = 0
@@ -210,6 +228,8 @@ async def _upload_and_parse(
             dataset_id = datasets[tag]
             document = await client.upload_document(dataset_id, name, source.content)
             uploaded[dataset_id] = document.id
+            if on_upload is not None:
+                await on_upload(dict(uploaded))
             method = tags_config[tag].chunk_method_for(source.type)
             if method != tags_config[tag].chunk_method:
                 await client.set_document_chunk_method(dataset_id, document.id, method)
@@ -249,21 +269,174 @@ async def _upload_and_parse(
     return uploaded, 0, _Failure(failure.code, error)
 
 
-async def _retag(
+async def _staged_content(content_root: Path, sha256: str, source_type: str) -> bytes:
+    try:
+        return read(content_root, relative_path(sha256, source_type), sha256)
+    except StoredFileError as exc:
+        raise _Failure(f"staged_{exc.code}", f"the staged file is unusable: {exc.code}") from None
+
+
+async def ingest_source(
     factory: async_sessionmaker[AsyncSession],
     client: RagflowClient,
     tags_config: Mapping[str, TagConfig],
-    source: SourceFile,
-    metadata: SourceMetadata,
-    *,
     source_id: UUID,
-    title: str,
-    new_tags: tuple[str, ...],
-    datasets: Mapping[str, str],
-    poll_interval: float,
-    parse_timeout: float,
-    sleep: Callable[[float], Awaitable[None]],
-    clock: Callable[[], float],
+    *,
+    content_root: Path,
+    poll_interval: float = POLL_INTERVAL_SECONDS,
+    parse_timeout: float = PARSE_TIMEOUT_SECONDS,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    clock: Callable[[], float] = time.monotonic,
+    retryable: Container[str] = frozenset(),
+) -> IngestResult:
+    """Ingest one approved source into the datasets of its tags.
+
+    ``refused`` (nothing touched, no call to RAGFlow) unless the row is ``approved``;
+    otherwise the row ends ``ingested`` or ``failed``, audited under the internal tenant.
+    A failure whose code is in ``retryable`` leaves the row ``approved`` (the job queue
+    tries again). Each upload is recorded on the row at once, so a run that was cut off
+    (worker stopped) leaves a mapping the next run deletes from RAGFlow before uploading.
+    """
+    async with factory() as session:
+        row = (
+            await session.execute(
+                select(
+                    Source.status,
+                    Source.type,
+                    Source.title,
+                    Source.tags,
+                    Source.file_sha256,
+                    Source.ragflow_document_ids,
+                    Source.supersedes_id,
+                ).where(Source.id == source_id)
+            )
+        ).first()
+    if row is None:
+        return IngestResult(source_id=source_id, status="refused", error_code="no_source")
+    if row.status != "approved":
+        return IngestResult(source_id=source_id, status="refused", error_code="not_approved")
+
+    async def record_uploads(mapping: dict[str, str]) -> None:
+        async with factory() as session, session.begin():
+            await session.execute(
+                update(Source)
+                .where(Source.id == source_id, Source.status == "approved")
+                .values(ragflow_document_ids=mapping, updated_at=func.now())
+            )
+
+    tags = tuple(row.tags)
+    uploaded: dict[str, str] = {}
+    chunk_count = 0
+    failure: _Failure | None = None
+    try:
+        leftover: dict[str, str] = dict(row.ragflow_document_ids or {})
+        if leftover:
+            uploaded = dict(leftover)
+            try:
+                for dataset_id, document_id in leftover.items():
+                    await client.delete_documents(dataset_id, [document_id])
+                    del uploaded[dataset_id]
+            except RagflowError as exc:
+                message = f"clean-up of an interrupted run failed: {exc}"
+                raise _Failure(exc.error_code, message) from None
+            await record_uploads({})
+        if row.file_sha256 is None:
+            raise _Failure("no_file", "the source has no file")
+        content = await _staged_content(content_root, row.file_sha256, row.type)
+        async with factory() as session:
+            datasets = await _datasets_for(session, tags)
+        missing = [tag for tag in tags if tag not in datasets or tag not in tags_config]
+        if missing:
+            raise _Failure("no_dataset", f"no dataset or tag config for {', '.join(missing)}")
+        uploaded, chunk_count, failure = await _upload_and_parse(
+            client,
+            tags_config,
+            SourceFile(upload_name(row.title, source_id, row.type), row.type, content),
+            tags,
+            datasets,
+            upload_name(row.title, source_id, row.type),
+            poll_interval=poll_interval,
+            parse_timeout=parse_timeout,
+            sleep=sleep,
+            clock=clock,
+            on_upload=record_uploads,
+        )
+    except _Failure as exc:
+        failure = exc
+
+    if failure is not None and failure.code in retryable:
+        # The row stays approved, mapping only what is left in RAGFlow; no audit event
+        # until the source's state changes.
+        await record_uploads(uploaded)
+        return IngestResult(
+            source_id=source_id,
+            status="failed",
+            error_code=failure.code,
+            error=_short(str(failure)),
+            document_ids=uploaded,
+        )
+
+    if failure is not None:
+        result = IngestResult(
+            source_id=source_id,
+            status="failed",
+            error_code=failure.code,
+            error=_short(str(failure)),
+            document_ids=uploaded,
+        )
+    else:
+        result = IngestResult(
+            source_id=source_id, status="ingested", chunk_count=chunk_count, document_ids=uploaded
+        )
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        await session.execute(
+            update(Source)
+            .where(Source.id == source_id, Source.status == "approved")
+            .values(
+                status=result.status,
+                chunk_count=result.chunk_count if result.status == "ingested" else None,
+                error=result.error,
+                ragflow_document_ids=result.document_ids,
+                updated_at=func.now(),
+            )
+        )
+        await record(
+            session,
+            tenant_id=INTERNAL_TENANT_ID,
+            actor_user_id=None,
+            event=f"source.{result.status}",
+            metadata={
+                "source_id": str(source_id),
+                "before": {"status": "approved"},
+                "after": {"status": result.status},
+                "error_code": result.error_code,
+            },
+        )
+        if result.status == "ingested" and row.supersedes_id is not None:
+            # P1b-03: the new version is live; withdraw the one it replaces.
+            await enqueue(
+                session,
+                "withdraw_source",
+                {"source_id": str(row.supersedes_id)},
+                created_by=None,
+            )
+    return result
+
+
+async def add_tags(
+    factory: async_sessionmaker[AsyncSession],
+    client: RagflowClient,
+    tags_config: Mapping[str, TagConfig],
+    source_id: UUID,
+    new_tags: Sequence[str],
+    *,
+    downloadable: bool,
+    content_root: Path,
+    actor_user_id: UUID | None = None,
+    poll_interval: float = POLL_INTERVAL_SECONDS,
+    parse_timeout: float = PARSE_TIMEOUT_SECONDS,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    clock: Callable[[], float] = time.monotonic,
 ) -> IngestResult:
     """Link an ingested source into the datasets of ``new_tags`` (P1a-04).
 
@@ -271,16 +444,44 @@ async def _retag(
     uploaded and parsed again in each new dataset, as on first ingestion. On failure
     the new documents are deleted and the source row is not touched: it keeps its
     status, tags and other datasets. On success the source gains the tags and
-    documents, and the row's ``downloadable`` from the manifest (the owner's
-    declaration), audited under the platform tenant.
+    documents, and the row's ``downloadable`` from the request (the owner's
+    declaration), audited under the platform tenant. A source that is not ``ingested``
+    is refused.
     """
+    async with factory() as session:
+        row = (
+            await session.execute(
+                select(
+                    Source.status, Source.type, Source.title, Source.tags, Source.file_sha256
+                ).where(Source.id == source_id)
+            )
+        ).first()
+    if row is None or row.status != "ingested" or row.file_sha256 is None:
+        code = "no_source" if row is None else "not_ingested"
+        return IngestResult(source_id=source_id, status="refused", error_code=code)
+    new_tags = tuple(tag for tag in dict.fromkeys(new_tags) if tag not in row.tags)
+    if not new_tags:
+        return IngestResult(source_id=source_id, status="duplicate")
+
+    try:
+        content = await _staged_content(content_root, row.file_sha256, row.type)
+        async with factory() as session:
+            datasets = await _datasets_for(session, new_tags)
+        missing = [tag for tag in new_tags if tag not in datasets or tag not in tags_config]
+        if missing:
+            raise _Failure("no_dataset", f"no dataset or tag config for {', '.join(missing)}")
+    except _Failure as exc:
+        return IngestResult(
+            source_id=source_id, status="failed", error_code=exc.code, error=_short(str(exc))
+        )
+    name = upload_name(row.title, source_id, row.type)
     uploaded, chunk_count, failure = await _upload_and_parse(
         client,
         tags_config,
-        source,
+        SourceFile(name, row.type, content),
         new_tags,
         datasets,
-        upload_name(title, source_id, source.type),
+        name,
         poll_interval=poll_interval,
         parse_timeout=parse_timeout,
         sleep=sleep,
@@ -298,34 +499,34 @@ async def _retag(
         )
 
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
-        row = (
+        current = (
             await session.execute(
                 select(Source.tags, Source.ragflow_document_ids, Source.downloadable)
                 .where(Source.id == source_id)
                 .with_for_update()
             )
         ).one()
-        tags = list(dict.fromkeys([*row.tags, *new_tags]))
+        tags = list(dict.fromkeys([*current.tags, *new_tags]))
         await session.execute(
             update(Source)
             .where(Source.id == source_id)
             .values(
                 tags=tags,
-                ragflow_document_ids={**row.ragflow_document_ids, **uploaded},
+                ragflow_document_ids={**current.ragflow_document_ids, **uploaded},
                 chunk_count=func.coalesce(Source.chunk_count, 0) + chunk_count,
-                downloadable=metadata.downloadable,
+                downloadable=downloadable,
                 updated_at=func.now(),
             )
         )
         await record(
             session,
             tenant_id=INTERNAL_TENANT_ID,
-            actor_user_id=None,
+            actor_user_id=actor_user_id,
             event="ingest.source_retagged",
             metadata={
                 "source_id": str(source_id),
-                "before": {"tag_ids": list(row.tags), "downloadable": row.downloadable},
-                "after": {"tag_ids": tags, "downloadable": metadata.downloadable},
+                "before": {"tag_ids": list(current.tags), "downloadable": current.downloadable},
+                "after": {"tag_ids": tags, "downloadable": downloadable},
             },
         )
     return IngestResult(
@@ -335,147 +536,3 @@ async def _retag(
         document_ids=uploaded,
         tags_added=new_tags,
     )
-
-
-async def ingest(
-    factory: async_sessionmaker[AsyncSession],
-    client: RagflowClient,
-    tags_config: Mapping[str, TagConfig],
-    source: SourceFile,
-    metadata: SourceMetadata,
-    *,
-    poll_interval: float = POLL_INTERVAL_SECONDS,
-    parse_timeout: float = PARSE_TIMEOUT_SECONDS,
-    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
-    clock: Callable[[], float] = time.monotonic,
-    content_root: Path | None = None,
-) -> IngestResult:
-    """Ingest one source. Raises IngestError, before recording anything, on bad input.
-
-    With ``content_root`` (P1a-14), a PDF, DOCX or PPTX file is also stored there by
-    hash (``app.content.store``) and the row records ``stored_path``, so it can be
-    downloaded without asking RAGFlow; a duplicate of a source ingested before that
-    gets its stored copy now. ``metadata.downloadable`` is recorded on a new row, and
-    on an existing row when the request links it into new tags (``retagged``, audited);
-    a plain duplicate keeps its flag, which the operator console changes, audited.
-    """
-    tags = tuple(dict.fromkeys(metadata.tags))
-    if not tags:
-        raise IngestError("no_tag", "at least one --tag is required")
-    unknown = [tag for tag in tags if tag not in tags_config]
-    if unknown:
-        raise IngestError("unknown_tag", f"tags not in config/tags.toml: {', '.join(unknown)}")
-    for name, value in (
-        ("title", metadata.title),
-        ("publisher", metadata.publisher),
-        ("licence", metadata.licence_basis),
-    ):
-        if not value.strip():
-            raise IngestError("missing_metadata", f"--{name} must not be empty")
-
-    if metadata.downloadable and source.type not in STORABLE_TYPES:
-        raise IngestError("not_downloadable", "only PDF, DOCX and PPTX files can be downloadable")
-    stored_path: str | None = None
-    if content_root is not None:
-        try:
-            stored_path = store(content_root, source.sha256, source.type, source.content)
-        except OSError as exc:
-            raise IngestError("store_failed", f"cannot store the file: {exc.strerror}") from None
-    if metadata.downloadable and stored_path is None:
-        raise IngestError("not_stored", "a downloadable file needs [files] content_root")
-
-    async with factory() as session, session.begin():
-        datasets = await _datasets_for(session, tags)
-        missing = [tag for tag in tags if tag not in datasets]
-        if missing:
-            raise IngestError(
-                "no_dataset",
-                f"no dataset for {', '.join(missing)}; run `ask-spore datasets sync` first",
-            )
-        duplicate = (
-            await session.execute(
-                select(Source.id, Source.title, Source.tags, Source.stored_path).where(
-                    Source.file_sha256 == source.sha256, Source.status == "ingested"
-                )
-            )
-        ).first()
-        if duplicate is not None:
-            if duplicate.stored_path is None and stored_path is not None:
-                await session.execute(
-                    update(Source).where(Source.id == duplicate.id).values(stored_path=stored_path)
-                )
-            new_tags = tuple(tag for tag in tags if tag not in duplicate.tags)
-            if not new_tags:
-                return IngestResult(source_id=duplicate.id, status="duplicate")
-        else:
-            row = Source(
-                type=source.type,
-                title=metadata.title.strip(),
-                publisher=metadata.publisher.strip(),
-                published_on=metadata.published_on,
-                canonical_url=metadata.canonical_url,
-                licence_basis=metadata.licence_basis.strip(),
-                tags=list(tags),
-                status="ingesting",
-                file_sha256=source.sha256,
-                stored_path=stored_path,
-                downloadable=metadata.downloadable,
-            )
-            session.add(row)
-            await session.flush()
-            source_id = row.id
-    if duplicate is not None:
-        return await _retag(
-            factory,
-            client,
-            tags_config,
-            source,
-            metadata,
-            source_id=duplicate.id,
-            title=duplicate.title,
-            new_tags=new_tags,
-            datasets=datasets,
-            poll_interval=poll_interval,
-            parse_timeout=parse_timeout,
-            sleep=sleep,
-            clock=clock,
-        )
-
-    uploaded, chunk_count, failure = await _upload_and_parse(
-        client,
-        tags_config,
-        source,
-        tags,
-        datasets,
-        upload_name(metadata.title, source_id, source.type),
-        poll_interval=poll_interval,
-        parse_timeout=parse_timeout,
-        sleep=sleep,
-        clock=clock,
-    )
-    if failure is not None:
-        result = IngestResult(
-            source_id=source_id,
-            status="failed",
-            error_code=failure.code,
-            error=_short(str(failure)),
-            document_ids=uploaded,
-        )
-    else:
-        result = IngestResult(
-            source_id=source_id, status="ingested", chunk_count=chunk_count, document_ids=uploaded
-        )
-
-    async with factory() as session, session.begin():
-        await session.execute(
-            update(Source)
-            .where(Source.id == source_id)
-            .values(
-                status=result.status,
-                chunk_count=result.chunk_count if result.status == "ingested" else None,
-                error=result.error,
-                ragflow_document_ids=result.document_ids,
-                updated_at=func.now(),
-            )
-        )
-    return result

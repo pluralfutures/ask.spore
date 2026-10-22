@@ -52,9 +52,10 @@ LATER_TENANT_TABLES = (
     "revoked_sessions",
     "tenant_settings",
     "downloads",
+    "content_roles",
 )
 # Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006).
-SET_ROLES = {"askspore_auth", "askspore_operator"}
+SET_ROLES = {"askspore_auth", "askspore_operator", "askspore_content"}
 # Tenant tables the application role cannot read (only a SET role does). Since revision
 # 0008 it may INSERT operator notices (P1a-07, and the spend notices of P1a-10, revision
 # 0009), still without reading them.
@@ -143,6 +144,11 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
         workspace,
         source,
     )
+    await admin_conn.execute(
+        "INSERT INTO content_roles (user_id, role) VALUES ($1, 'content_editor') "
+        "ON CONFLICT DO NOTHING",
+        user,
+    )
     prompt = await admin_conn.fetchval(
         "INSERT INTO workspace_prompts (tenant_id, workspace_id, version, text, author_user_id) "
         "VALUES ($1, $2, 1000, 'Synthetic instructions.', $3) RETURNING id",
@@ -158,6 +164,7 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
         "workspace": workspace,
     }
     await admin_conn.execute("DELETE FROM workspace_prompts WHERE id = $1", prompt)
+    await admin_conn.execute("DELETE FROM content_roles WHERE user_id = $1", user)
     await admin_conn.execute("DELETE FROM usage_ledger WHERE month = '1999-01-01'")
     await admin_conn.execute("DELETE FROM spend_notices WHERE month = '1999-01-01'")
     await admin_conn.execute("DELETE FROM tenant_settings WHERE tenant_id = $1", INTERNAL_TENANT_ID)

@@ -49,8 +49,8 @@ class Files:
         source_id: uuid.UUID = await self.admin.fetchval(
             "INSERT INTO sources (type, title, publisher, published_on, canonical_url, "
             "licence_basis, tags, status, file_sha256, ragflow_document_ids, downloadable, "
-            "stored_path) VALUES ($1, $2, 'Synthetic Publisher', '2026-03-01', $3, 'public', "
-            "ARRAY[$4], 'ingested', $5, $6::jsonb, $7, $8) RETURNING id",
+            "stored_path, approved_at) VALUES ($1, $2, 'Synthetic Publisher', '2026-03-01', $3, "
+            "'public', ARRAY[$4], 'ingested', $5, $6::jsonb, $7, $8, now()) RETURNING id",
             kind,
             title or f"Synthetic {kind} {uuid.uuid4().hex[:6]}",
             url,

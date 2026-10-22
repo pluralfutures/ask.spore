@@ -1,4 +1,9 @@
-"""P0-09: ingestion with the RAGFlow client faked and the test database real."""
+"""P0-09, P1b-01: ingestion with the RAGFlow client faked and the test database real.
+
+Each file goes through the register as the CLI sends it with ``--approve-as``: proposed
+by an editor, approved by a reviewer (here the same person, holding both roles, as the
+owner does), then ingested.
+"""
 
 from __future__ import annotations
 
@@ -13,19 +18,24 @@ import asyncpg
 import httpx
 import pytest
 from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import cli
 from app.content.fetch import Fetched
 from app.content.ingest import (
+    PARSE_TIMEOUT_SECONDS,
     IngestError,
     IngestResult,
     SourceFile,
     SourceMetadata,
+    add_tags,
     from_fetched,
-    ingest,
+    ingest_source,
     load_path,
     upload_name,
 )
+from app.content.jobs import claim, finish
+from app.content.submit import submit
 from app.content.tags import load_tags
 from app.core.config import DEFAULT_CONFIG_DIR
 from app.core.db import create_engine, session_factory
@@ -56,22 +66,47 @@ Ingest = Callable[..., Awaitable[IngestResult]]
 
 
 class Env:
-    def __init__(self, fake: FakeRagflow, datasets: dict[str, str]) -> None:
+    def __init__(
+        self,
+        fake: FakeRagflow,
+        datasets: dict[str, str],
+        user_id: UUID,
+        content_root: Path,
+        factory: async_sessionmaker[AsyncSession],
+    ) -> None:
+        self.factory = factory  # acts as the application role
         self.fake = fake
         self.datasets = datasets
+        self.user_id = user_id  # holds both content roles
+        self.content_root = content_root
 
 
 async def reset_register(admin_conn: asyncpg.Connection) -> None:
     # Chat tests (P0-14, P0-15) share the session database and leave citations, which
     # restrict deleting the sources they cite.
     await admin_conn.execute("DELETE FROM citations")
+    await admin_conn.execute("DELETE FROM downloads")
     await admin_conn.execute("DELETE FROM sources")
     await admin_conn.execute("DELETE FROM datasets")
 
 
+async def content_user(admin_conn: asyncpg.Connection, *roles: str) -> UUID:
+    """The seeded internal editor, holding exactly ``roles``."""
+    user_id: UUID = await admin_conn.fetchval(
+        "SELECT id FROM users WHERE tenant_id = $1 AND email = 'editor@example.org'",
+        INTERNAL_TENANT_ID,
+    )
+    await admin_conn.execute("DELETE FROM content_roles WHERE user_id = $1", user_id)
+    for role in roles:
+        await admin_conn.execute(
+            "INSERT INTO content_roles (user_id, role) VALUES ($1, $2)", user_id, role
+        )
+    return user_id
+
+
 @pytest.fixture
 async def env(
-    database: MigratedDatabase, admin_conn: asyncpg.Connection
+    database: MigratedDatabase, admin_conn: asyncpg.Connection, tmp_path: Path
 ) -> AsyncIterator[tuple[Env, Ingest]]:
     await reset_register(admin_conn)
     fake = FakeRagflow()
@@ -95,21 +130,74 @@ async def env(
     async def fake_sleep(seconds: float) -> None:
         now[0] += seconds
 
+    user_id = await content_user(admin_conn, "content_editor", "content_reviewer")
+    root = tmp_path / "content"
+
     async def run(source: SourceFile, metadata: SourceMetadata, **kwargs: Any) -> IngestResult:
-        return await ingest(
+        """Submit as the CLI does, then run the queued job as the worker does."""
+        content_root = kwargs.pop("content_root", root)
+        timing = {
+            "poll_interval": kwargs.pop("poll_interval", 3.0),
+            "sleep": fake_sleep,
+            "clock": lambda: now[0],
+        }
+        kwargs.setdefault("proposer_id", user_id)
+        kwargs.setdefault("reviewer_id", user_id)
+        submitted = await submit(
+            factory, TAGS, source, metadata, content_root=content_root, **kwargs
+        )
+        if submitted.status != "queued":
+            return submitted
+        return await run_job(factory, fake, content_root, **timing)
+
+    await reset_jobs(admin_conn)
+    yield Env(fake, datasets, user_id, root, factory), run
+    await engine.dispose()
+    await reset_register(admin_conn)
+    await reset_jobs(admin_conn)
+
+
+async def reset_jobs(admin_conn: asyncpg.Connection) -> None:
+    await admin_conn.execute("DELETE FROM jobs")
+
+
+async def run_job(
+    factory: async_sessionmaker[AsyncSession],
+    fake: FakeRagflow,
+    content_root: Path,
+    **timing: Any,
+) -> IngestResult:
+    """Claim the next job and run it with the worker's ingestion functions, keeping the
+    full result (document IDs, error text) for the assertions."""
+    job = await claim(factory)
+    assert job is not None and job.type == "ingest_source"
+    source_id = UUID(job.payload["source_id"])
+    parse_timeout = float(job.payload.get("parse_timeout") or PARSE_TIMEOUT_SECONDS)
+    if job.payload.get("add_tags"):
+        result = await add_tags(
             factory,
             fake,  # type: ignore[arg-type]
             TAGS,
-            source,
-            metadata,
-            sleep=fake_sleep,
-            clock=lambda: now[0],
-            **kwargs,
+            source_id,
+            job.payload["add_tags"],
+            downloadable=job.payload["downloadable"],
+            content_root=content_root,
+            parse_timeout=parse_timeout,
+            **timing,
         )
-
-    yield Env(fake, datasets), run
-    await engine.dispose()
-    await reset_register(admin_conn)
+    else:
+        result = await ingest_source(
+            factory,
+            fake,  # type: ignore[arg-type]
+            TAGS,
+            source_id,
+            content_root=content_root,
+            parse_timeout=parse_timeout,
+            **timing,
+        )
+    ok = result.status in ("ingested", "retagged", "duplicate")
+    await finish(factory, job, error_code=None if ok else result.error_code)
+    return result
 
 
 async def source_row(admin_conn: asyncpg.Connection, source_id: UUID) -> asyncpg.Record:
@@ -458,31 +546,29 @@ async def test_file_is_stored_by_hash_and_the_flag_recorded(
     assert row["stored_path"] is not None  # stored anyway, so the operator can open the gate
 
 
-async def test_without_content_root_nothing_is_stored(
+async def test_every_proposed_file_is_staged_for_the_worker(
     env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
 ) -> None:
-    _, run = env
+    e, run = env
     result = await run(load_path(PDF), meta("sample-reports"))
     row = await source_row(admin_conn, result.source_id)
-    assert (row["stored_path"], row["downloadable"]) == (None, False)
-    with pytest.raises(IngestError) as refused:
-        await run(
-            load_path(PPTX),
-            SourceMetadata(**{**meta("sample-reports").__dict__, "downloadable": True}),
-        )
-    assert refused.value.code == "not_stored"
+    sha = row["file_sha256"]
+    # The worker reads the file from the content store, never from the proposer's disk.
+    assert (e.content_root / f"{sha[:2]}/{sha}.pdf").read_bytes() == PDF.read_bytes()
+    assert (row["stored_path"], row["downloadable"]) == (f"{sha[:2]}/{sha}.pdf", False)
 
 
 async def test_duplicate_gets_its_stored_copy_but_keeps_its_flag(
-    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection, tmp_path: Path
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
 ) -> None:
     _, run = env
     first = await run(load_path(PDF), meta("sample-reports"))
+    await admin_conn.execute("UPDATE sources SET stored_path = NULL")  # ingested before P1a-14
     again = SourceMetadata(**{**meta("sample-reports").__dict__, "downloadable": True})
-    second = await run(load_path(PDF), again, content_root=tmp_path)
+    second = await run(load_path(PDF), again)
     assert (second.status, second.source_id) == ("duplicate", first.source_id)
     row = await source_row(admin_conn, first.source_id)
-    assert row["stored_path"] is not None and (tmp_path / row["stored_path"]).is_file()
+    assert row["stored_path"] is not None
     assert row["downloadable"] is False  # changed only in the operator console, audited
 
 
@@ -492,8 +578,10 @@ async def test_pages_are_not_stored_and_cannot_be_downloadable(
     _, run = env
     page = SourceFile("page.md", "markdown", b"# Synthetic page\n\nSynthetic text.")
     result = await run(page, meta("sample-web"), content_root=tmp_path)
-    assert (await source_row(admin_conn, result.source_id))["stored_path"] is None
-    assert list(tmp_path.iterdir()) == []  # noqa: ASYNC240
+    row = await source_row(admin_conn, result.source_id)
+    assert row["stored_path"] is None  # staged for the worker, never downloadable
+    staged = [p.name for p in tmp_path.rglob("*") if p.is_file()]  # noqa: ASYNC240
+    assert staged == [f"{row['file_sha256']}.markdown"]
     with pytest.raises(IngestError) as refused:
         other = SourceFile("other.md", "markdown", b"# Another synthetic page")
         flagged = SourceMetadata(**{**meta("sample-web").__dict__, "downloadable": True})

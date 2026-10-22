@@ -267,6 +267,8 @@ async def get_conversation(
                 published_on=source.published_on,
                 canonical_url=source.canonical_url,
                 type=source.type,
+                superseded=citation.superseded_at is not None,
+                withdrawn=citation.withdrawn_at is not None,
             )
         )
     workspace_name = await session.scalar(

@@ -1,4 +1,4 @@
-# Local development stack: Postgres, Redis, API, web dev server, the pinned
+# Local development stack: Postgres, Redis, API, the ingestion worker, web dev server, the pinned
 # RAGFlow tier from infra/ragflow/ and, with the `auth` profile, Authentik from
 # infra/authentik/ (P1a-02).
 #
@@ -97,8 +97,9 @@ services:
       REDIS_URL: redis://redis:6379/0
     volumes:
       - ../config:/srv/config:ro
-      # Our own copies of ingested PDF, DOCX and PPTX files ([files] content_root, P1a-14):
-      # written by `ask-spore ingest-manifest` (run in this container), served as downloads.
+      # Our own copies of ingested PDF, DOCX and PPTX files ([files] content_root, P1a-14),
+      # served as downloads; `ask-spore ingest-manifest` (run in this container) stages
+      # proposed files here for the worker (P1b-02).
       - content:/srv/ask-spore/content
     ports:
       - 127.0.0.1:${API_PORT:-8000}:8000
@@ -106,6 +107,41 @@ services:
       - app
       - ragflow
       - authentik  # http://authentik-server:9000, on this network only
+    restart: unless-stopped
+
+  # Background jobs (P1b-02): ingestion of approved sources, one job at a time, from the
+  # `jobs` table. Same image, configuration and secrets as the API; no published port and
+  # no HTTP server, so the image's API healthcheck is turned off here.
+  worker:
+    build:
+      context: ../apps/api
+    command: ["ask-spore", "worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      # The withdrawal job purges tenants' answer caches (P1b-03).
+      redis:
+        condition: service_healthy
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      ASK_SPORE_CONFIG_DIR: /srv/config
+      DATABASE_URL: postgresql+asyncpg://askspore_app:${APP_DB_PASSWORD:-askspore-app-dev}@postgres:5432/askspore
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ../config:/srv/config:ro
+      # Reads the files staged at proposal and writes nothing else ([files] content_root).
+      - content:/srv/ask-spore/content
+    healthcheck:
+      disable: true
+    # SIGTERM puts the running job back on the queue; give it time to do so.
+    stop_grace_period: 30s
+    networks:
+      - app
+      - ragflow
     restart: unless-stopped
 
   web:

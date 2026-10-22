@@ -122,6 +122,10 @@ class CitationOut(BaseModel):
     published_on: date | None
     canonical_url: str | None
     type: str
+    # P1b-03, history only: the source was re-ingested since (these chunks are gone) or
+    # withdrawn. A citation in a live answer has neither.
+    superseded: bool = False
+    withdrawn: bool = False
 
 
 class MessageOut(BaseModel):

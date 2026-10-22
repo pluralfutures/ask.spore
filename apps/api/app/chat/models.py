@@ -1,8 +1,8 @@
 """Conversations, messages, citations and feedback. Tenant-scoped with RLS.
 
 Child rows reference parents through composite (tenant_id, id) foreign keys, so a
-row can never point at another tenant's row. Mirrors alembic revisions 0001, 0002 and
-0007; the migrations are authoritative.
+row can never point at another tenant's row. Mirrors alembic revisions 0001, 0002, 0007
+and 0015; the migrations are authoritative.
 """
 
 from __future__ import annotations
@@ -134,6 +134,10 @@ class Citation(Base):
     ragflow_chunk_id: Mapped[str] = mapped_column(Text)
     page_or_slide: Mapped[int | None] = mapped_column(Integer)
     excerpt: Mapped[str] = mapped_column(Text)
+    # Revision 0015 (P1b-03): the source was re-ingested (these chunks are gone) or
+    # withdrawn after this answer; shown on the citation in the history.
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Feedback(Base):

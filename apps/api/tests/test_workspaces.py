@@ -127,9 +127,9 @@ async def test_shared_tag_overlaps_and_a_document_in_both_appears_once(
     # One source ingested under two tags: two RAGFlow documents, different chunk IDs.
     doc_reports, doc_analysis = (f"doc-{uuid.uuid4().hex[:12]}" for _ in range(2))
     source = await world.admin.fetchval(
-        "INSERT INTO sources (type, title, publisher, licence_basis, tags, status, "
+        "INSERT INTO sources (type, title, publisher, licence_basis, tags, status, approved_at, "
         "ragflow_document_ids) VALUES ('pdf', 'Shared Report', 'Synthetic Institute', "
-        "'synthetic', ARRAY['sample-reports', 'sample-analysis'], 'ingested', $1::jsonb) "
+        "'synthetic', ARRAY['sample-reports', 'sample-analysis'], 'ingested', now(), $1::jsonb) "
         "RETURNING id",
         json.dumps(
             {DATASETS["sample-reports"]: doc_reports, DATASETS["sample-analysis"]: doc_analysis}

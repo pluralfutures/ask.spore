@@ -1,4 +1,5 @@
 import type { Citation } from "../api/types";
+import { CITATION_STATUS_NOTE, citationStatus } from "../lib/citations";
 import { formatDate, pageLabel } from "../lib/format";
 
 interface Props {
@@ -22,6 +23,7 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
       <ol className="space-y-3">
         {citations.map((c) => {
           const page = pageLabel(c.type, c.page_or_slide);
+          const status = citationStatus(c);
           return (
             <li
               key={c.marker}
@@ -33,7 +35,19 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
             >
               <p className="font-medium">
                 [{c.marker}] {c.title}
+                {status ? (
+                  <span
+                    data-testid={`citation-status-${c.marker}`}
+                    title={CITATION_STATUS_NOTE[status]}
+                    className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-900"
+                  >
+                    {status}
+                  </span>
+                ) : null}
               </p>
+              {status ? (
+                <p className="text-xs text-amber-900">{CITATION_STATUS_NOTE[status]}</p>
+              ) : null}
               <p className="text-slate-600">
                 {c.publisher} · {formatDate(c.published_on)}
                 {page ? ` · ${page}` : ""}

@@ -761,10 +761,20 @@ export interface components {
        * Format: uuid
        */
       source_id: string;
+      /**
+       * Superseded
+       * @default false
+       */
+      superseded: boolean;
       /** Title */
       title: string;
       /** Type */
       type: string;
+      /**
+       * Withdrawn
+       * @default false
+       */
+      withdrawn: boolean;
     };
     /** CitationsData */
     CitationsData: {

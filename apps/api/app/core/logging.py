@@ -46,6 +46,10 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "route",
         "method",
         "exception",
+        # Job queue (P1b-02): which job, its type and how many attempts it has taken.
+        "job_id",
+        "job_type",
+        "attempts",
     }
 )
 

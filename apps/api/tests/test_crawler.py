@@ -213,7 +213,7 @@ def test_cli_crawl_writes_files_and_ingests_each_page(
     async def fake_crawl(*_: Any) -> CrawlReport:
         return CrawlReport("ok", pages=pages)
 
-    async def fake_ingest(_f: Any, _c: Any, _t: Any, source: Any, metadata: Any, **_: Any) -> Any:
+    async def fake_ingest(_f: Any, _t: Any, source: Any, metadata: Any, **_: Any) -> Any:
         calls.append((source, metadata))
         return IngestResult(source_id=uuid4(), status="ingested", chunk_count=1)
 
@@ -226,7 +226,7 @@ def test_cli_crawl_writes_files_and_ingests_each_page(
 
     monkeypatch.setattr(cli, "get_settings", lambda: load_settings(environ=ENV))
     monkeypatch.setattr(cli, "crawl", fake_crawl)
-    monkeypatch.setattr(cli, "ingest", fake_ingest)
+    monkeypatch.setattr(cli, "submit", fake_ingest)
     monkeypatch.setattr(cli.RagflowClient, "from_settings", staticmethod(lambda _: Client()))
     out = tmp_path / "pages"
     argv = ["crawl", ROOT, "--tag", "sample-web", "--max-pages", "5", "--licence", "site terms"]

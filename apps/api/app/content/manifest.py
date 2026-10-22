@@ -76,7 +76,9 @@ class ManifestRow:
 class RowOutcome:
     line: int
     type: str
-    status: str  # ingested, duplicate, retagged, failed; for sites ok or failed
+    # ingested, duplicate, retagged, failed, and while waiting for a reviewer or the
+    # worker proposed, retag_pending or queued; for sites ok, failed or a waiting status
+    status: str
     chunk_count: int
     seconds: float
     source_ids: tuple[UUID, ...] = ()
@@ -263,6 +265,52 @@ IngestFile = Callable[[ManifestRow], Awaitable[IngestResult]]
 CrawlSite = Callable[[ManifestRow], Awaitable[tuple[str, list[IngestResult]]]]
 
 
+# Per-page statuses that make a site row wait, in order of precedence after "failed".
+_SITE_WAITING = ("proposed", "retag_pending", "queued")
+
+
+def row_outcome(
+    row: ManifestRow,
+    results: Sequence[IngestResult],
+    seconds: float,
+    crawl_status: str | None = None,
+) -> RowOutcome:
+    """The summary line for one row: its file's result, or its site's pages together.
+
+    ``seconds`` is the time the row took to submit; each result adds its job's run time
+    once the CLI has waited for it (``--wait``).
+    """
+    seconds += sum(r.seconds for r in results)
+    if row.type != SITE:
+        [result] = results
+        return RowOutcome(
+            line=row.line,
+            type=row.type,
+            status=result.status,
+            chunk_count=result.chunk_count,
+            seconds=seconds,
+            source_ids=(result.source_id,),
+            error_code=result.error_code,
+        )
+    failed = [r for r in results if r.status == "failed"]
+    if crawl_status != "ok" or failed:
+        status = "failed"
+    else:
+        statuses = {r.status for r in results}
+        status = next((s for s in _SITE_WAITING if s in statuses), "ok")
+    return RowOutcome(
+        line=row.line,
+        type=row.type,
+        status=status,
+        chunk_count=sum(r.chunk_count for r in results),
+        seconds=seconds,
+        source_ids=tuple(r.source_id for r in results),
+        error_code=crawl_status
+        if crawl_status != "ok"
+        else (failed[0].error_code if failed else None),
+    )
+
+
 async def run_manifest(
     rows: Sequence[ManifestRow],
     ingest_file: IngestFile,
@@ -270,34 +318,16 @@ async def run_manifest(
     *,
     clock: Callable[[], float] = time.monotonic,
 ) -> list[RowOutcome]:
-    """Ingest each validated row in order; one row failing does not stop the others."""
+    """Submit each validated row in order; one row failing does not stop the others."""
     outcomes: list[RowOutcome] = []
     for row in rows:
         started = clock()
         if row.type == SITE:
             status, results = await crawl_site(row)
-            failed = [r for r in results if r.status == "failed"]
-            outcome = RowOutcome(
-                line=row.line,
-                type=row.type,
-                status="failed" if status != "ok" or failed else "ok",
-                chunk_count=sum(r.chunk_count for r in results),
-                seconds=clock() - started,
-                source_ids=tuple(r.source_id for r in results),
-                error_code=status if status != "ok" else (failed[0].error_code if failed else None),
-            )
+            outcomes.append(row_outcome(row, results, clock() - started, status))
         else:
             result = await ingest_file(row)
-            outcome = RowOutcome(
-                line=row.line,
-                type=row.type,
-                status=result.status,
-                chunk_count=result.chunk_count,
-                seconds=clock() - started,
-                source_ids=(result.source_id,),
-                error_code=result.error_code,
-            )
-        outcomes.append(outcome)
+            outcomes.append(row_outcome(row, [result], clock() - started))
     return outcomes
 
 

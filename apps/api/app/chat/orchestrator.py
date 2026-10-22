@@ -474,6 +474,9 @@ class Orchestrator:
                     "outcome": outcome,
                     "model": run.model,
                     "citations": [asdict(c) for c in citations],
+                    # P1b-03: the register sources this answer cites, so withdrawing or
+                    # re-ingesting one purges it (app.content.withdraw).
+                    "source_ids": sorted({c.source_id for c in citations}),
                 },
             )
         async for event in self._finish(

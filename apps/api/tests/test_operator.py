@@ -559,8 +559,8 @@ async def _register(admin: asyncpg.Connection, kind: str, *, stored: bool) -> uu
     sha = uuid.uuid4().hex * 2
     source_id: uuid.UUID = await admin.fetchval(
         "INSERT INTO sources (type, title, publisher, licence_basis, tags, status, file_sha256, "
-        "stored_path) VALUES ($1, 'Synthetic', 'Synthetic Publisher', 'own-work', "
-        "ARRAY['sample-reports'], 'ingested', $2, $3) RETURNING id",
+        "stored_path, approved_at) VALUES ($1, 'Synthetic', 'Synthetic Publisher', 'own-work', "
+        "ARRAY['sample-reports'], 'ingested', $2, $3, now()) RETURNING id",
         kind,
         sha,
         f"{sha[:2]}/{sha}.{kind}" if stored else None,

@@ -1,3 +1,4 @@
+import fnmatch
 from collections.abc import AsyncIterator
 from uuid import UUID, uuid4
 
@@ -21,6 +22,15 @@ class FakeRedis:
         self.store[name] = value
         self.ttls[name] = ex
         return True
+
+    async def scan_iter(self, match: str, count: int) -> AsyncIterator[str]:
+        for name in list(self.store):
+            if fnmatch.fnmatchcase(name, match):
+                yield name
+
+    async def delete(self, *names: str) -> int:
+        removed = [n for n in names if self.store.pop(n, None) is not None]
+        return len(removed)
 
     async def aclose(self) -> None:
         pass

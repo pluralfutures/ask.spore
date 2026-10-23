@@ -290,8 +290,9 @@ class RetentionConfig(_Strict):
     """The retention purge (P1b-14). Chat history follows each tenant's setting (at most
     30 days, CLAUDE.md); this section sets only what has no tenant setting."""
 
-    # Download records (who fetched which file when): owner decision of Oct 21, 2026.
-    downloads_days: int = Field(default=90, ge=1, le=3650)
+    # Download records (who fetched which file when): owner decision of Oct 21, 2026
+    # (90). At most a year (P1c-04, independent review of Oct 22, 2026: 3650 before).
+    downloads_days: int = Field(default=90, ge=1, le=365)
 
 
 _VERSION = r"^v[1-9][0-9]*$"

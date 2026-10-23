@@ -77,7 +77,7 @@ step 1 of the procedure has run. Rotate before the deploy, or as its first step 
 
 ```
 uv run --directory apps/api ruff check .                → All checks passed!
-uv run --directory apps/api ruff format --check .       → (no files would be reformatted)
+uv run --directory apps/api ruff format --check .       → 205 files already formatted
 uv run --directory apps/api mypy app                    → Success: no issues found in 106 source files
 TEST_ADMIN_DATABASE_URL=postgresql://askspore:ci-only-password@localhost:5432/postgres REQUIRE_DB_TESTS=1 \
   uv run --directory apps/api pytest -q                 → 1456 passed, 1 deselected in 193.32s (0:03:13)  (deselected: test_ragflow_integration)

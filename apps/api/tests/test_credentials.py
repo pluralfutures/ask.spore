@@ -118,11 +118,7 @@ def host(tmp_path: Path) -> Path:
 
 def rotate(path: Path, **values: str) -> None:
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
-    lines = [
-        line
-        for line in text.splitlines()
-        if line.partition("=")[0] not in values
-    ]
+    lines = [line for line in text.splitlines() if line.partition("=")[0] not in values]
     path.write_text("\n".join([*lines, *(f"{k}={v}" for k, v in values.items())]) + "\n")
 
 

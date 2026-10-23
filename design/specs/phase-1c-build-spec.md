@@ -1,6 +1,6 @@
 # Phase 1c Build Spec — Hardening Before the First Client User
 
-Oct 23, 2026 · Status: draft for owner review · Target duration: 3–4 weeks · Starts after Phase 1b closed (findings 1b §8, Oct 23, 2026)
+Oct 23, 2026 · Status: approved by the owner Oct 23, 2026 (decisions below) · Target duration: 3–4 weeks · Starts after Phase 1b closed (findings 1b §8, Oct 23, 2026)
 
 Source decisions: the Phase 1b release record (`phase-1b-findings.md` §8, F1 to F5, the
 independent review of Oct 22, 2026 and its five items), every `backlog.md` line marked
@@ -134,10 +134,10 @@ CI (`compose config` and the digest check). Tests: the script's dry run passes i
 Compose dependency from RAGFlow to its embedding service is asserted. Closes F1, F3 and the
 deploy-version cache item.
 
-**P1c-11 CI gate on main.** Branch protection with the CI and Guardrails checks required and
-the Playwright admin-instructions test made deterministic (find the race, fix the wait).
-The owner skipped branch protection twice; this item asks once more and records the answer
-either way. Tests: the Playwright test passes ten times in a row locally. Closes backlog
+**P1c-11 CI reliability.** The Playwright admin-instructions test made deterministic (find
+the race, fix the wait). Branch protection on `main`: asked a third time and declined by the
+owner (decision 2, Oct 23, 2026); the backlog line is closed as "owner decision: no", not
+carried further. Tests: the Playwright test passes ten times in a row locally. Closes backlog
 Phase 1a release (two lines).
 
 **P1c-12 Backup restore test and eval outputs.** The owner's nightly backup restored once
@@ -161,8 +161,11 @@ items as known limits is an owner decision recorded in the findings. Closes back
 
 **P1c-14 Register and crawl follow-ups.** Site-level "withdraw site" in the console and CLI;
 "restore" for a withdrawn crawled page; clean-up of an interrupted re-tag job; the
-re-ingestion title rule and the licence-withdrawal excerpt rule decided and built as the
-owner answers (A1-14, A1-15). Tests per action; a restored page is crawled again; a withdrawn
+re-ingestion rule (decision 3: a new file replaces an existing document only when **both**
+the canonical link and the title match; otherwise it is flagged to the reviewer as a
+possible replacement, as decision 4 of Oct 22 already does for the link alone) and the
+withdrawal excerpt rule (decision 3: the stored excerpt of a citation is **blanked on every
+withdrawal**, not only on licence grounds; the citation stays, labelled withdrawn). Tests per action; a restored page is crawled again; a withdrawn
 site leaves no page in any dataset. Closes backlog Oct 22 and the Group A1 follow-ups.
 
 **P1c-15 Backlog triage.** Strike every `backlog.md` line Phase 1b delivered (the content
@@ -184,12 +187,10 @@ review signed as in Phase 1b §8.2.
 
 ## Open items for the owner
 
-- **Branch protection** (P1c-11): yes or no, recorded either way.
 - **DMARC** (P1c-05): the DNS change is the owner's; the session says when the reports are
   clean.
 - **Credentials rotation** (P1c-03): the owner runs the procedure with the session's
   guidance; secrets never pass through a session.
-- **Re-ingestion title rule and licence-withdrawal excerpt rule** (P1c-14, A1-14, A1-15).
 - **Eval known limits** (P1c-13): if hc-v1-039, 055 and 058 do not move with a prompt
   version, accept them as known limits or fund the relevance-check item.
 - **`cc-shared` content** (P1b-13 d): which files carry the shared tag; stays empty until
@@ -197,3 +198,13 @@ review signed as in Phase 1b §8.2.
 - **Paperwork gate** (P1b-13 b): checklist items 1 to 13, counsel review of the consent notice
   (v2), privacy notice, terms and DPA, open questions A to I and J. Owner and counsel, in
   parallel with this phase.
+
+## Owner decisions of Oct 23, 2026
+
+| # | Decision | Applies to |
+| --- | --- | --- |
+| 1 | **Spec approved as drafted.** | All items |
+| 2 | **No branch protection on `main` for now** (third ask). P1c-11 keeps the Playwright fix only; the backlog line closes as an owner decision. | P1c-11 |
+| 3 | **Re-ingestion requires the same canonical link and the same title** to replace a document; **citation excerpts are blanked on every withdrawal.** | P1c-14 (A1-14, A1-15) |
+| 4 | **Three parallel build sessions**: Group A; Groups B and C; Group D. Then integration by the orchestrating session, then the release session (Group E). | Session plan |
+| 5 | **UI refresh** (visual audit and mockups, owner's prompt of Oct 23): deferred; runs after Phase 1c, not alongside it. | Out of phase |

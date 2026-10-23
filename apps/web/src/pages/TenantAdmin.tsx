@@ -69,6 +69,7 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
   });
   // P1c-07: resend an invitation; remove a user.
   const [done, setDone] = useState<string | null>(null);
+  const [inviteForm, setInviteForm] = useState(0);
   const resend = useMutation({
     mutationFn: (user: AdminUser) => adminApi.resendInvitation(user.id),
     onSuccess: (_, user) => setDone(`Invitation sent again to ${user.email}.`),
@@ -85,7 +86,18 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
   return (
     <section className="flex flex-col gap-2 rounded bg-white p-3 text-sm">
       <h2 className="font-semibold">Users</h2>
-      <Invite onInvited={refresh} />
+      {/* Release F4: each action shows its own outcome only. An invite clears the list's
+          last status; a resend or removal remounts the form, clearing its last refusal. */}
+      <Invite
+        key={inviteForm}
+        onInvited={refresh}
+        onStart={() => {
+          setDone(null);
+          resend.reset();
+          remove.reset();
+          change.reset();
+        }}
+      />
       {failed ? <p className="text-red-700">{failed}</p> : null}
       {done && !failed ? (
         <p role="status" className="text-slate-700">
@@ -112,11 +124,13 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
               onChange={(body) => change.mutate({ id: user.id, body })}
               onResend={() => {
                 setDone(null);
+                setInviteForm((n) => n + 1);
                 remove.reset();
                 resend.mutate(user);
               }}
               onRemove={() => {
                 setDone(null);
+                setInviteForm((n) => n + 1);
                 resend.reset();
                 remove.mutate(user);
               }}
@@ -199,7 +213,7 @@ function UserRow({
   );
 }
 
-function Invite({ onInvited }: { onInvited: () => void }) {
+function Invite({ onInvited, onStart }: { onInvited: () => void; onStart: () => void }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<"user" | "tenant_admin">("user");
@@ -214,6 +228,7 @@ function Invite({ onInvited }: { onInvited: () => void }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    onStart();
     invite.mutate({ email: email.trim(), display_name: name.trim(), role });
   }
 

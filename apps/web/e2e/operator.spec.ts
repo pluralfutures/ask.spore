@@ -3,6 +3,7 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 // P1c-08: operator console feedback, against a fake API. Synthetic tenants only.
 const TENANT_ID = "00000000-0000-4000-8000-00000000000a";
 const WORKSPACE_ID = "aaaaaaaa-0000-4000-8000-000000000001";
+const INVITED_ID = "bbbbbbbb-0000-4000-8000-000000000001";
 const tenant = {
   id: TENANT_ID,
   slug: "alpha",
@@ -97,6 +98,26 @@ async function fakeConsole(page: Page, calls: { method: string; path: string }[]
     if (path === `/operator/tenants/${TENANT_ID}/workspaces/${WORKSPACE_ID}/tags`) {
       return json({ detail: "tag_not_in_package" }, 422);
     }
+    if (path === `/operator/tenants/${TENANT_ID}/users`) {
+      return json([
+        {
+          id: INVITED_ID,
+          email: "invited@alpha.example",
+          display_name: "Synthetic Invited",
+          role: "tenant_admin",
+          status: "invited",
+          last_login_at: null,
+          last_login_method: null,
+          created_at: "2026-10-01T09:00:00Z",
+        },
+      ]);
+    }
+    if (path === `/operator/tenants/${TENANT_ID}/users/${INVITED_ID}/invitation`) {
+      return json({ user_id: INVITED_ID, status: "queued" }, 202);
+    }
+    if (path === `/operator/tenants/${TENANT_ID}/admins` && method === "POST") {
+      return json({ detail: "email_taken" }, 409);
+    }
     return json({ detail: "not_found" }, 404);
   });
 }
@@ -133,4 +154,27 @@ test("every console save says it was saved, or why not", async ({ page }) => {
   await page.getByRole("button", { name: "Save tags" }).click();
   await expect(page.getByText("Refused (422: tag_not_in_package).")).toBeVisible();
   await expect(page.getByRole("status")).toHaveCount(0);
+});
+
+// Phase 1c release F4: on the users tab each action's outcome replaces the last one.
+test("the users tab shows the latest action's outcome only", async ({ page }) => {
+  const calls: { method: string; path: string }[] = [];
+  await fakeConsole(page, calls);
+  await page.goto(`/operator/tenants/${TENANT_ID}?tab=users`);
+
+  await page.getByRole("button", { name: "Resend invitation" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Invitation sent again to invited@alpha.example.",
+  );
+  await page.getByLabel("Invite admin: email").fill("invited@alpha.example");
+  await page.getByLabel("Name", { exact: true }).fill("Synthetic Again");
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
+  await expect(page.getByText("already has an account")).toBeVisible();
+  await expect(page.getByText("Invitation sent again")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Resend invitation" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Invitation sent again to invited@alpha.example.",
+  );
+  await expect(page.getByText("already has an account")).toHaveCount(0);
 });

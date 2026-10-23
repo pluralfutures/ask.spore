@@ -567,14 +567,17 @@ script's dry run passes after the re-pins (fails closed on a moved tag, as desig
 ## 5. Release on the Instance, Oct 23, 2026 (P1c-16)
 
 Run by a remote-control session on the Instance from `design/specs/phase-1c-release-runbook.md`.
-The Instance runs `main` at **1758623** (`ASK_SPORE_DEPLOY_VERSION=175862320a89`).
+The Instance ran `main` at **1758623** (`ASK_SPORE_DEPLOY_VERSION=175862320a89`) from section 1
+and at **80ac763** (`ASK_SPORE_DEPLOY_VERSION=80ac763cdd63`) after the F2, F4 and F5 deploy.
 
 ### Release status
 
-**In progress** (Oct 23, 2026): sections 0 to 5 done (independent review signed, no blocker;
-five fixes, F1 to F5, deployed at 80ac763cdd63 and re-checked; `corpus_only/v6` not adopted,
-owner decision); section 6 done with the restore test moved to the backlog (owner decision)
-and DMARC not yet collecting (F6); section 7 to follow.
+**Done, awaiting the owner's confirmation to close Phase 1c** (Oct 23, 2026): sections 0 to 7
+run. Independent review signed, no blocker; six fixes, F1 to F6 (F1 to F5 deployed at
+80ac763cdd63 and re-checked, F6 documentation); `corpus_only/v6` not adopted (owner
+decision); the restore test moved to the backlog (owner decision); DMARC not yet collecting
+(F6). The Instance runs `main` at **80ac763** (`ASK_SPORE_DEPLOY_VERSION=80ac763cdd63`);
+later commits on `main` from this release are documents only.
 
 ### Section 0: credentials rotation
 
@@ -825,6 +828,23 @@ is committed: v6 was not adopted and the baseline stays). Baseline
 | 6.1 Restore test and content-store copy | **Not run; moved to the backlog (owner decision, Oct 23, 2026).** No volume backup is visible on the Instance: no `/srv/backups`, no backup entry in root's crontab or `/etc/cron.d`, no backup timer (only the system's `dpkg-db-backup`). The nightly content-store copy is not installed either, since it uses the volume backup's destination and retention. |
 | 6.2 Image pins | `image-digests.py --check` without the mirror: exit 0, **18 references, all pinned**, including `quay.io/keycloak/keycloak:26.7.5` (the drill compose file). |
 | 6.3 DMARC | `_dmarc.myceliumgastronomy.com` is `v=DMARC1; p=none` with **no `rua=` tag** (public DNS, Oct 23, 2026): no aggregate report has been sent, so there are no counts to record and the clean week has not started. `infra/README.md` assumed an existing `rua=` address (F6). `p=quarantine` not set; stays a pre-launch owner item ("before the first `customculinary.com` user"), its clean week counted from the first report after the owner adds `rua=`. |
+
+### Section 7: close-out
+
+| Item | Result |
+| --- | --- |
+| `ssotest2` purge | Before (counts): `users` 2, `workspaces` 1, `tenant_entitlements` 1, `tenant_login_policy` 1, `sso_attempts` 6, `sign_in_links` 1, `mfa_challenges` 1, `audit_events` 69. The owner ran `ask-spore tenant purge --slug ssotest2 --confirm ssotest2` as the schema owner (one-off `api` container, the migrations URL passed with the host `postgres`), 22:50:11 UTC: `tenant.purged`, `method cli`, **20 rows** (the 13 above plus 7 mail jobs; 0 conversations, messages, citations, feedback, downloads, cache keys), tenant `suspended`, verified domains 2 → 0. Only `audit_events` (69, kept by design) remain for the tenant. **Second certificate: `COD-20261023-8194328d`** under `content_root/certificates/` (2,057 bytes, mode 0640); its SHA-256 equals the event's, its table counts equal the counts before. |
+| `ssotest2` Authentik accounts | Four accounts carried `ssotest2`'s `ask_spore_tenant` attribute: the SSO account `sso-ssotest2.…` (external, path `ask-spore/sso`, still active: the account F5 left), and three sign-in-link accounts (one already deactivated). Deleted by the owner in Authentik's admin interface (pk 13, 15, 16, then 14); afterwards no account carries the tenant ID, Authentik 9 → 5 accounts. |
+| Identity providers | Owner, Oct 23: the callback URIs `/source/oauth/callback/sso-ssotest/` and `/sso-ssotest2/` removed from the Entra app registration and the Google OAuth client, and the Entra guest user removed. The Keycloak drill was torn down at 3.2 (F3). |
+| Temporary eval files on the Instance | `/root/eval-1c.sh` (root, 0700; no secret in it), eval config copies `/srv/ask-spore/eval-config`, `eval-config-v6` and the Phase 1b copy `eval-config-1b` (not used by the live api), full eval outputs under `/srv/ask-spore/eval-runs/` (with `p1c13-redacted/`). |
+| Paperwork checklist | DMARC row (no `rua=`, F6), deletion-wording row (second purge; backup location unknown), new rows: credentials rotated (done), restore test (open, backlog). |
+| Backlog | Struck: P1c-01, P1c-02 (three lines), P1c-03, P1c-04 (four lines), P1c-06, the weight-0.4 confirmation, the eval set v1 items (known limits); the relevance check moved to Phase 2. Added: the invite form, the withdrawn site's schedule, the restore test and content-store copy. |
+
+**Owner's remaining items before the first client user:** DMARC (add `rua=`, one clean
+week, then `p=quarantine`); the restore test and the content-store copy (backlog, once the
+backup's location is known); the deletion wording's backup retention; the Phase 1c
+follow-ups marked "before the first client user" in the backlog (invitation resend bound,
+restore test); the paperwork gate (checklist items 1 to 13).
 
 ### Issues found and fixed during the release
 

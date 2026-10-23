@@ -26,7 +26,7 @@ def _options(tmp_path: Path, **kw: object) -> GuardrailOptions:
         blocks=ADVERSARIAL / "blocks",
         contexts=ADVERSARIAL / "contexts.jsonl",
         eval_set=cli.SYNTHETIC_SET,
-        results_root=tmp_path,
+        runs_root=tmp_path,
         mock=True,
         **kw,  # type: ignore[arg-type]
     )
@@ -112,7 +112,7 @@ def test_mock_run_ignores_empty_provider_keys(tmp_path: Path) -> None:
 
 def test_cli_exit_code(tmp_path: Path) -> None:
     code = cli.main(
-        ["guardrails", "--mock", "--results-dir", str(tmp_path), "--mode", "corpus_only"]
+        ["guardrails", "--mock", "--runs-dir", str(tmp_path), "--mode", "corpus_only"]
     )
     assert code == 0
 

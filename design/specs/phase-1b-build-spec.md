@@ -81,6 +81,8 @@ Build in this order; items in a group can be parallelised. Every tenant-scoped t
 
 **P1b-16 Release checks.** Eval set v1 and the guardrail eval on the Phase 1b code against the Phase 1a baselines, no regression; isolation tests extended for the new tables (content roles, login policy, jobs, sites, consent) and reviewed independently as in Phase 1a §12; a live SSO sign-in per connector kind with a test tenant; the takedown drill end to end on a synthetic source; findings file `phase-1b-findings.md` with the signed review.
 
+**Status: Phase 1b closed on Oct 23, 2026** (findings §8; owner open items listed there: backup restore test, the pre-launch and before-first-client-user backlog lines, DPA clause 10.2 wording).
+
 ## Open items for the owner
 
 - **Backups (owner, Oct 21, 2026):** handled by the owner outside this spec (nightly encrypted backup of the PostgreSQL and RAGFlow volumes to Scaleway Object Storage in Paris, object lock, 30-day retention, recommended). Not a build item; the restore test is recorded in the Phase 1b findings when done.

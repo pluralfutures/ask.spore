@@ -571,9 +571,8 @@ The Instance runs `main` at **1758623** (`ASK_SPORE_DEPLOY_VERSION=175862320a89`
 
 ### Release status
 
-**In progress** (Oct 23, 2026): sections 0 to 3 done (independent review signed, no blocker;
-five fixes, F1 to F5); the F2, F4 and F5 deploy and its re-check pending; sections 4 to 7 to
-follow.
+**In progress** (Oct 23, 2026): sections 0 to 4 done (independent review signed, no blocker;
+five fixes, F1 to F5, deployed at 80ac763cdd63 and re-checked); sections 5 to 7 to follow.
 
 ### Section 0: credentials rotation
 
@@ -721,6 +720,37 @@ The 20:10:26 `no_binding` refusal: the owner reloading the Entra windows (confir
   three `sample-*`, `cc` its four `cc-*`. In the console, a workspace `test` added to `ssotest2`
   ("Workspace added.", `operator.workspace_created`; purged with the tenant) shows no tag
   checkbox; `internal`'s `research` offers the three `sample-*` tags, all three in use.
+
+### Deploy of F2, F4 and F5
+
+PRs #62 and #63 merged to `main` (merge 80ac763). Deploy by the owner,
+`ASK_SPORE_DEPLOY_VERSION=80ac763cdd63`, images rebuilt 21:44 UTC. Checked by the session:
+Alembic head **0060**, `auth/mode` `oidc`, `ragflow-tei` running, one `api.started` and one
+`worker.started` line, dataset counts unchanged, the F5 `disable_user` in the running image.
+**F4** re-checked live by the owner: after a hard reload the user lists show only the latest
+action's line. **F2** is recorded as verified by its tests and the deployed build (no live
+re-check asked).
+
+### Section 4: content drills (P1c-14)
+
+Synthetic sources only, internal tenant. Baseline after the deploy: `cc-shared` 0/0,
+`cc-team1` 60/4037, `cc-team2` 64/4087, `cc-team3` 22/1145, `sample-analysis` 0/0,
+`sample-reports` 59/2580, `sample-web` 0/0 (documents/chunks; the Oct 20 figures). Drill files:
+the Phase 1b drill note (`brightwater-original.docx`) and three variants made by editing its
+`word/document.xml`, copied into the api container under `/tmp/drill4/` and removed after
+the drill (four named files and the directory).
+
+| Step | Result |
+| --- | --- |
+| Original bytes again | `ingest` of the Phase 1b drill file: `failed`, `taken_down`, pointing at its Phase 1b register row (taken down on licence grounds); nothing written. |
+| v1 | New text, canonical link `https://drills.example/brightwater-note`, title "Brightwater heat pump adoption, 2026 (internal note)", tag `sample-analysis`: ingested, 1 chunk, 23 s. The owner's question in `research` (21:55:38) cited it: 1 citation with its excerpt. |
+| v2: same link and title | Title differing only in case and spacing ("… (Internal note)", a double space): **replaced automatically.** `source.approved` `method same_link_and_title` with `replaces` = v1 (21:56:08); ingested 21:56:20; v1 `source.withdrawn` `outcome superseded`, `excerpts_blanked false` (21:56:21). v1's citation: `superseded_at` set, **excerpt kept**. `sample-analysis` 1/1. Content console, v2's page: "Replaces: Brightwater heat pump adoption, 2026 (internal note)" (owner). |
+| v3: same link, other title | "Brightwater installer capacity memo": stays `proposed`, nothing replaced or ingested. Its page: "Possible replacement of Brightwater heat pump adoption, 2026 (Internal note) (Brightwater Analytics)" and, under Review, "Possible replacement: this file is at the canonical link of an ingested source." with the choice "Replace …" / "Keep both" (owner). Rejected from the CLI with a drill note: `source.rejected` (21:59:31). |
+| Withdrawal, non-licence reason | `sources withdraw` v2, reason "Release drill P1c-14 …", `--wait`: `source.withdrawal_requested` 21:59:52, `source.withdrawn` 21:59:59, `outcome withdrawn`, **`excerpts_blanked true`** (decision 3: every withdrawal blanks). v2 had no citation of its own (the owner had not asked again); the citation of v1, which v2 replaced, was blanked with it: excerpt `''`, `withdrawn_at` set. The owner's reload of the 21:55 conversation shows the removed-passage note with the withdrawn label in place of the excerpt. `sample-analysis` 0/0. |
+| Site: crawl again | The Phase 1b site row (`www.myceliumgastronomy.com`, `approved`, its 19 pages withdrawn one by one in 1b) cannot be registered again (start URL unique, backlog), so the drill reused it: its 19 withdrawn pages restored with `sources restore` (19 `source.restored`, pages `removed`/`restored`); in the console the owner set the schedule to **weekly** (`site.settings_changed`, none → weekly; budget 20) and asked for a crawl (`site.crawl_requested` 22:06:45). `site.crawled` 22:07:11 (26 s), `allowed`, **19 pages taken again** as new register rows, all ingested: `sample-web` **19/35**, as in Phase 1b. Next crawl set for Oct 30. |
+| One page: withdraw, restore, re-crawl | `sources withdraw` one page (22:10:03): page `blocked` (`withdrawn`), `sample-web` 19/35 → 18/33. `sources restore` (22:10:08): page `removed` (`restored`), `source.restored`. Re-crawl with `ask-spore crawl <start URL> --approve-as … --wait` (an existing start URL queues a crawl of that site): crawl 30 s, 1 page new, **taken again** as a new register row, ingested (2 chunks, 22:11:13); `sample-web` 19/35. |
+| Whole site | `sites withdraw` with reason, `--wait` (22:11:51, 28 s): `site.withdrawn`; site `withdrawn`, `withdrawn_at` and reason set, **`next_crawl_at` null**; 19 pages `blocked` (`site_withdrawn`), the 2 pages blocked at crawl unchanged; all 39 register rows of the site `withdrawn`; 20 `source.withdrawal_requested` / `source.withdrawn`, all `excerpts_blanked true`. **No page in any dataset:** `sample-web` 0/0. The scheduler and "crawl now" act only on `approved` sites, so no crawl runs again; the site page still prints "Schedule weekly" (the stored setting; backlog). |
+| Dataset counts | Every dataset back at the Oct 20 figures above. |
 
 ### Issues found and fixed during the release
 

@@ -22,6 +22,7 @@ import argparse
 import json
 import re
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -79,6 +80,10 @@ def _token(host: str, repo: str) -> str:
 HUB_MIRROR = ""  # set by --hub-mirror
 
 
+class Unreachable(Exception):
+    """A registry did not give a digest; nothing can be checked or pinned."""
+
+
 def digest(name: str, tag: str) -> str:
     host, repo = registry_repo(name)
     if host == "registry-1.docker.io" and HUB_MIRROR:
@@ -125,7 +130,12 @@ def main(argv: list[str] | None = None) -> int:
             nonlocal moved
             key = (match["name"], match["tag"])
             if key not in cache:
-                cache[key] = digest(*key)
+                try:
+                    cache[key] = digest(*key)
+                except (urllib.error.URLError, OSError, RuntimeError) as exc:
+                    # Fail closed, without a traceback: the deploy stops here (P1c-10).
+                    reason = getattr(exc, "code", None) or type(exc).__name__
+                    raise Unreachable(f"{key[0]}:{key[1]}: registry did not answer ({reason})")
             current = cache[key]
             pinned = match["digest"]
             rel = path.relative_to(ROOT)
@@ -135,7 +145,11 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.write(f"{rel}: {key[0]}:{key[1]}@{current} ({state})\n")
             return f"{match['lead']}{key[0]}:{key[1]}@{current}"
 
-        updated = REF.sub(pin, text)
+        try:
+            updated = REF.sub(pin, text)
+        except Unreachable as exc:
+            sys.stderr.write(f"{exc}\n")
+            return 2
         if args.write and updated != text:
             path.write_text(updated, encoding="utf-8")
     if args.check and moved:

@@ -34,14 +34,45 @@ and HTTP API (`9380`) publish nothing; the API container reaches RAGFlow at
 
 Deploys set `ASK_SPORE_DEPLOY_VERSION` (P1b-13 e), which the API and worker read at
 startup and put in the answer cache key, so answers cached by the previous code are
-never served after a deploy (Phase 1a findings F10):
+never served after a deploy (Phase 1a findings F10). Without it the API uses a hash of
+`config/` and its own code, which also changes with any code or configuration change.
+
+## Deploying on the Instance (P1c-10)
+
+One script run from the live working tree (`/root/ask.spore`, which stays on `main`; branch
+work uses a separate `git worktree`):
 
 ```
-ASK_SPORE_DEPLOY_VERSION=$(git rev-parse --short=12 HEAD) docker compose -f infra/compose.dev.yml up -d --build api worker
+infra/scripts/deploy.sh --public-url https://<public host>       # main
+infra/scripts/deploy.sh --commit <sha> --public-url https://<public host>
+infra/scripts/deploy.sh --dry-run                                 # what CI runs
 ```
 
-Without it the API uses a hash of `config/` and its own code, which also changes with
-any code or configuration change.
+It does what the Phase 1b release did by hand (findings 1b §8 sections 0 and
+"Resumption"), and stops at the first failure:
+
+1. refuses a working tree with changes; fetches; fast-forwards `main` (or checks out the
+   named commit, detached);
+2. sets `ASK_SPORE_DEPLOY_VERSION` to the commit's 12-character hash;
+3. `image-digests.py --check` (`--hub-mirror HOST` is passed through); a moved tag or a
+   registry that does not answer stops the deploy;
+4. `docker compose config --quiet` with the `auth` and `public` profiles;
+5. records RAGFlow's document and chunk counts per dataset (`ask-spore datasets counts`)
+   when the API is running;
+6. builds `migrate`, `api`, `worker` and `web-build` (F1: `migrate` has its own image);
+7. starts the three Authentik services only, then `run --rm migrate` and reads the
+   Alembic head;
+8. `--profile public up -d ragflow api worker caddy` (RAGFlow pulls in `ragflow-tei`, F3);
+9. checks `/healthz` (loopback, and the public host over TLS), `auth/mode` (`oidc` unless
+   `--expect-auth-mode` says otherwise), that `ragflow-tei` and `ragflow` run, the
+   worker's `worker.started` line and no `worker.mail_not_configured` since the start (F2),
+   and that the dataset counts equal those of step 5;
+10. prints a summary: commit, deploy version, Alembic head, the checks and the counts per
+    tag. No secret, address, query or document text is printed (`config --quiet` only).
+
+A deploy clears no cache by hand: the new deploy version is in every answer-cache key, so
+no answer cached by the previous code is served (`test_cache_misses_after_a_deploy`);
+the old keys expire with `[chat] cache_ttl_seconds`.
 
 The one-shot `migrate` service runs `alembic upgrade head` as the owner before the API
 starts. `PHASE0_INTERNAL_USERS` in the root `.env` lists the users the first migration

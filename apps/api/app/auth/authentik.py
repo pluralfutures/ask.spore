@@ -666,17 +666,33 @@ class AuthentikProvider:
     async def disable_user(self, email: str) -> None:
         """``is_active`` off (the provisioner's role may change users, not delete them,
         blueprint ``ask-spore-provisioner``); the operator deletes the account in
-        Authentik's admin interface."""
+        Authentik's admin interface.
+
+        Every account of the address is ours to deactivate: the sign-in-link account
+        (username = email) and each one an SSO source created (username
+        ``<source slug>.<email>``, the generated mapping), so a user who signed in by
+        SSO is deactivated too (Phase 1c release F5)."""
         try:
-            user = await self._find("/api/v3/core/users/", username=email)
-            if user is None:
-                return
-            response = await self._api.patch(
-                f"/api/v3/core/users/{user['pk']}/", json={"is_active": False}
-            )
+            response = await self._api.get("/api/v3/core/users/", params={"email": email})
             response.raise_for_status()
+            results: list[dict[str, Any]] = response.json().get("results", [])
+            for user in results:
+                if not _is_account_of(user.get("username", ""), email):
+                    continue
+                patched = await self._api.patch(
+                    f"/api/v3/core/users/{user['pk']}/", json={"is_active": False}
+                )
+                patched.raise_for_status()
         except (httpx.HTTPError, ValueError, KeyError):
             raise ProviderError("user_not_disabled") from None
+
+
+def _is_account_of(username: str, email: str) -> bool:
+    """The address's sign-in-link account or an account an SSO source created for it."""
+    return (
+        username == email
+        or re.fullmatch(r"sso-[a-z0-9-]+\." + re.escape(email), username) is not None
+    )
 
 
 def oidc_services(

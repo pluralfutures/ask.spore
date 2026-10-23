@@ -1,11 +1,13 @@
 # Keycloak SSO drill (P1b-16, release runbook 2.4)
 
-A throwaway generic-OIDC identity provider for the test tenant `ssotest`, on
+A throwaway generic-OIDC identity provider for the SSO test tenant (`ssotest` in Phase 1b,
+`ssotest2` in Phase 1c), on
 `idp-test.askspore.myceliumgastronomy.com` (A record to the Instance). Drill only: not part
 of any deploy, removed after the drill with its volume.
 
 Realm `ask-spore-drill`, one confidential client `ask-spore-drill` (redirect URI
-`https://askspore.myceliumgastronomy.com/source/oauth/callback/sso-ssotest/`), two users
+`https://askspore.myceliumgastronomy.com/source/oauth/callback/<source slug>/`, the slug
+passed as `--source-slug`, `sso-<tenant slug>`), two users
 with verified emails: one on a domain verified for `ssotest`, one not. Caddy exposes only
 `/realms/ask-spore-drill/*` and `/resources/*`; the admin console is not reachable.
 
@@ -14,7 +16,7 @@ Secrets never enter the repository or a session: `setup.py` generates them into
 types the client secret into the operator console.
 
 ```
-python3 infra/drills/keycloak/setup.py --verified-email <user@verified-domain> \
+python3 infra/drills/keycloak/setup.py --source-slug sso-ssotest2 --verified-email <user@verified-domain> \
   --outsider-email <user@other-domain>
 D="-f infra/compose.dev.yml -f infra/drills/keycloak/compose.yml"
 docker compose $D --profile drill up -d idp-test-keycloak

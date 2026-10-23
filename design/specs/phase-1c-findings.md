@@ -563,3 +563,104 @@ against PostgreSQL 16 (1 deselected); eval package ruff, format, mypy, 94 tests 
 pass; web lint, typecheck and 122 unit tests pass; `openapi.json` and `schema.d.ts`
 regenerated and in sync; `compose config` valid with the example RAGFlow env; the deploy
 script's dry run passes after the re-pins (fails closed on a moved tag, as designed).
+
+## 5. Release on the Instance, Oct 23, 2026 (P1c-16)
+
+Run by a remote-control session on the Instance from `design/specs/phase-1c-release-runbook.md`.
+The Instance runs `main` at **1758623** (`ASK_SPORE_DEPLOY_VERSION=175862320a89`).
+
+### Release status
+
+**In progress** (Oct 23, 2026): sections 0 to 2 done (independent review signed, no blocker);
+sections 3 to 7 to follow.
+
+### Section 0: credentials rotation
+
+| Step | Result |
+| --- | --- |
+| 0.1 Rotation | Done by the owner in their own terminal (procedure: `infra/README.md`, "Credentials rotation"); nothing from it passed through the session. `check-credentials.py`: exit 0, "ok" for `.env`, `infra/authentik/.env`, `infra/ragflow/.env`. api and worker restarted on the new values: `/healthz` 200 on loopback and over TLS, one `api.started` and one `worker.started` line. |
+
+### Section 1: deploy by script (P1c-10)
+
+| Step | Result |
+| --- | --- |
+| 1.1 Instance | On; remote-control session. |
+| 1.2 Source | `main` pulled at **175862320a89** (PR #61 on top of the runbook's PR #60: F1). Tree clean, on `main`. |
+| 1.2 Dry run | `deploy.sh --dry-run`: compose config ok, **18 image pins match** (quay.io reachable from the Instance). |
+| 1.2 Deploy | Run by the owner from the Instance (the session's run was refused by its permission policy), started 11:58:49 UTC; summary in `/root/deploy-1c.log` (metadata only), read by the session. Commit 175862320a89, deploy version 175862320a89; credentials step passed; `migrate`, `api`, `worker`, `web-build` built; Alembic head **0060**; `/healthz` ok on loopback and over TLS; `auth/mode` `oidc`; `ragflow-tei` running; worker started, 0 mail warnings; 7 datasets with counts equal to the Oct 20 figures (owner's comparison). "0 datasets counted" before the build is expected on this script's first run (the previous image had no `datasets counts` command, so step 10 recorded figures with nothing to compare). One `curl: (56)` connection reset in step 10 was the health loop's first attempt while the api started; the loop then passed. |
+
+### Section 2: isolation tests and the independent review
+
+- **2.1 Run:** full suite at 175862320a89 with `REQUIRE_DB_TESTS=1`, run with `uv` from a
+  worktree of the release commit, against a **throwaway PostgreSQL 16.15 container** (the
+  live `postgres` service's pinned digest, tmpfs, loopback port, removed after the run).
+  Not a scratch database in the live cluster: the test migrations create cluster-wide roles
+  (`askspore_app`, `askspore_retention`, `askspore_user_removal`, ...), which would touch the
+  live roles; same choice as Phase 1b §8 1.1. **1511 passed, 0 failed, 1 deselected**
+  (`test_ragflow_integration`), 229 s. ruff clean; `mypy --strict` clean (107 files).
+
+- **2.2 Controls on the Phase 1c changes** (all in `apps/api/tests/`). The generic checks over
+  `test_schema.TENANT_TABLES` (`test_tenant_tables_list_is_complete`,
+  `test_table_has_forced_rls_policy_and_tenant_first_index`, `test_other_tenant_sees_zero_rows`
+  and the rest of Phase 1b §8 1.2) still cover `messages`, which carries the new flags.
+
+| Control | Tests |
+| --- | --- |
+| `jobs` RLS (P1c-04, revision 0042; closes the Phase 1b review's ruling) | `test_jobs::test_a_tenant_scoped_session_reads_no_job_of_another_tenant`, `test_a_tenant_scoped_session_cannot_queue_a_job_for_another_tenant`, `test_the_operator_role_reads_every_job_even_when_scoped`, `test_jobs_rls_is_forced_with_both_policies` (with the third policy `user_removal`, I-5), `test_payloads_hold_identifiers_only`, `test_log_lines_take_job_fields_as_scalars_only` |
+| Role `askspore_user_removal` and user removal (P1c-07, revision 0051) | `test_user_removal::test_removal_leaves_no_row_with_the_users_id_outside_audit_events`, `test_a_tenant_admin_cannot_remove_another_tenants_user`, `test_the_application_role_alone_cannot_delete_users` (also: the removal role cannot read message text), `test_removal_knows_every_column_that_names_a_user`, `test_an_unknown_user_column_refuses_the_removal`, `test_unknown_user_columns_is_empty_on_the_schema`, `test_removal_refuses_the_admin_themselves_and_the_last_admin`, `test_the_operator_removes_any_tenants_user_but_no_platform_role`, `test_a_provider_failure_rolls_the_removal_back`, `test_a_plain_user_cannot_remove_or_resend`, `test_resend_refuses_an_active_user_and_another_tenants_user`; `test_authentik_adapter`: deactivation is a PATCH, never a DELETE |
+| Message flags `truncated`, `partial` (P1c-09, revision 0050) | `test_partial_answers::test_no_history_leaves_no_row_when_stopped`, `test_no_history_leaves_no_row_when_the_model_fails_mid_stream`, `test_a_corpus_only_answer_stopped_before_its_first_citation_keeps_no_text`, `test_a_stopped_answer_is_stored_partial` (log line without text), `test_a_disconnect_stores_the_partial_answer`, `test_a_model_failure_mid_stream_keeps_the_question_and_the_partial_answer`, `test_a_failure_before_the_answer_starts_stores_nothing`, `test_a_cut_off_answer_keeps_its_note_after_a_reload` |
+| Tags default internal (P1c-01) | `test_tags::test_a_tag_without_a_tenant_is_never_on_a_client_picker`, `test_a_file_relying_on_the_old_shared_default_is_refused`, `test_a_tag_cannot_be_both_a_tenants_and_shared`, `test_every_repository_tag_names_its_owner_or_is_marked_shared`, `test_repository_sample_tags_belong_to_the_internal_tenant`, `test_shared_tags_are_offered_to_every_tenant_and_own_tags_to_one`; `test_operator_console::test_a_tag_without_a_tenant_is_offered_to_no_client_and_refused_on_save` |
+| SSO refusal path (P1c-02) | `test_sso::test_an_out_of_domain_sign_in_is_refused_by_the_source_on_our_page`, `test_an_address_the_idp_did_not_verify_is_refused_by_the_source`, `test_a_google_hd_outside_the_domains_is_refused_by_the_source`, `test_the_refusal_reason_does_not_tell_another_tenants_user_apart`, `test_the_mapping_never_raises_whatever_the_idp_sends`, `test_every_kind_records_its_kind_on_login`, `test_the_audit_export_shows_the_kind_of_each_sso_event`; `test_saml_metadata::test_a_refused_mapping_carries_no_tenant_and_no_address`; `test_authentik_adapter::test_a_policy_denial_of_the_source_flow_is_refused_with_the_mappings_code`; `test_authentik_blueprint::test_the_source_policy_denies_a_refused_mapping_with_its_code` |
+| Credentials check (P1c-03) | `test_credentials::test_the_api_refuses_to_start_on_a_published_credential`, `test_every_published_key_is_named_at_once`, `test_the_published_values_are_what_the_repository_publishes`, `test_the_script_fires_on_the_example_values`, `test_the_script_passes_on_rotated_values`, `test_the_script_reads_compose_interpolation_from_the_shell_too`, `test_the_script_flags_authentik_bootstrap_keys` (each asserts no value in any output); live: 0.1 and the deploy's step 6 |
+| Loopback-only ports, no URL in error text (P1c-04, I-2, I-3) | `test_compose_ports::test_nothing_is_published_beyond_the_loopback_but_caddy`, `test_caddy_publishes_80_and_443_only`, `test_the_check_catches_every_way_to_publish_a_port`; `test_logging_policy::test_a_fetch_error_message_never_leaves_its_handler`; `test_ingest::test_from_fetched_messages_carry_no_url` |
+| Operator flag on `/me`, terminated tenants (P1c-08) | `test_console_feedback::test_me_says_operator_only_for_an_operator`, `test_only_operators_see_terminated_tenants`, `test_a_terminated_tenant_is_listed_with_its_certificate` |
+| `downloads_days` cap (P1c-04) | `test_config::test_downloads_retention_is_capped_at_365_days` |
+
+  The Phase 1a and 1b controls keep their tests (findings 1a §10; 1b §8 1.2); all ran in 2.1.
+  **Signed:** the isolation review of the Phase 1c changes passes at 175862320a89.
+
+- **2.3 Independent review (5.2): signed, no blocker.** Launched by the orchestrating session
+  on `main` since 1a714fe, signed at 175862320a89; every CLAUDE.md non-negotiable holds. The
+  report is `design/specs/phase-1c-independent-review.md` (commit c270784, on the
+  orchestrating session's branch, to reach `main` with its PR). Four backlog items, none a
+  change before this release: `RagflowError` detail kept out of logs and added to the static
+  scan (its item 3); the Keycloak drill Compose file asserted in the port test's file list
+  (8); a case-insensitive, minimum-length credentials comparison (11); rate-limiting
+  invitation resends before the first client user (§4, already a backlog line, now marked
+  confirmed).
+
+### Section 3: live checks
+
+- **3.1 Pre-existing SSO sources:** `tenant_login_policy` holds two rows (`internal`, `cc`), both
+  with source kind `none` and no source slug: no SSO source to re-save.
+- **3.2 Deviation from the runbook's fixed values (owner decision, Oct 23, 2026):** the slug
+  `ssotest` is not free. The Phase 1b termination purge keeps the `tenants` row (suspended,
+  Phase 1b F5), and slugs are unique, so the console answered `slug_taken`; nothing was written.
+  The purged row holds no verified domains. The SSO test tenant for this release is
+  **`ssotest2`** with the same two verified domains; the close-out purge certifies `ssotest2`.
+  Backlog: reusable slugs after termination, the tenant UUID staying the permanent identifier.
+- **3.2 Entra refusal setup (owner decision, Oct 23, 2026):** the trial tenant has only its own
+  domain, which `ssotest2` verifies (Phase 1b could not test this case). Narrowing the domains
+  for the test was not possible: verified domains are fixed at tenant creation (backlog). The
+  refusal is tested with an Entra **guest user** whose address is outside both domains.
+
+
+| 3.2 Check (Oct 23, UTC) | Result |
+| --- | --- |
+| `ssotest2` created | Console "Saved." for tenant and login policy; active, 2 verified domains, JIT on, admin MFA required; `operator.tenant_created`, `operator.login_policy_changed`. |
+| Entra source saved | Policy kind `entra`, source `sso-ssotest2`; stored config holds the directory and client IDs and admin groups only, no secret; `operator.sso_source_changed` carries kind, slug and a config SHA-256. |
+| Entra refusal (guest, personal address) | First attempt stopped at Microsoft, `AADSTS50011`: the app registration listed only the Phase 1b callback `/sso-ssotest/`; the owner added `/sso-ssotest2/` (nothing reached us). Retry 19:5x: our landing page, `?sign_in=failed&reason=domain`, the domain message; `auth.login_failed` `method = sso:entra`, `domain_not_verified`; no user in our database or Authentik; no Authentik event at all (no `configuration_error`, no `property_mapping_exception`; the last ones are the Phase 1b drill's, Oct 22). **Pass.** |
+| Entra success (member user) | 20:02:51 `auth.user_provisioned` and `auth.login`, `method = sso:entra`; user role `user`, consent pending (kept for 3.3 b); Authentik `external` user with the tenant attribute, `source_linked`, `login`. A refusal at 20:01:01 (`sso:entra`, `domain_not_verified`) preceded it: the owner saw a time-out and reloaded; most likely the private session still held the guest's Microsoft sign-in. **Pass.** |
+| Entra source removed | "SSO source removed.", form cleared; policy kind `none`, no slug, config `{}`; no `sso-*` source or mapping in Authentik. **Pass.** |
+| Google source saved | "Saved." shown, with the earlier "SSO source removed." still under it (F2). Owner added `/sso-ssotest2/` to the Google OAuth client's redirect URIs. |
+| Google refusal (`myceliumgastronomy.com` Workspace user, `cc`'s domain) | 20:18:25 our landing page, `reason=domain`; `auth.login_failed` `method = sso:google`, `domain_not_verified` (address check before the `hd` check); no user anywhere; no Authentik error event. **Pass.** One `auth.login_failed` `method = sso`, `no_binding` at 20:10:26 (before the Google source existed): a callback without its attempt's cookie, refused; cause being confirmed with the owner. |
+| Google source removed | "SSO source removed.", form cleared; policy `none`; no `sso-*` source in Authentik. **Pass.** |
+| Keycloak drill (generic OIDC) | Needs F3 on `main` first. |
+
+### Issues found and fixed during the release
+
+| # | Where | Issue | Fix |
+| --- | --- | --- | --- |
+| F1 | 1.2, P1c-10 | The deploy script's step 10 polled `/api/v1/healthz`, which requires a signed-in user and answers 401 to `curl`, so every deploy would have failed at its checks. Found after the runbook was written and before the deploy. | PR #61 (2244b09): the script checks the public `/healthz`, on loopback and over TLS; `test_deploy` pins the path. In the release commit. |
+| F2 | 3.2, P1c-08 | On the operator console's SSO source form, the save and the removal each kept their own status line and neither cleared the other: after removing the Entra source and saving the Google one, "Saved." and "SSO source removed." both stood (seen by the owner). P1c-08 asks for the outcome of each save. | `latestSourceAction` (`apps/web/src/lib/sso.ts`) picks the action submitted last; the form shows that one status line. Four unit tests in `sso.test.ts` (save after removal, removal after save, refusal after removal, nothing before any action). Web lint, typecheck and 126 unit tests pass. Live after merge and the next deploy; re-checked at 3.6. |
+| F3 | 3.2, Keycloak drill | The drill's realm template had the Phase 1b callback `/source/oauth/callback/sso-ssotest/` fixed in its client, so with the test tenant `ssotest2` (3.2 deviation) Keycloak would refuse the callback, as Microsoft did before the owner added the new URI to the Entra app (3.2 notes). | `setup.py` takes a required `--source-slug` (`sso-<tenant slug>`, validated) and fills the redirect URI from it; README updated. `tests/test_keycloak_drill.py`: the URI follows the slug; malformed slugs refused; the template names no tenant. ruff, format, `mypy --strict` clean. |

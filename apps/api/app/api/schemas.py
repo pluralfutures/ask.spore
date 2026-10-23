@@ -148,6 +148,10 @@ class MessageOut(BaseModel):
     # P1b-17: a backup model answered (``model`` is not the conversation's): "eu" or
     # "external" (served outside the EU).
     failover: Literal["eu", "external"] | None = None
+    # P1c-09, assistant messages: cut off at the output budget, or ended early (stopped,
+    # the client left, or the model failed mid-stream).
+    truncated: bool = False
+    partial: bool = False
 
 
 class ConversationDetail(ConversationSummary):

@@ -321,6 +321,8 @@ async def get_conversation(
                 model=m.model if m.role == "assistant" else None,
                 reasoning=m.reasoning if m.role == "assistant" else None,
                 failover=_failover(request, conversation.model, m),
+                truncated=m.truncated,
+                partial=m.partial,
             )
             for m in messages
         ],

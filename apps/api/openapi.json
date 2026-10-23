@@ -2278,6 +2278,11 @@
             ],
             "title": "Model"
           },
+          "partial": {
+            "default": false,
+            "title": "Partial",
+            "type": "boolean"
+          },
           "reasoning": {
             "anyOf": [
               {
@@ -2296,6 +2301,11 @@
             ],
             "title": "Role",
             "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
           },
           "unsupported": {
             "title": "Unsupported",

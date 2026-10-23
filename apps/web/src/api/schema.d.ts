@@ -2154,6 +2154,11 @@ export interface components {
       mode: string;
       /** Model */
       model?: string | null;
+      /**
+       * Partial
+       * @default false
+       */
+      partial: boolean;
       /** Reasoning */
       reasoning?: boolean | null;
       /**
@@ -2161,6 +2166,11 @@ export interface components {
        * @enum {string}
        */
       role: "user" | "assistant";
+      /**
+       * Truncated
+       * @default false
+       */
+      truncated: boolean;
       /** Unsupported */
       unsupported: boolean;
     };

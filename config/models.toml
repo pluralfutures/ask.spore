@@ -271,6 +271,9 @@ similarity_threshold = 0.25  # below this nothing is relevant: abstain without a
 max_context_tokens = 6000   # cap on retrieved passages sent to the model
 cache_ttl_seconds = 86400   # answer cache; key includes the corpus version
 # RAGFlow's hybrid score: weight of vector similarity against keyword similarity
-# (RAGFlow's default 0.3, P0-20). Part of the answer-cache key. To be tuned with the
-# similarity threshold on eval set v1 on the Instance (P1b-15 e).
-vector_similarity_weight = 0.3
+# (RAGFlow's default 0.3, P0-20). Part of the answer-cache key. Tuned Oct 23, 2026 on
+# the Instance (P1b-15 e, release step 7.4; findings 1b §8): one full eval set v1 run
+# each at 0.2, 0.3 and 0.4 with similarity_threshold 0.25, corpus_only/v5 on
+# deepseek-v4.1-flash, judge qwen3.8-27b; owner chose 0.4 (0.2 lost a third of
+# retrieval under the threshold). One run per weight: confirm at the next eval run.
+vector_similarity_weight = 0.4

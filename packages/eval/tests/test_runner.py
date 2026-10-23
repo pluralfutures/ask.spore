@@ -119,4 +119,4 @@ def test_config_meta_names_the_active_providers_models() -> None:
     # decision 22, Oct 22, 2026); the vector weight is recorded.
     assert meta["judge_provider"] == "scaleway"
     assert meta["judge_model"] == "qwen3.8-27b"
-    assert meta["vector_similarity_weight"] == 0.3
+    assert meta["vector_similarity_weight"] == 0.4  # tuned in the Phase 1b release (7.4)

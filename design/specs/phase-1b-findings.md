@@ -228,3 +228,145 @@ pass against PostgreSQL 16 (1 deselected); eval package ruff, format, mypy, 88 t
 `schema.d.ts` unchanged by the merge; compose config valid. The image-digest `--check`
 hit Docker Hub's anonymous limit here; the E2 review ran it without the mirror and every
 pin matched.
+
+## 8. Release on the Instance, Oct 22, 2026 (P1b-16)
+
+Run by a remote-control session on the Instance from `design/specs/phase-1b-release-runbook.md`.
+The Instance runs `main` at **bd1bc46** (`ASK_SPORE_DEPLOY_VERSION=bd1bc464ca60`).
+
+### Release status
+
+In progress (paused Oct 22, 2026, 23:45 UTC, Instance powered down). Done: sections 0 to 5, 6.1. Open: 6.2 (owner step 6.2a: invite the `ssotest` admin, add workspace `drill`), 6.3, 7, 8.
+
+### Section 0: bring-up
+
+| Step | Result |
+| --- | --- |
+| 0.2 Env keys | `.env` and `infra/authentik/.env` carry every key their compose files need; the variables left unset have Compose defaults (ports, `ASK_SPORE_DEPLOY_VERSION`, and the two database passwords below). |
+| 0.3 Image digests | `image-digests.py --check` against Docker Hub (no mirror): 14 pins match, **3 tags moved** (table below). Owner decision Oct 22, 2026: keep the existing pins for this release; re-pin after the release in its own PR (backlog). |
+| 0.4 Authentik blueprint | Dry run valid. Applied by starting `authentik-postgresql`, `authentik-server` and `authentik-worker` only (a bare `--profile auth up -d` also starts `migrate`, `api`, `worker` and RAGFlow on the previous images). Blueprint instance `successful`; `verify_blueprint.py`: ok. **Adopted:** flow `ask-spore-sign-in-link` and its three stages, provider and application `ask-spore`, role and service account `ask-spore-provisioner` and its token `ask-spore-provisioner-api` (one provisioner, so step 2.5 has nothing to remove). **Changed:** provider grant types gain `refresh_token`, scopes gain `offline_access`, refresh-token validity `days=30` → `hours=24`; stage `ask-spore-admin-mfa` bound at order 25 of the sign-in-link flow. **Created:** flows `ask-spore-source-authentication`, `-source-enrollment`, `-source-pre-authentication`; stages `ask-spore-admin-mfa`, `ask-spore-admin-totp-setup`, `ask-spore-source-create`, `ask-spore-source-write`; group `ask-spore-tenant-admins`. |
+| 0.5 Build and start | `api`, `web-build`, `worker` and **`migrate`** built from bd1bc46 (F1). Alembic head **0041**. `api`, `worker`, `caddy` up; RAGFlow started from its unchanged pins (not in the runbook's `up` line, needed by sections 4 and 7). `/healthz` 200 over TLS; `/api/v1/auth/mode` = `oidc`; no startup warning (consent placeholder gone). Public listeners: 22, 80, 443 only; Postgres, Redis, API, RAGFlow UI and 9000 on loopback. |
+| 0.6 Content roles | `content_editor` and `content_reviewer` granted to the operator as schema owner; two `content_role.granted` audit events. |
+
+**Moved image tags (0.3), not re-pinned:**
+
+| Image (file) | Pinned digest | Docker Hub digest on Oct 22, 2026 | Hub image built |
+| --- | --- | --- | --- |
+| `postgres:16.15-alpine` (`infra/authentik/docker-compose.yml`) | `sha256:deb28ee471183cb0c303113dac9b2433c51eeeeb678def7af9a9ec5820367815` | `sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36` | Oct 21, 2026 22:57 UTC |
+| `redis:7.4.11-alpine` (`infra/compose.dev.yml`) | `sha256:892022f9f18c26c92c30e15194d132f90044af87b94a491a75429bbc3982eab1` | `sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541` | Oct 21, 2026 21:14 UTC |
+| `caddy:2.11.7-alpine` (`infra/compose.dev.yml`) | `sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd` | `sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f` | Oct 21, 2026 21:32 UTC |
+
+**Credentials still at a default or example value (names only, owner decision Oct 22, 2026:
+pre-launch item, not a release blocker; backlog):** the Postgres schema owner `askspore`
+(`POSTGRES_PASSWORD` unset, Compose default) and the application role `askspore_app`
+(`APP_DB_PASSWORD` unset, Compose default), so `DATABASE_URL` and `MIGRATIONS_DATABASE_URL` in
+`.env` equal `.env.example`; the application Redis has no password (`REDIS_URL` equals the
+example). Also standing: the Authentik bootstrap API token (`authentik-bootstrap-token`, user
+`akadmin`). RAGFlow's MySQL, MinIO, Elasticsearch and Redis passwords differ from the example.
+Postgres and Redis listen on loopback and the Compose network only.
+
+### Section 1: isolation tests
+
+- **1.1 Run:** full suite at bd1bc46 with `REQUIRE_DB_TESTS=1` against a throwaway PostgreSQL
+  16.15 container (same pinned digest as the live one, tmpfs, removed after the run). The live
+  cluster was not used because the migrations create cluster-wide roles. Run with `uv` on the
+  Instance at the release commit, as in Phase 1a: the API image carries neither tests nor dev
+  dependencies. **1345 passed, 0 failed, 1 deselected** (`test_ragflow_integration`). ruff and
+  `mypy --strict` (105 files) clean.
+
+- **1.2 Controls on the new tables** (all in `apps/api/tests/`). The generic checks run over
+  every table in `test_schema.TENANT_TABLES`, which now includes `downloads`, `content_roles`
+  and `tenant_login_policy` (`test_tenant_tables_list_is_complete` fails on a tenant table
+  missing from the list): `test_table_has_forced_rls_policy_and_tenant_first_index`,
+  `test_other_tenant_sees_zero_rows`, `test_no_tenant_set_sees_zero_rows`,
+  `test_cannot_write_rows_for_another_tenant`, `test_cannot_move_rows_to_another_tenant`,
+  `test_app_role_cannot_bypass_rls`.
+
+| Table or object | Tests beyond the generic ones |
+| --- | --- |
+| `content_roles` | `test_register::test_roles_are_internal_only_and_read_only_for_the_app`, `test_proposing_needs_the_editor_role`, `test_an_editor_cannot_approve`, `test_audit_allow_list_takes_roles_and_self_approval_as_scalars_only`; `test_content_console::test_tenant_admins_and_users_cannot_reach_any_content_route`, `test_an_internal_user_without_a_content_role_is_refused`, `test_the_console_never_returns_document_text`; `test_withdraw::test_the_content_role_sees_identifiers_and_flags_only`; `test_eval_service::test_a_service_identity_given_roles_later_is_still_refused` |
+| `tenant_login_policy` | `test_login_policy::test_a_domain_of_tenant_a_never_offers_tenant_bs_methods`, `test_a_domain_claimed_by_two_tenants_offers_nothing_tenant_specific`, `test_discovery_answer_carries_no_tenant_identifiers`, `test_policy_body_takes_no_sso_fields_or_identifiers`, `test_every_new_tenant_gets_a_default_policy`, `test_app_role_reads_its_own_policy_but_cannot_change_it`; `test_sso::test_address_of_another_tenants_user_is_not_provisioned`, `test_a_token_from_a_source_bound_to_tenant_a_cannot_act_in_tenant_b`, `test_nothing_identifying_reaches_the_logs` |
+| `jobs` (shared, outside tenant RLS by design, revisions 0014 and 0030) | `test_jobs::test_payloads_hold_identifiers_only`, `test_a_failed_job_records_an_error_code_and_no_body`, `test_log_lines_take_job_fields_as_scalars_only`; `test_mail::test_rendering_carries_no_identifier_beyond_the_recipient_address`, `test_the_first_admin_invite_sends_an_email_with_no_address_in_any_log`. **Review note:** since 0030 mail jobs carry `tenant_id` and `user_id` in the payload and the application role may read every job; no tenant-facing route reads `jobs` (worker, purge, termination and the content console only). Not a blocker in this review; put to the independent review for a ruling. |
+| `sites`, `site_pages` (shared, no tenant data) | `test_sites::test_sites_are_shared_tables_the_app_cannot_delete_and_the_operator_cannot_read`, `test_registration_checks_roles_input_and_the_host`, `test_a_crawl_never_connects_to_a_rebound_internal_address` |
+| `downloads` | `test_files::test_another_tenants_workspace_is_not_found`, `test_a_file_outside_the_workspace_is_not_downloadable_by_direct_url`, `test_listed_file_that_is_not_downloadable_is_refused`, `test_download_serves_our_stored_copy_once_and_is_audited`; `test_retention_purge::test_purge_deletes_exactly_the_expired_rows` |
+| Consent columns on `users` | `test_consent::test_the_application_role_updates_only_its_tenants_consent`, `test_tenant_admin_pages_are_gated_like_users`, `test_the_refusal_log_line_carries_identifiers_only`, `test_the_tenant_admin_audit_export_includes_acceptance_events`; `test_eval_service::test_the_service_identity_is_not_consent_gated_but_humans_are` |
+| `usage_ledger.reasoning_tokens` | `test_reasoning::test_reasoning_tokens_reach_the_ledger_and_the_log_as_counts`, `test_reasoning_is_never_persisted_cached_audited_or_logged`, `test_reasoning_count_reads_objects_and_mappings_and_defaults_to_zero` |
+| Role `askspore_retention` | `test_retention_purge::test_the_retention_role_reads_no_content_and_needs_a_tenant`, `test_the_application_role_does_not_inherit_the_retention_role`, `test_a_tenant_scoped_purge_reaches_only_that_tenant`, `test_zero_retention_leaves_no_rows_after_the_answer`; `test_termination::test_termination_leaves_no_rows_for_the_tenant_and_writes_the_certificate`, `test_termination_refuses_while_a_tenant_table_is_unknown`; `test_tenant_admin::test_retention_cannot_be_set_above_30_days` |
+
+  The Phase 1a controls keep their tests (findings 1a §10, "Isolation review"); all ran in
+  1.1. **Signed:** the isolation review of the Phase 1b tables passes at bd1bc46, with the
+  `jobs` note above for the independent review.
+
+### Independent review of Oct 22, 2026 (P1b-16)
+
+**Signed, no blocker.** Launched by the orchestrating session on the diff 6516048..bd1bc46;
+the report is `design/specs/phase-1b-independent-review.md`. Its ruling on `jobs`: acceptable
+for this release, with RLS by payload `tenant_id` and a cross-tenant test required before any
+tenant-facing route reads the table. That and its other follow-ups (no `FetchError` message in
+logs, a Compose non-loopback port test, a lower `downloads_days` cap, the re-pins after the
+publishers' changelogs) are backlog lines.
+
+### Section 2: live checks
+
+| Check | Result |
+| --- | --- |
+| 2.1 Platform mail (P1b-11) | **Pass.** Invitation to a new `cc` tenant admin (daniel+cc2; the first address was taken since Phase 1a, 409 `email_taken`, and resend is backlog by decision 15). Job `459fc857-e095-453e-90b0-3226a16bc8e0`: first run failed `mail_not_configured` (F2); re-queued 22:04:50 UTC, `succeeded` 22:04:53, 1 attempt, 481 ms; audit `mail.sent` (template `invitation`, provider `scaleway`). Owner confirmed: delivered, subject "You are invited to SporeBot", first-name greeting, SPF, DKIM and DMARC pass, From "SporeBot" <reply@askspore.myceliumgastronomy.com>. DMARC on the organisation domain is `p=none` (pre-launch backlog). The daniel+cc2 user is removed at close-out. |
+
+| 2.2 Per-IP limit on `POST /auth/link` | **Pass.** 12 requests from the owner's machine outside the Instance (synthetic address on a reserved domain): 8 × 202, then 429 (the owner's 2 earlier link requests in the window made 10). 4 `auth.ip_rate_limited` lines (`route=link`, `status=429`); no IP address or email in any API log line of the period. |
+| 2.2 Session refresh | **Desk-checked live** (validity not shortened): the Authentik provider now has the `refresh_token` grant, `offline_access` and a 24-hour refresh validity (0.4), equal to `[auth] refresh_token_ttl_seconds` (86400); a renewal falls due only after the 8-hour access token, so none occurred during the release. |
+| 2.2 Sign-out revokes the Authentik token | **Pass.** Each of the 4 SSO sign-outs and the admin's sign-out recorded `auth.signed_out` (`status=revoked`), and Authentik then held **0** access or refresh tokens for the user, so a refresh after sign-out has nothing to use (checked per user in Authentik; the refresh call itself not replayed). |
+| 2.2 `no_binding` | **Pass.** A link requested in a private window and opened in another browser: "Open this link in the same browser window where you asked for it. A link works only there, once, for 15 minutes. Ask for a new link from the browser you want to use."; `auth.login_failed` `error_code=no_binding`; the same link then signed in from the window that asked for it (not spent). |
+| 2.3 Admin second factor (decision 7) | **Pass.** The `cc` admin daniel+cc2: first sign-in required TOTP enrolment (`auth.mfa_required`; the page shows the key as text and an `otpauth://` link, no QR code, by design, findings B15), issuer "SporeBot" in the owner's authenticator; Authentik: member of `ask-spore-tenant-admins`, 1 confirmed TOTP device. Second sign-in asked only for the code. Users without the group (the three JIT `ssotest` users) were not asked. |
+| 2.4 SSO, Entra ID (P1b-07) | **Pass.** Trial tenant `myceliumtest001.onmicrosoft.com`. First attempt refused cleanly (`refused_by_source`; Microsoft `AADSTS7000215`, the secret's ID entered instead of its value; no user created); after the owner re-entered the value: discovery offered Microsoft, JIT user created in `ssotest` (role `user`), Authentik user `external` with `ask_spore_tenant` = `ssotest` and connection `sso-ssotest`, audit `auth.user_provisioned`, `auth.login` (`method=sso`), `consent.accepted`, `auth.signed_out` (`revoked`, no live Authentik token after). No second factor (not an admin). Unverified-domain case not testable (the trial tenant has its own domain only); covered by Google and Keycloak. Source removed: no source or mapping left in Authentik. |
+| 2.4 SSO, Google Workspace | **Pass.** Verified user on `pluralfutures.com`: JIT user, tenant attribute, audit and sign-out as for Entra (the second-factor prompt was Google's own 2-Step Verification; no SporeBot challenge). Workspace user on `myceliumgastronomy.com` (verified for `cc`): refused (`refused_by_source`, Authentik mapping `domain_not_verified`), no user in any tenant or in Authentik. Source removed. |
+| 2.4 SSO, generic OIDC | **Pass.** Throwaway Keycloak 26.7.5 (digest-pinned, `infra/drills/keycloak/`) on `idp-test.askspore.myceliumgastronomy.com`; Authentik fetched discovery and JWKS through the public host. `drill-verified@pluralfutures.com`: JIT user, tenant attribute, audit, sign-out as above. `drill-outsider@myceliumgastronomy.com`: refused (`domain_not_verified`), no user anywhere. Source removed; Keycloak container, volume and secret files removed; Caddy back on the production Caddyfile. |
+| 2.4 SSO, SAML | Desk-checked only (runbook): `test_sso`, `test_sso_console` and the metadata parser's tests. |
+
+SSO notes: (1) the runbook expected audit `method = sso:<kind>`; the build records `method=sso` (the spec asks only for the events; the kind at the time is in the tenant's `operator.sso_source_changed` history). (2) A refused SSO sign-in reaches Authentik as an exception in the generated mapping, so Authentik answers its callback with HTTP 500 and records `property_mapping_exception` and `configuration_error` events (no address in either); by design, but it looks like a fault in Authentik's monitoring. (3) After "Remove SSO source" the console's form keeps the old kind, issuer and client ID while the summary says "none". Backlog for all three.
+
+### Section 3: consent gate (P1b-10)
+
+| Check | Result |
+| --- | --- |
+| 3.1 Released wording | `config/consent/v1.md` released before the session (owner input 1); no placeholder warning at api startup. |
+| 3.2 Gate | **Pass.** The `cc` admin daniel+cc2 on first sign-in: the notice shown; before acceptance the API refused the app's calls with 403 `consent_required` (2 `consent.refused` lines; the owner's console `POST /conversations` was sent only after acceptance and got 422 on its empty body, so the gate let it through, as it should); `consent.accepted` v1 audited; the app opened. Every SSO user of `ssotest` showed the same refuse-then-accept sequence. |
+| 3.2 Audit export | **Pass.** Columns `created_at,event,actor_user_id,metadata`; 25 data rows, equal to the `cc` events in the export's allow-list at that time; includes `consent.accepted`; no free-text column. Owner input 3 (download events) was already applied on Oct 22 (decision 18, eba1c77, tested in `test_consent.py`). |
+| 3.3 | Version not bumped on the Instance. |
+
+### Section 4: content pipeline drills (P1b-01 to P1b-05)
+
+Baseline before the drills (RAGFlow's own counts per dataset, documents/chunks): identical to the
+Oct 20 figures (findings 1a §9): `cc-team1-healthcare-gpo` 60/4,037, `cc-team2-college-universities`
+64/4,087, `cc-team3-commercial-restaurants` 22/1,145, `sample-reports` 59/2,580, `cc-shared`,
+`sample-analysis` and `sample-web` 0/0.
+
+| Check | Result |
+| --- | --- |
+| 4.1 Propose, approve, ingest | Synthetic `packages/eval/fixtures/corpus/brightwater-heat-pumps-note.docx`, tag `sample-analysis` (internal `research` workspace only; no `cc` workspace carries it), `--downloadable`, proposed and approved by the operator (both content roles): source `24999170-d74e-43b6-8ab3-0ec073b0bd28`. First run `parse_failed` in 8 s (F3); after the fix, `sources retry`: **`ingested`**, 1 RAGFlow document, 1 chunk, 17 s. Audit: `source.proposed`, `source.approved` (`self_approval=true`), `source.failed`, `source.retried` (`self_approval=true`), `source.ingested`. `sample-analysis` dataset 0/0 → 1/1, the others unchanged. |
+| 4.1 Download | The operator downloaded the file from the internal `research` workspace's file list: `download` audited for the source, `files.download_served` logged. |
+| 4.2 Takedown drill | Before: a question in `research` answered from the note (10 chunks, citation to the source, 3.2 s), asked again in a new conversation and served from the answer cache (20 ms, 0 tokens); 2 stored citations with excerpts, 1 answer-cache key under the internal tenant's prefix. `sources takedown --licence-grounds`, reference `DRILL-P1B16-20261022`, requested Oct 22: **due 2026-11-05** (10 working days). `sources withdraw`: job queued 23:18:59.50, finished 23:19:01.14 UTC (worker 849 ms); `source.withdrawal_requested`, `source.withdrawn` (`excerpts_blanked=true`). After: every dataset back to the baseline, both citations `withdrawn_at` set and excerpt `''` (the UI shows the withdrawn label in place of the passage, A2-2), answer cache 0 keys. The owner's two questions right after (23:19:01, 23:19:10) were withheld (`unsupported`, `answer_withheld`): neither the cache nor retrieval served the note. |
+| 4.3 Crawl drill | `https://www.myceliumgastronomy.com/` (the owner's site, owner decision), `--max-pages 20`, tag `sample-web` (internal only), crawler `ask.spore-crawler/0.1`, which the site's robots.txt does not name (its `*` group applies). Allow decision `allowed` (robots and no TDM reservation); 153 s; **19 pages live and ingested (35 chunks)**, 2 blocked (`noai_or_noindex`, a page's own meta tag; `duplicate_content`). The fetches through the pinned address worked against a real HTTPS host (the SNI question of §7 is settled). Re-crawl (`site.crawl_requested`): 27 s, 0 ingestions, page register byte-identical, dataset unchanged. One page withdrawn: its page row `blocked` (`withdrawn`), dataset 19/35 → 18/34. "Withdraw the site": there is no site-level action (decision 8: withdrawals stay per page), so the other 18 pages were withdrawn (149 s, 0 failures); the site row stays `approved`, schedule `none`, every page `blocked`. Backlog. |
+| 4.4 Clean-up | The synthetic source withdrawn (4.2) and every crawled page withdrawn: RAGFlow's counts per dataset equal the Oct 20 figures exactly. |
+
+### Section 5: operator console and spend (P1b-12)
+
+| Check | Result |
+| --- | --- |
+| 5.1 One tenant per page | `cc` opened, entitlements saved unchanged: the save landed on `cc` only (its `tenant_entitlements.updated_at` 23:28:50; `ssotest` and `internal` untouched). No audit event: `operator.entitlements_changed` is written only when a value changes, by design; the runbook expected one. The console shows no confirmation after a save (backlog). |
+| 5.1 Tag picker | Offered `cc-shared`, `cc-team1-…`, `cc-team2-…`, `cc-team3-…` **and the three `sample-*` tags marked shared** (no `tenant` in `tags.toml`, so shared with every tenant). Owner decision (a): `sample-*` belong to the internal tenant (F4). |
+| 5.2 Spend | **Pass.** `cc` → Spend, month to date: DeepSeek V4.1 Flash 30,389 in, 15,606 out, €0.05; Qwen 3.8 27B 25,632 in, 10,904 out, €0.05; external off, €0.00: equal to `usage_ledger` (4.63 and 5.14 cents). Aggregates page: scaleway 1,734,788 in, 111,253 out, €1.26; DeepSeek 2 tenants 1,709,156 / 100,349 / €1.21; Qwen 1 tenant 25,632 / 10,904 / €0.05; "2 of 3 tenants": equal to the ledger sums (125.75 cents in all); no question text on the page. |
+
+### Section 6: retention (P1b-14)
+
+| Check | Result |
+| --- | --- |
+| 6.1 Purge | `purge --dry-run`: total 0 due (per-tenant and per-table lines are printed only for a non-zero count; no history is older than 30 days yet). `purge --run --wait`: job `purge_retention` succeeded, 1 attempt, 57 ms, `retention.purge_finished` count 0. The worker wrote 2 log lines in the period, both allow-listed JSON, no body-like field. |
+
+### Issues found and fixed during the release
+
+| # | Item | What | Fix |
+| --- | --- | --- | --- |
+| F1 | Runbook 0.5 | `migrate` builds its own image (`ask-spore-dev-migrate`), which the runbook's build line (`build api web-build worker`) omits: `up -d migrate` ran the Phase 1a image, exited 0 and left the database at 0012. | Built `migrate` too and re-ran: head 0041. Runbook 0.5 now builds `migrate`. (The README deploy line, `up -d --build api worker`, also builds the `migrate` dependency it starts.) |
+| F2 | Runbook 2.1, P1b-11 | `SCALEWAY_TEM_API_KEY` was not in the root `.env` (the runbook's fixed values said it was, Oct 22); the worker started with `worker.mail_not_configured` (`status=no_sender`, a warning only), and the invitation for the new `cc` admin (job `459fc857-e095-453e-90b0-3226a16bc8e0`, created 21:55:55 UTC) failed at its first attempt at 21:56:00 with `mail_not_configured`, permanent, before any provider call. No resend action exists (backlog, decision 15). | The owner added the key to `.env` in their own terminal; `worker` and `api` recreated (no startup warning). Owner decision (a): the job re-queued by hand as the schema owner at 22:04:50 UTC (`status` `queued`, `attempts` 0, `error_code` cleared); it succeeded at 22:04:53 (1 attempt, 481 ms), audit `mail.sent` (template `invitation`, provider `scaleway`). |
+| F3 | Runbook 0.5, RAGFlow compose | `ragflow-tei` (the embedding service) was not running: runbook 0.5 starts `api worker caddy` only, RAGFlow was started by hand with `up -d ragflow`, and the `ragflow` service does not depend on `ragflow-tei`. The 4.1 ingestion failed `parse_failed` (RAGFlow could not resolve `ragflow-tei`); every chat question would also have failed to embed its query. No question was asked in the period (no `chat.query` events). | `ragflow-tei` started (RAGFlow's embed call 200), the source retried and ingested. `infra/ragflow/docker-compose.yml`: `ragflow` depends on `ragflow-tei` (`service_started`); runbook 0.5 starts `ragflow` with the api. Not applied to the running RAGFlow container (TEI already up); takes effect at the next start. |
+| F4 | 5.1, P1b-12 | The `sample-*` tags (Phase 0 sample corpus, synthetic fixtures, the drill crawl) had no `tenant` in `config/tags.toml`, so the operator console offered them to every client workspace as shared tags. | Owner decision (a), Oct 22, 2026: `tenant = "internal"` on the three. `test_operator_console::test_tag_picker_offers_the_tenants_own_and_shared_tags` updated (cc offered its four tags only, a `sample-*` tag refused for another tenant), `test_tags` gains a unit test of shared tags and a repository test, `test_workspaces::test_operator_creates_workspaces_and_assigns_tags` uses shared copies of the tags. Suite: 1347 passed against PostgreSQL 16. (The eval package's `test_the_repository_gate_passes` fails on the Instance only, because of 8 untracked, unredacted Oct 21 result folders under `packages/eval/results/`; they are never committed, and CI does not see them.) Backlog: tags default to internal, sharing explicit. |

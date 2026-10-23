@@ -14,6 +14,7 @@ from app.content.tags import (
     TagsConfigError,
     dataset_name,
     load_tags,
+    tags_for_tenant,
 )
 from app.core.config import DEFAULT_CONFIG_DIR
 
@@ -106,3 +107,24 @@ def test_invalid_tags_file_is_rejected(tmp_path: Path, text: str, message: str) 
 def test_missing_tags_file(tmp_path: Path) -> None:
     with pytest.raises(TagsConfigError, match="not found"):
         load_tags(tmp_path)
+
+
+def test_shared_tags_are_offered_to_every_tenant_and_own_tags_to_one(tmp_path: Path) -> None:
+    tags = load_tags(
+        write(
+            tmp_path,
+            '[tags.common]\nchunk_method = "naive"\n'
+            '[tags.a-own]\nchunk_method = "naive"\ntenant = "a"\n'
+            '[tags.b-own]\nchunk_method = "naive"\ntenant = "b"\n',
+        )
+    )
+    assert tags_for_tenant(tags, "a") == ["a-own", "common"]
+    assert tags_for_tenant(tags, "b") == ["b-own", "common"]
+    assert tags_for_tenant(tags, "c") == ["common"]
+
+
+def test_repository_sample_tags_belong_to_the_internal_tenant() -> None:
+    # Owner decision of Oct 22, 2026 (Phase 1b release 5.1): no client is offered them.
+    tags = load_tags(DEFAULT_CONFIG_DIR)
+    assert tags_for_tenant(tags, "cc") == sorted(CLIENT_TAGS)
+    assert tags_for_tenant(tags, "internal") == ["sample-analysis", "sample-reports", "sample-web"]

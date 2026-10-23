@@ -125,45 +125,50 @@ async def test_one_tenant_and_its_users(console: Console) -> None:  # noqa: F811
 
 
 async def test_tag_picker_offers_the_tenants_own_and_shared_tags(console: Console) -> None:  # noqa: F811
+    # The repository's tags all name a tenant (the sample-* tags are the internal
+    # tenant's, owner decision of Oct 22, 2026); shared tags are covered in test_tags.
     op = await console.operator()
     cc = await tenant_with_slug(console, op, "cc")
+    internal = await tenant_with_slug(console, op, "internal")
     other = (await create(op))["id"]
-    offered_cc = {
-        t["tag"]: t["shared"] for t in (await op.get(f"/api/v1/operator/tenants/{cc}/tags")).json()
-    }
-    offered_other = {
-        t["tag"]: t["shared"]
-        for t in (await op.get(f"/api/v1/operator/tenants/{other}/tags")).json()
-    }
-    shared = {"sample-analysis": True, "sample-reports": True, "sample-web": True}
-    assert offered_other == shared  # no other tenant's tags
-    assert offered_cc == {
-        **shared,
+
+    async def offered(tenant: str) -> dict[str, bool]:
+        response = await op.get(f"/api/v1/operator/tenants/{tenant}/tags")
+        return {t["tag"]: t["shared"] for t in response.json()}
+
+    assert await offered(other) == {}  # no other tenant's tags
+    assert await offered(cc) == {
         "cc-shared": False,
         "cc-team1-healthcare-gpo": False,
         "cc-team2-college-universities": False,
         "cc-team3-commercial-restaurants": False,
     }
+    assert await offered(internal) == {
+        "sample-analysis": False,
+        "sample-reports": False,
+        "sample-web": False,
+    }
 
     # The API refuses another tenant's tag, whatever the page offered.
+    for tag in ("cc-shared", "sample-reports"):
+        created = await op.post(
+            f"/api/v1/operator/tenants/{other}/workspaces",
+            json={
+                "slug": "main",
+                "name": "Main",
+                "tag_ids": [tag],
+                "default_mode": "corpus_only",
+                "default_model": MODEL,
+                "default_reasoning": False,
+            },
+        )
+        assert (created.status_code, created.json()["detail"]) == (422, "tag_not_for_tenant")
     created = await op.post(
-        f"/api/v1/operator/tenants/{other}/workspaces",
+        f"/api/v1/operator/tenants/{cc}/workspaces",
         json={
-            "slug": "main",
-            "name": "Main",
-            "tag_ids": ["sample-reports", "cc-shared"],
-            "default_mode": "corpus_only",
-            "default_model": MODEL,
-            "default_reasoning": False,
-        },
-    )
-    assert (created.status_code, created.json()["detail"]) == (422, "tag_not_for_tenant")
-    created = await op.post(
-        f"/api/v1/operator/tenants/{other}/workspaces",
-        json={
-            "slug": "main",
-            "name": "Main",
-            "tag_ids": ["sample-reports"],
+            "slug": "drill",
+            "name": "Drill",
+            "tag_ids": ["cc-shared"],
             "default_mode": "corpus_only",
             "default_model": MODEL,
             "default_reasoning": False,
@@ -171,10 +176,10 @@ async def test_tag_picker_offers_the_tenants_own_and_shared_tags(console: Consol
     )
     assert created.status_code == 201
     workspace = created.json()["id"]
-    path = f"/api/v1/operator/tenants/{other}/workspaces/{workspace}/tags"
-    refused = await op.put(path, json={"tag_ids": ["cc-team1-healthcare-gpo"]})
+    path = f"/api/v1/operator/tenants/{cc}/workspaces/{workspace}/tags"
+    refused = await op.put(path, json={"tag_ids": ["sample-web"]})
     assert (refused.status_code, refused.json()["detail"]) == (422, "tag_not_for_tenant")
-    assert (await op.put(path, json={"tag_ids": ["sample-web"]})).status_code == 200
+    assert (await op.put(path, json={"tag_ids": ["cc-team1-healthcare-gpo"]})).status_code == 200
 
 
 # --- spend and token usage from the ledger -----------------------------------------------

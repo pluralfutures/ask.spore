@@ -29,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PATTERNS = (
     "infra/**/docker-compose*.yml",
     "infra/compose*.yml",
+    "infra/drills/**/compose*.yml",
     "apps/*/Dockerfile*",
     ".github/workflows/*.yml",
 )

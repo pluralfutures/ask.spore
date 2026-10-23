@@ -143,8 +143,8 @@ The Phase 1c code refuses to start on the Instance until step 1 is done, so do i
      then `ALTER USER 'root'@'%' IDENTIFIED BY '<new>';` typed at the prompt, then set the
      key and recreate `ragflow-mysql` and `ragflow`.
    - `ELASTIC_PASSWORD` (stored in Elasticsearch's security index):
-     `$C exec ragflow-es01 bin/elasticsearch-reset-password -u elastic -i`, then set the
-     key and recreate `ragflow-es01` and `ragflow`.
+     `$C exec ragflow-es bin/elasticsearch-reset-password -u elastic -i`, then set the
+     key and recreate `ragflow-es` and `ragflow`.
    - `RAGFLOW_API_KEY` (root `.env`): create a new key in the RAGFlow UI (loopback,
      avatar → API), set it, `$C up -d --force-recreate api worker`, then delete the old
      key in the UI.

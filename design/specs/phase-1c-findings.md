@@ -154,3 +154,110 @@ the live run; it is a backlog item, not code.
   request); `none` makes no answer call and stores the fixed decline; an error falls
   through to the answer; the cache key changes with the check's prompt version; the
   guardrail eval mode.
+
+### 3.2 P1c-14 register and crawl follow-ups
+
+One migration, **0060** (`0060_site_withdrawal`, `down_revision` 0041), for (a) only. Commits
+3a5fc78 (e), 9e8c359 (d), 2d200c5 (c), 1ff944a (a, b).
+
+| # | Spec says | Built |
+| --- | --- | --- |
+| D-5 | (a) "Site-level 'withdraw site' in the console and CLI: withdraws every page of the site (reusing the per-page withdrawal job), retires the site row (no further scheduled crawls), audited" | `app.content.sites.withdraw_site`, a reviewer's action: `POST /api/v1/content/sites/{id}/withdraw` (reason required), a "Withdraw site" form on the site page, and `ask-spore sites withdraw <site_id> --as <email> --reason … [--wait]`. In one transaction the site becomes **`withdrawn`** (a new status value: migration 0060 also adds `withdrawn_at` and `withdrawal_reason`, required together by a check constraint, as on `sources`) with `next_crawl_at` cleared; every live page becomes `blocked` with reason `site_withdrawn`; every `ingested` or `failed` row of the site gets the reason and its own `withdraw_source` job (the per-page job, unchanged), audited `source.withdrawal_requested` with `method: site_withdrawal`; the site gets `site.withdrawn` (before and after status and schedule, roles, the number of jobs; never the reason text). Scheduled crawls, "crawl now" and a queued `crawl_site` job all need `approved`, so nothing crawls the site again. A row still being ingested is withdrawn when its ingestion finishes, because its page is no longer live (the Phase 1b rule, findings 1b A2-7). **Not in the spec:** a crawl running at the moment of withdrawal stops at its next page (each visit checks the site's status, and a page is admitted only under a share lock on the site row, so the withdrawal waits for an admission in progress and then withdraws it), and keeps no next crawl. A migration was needed because `sites.status` had a check constraint without a retired state; reusing `rejected` would have shown a retired site as a declined proposal. The downgrade turns a withdrawn site into `rejected` with its reason as the review note. |
+| D-6 | (b) "'Restore' for a withdrawn crawled page so the next crawl takes it again, audited" | `app.content.sites.restore_page`, a reviewer's action on the page's withdrawn register row: `POST /api/v1/content/sources/{id}/restore`, a "Restore page" button on a withdrawn crawled source, and `ask-spore sources restore <source_id> --as <email>`. The page's `site_pages` row goes from `blocked` (`withdrawn`) to `removed` (`restored`), which the crawler treats like any page it has not got: the next crawl that meets it records a new register row (approved in the site approver's name, as every page) and ingests it. The withdrawn row stays withdrawn (its history and citations untouched). Refused: before the withdrawal job has run (`not_withdrawn`), for a page withdrawn by the crawler rather than a reviewer or of a withdrawn site (`not_a_withdrawn_page`, `site_not_approved`), and for a URL any version of which had a takedown recorded (`taken_down`: the Phase 1b rule that such a URL stays out holds). Audited `source.restored`. |
+| D-7 | (c) "Clean-up of an interrupted re-tag job as an interrupted first ingestion already is (findings 1b A1-11)" | No migration: `add_tags` now maps each new upload on the row as it happens, as `ingest_source` does. A document mapped in the dataset of a synced tag the row does not hold belongs to an unfinished re-tag, and the next re-tag of the source deletes it from RAGFlow before uploading (`_clean_unfinished_retag`); keys that are not a synced dataset's ID (Phase 0 mappings) are never touched. A failed re-tag unmaps what it deleted and keeps mapped only the documents whose deletion failed, so the next re-tag or a withdrawal removes them (before, they were named in the error and tracked by nothing). Consequence, as for a first ingestion (A1-11): while a re-tag parses, its new dataset's chunks can already be retrieved and cited by tenants with the new tag, whose addition a reviewer approved. |
+| D-8 | (d) Decision 3: "a new file replaces an existing document only when both the canonical link and the title match; a link match with a different title is flagged to the reviewer as a possible replacement" | `register.exact_replacement`: at proposal, a file with the canonical link **and** the title (compared ignoring case and runs of spaces) of exactly one ingested, non-crawled source, which no other proposal is already replacing, records that source as `supersedes_id`; the approval then needs no choice and is audited `replaces` with `method: same_link_and_title`, and the A1 supersession path runs once the new file is ingested. So a manifest re-run with a corrected file at the same link and title re-ingests it (`--approve-as`), which decision 4 of Oct 22 had stopped. A link match under another title, or a link two ingested sources share under the same title, is flagged as before (`possible_replacement`, `replacement_choice_required`). The approval checks the match again: a target withdrawn or taken by another proposal meanwhile falls back to the reviewer's choice. **The reviewer may still choose "keep both"** for a same-title match (an override, audited `keep_both`); the decision says when a file replaces, and does not forbid keeping both. `ProposeOut` gains `replaces`, and the console's propose result names the source replaced. |
+| D-9 | (e) Decision 3: "the stored excerpt of a citation is blanked on every withdrawal, not only licence ones; the citation stays, labelled withdrawn; adjust the database trigger … only if it blocks this, via a migration" | The withdrawal job blanks the excerpts of the source and of the earlier versions it replaced on **every withdrawal** (a reviewer's, a takedown on any grounds, a crawl's removal, a site withdrawal, a crawled page gone before its ingestion finished); the audit event's `excerpts_blanked` is true for all of them. **The trigger does not block it** (it lets `askspore_content` write only `''`, whatever the grounds), so no migration. **A supersession keeps the excerpt**: the document is still in the corpus under its new version, and decision 3 speaks of withdrawals (question 2). **Not in the spec:** when a document is withdrawn, its earlier versions' citations are labelled withdrawn too (they were only "superseded"), so a citation of any version of a withdrawn document shows "withdrawn" with the blanked-excerpt note; found by the site-withdrawal test, where a page's second version superseded the first while the site was being withdrawn. `takedown_licence_grounds` stays recorded (queue, audit) but no longer changes the withdrawal; the CLI help and the console label say so, and the chat's note now reads "The quoted passage was removed because the source was withdrawn." Architecture §6.3 and §15.7 updated. |
+
+Tests (all against PostgreSQL 16, RAGFlow and the site faked): `test_sites`:
+`test_a_withdrawn_site_leaves_no_page_in_any_dataset_and_no_schedule` (two datasets, a page
+version still being ingested, a client tenant's citation; afterwards no document of the site
+in the fake RAGFlow, every row withdrawn, no live page, `next_crawl_at` empty, a past due date
+queues nothing, "crawl now" and a stale queued crawl refused, the audit trail with no reason
+text), `test_a_crawl_running_when_its_site_is_withdrawn_admits_nothing_more` (fails without the
+guard), `test_a_restored_page_is_crawled_again`,
+`test_a_taken_down_or_unwithdrawn_page_cannot_be_restored`; `test_jobs`:
+`test_an_interrupted_retag_is_cleaned_up_before_the_next_upload` (a worker stopped mid-parse,
+then the job put back) and `test_a_failed_retag_unmaps_what_it_deleted_and_keeps_what_it_could_not`
+(both fail on the old code); `test_withdraw`:
+`test_the_same_link_and_title_replace_the_old_version_without_a_choice` (CLI path),
+`test_an_automatic_replacement_can_be_overridden_or_falls_back_to_a_choice`, the existing
+link-only tests now with another title, `test_withdrawal_on_licence_grounds_blanks_the_stored_excerpts`
+(unchanged) and `test_every_other_withdrawal_blanks_the_stored_excerpts_too` (plain and
+non-licence takedown, across tenants, the superseded version kept until its document is
+withdrawn), `test_cli_site_withdrawal_and_restore_flags`; `test_content_console`: the two new
+routes are refused to tenant admins and users like every content route, and
+`test_a_reviewer_withdraws_a_site_and_restores_a_page_from_the_console` (editor refused,
+codes, audit), `test_the_same_link_and_title_replace_without_a_choice`; web unit tests for the
+propose result, the withdrawn-site summary, the two new page reasons and the "Withdraw site"
+form.
+
+### 3.3 P1c-15 backlog triage
+
+One commit, no code. Each struck line names what delivered it; each was checked against the
+code or the findings first (the crawler, the consent gate migration, `design/compliance/`,
+the committed eval results and the gate).
+
+| | Lines | Notes |
+| --- | --- | --- |
+| **Struck** | **28** | 21 delivered by Phase 1b or earlier: re-ingestion and withdrawal (P1b-03), stored own-analysis files (P1a-14, P1b-02), the approval step and content console (P1b-01, P1b-05), crawler policy and publication dates (P1b-04), the Oct 18 Phase 1b line (console, approval flow, retention jobs, SSO connectors), operator spend visibility (P1b-12), the consent gate (P1b-10), per-IP rate limit, session refresh, sign-out revocation, `no_binding`, the Authentik blueprint (P1b-08), platform mail (P1b-11), the four document-set lines (P1b-09, drafted), the one-tenant console (P1b-12), the deploy version in the cache key (P1b-13 e), the committed Phase 0 eval results (owner decision Oct 21, enforced by the gate since P1b-15 b). 5 delivered by this branch (P1c-14 a to e: the re-ingestion title and excerpt decisions, the re-tag clean-up, restore, withdraw site). 1 moved to P1c-07 (resend invitation). 1 closed by owner decision (branch protection, decision 2 of Oct 23). Three struck lines were delivered only in part; their remainders are carried as new Phase 2 lines (two-host deployment; per-path TDMRep rules and site terms review; the support-access policy and staff checklist). |
+| **Re-tagged** | **29** | 25 as Phase 1c with their item (P1c-01 to P1c-09, P1c-11, P1c-13), including the two owner-held items (P1b-13 a and b) marked as not build items; 4 as Phase 2 (the RAGFlow UI path, Object Storage, guardrail eval scoring of fixed sentences, the no-self-approval rule). The truncation line, counted under Phase 1c, keeps its struck part; its open tail is split between P1c-09 (the stored flag) and Phase 2 (an eval run on the output cap). The Phase 1a relevance-check line is re-tagged as the P1c-13 fallback with a pointer to 3.1.4. |
+| **Left as is** | **23** | 12 lines struck before this triage and 11 open lines already tagged Phase 2. |
+| **Added** | **5** | The three carried remainders above and two ideas from this build: reinstating a withdrawn site (its start URL is unique, so it cannot be registered again), and the future of `takedown_licence_grounds` now that every withdrawal blanks excerpts. |
+
+Not struck although the brief lists it: none. The **vector weight, judge model and eval gate**
+and the **eval harness OIDC path, reasoning tokens and retention lines** were already struck
+before this triage (left as is). The Phase 1a Playwright flake line was **not** struck
+although P1b-13 f fixed a race in it (findings 1b D12): the Phase 1c spec carries it again as
+P1c-11, so it is re-tagged there.
+
+### 3.4 Checks run on this branch
+
+All on the branch head, in the session container (PostgreSQL 16.15 started with
+`pg_ctlcluster 16 main start`, role `askspore` as in CI,
+`TEST_ADMIN_DATABASE_URL=postgresql://askspore:ci-only-password@localhost:5432/postgres`,
+`REQUIRE_DB_TESTS=1`). Last line of each:
+
+| Check | Last line |
+| --- | --- |
+| `uv run --directory apps/api ruff check .` | `All checks passed!` |
+| `uv run --directory apps/api ruff format --check .` | `201 files already formatted` |
+| `uv run --directory apps/api mypy app` | `Success: no issues found in 105 source files` |
+| `uv run --directory apps/api pytest` (with the database) | `1371 passed, 1 deselected in 151.31s (0:02:31)` (`test_ragflow_integration` deselected, as in CI) |
+| the same without the database | `614 passed, 757 skipped, 1 deselected in 8.93s` |
+| `uv run --directory packages/eval ruff check .`, `ruff format --check .`, `mypy` | `All checks passed!`, `37 files already formatted`, `Success: no issues found in 16 source files` |
+| `uv run --directory packages/eval pytest` | `89 passed in 2.63s` |
+| `uv run --directory packages/eval python -m eval gate` | `**Pass.**` (no run newer than the baseline is committed) |
+| `python -m eval guardrails --mock` on a config copy naming `corpus_only/v6` | `No block degrades any metric beyond the threshold.` (every block 100 in both modes; the same on v5) |
+| `pnpm --dir apps/web lint`, `typecheck`, `test` | `All matched files use Prettier code style!`, `tsc -b` clean, `Tests  102 passed (102)` |
+| `pnpm --dir apps/web test:e2e` (`PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`) | `13 passed` |
+
+`apps/api/openapi.json` and `apps/web/src/api/schema.d.ts` were regenerated for the new
+routes and fields. No API dependency changed, so `packages/eval/uv.lock` is unchanged. No eval
+result was committed. Not run: anything that needs the Instance, RAGFlow or a provider key
+(3.1.3).
+
+### 3.5 Questions for the owner
+
+1. **hc-v1-039, 055, 058 (P1c-13, after the live run).** If v6 passes the acceptance rule of
+   3.1.3, switch to it. If it fixes some but not all three items, or regresses: accept the
+   remaining items as known limits (recorded here), or fund the relevance check of 3.1.4 as
+   its own spec item (one extra model call per `corpus_only` question, about 0.25 to 0.3
+   cents and up to 1.5 s)?
+2. **Excerpts on supersession (P1c-14 e).** Decision 3 blanks excerpts on every withdrawal;
+   this build keeps them when a re-ingested version replaces a document (the citation shows
+   "superseded" and the document is still in the corpus), and blanks every version's
+   excerpts once the document itself is withdrawn. Confirm, or blank on supersession too.
+3. **Keep both on a same-title match (P1c-14 d).** A file with the same link and title
+   replaces the old source without a choice, but the reviewer may still choose "keep both"
+   at approval. Confirm the override, or make the replacement unconditional.
+4. **A withdrawn site is final (P1c-14 a).** Its start URL stays taken (unique), so the same
+   site cannot be registered again; reinstating one is a Phase 2 backlog line. Confirm, or
+   ask for a reinstate action now (it would go back to `proposed` for a reviewer).
+5. **Restore waits for the next crawl (P1c-14 b).** A restored page comes back when its
+   site's next scheduled or requested crawl meets it; restore does not queue a crawl itself
+   (a reviewer can press "Crawl now"). Confirm, or queue a crawl on restore.
+6. **`takedown_licence_grounds` (P1c-14 e).** It no longer changes what a withdrawal does.
+   Keep it as a record on the takedown queue (as built), or drop the flag and its checkbox
+   (a migration; backlog line)?
+7. **Migration number.** 0060 on 0041 as briefed; if Groups A to C also chain on 0041, the
+   integration step re-parents one `down_revision` line.

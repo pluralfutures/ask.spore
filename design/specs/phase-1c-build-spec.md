@@ -208,3 +208,23 @@ review signed as in Phase 1b §8.2.
 | 3 | **Re-ingestion requires the same canonical link and the same title** to replace a document; **citation excerpts are blanked on every withdrawal.** | P1c-14 (A1-14, A1-15) |
 | 4 | **Three parallel build sessions**: Group A; Groups B and C; Group D. Then integration by the orchestrating session, then the release session (Group E). | Session plan |
 | 5 | **UI refresh** (visual audit and mockups, owner's prompt of Oct 23): deferred; runs after Phase 1c, not alongside it. | Out of phase |
+
+## Owner decisions of Oct 23, 2026, second set (after the Group A and D builds)
+
+The builders' questions (findings 1c §1 and §3); the owner took every recommendation
+("yes to all").
+
+| # | Decision | Applies to |
+| --- | --- | --- |
+| 6 | Compliance guide wording on platform tags updated to `shared = true`. | P1c-01 |
+| 7 | Sign-in page refusal reasons stay coarse; an uninvited address and another tenant's user both read "no access". | P1c-02 |
+| 8 | The credentials check runs in OIDC mode only; local Phase 0 stacks keep their development passwords. | P1c-03 |
+| 9 | Credentials rotation is the **first step of the Phase 1c release**, run by the owner in their own terminal with the session's procedure, before the deploy that carries P1c-03. | P1c-03, P1c-16 |
+| 10 | P1c-06 image re-pins are done from the Instance in the release step (the build container is rate-limited by Docker Hub). | P1c-06, P1c-16 |
+| 11 | No migration step for pre-existing SSO sources (none exist); the release checks re-save any source present at release time. | P1c-02, P1c-16 |
+| 12 | If `corpus_only/v6` fixes only some of hc-v1-039, 055 and 058 without regressing elsewhere, the rest are accepted as known limits and recorded; the relevance check stays a backlog item. | P1c-13 |
+| 13 | Citation excerpts are kept when a newer version replaces a document and blanked when the document is withdrawn. | P1c-14 (e) |
+| 14 | The reviewer keeps the "keep both" option on a same-link, same-title match. | P1c-14 (d) |
+| 15 | A withdrawn site is final; reinstating one is a Phase 2 backlog line. Restore of a page does not queue a crawl. | P1c-14 (a, b) |
+| 16 | The "licence grounds" flag stays as a record on the takedown queue. | P1c-14 (e) |
+| 17 | Migration re-parenting (0042, 0050s, 0060) is done at integration by the orchestrating session. | Integration |

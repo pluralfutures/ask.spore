@@ -188,14 +188,14 @@ step "10. checks"
 API_ADDRESS="$(compose port api 8000 2>/dev/null | tail -n1)"
 API_URL="http://${API_ADDRESS:-127.0.0.1:8000}"
 deadline=$((SECONDS + TIMEOUT))
-until curl -fsS -o /dev/null "$API_URL/api/v1/healthz"; do
+until curl -fsS -o /dev/null "$API_URL/healthz"; do
   [ "$SECONDS" -lt "$deadline" ] || fail "/healthz did not answer within ${TIMEOUT}s"
   sleep 5
 done
 HEALTH="ok"
 PUBLIC_HEALTH="not checked"
 if [ -n "$PUBLIC_URL" ]; then
-  curl -fsS -o /dev/null "$PUBLIC_URL/api/v1/healthz" || fail "/healthz over TLS on the public host"
+  curl -fsS -o /dev/null "$PUBLIC_URL/healthz" || fail "/healthz over TLS on the public host"
   PUBLIC_HEALTH="ok"
 fi
 AUTH_MODE="$(curl -fsS "$API_URL/api/v1/auth/mode" |

@@ -35,6 +35,8 @@ def test_the_script_does_what_the_release_did_by_hand() -> None:
     assert "up -d ragflow caddy" in text and "up -d --force-recreate api worker" in text
     assert "check-credentials.py" in text and "compose port api 8000" in text
     assert "grep -qx ragflow-tei" in text
+    # Liveness is the public /healthz; /api/v1/healthz needs a signed-in user (401 otherwise).
+    assert '"$API_URL/healthz"' in text and "/api/v1/healthz" not in text
     # Phase 1b F2: the worker's mail warning stops the deploy.
     assert '"event":"worker.mail_not_configured"' in text
     assert 'export ASK_SPORE_DEPLOY_VERSION="${FULL_SHA:0:12}"' in text

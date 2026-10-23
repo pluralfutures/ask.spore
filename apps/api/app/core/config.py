@@ -46,6 +46,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 from app.chat.prompts import check_slot
 from app.consent.notice import check_notice
+from app.core.credentials import published_credentials
 from app.core.mailtemplates import TEMPLATE_NAMES, check_template
 
 CONFIG_DIR_ENV = "ASK_SPORE_CONFIG_DIR"
@@ -772,6 +773,16 @@ def load_settings(
         problems.append(
             f"PHASE0_BEARER_TOKEN must be at least {MIN_BEARER_TOKEN_LENGTH} characters"
         )
+
+    # P1c-03: no deployment users sign in to runs on a password the repository publishes.
+    if auth_mode == "oidc":
+        published = published_credentials(env)
+        if published:
+            problems.append(
+                "credentials equal to a value published in the repository (.env.example, "
+                "Compose defaults, CI): " + ", ".join(published) + "; rotate them "
+                "(infra/README.md, Credentials rotation)"
+            )
 
     version = env.get(DEPLOY_VERSION_ENV, "").strip()
     if version and not _DEPLOY_VERSION.fullmatch(version):

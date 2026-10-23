@@ -18,7 +18,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["https://askspore.myceliumgastronomy.com/source/oauth/callback/sso-ssotest/"],
+      "redirectUris": ["https://askspore.myceliumgastronomy.com/source/oauth/callback/${DRILL_SOURCE_SLUG}/"],
       "webOrigins": ["+"]
     }
   ],

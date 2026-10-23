@@ -10,6 +10,7 @@ const me = (consent_required: boolean): Me => ({
   role: "user",
   tenant_display_name: "Synthetic Client",
   consent_required,
+  operator: false,
 });
 
 describe("consent gate (P1b-10)", () => {

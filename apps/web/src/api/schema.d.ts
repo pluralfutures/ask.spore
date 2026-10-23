@@ -1265,6 +1265,31 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/operator/terminated-tenants": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Terminated Tenants
+     * @description P1c-08 (Phase 1b F5): the tenants the termination purge emptied, shown as such.
+     *
+     *     A purged tenant keeps its ``tenants`` row, suspended, without entitlements or a login
+     *     policy. Its purge date and certificate number come from the ``tenant.purged`` event,
+     *     recorded under the internal tenant with the tenant's slug in ``before`` (the event
+     *     carries no other identifier of it).
+     */
+    get: operations["list_terminated_tenants_api_v1_operator_terminated_tenants_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/sources/{source_id}": {
     parameters: {
       query?: never;
@@ -2202,6 +2227,11 @@ export interface components {
       /** Email */
       email: string;
       /**
+       * Operator
+       * @default false
+       */
+      operator: boolean;
+      /**
        * Role
        * @enum {string}
        */
@@ -2858,6 +2888,29 @@ export interface components {
       tenant_id: string;
       /** Thresholds */
       thresholds: components["schemas"]["SpendThresholdOut"][];
+    };
+    /**
+     * TerminatedTenantOut
+     * @description P1c-08: a tenant whose data the termination purge deleted (P1b-14). The row stays
+     *     (the audit log names it), suspended, with the purge's date and certificate number from
+     *     its ``tenant.purged`` audit event; ``None`` when no such event is found.
+     */
+    TerminatedTenantOut: {
+      /** Certificate */
+      certificate: string | null;
+      /** Display Name */
+      display_name: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Purged At */
+      purged_at: string | null;
+      /** Slug */
+      slug: string;
+      /** Status */
+      status: string;
     };
     /** TokenData */
     TokenData: {
@@ -5269,6 +5322,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_terminated_tenants_api_v1_operator_terminated_tenants_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TerminatedTenantOut"][];
         };
       };
     };

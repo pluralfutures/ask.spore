@@ -2208,6 +2208,11 @@
             "title": "Email",
             "type": "string"
           },
+          "operator": {
+            "default": false,
+            "title": "Operator",
+            "type": "boolean"
+          },
           "role": {
             "enum": [
               "user",
@@ -3936,6 +3941,61 @@
           "thresholds"
         ],
         "title": "TenantSpendOut",
+        "type": "object"
+      },
+      "TerminatedTenantOut": {
+        "description": "P1c-08: a tenant whose data the termination purge deleted (P1b-14). The row stays\n(the audit log names it), suspended, with the purge's date and certificate number from\nits ``tenant.purged`` audit event; ``None`` when no such event is found.",
+        "properties": {
+          "certificate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "purged_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purged At"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "display_name",
+          "status",
+          "purged_at",
+          "certificate"
+        ],
+        "title": "TerminatedTenantOut",
         "type": "object"
       },
       "TokenData": {
@@ -7248,6 +7308,29 @@
           }
         },
         "summary": "Set Workspace Tags"
+      }
+    },
+    "/api/v1/operator/terminated-tenants": {
+      "get": {
+        "description": "P1c-08 (Phase 1b F5): the tenants the termination purge emptied, shown as such.\n\nA purged tenant keeps its ``tenants`` row, suspended, without entitlements or a login\npolicy. Its purge date and certificate number come from the ``tenant.purged`` event,\nrecorded under the internal tenant with the tenant's slug in ``before`` (the event\ncarries no other identifier of it).",
+        "operationId": "list_terminated_tenants_api_v1_operator_terminated_tenants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TerminatedTenantOut"
+                  },
+                  "title": "Response List Terminated Tenants Api V1 Operator Terminated Tenants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Terminated Tenants"
       }
     },
     "/api/v1/sources/{source_id}": {

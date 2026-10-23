@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 
 import { answerMfa, completeSignIn, type SignInResult } from "../api/client";
 import type { MfaRequiredOut } from "../api/types";
+import { QrCode } from "../components/QrCode";
 import { setupKey, validCode } from "../lib/mfa";
 import { tokenFromFragment } from "../lib/fragment";
 
@@ -107,9 +108,12 @@ export function SecondFactor({
       {key ? (
         <div className="flex flex-col gap-1 text-sm">
           <p>
-            Administrators confirm each sign-in with an authenticator app. Add this key to your app
-            (time-based, 6 digits), then enter the code it shows.
+            Administrators confirm each sign-in with an authenticator app. Scan this code with your
+            app, or add the key below to it (time-based, 6 digits), then enter the code it shows.
           </p>
+          {challenge.setup_uri && (
+            <QrCode text={challenge.setup_uri} label="QR code for your authenticator app" />
+          )}
           <code className="rounded bg-white px-2 py-1 font-mono">{key}</code>
           {challenge.setup_uri && (
             <a href={challenge.setup_uri} className="underline">

@@ -13,6 +13,7 @@ import type {
   SsoSourceIn,
   TenantOut,
 } from "../api/types";
+import { SaveStatus } from "../components/SaveStatus";
 import { UserActions } from "../components/UserActions";
 import { lastLogin } from "../lib/admin";
 import { formFrom, toRequest, type EntitlementsForm } from "../lib/entitlements";
@@ -57,9 +58,12 @@ function TenantPage({ tenantId }: { tenantId: string }) {
   const current = tenant.data;
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-sm">
-      <p>
+      <p className="flex gap-4">
         <Link to="/operator" className="underline">
           Operator console
+        </Link>
+        <Link to="/" className="underline">
+          Chat app
         </Link>
       </p>
       <header>
@@ -209,9 +213,10 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
       <button type="submit" className="self-start rounded bg-slate-900 px-3 py-1 text-white">
         Save entitlements for {tenant.display_name}
       </button>
-      {save.isSuccess && <p>Saved.</p>}
-      {(problem ?? errorText(save.error)) && (
-        <p className="text-red-700">{problem ?? errorText(save.error)}</p>
+      {problem ? (
+        <p className="text-red-700">{problem}</p>
+      ) : (
+        <SaveStatus isSuccess={save.isSuccess} error={save.error} />
       )}
     </form>
   );
@@ -256,7 +261,7 @@ function LoginPolicy({ tenant }: { tenant: TenantOut }) {
       <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
         Save login policy
       </button>
-      {errorText(save.error) && <p className="w-full text-red-700">{errorText(save.error)}</p>}
+      <SaveStatus isSuccess={save.isSuccess} error={save.error} />
     </form>
   );
 }
@@ -351,10 +356,17 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
           </button>
         )}
       </div>
-      {(problem ?? errorText(save.error) ?? errorText(remove.error)) && (
-        <p className="text-red-700">
-          {problem ?? errorText(save.error) ?? errorText(remove.error)}
-        </p>
+      {problem ? (
+        <p className="text-red-700">{problem}</p>
+      ) : (
+        <>
+          <SaveStatus isSuccess={save.isSuccess} error={save.error} />
+          <SaveStatus
+            isSuccess={remove.isSuccess}
+            error={remove.error}
+            savedText="SSO source removed."
+          />
+        </>
       )}
     </form>
   );
@@ -423,9 +435,11 @@ function Workspaces({ tenant }: { tenant: TenantOut }) {
         <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
           Add workspace
         </button>
-        {errorText(create.error) && (
-          <p className="w-full text-red-700">{errorText(create.error)}</p>
-        )}
+        <SaveStatus
+          isSuccess={create.isSuccess}
+          error={create.error}
+          savedText="Workspace added."
+        />
       </form>
     </div>
   );
@@ -473,7 +487,7 @@ function WorkspaceTags({
       <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
         Save tags
       </button>
-      {errorText(save.error) && <p className="w-full text-red-700">{errorText(save.error)}</p>}
+      <SaveStatus isSuccess={save.isSuccess} error={save.error} />
     </form>
   );
 }

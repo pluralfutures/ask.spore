@@ -19,6 +19,7 @@ export type DoneData = Schemas["DoneData"];
 export type ErrorData = Schemas["ErrorData"];
 export type AuthMode = Schemas["AuthModeOut"]["mode"];
 export type InvitationResent = Schemas["InvitationResentOut"];
+export type TerminatedTenant = Schemas["TerminatedTenantOut"];
 export type Me = Schemas["MeOut"];
 export type TenantOut = Schemas["TenantOut"];
 export type EntitlementsIn = Schemas["EntitlementsIn"];

@@ -290,6 +290,9 @@ class MeOut(BaseModel):
     session_expires_at: datetime | None = None
     # P1b-10: true until the user accepts the active use and privacy notice.
     consent_required: bool = False
+    # P1c-08: the user may open the operator console (an operator of the internal
+    # tenant); the chat app links to it, the console's API decides again on every call.
+    operator: bool = False
 
 
 class ConsentNoticeOut(BaseModel):
@@ -461,6 +464,19 @@ class TenantOut(BaseModel):
     admins: int
     entitlements: EntitlementsOut
     login_policy: LoginPolicyOut
+
+
+class TerminatedTenantOut(BaseModel):
+    """P1c-08: a tenant whose data the termination purge deleted (P1b-14). The row stays
+    (the audit log names it), suspended, with the purge's date and certificate number from
+    its ``tenant.purged`` audit event; ``None`` when no such event is found."""
+
+    id: UUID
+    slug: str
+    display_name: str
+    status: str
+    purged_at: datetime | None
+    certificate: str | None
 
 
 class AdminInviteIn(_In):

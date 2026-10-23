@@ -26,6 +26,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -63,9 +64,11 @@ from app.api.schemas import (
     TenantCreateIn,
     TenantOut,
     TenantSpendOut,
+    TerminatedTenantOut,
     WorkspaceCreateIn,
     WorkspaceTagsIn,
 )
+from app.audit.models import AuditEvent
 from app.audit.writer import AuditValue, Change, record
 from app.auth.links import normalise_email
 from app.auth.provider import ProviderError, SignInLinkProvider, SourceAdmin
@@ -200,6 +203,57 @@ async def list_tenants(
         )
     ).all()
     return [await _tenant_out(request, session, tenant) for tenant in tenants]
+
+
+@router.get("/terminated-tenants", response_model=list[TerminatedTenantOut])
+async def list_terminated_tenants(
+    session: AsyncSession = Depends(operator_session),
+) -> list[TerminatedTenantOut]:
+    """P1c-08 (Phase 1b F5): the tenants the termination purge emptied, shown as such.
+
+    A purged tenant keeps its ``tenants`` row, suspended, without entitlements or a login
+    policy. Its purge date and certificate number come from the ``tenant.purged`` event,
+    recorded under the internal tenant with the tenant's slug in ``before`` (the event
+    carries no other identifier of it)."""
+    has_entitlements = select(TenantEntitlements.tenant_id).where(
+        TenantEntitlements.tenant_id == Tenant.id
+    )
+    has_policy = select(TenantLoginPolicy.tenant_id).where(TenantLoginPolicy.tenant_id == Tenant.id)
+    tenants = (
+        await session.scalars(
+            select(Tenant)
+            .where(~has_entitlements.exists() | ~has_policy.exists())
+            .order_by(Tenant.created_at)
+        )
+    ).all()
+    purges: dict[str, tuple[Any, str | None]] = {}
+    if tenants:
+        rows = await session.execute(
+            select(AuditEvent.created_at, AuditEvent.metadata_)
+            .where(
+                AuditEvent.tenant_id == INTERNAL_TENANT_ID,
+                AuditEvent.event == "tenant.purged",
+                AuditEvent.metadata_["before"]["slug"].astext.in_([t.slug for t in tenants]),
+            )
+            .order_by(AuditEvent.created_at)
+        )
+        for created_at, metadata in rows:
+            certificate = metadata.get("certificate")
+            purges[metadata["before"]["slug"]] = (
+                created_at,
+                certificate if isinstance(certificate, str) else None,
+            )
+    return [
+        TerminatedTenantOut(
+            id=t.id,
+            slug=t.slug,
+            display_name=t.display_name,
+            status=t.status,
+            purged_at=purges.get(t.slug, (None, None))[0],
+            certificate=purges.get(t.slug, (None, None))[1],
+        )
+        for t in tenants
+    ]
 
 
 @router.get("/tenants/{tenant_id}", response_model=TenantOut)

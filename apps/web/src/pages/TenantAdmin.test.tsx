@@ -12,6 +12,7 @@ const me = (role: Me["role"]): Me => ({
   role,
   tenant_display_name: "Synthetic Client",
   consent_required: false,
+  operator: false,
 });
 const user = (extra: Partial<AdminUser> = {}): AdminUser => ({
   id: "u1",

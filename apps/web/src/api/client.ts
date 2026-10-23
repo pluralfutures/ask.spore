@@ -47,6 +47,7 @@ import type {
   TenantOut,
   TenantSettings,
   TenantSpend,
+  TerminatedTenant,
   UserChangeIn,
   UserInviteIn,
   Workspace,
@@ -342,6 +343,8 @@ export const adminApi = {
 export const operatorApi = {
   options: () => json<OperatorOptions>("GET", "/operator/options"),
   tenants: () => json<TenantOut[]>("GET", "/operator/tenants"),
+  // P1c-08: tenants the termination purge emptied, with purge date and certificate.
+  terminatedTenants: () => json<TerminatedTenant[]>("GET", "/operator/terminated-tenants"),
   // P1b-12: one tenant per page, its users and spend, and the cross-tenant totals.
   tenant: (tenantId: string) => json<TenantOut>("GET", `/operator/tenants/${tenantId}`),
   tenantTags: (tenantId: string) =>

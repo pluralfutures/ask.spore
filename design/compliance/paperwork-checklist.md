@@ -35,8 +35,8 @@ Real calls in items 4 and 9 to 11 use a synthetic question, never a client query
 | --- | --- | --- |
 | Trust page published (`trust-page.md`) with the outcome of item 4 | Owner | Drafted |
 | Public privacy notice covering public-source personal data and our controller processing | Owner | Open |
-| Second factor for tenant administrators configured in Authentik | Engineering | Open |
-| Deletion wording in the DPA matched to the build (read-time expiry until the Phase 1b purge job) | Owner | Open |
+| Second factor for tenant administrators configured in Authentik | Engineering | **Done** Oct 22, 2026 (blueprint MFA stage and group, findings 1b §8 0.4); checked live: enrolment and code (2.3, 6.2), refusal of an admin link without it (close-out, Oct 23) |
+| Deletion wording in the DPA matched to the build (read-time expiry until the Phase 1b purge job) | Owner | Open. The build now supports clause 10.2 option (a) for the database: the daily retention purge is live (findings 1b §8 6.1) and the termination purge with its certificate was run on Oct 23 (6.3); backups age out per the owner-run backup retention. The wording choice and the [7]/[35]-day figures stay the owner's |
 
 ## Phase 1b document set
 

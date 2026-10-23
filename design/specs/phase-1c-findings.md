@@ -567,13 +567,17 @@ script's dry run passes after the re-pins (fails closed on a moved tag, as desig
 ## 5. Release on the Instance, Oct 23, 2026 (P1c-16)
 
 Run by a remote-control session on the Instance from `design/specs/phase-1c-release-runbook.md`.
-The Instance runs `main` at **1758623** (`ASK_SPORE_DEPLOY_VERSION=175862320a89`).
+The Instance ran `main` at **1758623** (`ASK_SPORE_DEPLOY_VERSION=175862320a89`) from section 1
+and at **80ac763** (`ASK_SPORE_DEPLOY_VERSION=80ac763cdd63`) after the F2, F4 and F5 deploy.
 
 ### Release status
 
-**In progress** (Oct 23, 2026): sections 0 to 3 done (independent review signed, no blocker;
-five fixes, F1 to F5); the F2, F4 and F5 deploy and its re-check pending; sections 4 to 7 to
-follow.
+**Done, awaiting the owner's confirmation to close Phase 1c** (Oct 23, 2026): sections 0 to 7
+run. Independent review signed, no blocker; six fixes, F1 to F6 (F1 to F5 deployed at
+80ac763cdd63 and re-checked, F6 documentation); `corpus_only/v6` not adopted (owner
+decision); the restore test moved to the backlog (owner decision); DMARC not yet collecting
+(F6). The Instance runs `main` at **80ac763** (`ASK_SPORE_DEPLOY_VERSION=80ac763cdd63`);
+later commits on `main` from this release are documents only.
 
 ### Section 0: credentials rotation
 
@@ -722,6 +726,126 @@ The 20:10:26 `no_binding` refusal: the owner reloading the Entra windows (confir
   ("Workspace added.", `operator.workspace_created`; purged with the tenant) shows no tag
   checkbox; `internal`'s `research` offers the three `sample-*` tags, all three in use.
 
+### Deploy of F2, F4 and F5
+
+PRs #62 and #63 merged to `main` (merge 80ac763). Deploy by the owner,
+`ASK_SPORE_DEPLOY_VERSION=80ac763cdd63`, images rebuilt 21:44 UTC. Checked by the session:
+Alembic head **0060**, `auth/mode` `oidc`, `ragflow-tei` running, one `api.started` and one
+`worker.started` line, dataset counts unchanged, the F5 `disable_user` in the running image.
+**F4** re-checked live by the owner: after a hard reload the user lists show only the latest
+action's line. **F2** is recorded as verified by its tests and the deployed build (no live
+re-check asked).
+
+### Section 4: content drills (P1c-14)
+
+Synthetic sources only, internal tenant. Baseline after the deploy: `cc-shared` 0/0,
+`cc-team1` 60/4037, `cc-team2` 64/4087, `cc-team3` 22/1145, `sample-analysis` 0/0,
+`sample-reports` 59/2580, `sample-web` 0/0 (documents/chunks; the Oct 20 figures). Drill files:
+the Phase 1b drill note (`brightwater-original.docx`) and three variants made by editing its
+`word/document.xml`, copied into the api container under `/tmp/drill4/` and removed after
+the drill (four named files and the directory).
+
+| Step | Result |
+| --- | --- |
+| Original bytes again | `ingest` of the Phase 1b drill file: `failed`, `taken_down`, pointing at its Phase 1b register row (taken down on licence grounds); nothing written. |
+| v1 | New text, canonical link `https://drills.example/brightwater-note`, title "Brightwater heat pump adoption, 2026 (internal note)", tag `sample-analysis`: ingested, 1 chunk, 23 s. The owner's question in `research` (21:55:38) cited it: 1 citation with its excerpt. |
+| v2: same link and title | Title differing only in case and spacing ("… (Internal note)", a double space): **replaced automatically.** `source.approved` `method same_link_and_title` with `replaces` = v1 (21:56:08); ingested 21:56:20; v1 `source.withdrawn` `outcome superseded`, `excerpts_blanked false` (21:56:21). v1's citation: `superseded_at` set, **excerpt kept**. `sample-analysis` 1/1. Content console, v2's page: "Replaces: Brightwater heat pump adoption, 2026 (internal note)" (owner). |
+| v3: same link, other title | "Brightwater installer capacity memo": stays `proposed`, nothing replaced or ingested. Its page: "Possible replacement of Brightwater heat pump adoption, 2026 (Internal note) (Brightwater Analytics)" and, under Review, "Possible replacement: this file is at the canonical link of an ingested source." with the choice "Replace …" / "Keep both" (owner). Rejected from the CLI with a drill note: `source.rejected` (21:59:31). |
+| Withdrawal, non-licence reason | `sources withdraw` v2, reason "Release drill P1c-14 …", `--wait`: `source.withdrawal_requested` 21:59:52, `source.withdrawn` 21:59:59, `outcome withdrawn`, **`excerpts_blanked true`** (decision 3: every withdrawal blanks). v2 had no citation of its own (the owner had not asked again); the citation of v1, which v2 replaced, was blanked with it: excerpt `''`, `withdrawn_at` set. The owner's reload of the 21:55 conversation shows the removed-passage note with the withdrawn label in place of the excerpt. `sample-analysis` 0/0. |
+| Site: crawl again | The Phase 1b site row (`www.myceliumgastronomy.com`, `approved`, its 19 pages withdrawn one by one in 1b) cannot be registered again (start URL unique, backlog), so the drill reused it: its 19 withdrawn pages restored with `sources restore` (19 `source.restored`, pages `removed`/`restored`); in the console the owner set the schedule to **weekly** (`site.settings_changed`, none → weekly; budget 20) and asked for a crawl (`site.crawl_requested` 22:06:45). `site.crawled` 22:07:11 (26 s), `allowed`, **19 pages taken again** as new register rows, all ingested: `sample-web` **19/35**, as in Phase 1b. Next crawl set for Oct 30. |
+| One page: withdraw, restore, re-crawl | `sources withdraw` one page (22:10:03): page `blocked` (`withdrawn`), `sample-web` 19/35 → 18/33. `sources restore` (22:10:08): page `removed` (`restored`), `source.restored`. Re-crawl with `ask-spore crawl <start URL> --approve-as … --wait` (an existing start URL queues a crawl of that site): crawl 30 s, 1 page new, **taken again** as a new register row, ingested (2 chunks, 22:11:13); `sample-web` 19/35. |
+| Whole site | `sites withdraw` with reason, `--wait` (22:11:51, 28 s): `site.withdrawn`; site `withdrawn`, `withdrawn_at` and reason set, **`next_crawl_at` null**; 19 pages `blocked` (`site_withdrawn`), the 2 pages blocked at crawl unchanged; all 39 register rows of the site `withdrawn`; 20 `source.withdrawal_requested` / `source.withdrawn`, all `excerpts_blanked true`. **No page in any dataset:** `sample-web` 0/0. The scheduler and "crawl now" act only on `approved` sites, so no crawl runs again; the site page still prints "Schedule weekly" (the stored setting; backlog). |
+| Dataset counts | Every dataset back at the Oct 20 figures above. |
+
+### Section 5: evals (P1c-13), per §3.1.3
+
+Setup as findings 1b §7. Config copies rebuilt from the live `config/` of 80ac763:
+`/srv/ask-spore/eval-config/` differs from it only by `[auth.eval_service]` (the Phase 1b copy,
+made before the weight change and Phase 1c, set aside as `eval-config-1b`), and
+`/srv/ask-spore/eval-config-v6/` differs from that only by `[prompts] corpus_only = "v6"`.
+Temporary api `askspore-eval-api` from the release image (`docker compose run --no-deps`),
+`127.0.0.1:8001` only, `ASK_SPORE_DEPLOY_VERSION=80ac763cdd63-r2` (fresh answers, live cache
+not flushed), logged `api.eval_service_enabled`; recreated on the v6 copy for step 2 and
+removed after it. The harness ran from the release worktree (code identical to 80ac763 apart
+from documents, hence the run IDs' `3b92b0a4c746`) through `/root/eval-1c.sh`, run by the
+owner, which exports the secrets by name and prints none. Full outputs in
+`/srv/ask-spore/eval-runs/`. One change to §3.1.3's command: `--results-dir
+/srv/ask-spore/eval-runs` is refused since P1c-12 (a runs directory equal to the results
+directory), so the full outputs went to the default runs directory and the redacted copies to
+the worktree's `results/`, then moved to `/srv/ask-spore/eval-runs/p1c13-redacted/` (neither run
+is committed: v6 was not adopted and the baseline stays). Baseline
+`20261023T085603Z-c06e9e99bae9`. 0 cache hits and 0 errors in both runs.
+
+| Metric | Baseline | Step 1: v5 `20261023T221804Z` | Step 2: v6 `20261023T222656Z` | v6 vs baseline / vs step 1 |
+| --- | ---: | ---: | ---: | ---: |
+| Retrieval hit@5 | 98.0 | 98.0 | 98.0 | 0 / 0 |
+| Retrieval hit@10 | 100.0 | 100.0 | 100.0 | 0 / 0 |
+| Citation precision | 82.8 | 82.8 | 82.7 | −0.1 / −0.1 |
+| Faithfulness | 90.8 | 89.1 | 88.5 | −2.3 / −0.6 |
+| Abstention correctness (out_of_corpus) | 80.0 | 80.0 | 90.0 | +10.0 / +10.0 |
+| Cited-answer rate (factual + synthesis) | 98.0 | 98.0 | **94.0** | **−4.0 / −4.0, regression** |
+| Answered / unsupported | 51 / 9 | 51 / 9 | 48 / 12 | |
+
+- **5.2 Second run at weight 0.4, v5:** 305 s, `eval compare` against the baseline exit 0 (no
+  regression; faithfulness −1.7), and **no item's outcome changed**: hc-v1-010 answered with 4
+  citations (expected source at rank 6 to 10), hc-v1-039 uncited and withheld, hc-v1-046
+  answered, hc-v1-055 and hc-v1-058 answered. Confirms the Oct 23 tuning (weight 0.4). The
+  corpus version differs from the baseline's while every dataset count equals the Oct 20
+  figures (the section 4 drills re-created documents).
+- **5.3 v6 on eval set v1:** 282 s, `eval compare` exit 1 against both. The acceptance rule
+  fails on every count but one: hc-v1-039 still withheld uncited; hc-v1-055 still answered (10
+  citations); hc-v1-058 now withheld (`unsupported`), the one target met; and two answerable
+  items that step 1 answered with citations are withheld: **hc-v1-006** (factual; baseline
+  answer faithfulness 1.0, step 1 0.5, both citing the expected source) and **hc-v1-038**
+  (synthesis; baseline and step 1 precision 1.0, faithfulness 1.0, 12 and 13 supported
+  statements). Neither step 1 answer was itself wrong, so the rule's exception does not apply.
+- **5.4 Owner decision (Oct 23, 2026): option (a).** v6 not adopted; `[prompts] corpus_only`
+  stays `"v5"`; the step 1 run is the confirmation of weight 0.4 and the baseline stays
+  `20261023T085603Z-c06e9e99bae9`. **Known limits under decision 12:** hc-v1-039 (synthesis,
+  retrieved, answered without a citation and withheld), hc-v1-055 and hc-v1-058 (out of
+  corpus, near-miss/wrong-year, answered with citations; v6 declined 058 only at the cost of
+  006 and 038). `config/prompts/corpus_only/v6.md` stays in the repository as a candidate not
+  adopted. The relevance check (§3.1.4) stays a backlog design for Phase 2, not a Phase 1c
+  follow-up.
+- **5.3 Guardrails, live, v5** (`20261023T223253Z-…-guardrails`, `deepseek-v4.1-flash`, 18
+  blocks × 11 items per mode): every block 100 except `03-drop-citations` cited-answer rate
+  (`corpus_only` 16.7, `general_knowledge` 66.7: the accepted G6, enforced in code) and
+  `general_knowledge / 09-forged-passage` citation validity 93.3: one invalid marker in one
+  answer (syn-036, 14 of 15 valid, nothing leaked), the single-answer noise Phase 1a recorded
+  for the same block (92.9, B14); the orchestrator's marker filter drops a marker that names no
+  passage before it reaches a user. Harness exit 1 on these three. The owner decided to skip
+  v6's guardrail run; it ran anyway, because the script was changed while the owner's run had
+  already started (`20261023T223649Z-…-guardrails`: the same three, `corpus_only`
+  03-drop-citations 33.3, 09-forged-passage 92.3); not used for any decision.
+- **5.5:** temporary api removed (live api healthz 200, unchanged); `packages/eval/results/`
+  holds the committed redacted runs only, in the Instance tree and the worktree; `eval gate`:
+  **Pass** in both; the Instance tree clean.
+
+### Section 6: backups, image pins, mail domain
+
+| Step | Result |
+| --- | --- |
+| 6.1 Restore test and content-store copy | **Not run; moved to the backlog (owner decision, Oct 23, 2026).** No volume backup is visible on the Instance: no `/srv/backups`, no backup entry in root's crontab or `/etc/cron.d`, no backup timer (only the system's `dpkg-db-backup`). The nightly content-store copy is not installed either, since it uses the volume backup's destination and retention. |
+| 6.2 Image pins | `image-digests.py --check` without the mirror: exit 0, **18 references, all pinned**, including `quay.io/keycloak/keycloak:26.7.5` (the drill compose file). |
+| 6.3 DMARC | `_dmarc.myceliumgastronomy.com` is `v=DMARC1; p=none` with **no `rua=` tag** (public DNS, Oct 23, 2026): no aggregate report has been sent, so there are no counts to record and the clean week has not started. `infra/README.md` assumed an existing `rua=` address (F6). `p=quarantine` not set; stays a pre-launch owner item ("before the first `customculinary.com` user"), its clean week counted from the first report after the owner adds `rua=`. |
+
+### Section 7: close-out
+
+| Item | Result |
+| --- | --- |
+| `ssotest2` purge | Before (counts): `users` 2, `workspaces` 1, `tenant_entitlements` 1, `tenant_login_policy` 1, `sso_attempts` 6, `sign_in_links` 1, `mfa_challenges` 1, `audit_events` 69. The owner ran `ask-spore tenant purge --slug ssotest2 --confirm ssotest2` as the schema owner (one-off `api` container, the migrations URL passed with the host `postgres`), 22:50:11 UTC: `tenant.purged`, `method cli`, **20 rows** (the 13 above plus 7 mail jobs; 0 conversations, messages, citations, feedback, downloads, cache keys), tenant `suspended`, verified domains 2 → 0. Only `audit_events` (69, kept by design) remain for the tenant. **Second certificate: `COD-20261023-8194328d`** under `content_root/certificates/` (2,057 bytes, mode 0640); its SHA-256 equals the event's, its table counts equal the counts before. |
+| `ssotest2` Authentik accounts | Four accounts carried `ssotest2`'s `ask_spore_tenant` attribute: the SSO account `sso-ssotest2.…` (external, path `ask-spore/sso`, still active: the account F5 left), and three sign-in-link accounts (one already deactivated). Deleted by the owner in Authentik's admin interface (pk 13, 15, 16, then 14); afterwards no account carries the tenant ID, Authentik 9 → 5 accounts. |
+| Identity providers | Owner, Oct 23: the callback URIs `/source/oauth/callback/sso-ssotest/` and `/sso-ssotest2/` removed from the Entra app registration and the Google OAuth client, and the Entra guest user removed. The Keycloak drill was torn down at 3.2 (F3). |
+| Temporary eval files on the Instance | `/root/eval-1c.sh` (root, 0700; no secret in it), eval config copies `/srv/ask-spore/eval-config`, `eval-config-v6` and the Phase 1b copy `eval-config-1b` (not used by the live api), full eval outputs under `/srv/ask-spore/eval-runs/` (with `p1c13-redacted/`). |
+| Paperwork checklist | DMARC row (no `rua=`, F6), deletion-wording row (second purge; backup location unknown), new rows: credentials rotated (done), restore test (open, backlog). |
+| Backlog | Struck: P1c-01, P1c-02 (three lines), P1c-03, P1c-04 (four lines), P1c-06, the weight-0.4 confirmation, the eval set v1 items (known limits); the relevance check moved to Phase 2. Added: the invite form, the withdrawn site's schedule, the restore test and content-store copy. |
+
+**Owner's remaining items before the first client user:** DMARC (add `rua=`, one clean
+week, then `p=quarantine`); the restore test and the content-store copy (backlog, once the
+backup's location is known); the deletion wording's backup retention; the Phase 1c
+follow-ups marked "before the first client user" in the backlog (invitation resend bound,
+restore test); the paperwork gate (checklist items 1 to 13).
+
 ### Issues found and fixed during the release
 
 | # | Where | Issue | Fix |
@@ -731,3 +855,4 @@ The 20:10:26 `no_binding` refusal: the owner reloading the Entra windows (confir
 | F3 | 3.2, Keycloak drill | The drill's realm template had the Phase 1b callback `/source/oauth/callback/sso-ssotest/` fixed in its client, so with the test tenant `ssotest2` (3.2 deviation) Keycloak would refuse the callback, as Microsoft did before the owner added the new URI to the Entra app (3.2 notes). | `setup.py` takes a required `--source-slug` (`sso-<tenant slug>`, validated) and fills the redirect URI from it; README updated. `tests/test_keycloak_drill.py`: the URI follows the slug; malformed slugs refused; the template names no tenant. ruff, format, `mypy --strict` clean. |
 | F4 | 3.5, P1c-07 / P1c-08 | Same class as F2 on the two user lists (tenant admin page and the operator console's users tab): an invite's refusal and the list's last resend or removal status stood together ("That address already has an account." above "… was removed …"), as neither action cleared the other. | Starting an invite clears the list's status and the resend, removal and role-change states; a resend or removal clears the invite's outcome (the tenant admin page remounts its invite form, the console resets its invite state). Playwright: `admin.spec.ts` extended (the owner's sequence: resend, remove, `email_taken`, resend) and a new `operator.spec.ts` users-tab test; they run in CI (the Instance has no browser build, and none is installed on the live host). Web lint, typecheck and 126 unit tests pass. |
 | F5 | 3.5, P1c-07 | User removal did not deactivate an **SSO-created** Authentik account. `disable_user` looked the account up by `username = email`; the generated source mapping names SSO accounts `<source slug>.<email>`, so the lookup found nothing and returned without error: the removal reported success and the account stayed active (seen live for the removed `ssotest2` member). Our data was not exposed: with no `users` row every token and refresh is refused (`user_inactive`). | `disable_user` lists Authentik users by `email` (exact filter, checked in the `version-2026.8` source) and deactivates each that is the address's sign-in-link account (`username = email`) or an SSO account (`sso-<slug>.<email>`); any other account with that address (for example an Authentik admin) is never touched; still PATCH only, never DELETE. Tests: `test_authentik_adapter::test_a_removed_sso_user_is_deactivated_too` and 8 cases of `test_only_the_addresses_own_accounts_are_deactivated`. Full API suite: 1528 passed against a throwaway PostgreSQL 16.15 (1 deselected); ruff, `mypy --strict` clean. The account left active tonight is removed with `ssotest2`'s Authentik users at close-out. |
+| F6 | 6.3, P1c-05 | `infra/README.md` "Mail domain policy" step 1 said to keep "the existing" `rua=` address of `_dmarc.myceliumgastronomy.com`; the record has none (`v=DMARC1; p=none`), so no aggregate report was ever sent and the clean week the procedure waits for cannot start. | Step 1 now says to add `rua=mailto:<mailbox>` with the policy unchanged (and the external-destination record if the mailbox is on another domain), and that the clean week counts from the first report; step 3's example uses `<mailbox>`. Documentation only. The DNS change is the owner's. |

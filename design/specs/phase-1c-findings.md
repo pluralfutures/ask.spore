@@ -571,8 +571,9 @@ The Instance runs `main` at **1758623** (`ASK_SPORE_DEPLOY_VERSION=175862320a89`
 
 ### Release status
 
-**In progress** (Oct 23, 2026): sections 0 to 2 done (independent review signed, no blocker);
-sections 3 to 7 to follow.
+**In progress** (Oct 23, 2026): sections 0 to 3 done (independent review signed, no blocker;
+five fixes, F1 to F5); the F2, F4 and F5 deploy and its re-check pending; sections 4 to 7 to
+follow.
 
 ### Section 0: credentials rotation
 
@@ -692,6 +693,34 @@ The 20:10:26 `no_binding` refusal: the owner reloading the Entra windows (confir
   user are its 9 `audit_events` (every `user_id`, `*_user_id`, `created_by`, `proposed_by`,
   `approved_by` column counted, and job payloads). **But its Authentik account stayed active
   (F5).**
+  **Operator removal: Pass.** The invited admin removed from the console: "… was removed with
+  their conversations.", `operator.user_removed` (role `tenant_admin`, status before `invited`,
+  6 rows); its Authentik link account deactivated (`is_active` false). **Last admin: Pass.**
+  "The organisation's last admin cannot be removed. Make another user admin first.";
+  `operator.remove_refused` `last_admin`; nothing changed. **Internal user with a content role
+  (owner decision (a)):** the only internal user holding one is the operator, whose removal
+  stops first at the self check: "You cannot remove yourself.", `operator.remove_refused`
+  `cannot_remove_self`, nothing removed. The content-role refusal itself is covered by
+  `test_user_removal::test_the_operator_removes_any_tenants_user_but_no_platform_role` (2.1 and
+  the F5 suite run); granting a content role to the other internal user only to show it live
+  was declined.
+- **3.6 Pass** (the F2 and F4 re-checks after their deploy below). Every console save during
+  3.2 to 3.8 showed "Saved." or a worded refusal. The console's **Chat app** link and the chat
+  app's link back to the console show for the operator; the `ssotest2` tenant admin's chat app
+  shows **Administration** and no console link. Terminated tenants: one line, "SSO test
+  (ssotest) · suspended · purged 23 Oct 2026 · certificate COD-20261023-590758e5", matching the
+  `tenant.purged` event; not `cc`, not `ssotest2`.
+- **3.7 Pass.** As the operator in the internal `research` workspace: an answer stopped
+  mid-stream, the page reloaded: the partial answer is there with "This answer was stopped
+  before it finished."; stored as the question and an assistant message `partial = true`,
+  `truncated = false`, with text and 3 citations; `chat.query` audit `status partial`,
+  `error_code stopped`; the `chat.answer` log line carries status and code only. No answer was
+  cut off at the length limit, so that note is recorded as covered by
+  `test_partial_answers::test_a_cut_off_answer_keeps_its_note_after_a_reload`.
+- **3.8 Pass.** `tags_for_tenant` on the live `config/tags.toml`: `ssotest2` none, `internal` the
+  three `sample-*`, `cc` its four `cc-*`. In the console, a workspace `test` added to `ssotest2`
+  ("Workspace added.", `operator.workspace_created`; purged with the tenant) shows no tag
+  checkbox; `internal`'s `research` offers the three `sample-*` tags, all three in use.
 
 ### Issues found and fixed during the release
 

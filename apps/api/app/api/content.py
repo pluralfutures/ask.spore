@@ -61,6 +61,7 @@ from app.api.content_schemas import (
     SiteOut,
     SitePageOut,
     SiteSettingsIn,
+    SiteWithdrawnOut,
     SourceRef,
     TagOut,
     TagSyncOut,
@@ -688,6 +689,16 @@ async def withdraw_source(
     return JobQueuedOut(job_id=job_id)
 
 
+@router.post("/sources/{source_id}/restore", status_code=status.HTTP_204_NO_CONTENT)
+async def restore_source(
+    source_id: UUID, request: Request, user: ContentUser = Depends(require_content_user)
+) -> Response:
+    """P1c-14: a reviewer restores a crawled page they withdrew; the next crawl of its
+    site takes it again as a new register row."""
+    await _decide(sites.restore_page(_factory(request), source_id, user.user_id))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/sources/{source_id}/takedown", response_model=TakedownOut)
 async def record_takedown(
     source_id: UUID,
@@ -839,6 +850,8 @@ async def site_detail(
         proposed_by=emails.get(site.proposed_by) if site.proposed_by else None,
         approved_by=emails.get(site.approved_by) if site.approved_by else None,
         approved_at=site.approved_at,
+        withdrawn_at=site.withdrawn_at,
+        withdrawal_reason=site.withdrawal_reason,
         pages=[
             SitePageOut(
                 url=p.url,
@@ -901,6 +914,27 @@ async def site_whitelist(
         sites.set_special_category_allow(_factory(request), site_id, user.user_id, body.patterns)
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/sites/{site_id}/withdraw", response_model=SiteWithdrawnOut)
+async def withdraw_site(
+    site_id: UUID,
+    body: WithdrawIn,
+    request: Request,
+    user: ContentUser = Depends(require_content_user),
+) -> SiteWithdrawnOut:
+    """P1c-14: a reviewer withdraws the whole site: retired (never crawled again), every
+    page blocked, and every page's register row withdrawn by its own job."""
+    job_ids = await _decide(
+        sites.withdraw_site(_factory(request), site_id, user.user_id, reason=body.reason)
+    )
+    log(
+        "content.site_withdrawn",
+        user_id=str(user.user_id),
+        site_id=str(site_id),
+        count=len(job_ids),
+    )
+    return SiteWithdrawnOut(job_ids=job_ids)
 
 
 @router.post("/sites/{site_id}/crawl", response_model=JobQueuedOut)

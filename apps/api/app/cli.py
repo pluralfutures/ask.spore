@@ -63,7 +63,7 @@ from app.content.register import (
     retry,
 )
 from app.content.roles import RoleError, grant_role, revoke_role, user_by_email
-from app.content.sites import SiteSpec, schedule_due_crawls
+from app.content.sites import SiteSpec, restore_page, schedule_due_crawls, withdraw_site
 from app.content.submit import settle, settle_site, submit, submit_site
 from app.content.tags import TagConfig, load_tags
 from app.core import cache
@@ -436,6 +436,10 @@ async def _sources(args: argparse.Namespace) -> int:
             )
             log("sources.takedown", source_id=str(source_id), status="recorded")
             return 0
+        if args.sources_command == "restore":
+            site_id = await restore_page(factory, source_id, reviewer_id)
+            log("sources.restore", source_id=str(source_id), site_id=str(site_id), status="ok")
+            return 0
         if args.sources_command == "withdraw":
             job_id = await request_withdrawal(factory, source_id, reviewer_id, reason=args.reason)
             if args.wait:
@@ -479,6 +483,42 @@ async def _sources(args: argparse.Namespace) -> int:
         await engine.dispose()
     _log_ingest(result)
     return 1 if result.status == "failed" else 0
+
+
+async def _sites(args: argparse.Namespace) -> int:
+    """A reviewer withdraws a whole site (P1c-14): retired, never crawled again, every
+    page withdrawn by its own ``withdraw_source`` job."""
+    settings = get_settings()
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    site_id: UUID = args.site_id
+    try:
+        factory = session_factory(engine)
+        reviewer_id = await user_by_email(factory, args.reviewer)
+        job_ids = await withdraw_site(factory, site_id, reviewer_id, reason=args.reason)
+        status = "queued"
+        if args.wait and job_ids:
+            found = await wait_for(factory, job_ids)
+            failed = [j for j, state in found.items() if state.status != "succeeded"]
+            status = "failed" if failed else "succeeded"
+    except (RoleError, RegisterError) as exc:
+        log(
+            "sites.withdraw",
+            level="error",
+            site_id=str(site_id),
+            status="refused",
+            error_code=exc.code,
+        )
+        return 1
+    finally:
+        await engine.dispose()
+    log(
+        "sites.withdraw",
+        level="error" if status == "failed" else "info",
+        site_id=str(site_id),
+        count=len(job_ids),
+        status=status,
+    )
+    return 1 if status == "failed" else 0
 
 
 async def _tick(factory: async_sessionmaker[AsyncSession], notices: ConsentNoticeTick) -> None:
@@ -849,6 +889,28 @@ def build_parser() -> argparse.ArgumentParser:
     withdraw_cmd.add_argument("--reason", required=True, help="kept on the register row")
     _wait_flag(withdraw_cmd)
 
+    restore_cmd = sources_commands.add_parser(
+        "restore",
+        help="restore a crawled page a reviewer withdrew: the next crawl of its site takes "
+        "it again (P1c-14)",
+    )
+    restore_cmd.add_argument("source_id", type=UUID, help="the page's withdrawn register row")
+    restore_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+
+    sites_parser = commands.add_parser(
+        "sites", help="a reviewer's decision on a registered site (P1c-14)"
+    )
+    sites_commands = sites_parser.add_subparsers(dest="sites_command", required=True)
+    site_withdraw = sites_commands.add_parser(
+        "withdraw",
+        help="withdraw a whole site: retired (no further crawls), every page withdrawn from "
+        "every dataset, the answer caches and stored citations",
+    )
+    site_withdraw.add_argument("site_id", type=UUID)
+    site_withdraw.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+    site_withdraw.add_argument("--reason", required=True, help="kept on the site and its rows")
+    _wait_flag(site_withdraw)
+
     takedown_cmd = sources_commands.add_parser(
         "takedown",
         help="put a source on the takedown queue: due 10 working days after the request, "
@@ -965,6 +1027,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_content_roles(args))
     if args.command == "sources":
         return asyncio.run(_sources(args))
+    if args.command == "sites":
+        return asyncio.run(_sites(args))
     if args.command == "worker":
         return asyncio.run(_worker(args))
     if args.command == "purge":

@@ -521,10 +521,11 @@ async def test_every_other_withdrawal_blanks_the_stored_excerpts_too(
         )
         assert row["excerpt"] == "" and row["withdrawn_at"] is not None
         assert (row["marker"], row["source_id"]) == (1, ingested.source_id)
-    # The earlier version it replaced is the same document: blanked as well.
+    # The earlier version it replaced is the same document: blanked and labelled too.
     assert (
         await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", old_citation) == ""
     )
+    assert await flags(admin_conn, old_citation) == (True, True)
     assert (
         await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", unrelated)
         == "Synthetic excerpt."
@@ -743,6 +744,25 @@ async def test_takedown_queue_lists_requests_by_due_date(
         await admin_conn.execute(
             "UPDATE sources SET takedown_reference = NULL WHERE id = $1", first.source_id
         )
+
+
+def test_cli_site_withdrawal_and_restore_flags() -> None:
+    """P1c-14: ``sites withdraw`` and ``sources restore``."""
+    site, source = str(uuid.UUID(int=6)), str(uuid.UUID(int=7))
+    args = cli.build_parser().parse_args(
+        ["sites", "withdraw", site, "--as", "r@example.org", "--reason", "retired", "--wait"]
+    )
+    assert (args.command, args.sites_command, str(args.site_id)) == ("sites", "withdraw", site)
+    assert (args.reviewer, args.reason, args.wait) == ("r@example.org", "retired", True)
+    args = cli.build_parser().parse_args(["sources", "restore", source, "--as", "r@example.org"])
+    assert (args.sources_command, str(args.source_id), args.reviewer) == (
+        "restore",
+        source,
+        "r@example.org",
+    )
+    for missing in (["sites", "withdraw", site, "--as", "r@example.org"], ["sources", "restore"]):
+        with pytest.raises(SystemExit):
+            cli.build_parser().parse_args(missing)
 
 
 def test_cli_withdraw_and_takedown_flags() -> None:

@@ -25,6 +25,11 @@ source register.
    any live page's current version, unless a newer version still waits to replace them.
 6. Record the crawl on the site (date, outcome, live page count, next due date), audited.
 
+A site a reviewer withdraws while it is being crawled (P1c-14) stops the crawl at its
+next page: every page is checked against the site's status, and a page is admitted
+only under a share lock on the site row, so it is either admitted before the
+withdrawal (which then blocks and withdraws it) or not at all.
+
 Log lines and audit events carry identifiers, codes and counts only, never page text,
 titles or URLs.
 """
@@ -90,6 +95,17 @@ class CrawlResult:
     status: str  # ok, robots_disallowed, tdm_reserved, unreachable, refused
     error_code: str | None = None
     counts: Counter[str] = field(default_factory=Counter)
+
+
+class _SiteWithdrawn(Exception):
+    """The site stopped being approved during the crawl (a reviewer withdrew it)."""
+
+
+async def _approved(session: AsyncSession, site_id: UUID, *, lock: bool = False) -> bool:
+    query = select(Site.status).where(Site.id == site_id)
+    if lock:
+        query = query.with_for_update(read=True)
+    return await session.scalar(query) == "approved"
 
 
 @dataclass(frozen=True)
@@ -166,6 +182,9 @@ class _Crawl:
         self.counts: Counter[str] = Counter()
 
     async def apply(self, visit: Visit) -> None:
+        async with self.factory() as session:
+            if not await _approved(session, self.site.id):
+                raise _SiteWithdrawn
         known = self.known.get(visit.url)
         if known is not None and known.reason in ("withdrawn", "taken_down"):
             return  # a reviewer withdrew the page: it stays out, whatever the site does
@@ -216,6 +235,8 @@ class _Crawl:
             supersedes = known.source_id
 
         async with tenant_session(self.factory, INTERNAL_TENANT_ID) as session:
+            if not await _approved(session, self.site.id, lock=True):
+                raise _SiteWithdrawn
             same = (
                 await session.execute(
                     select(Source.status, Source.takedown_reference).where(
@@ -404,6 +425,8 @@ async def _finish(
     decision: str | None,
 ) -> None:
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        # A site withdrawn meanwhile keeps no next crawl (P1c-14).
+        approved = await _approved(session, site.id, lock=True)
         live = await session.scalar(
             select(func.count())
             .select_from(SitePage)
@@ -413,7 +436,7 @@ async def _finish(
             "last_crawl_at": func.now(),
             "last_crawl_status": status,
             "page_count": live or 0,
-            "next_crawl_at": next_crawl(site.schedule, datetime.now(UTC)),
+            "next_crawl_at": next_crawl(site.schedule, datetime.now(UTC)) if approved else None,
             "updated_at": func.now(),
         }
         if decision is not None:
@@ -461,7 +484,10 @@ async def crawl_site(
         return CrawlResult(site_id, "unreachable", exc.code)
 
     async with http_client(resolve, connect) as http:
-        return await _crawl(factory, site, http, limiter, content_root)
+        try:
+            return await _crawl(factory, site, http, limiter, content_root)
+        except _SiteWithdrawn:
+            return CrawlResult(site_id, "refused", "site_not_approved")
 
 
 async def _crawl(

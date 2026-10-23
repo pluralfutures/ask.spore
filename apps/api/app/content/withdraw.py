@@ -10,8 +10,9 @@ One job per source (architecture §6.3), run by the worker, idempotent on retry:
    re-ingested version of the file replaced it, ``withdrawn_at`` otherwise. Every
    withdrawal blanks the stored excerpts as well, for this source and the earlier
    versions it replaced, whatever the grounds (owner decision 3, Oct 23, 2026; until
-   then only a takedown on licence grounds did); the citation, its provenance and its
-   label stay. A supersession keeps them: the document is still in the corpus;
+   then only a takedown on licence grounds did), and labels those versions' citations
+   withdrawn too; the citation, its provenance and its label stay. A supersession
+   keeps them: the document is still in the corpus;
 3. mark the register row ``withdrawn`` with its date and reason, audited;
 4. delete our stored copy of the file, unless another live source has the same content,
    and a crawled page's raw HTML snapshot (P1b-04) likewise;
@@ -190,9 +191,12 @@ async def withdraw_source(
             )
         return WithdrawResult(source_id, "failed", kind, error_code=exc.error_code)
 
-    # 2. Stored history, every tenant; excerpts blanked unless superseded.
+    # 2. Stored history, every tenant; excerpts blanked unless superseded. The earlier
+    # versions are the same document: labelled withdrawn too (P1c-14).
     flagged = await flag_citations(factory, source_id, kind)
     if blank:
+        for version in versions[1:]:
+            await flag_citations(factory, version, "withdrawn")
         await blank_excerpts(factory, versions)
 
     # 3. The register row, audited.

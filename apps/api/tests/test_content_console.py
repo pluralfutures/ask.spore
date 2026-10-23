@@ -69,6 +69,8 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     ),
     ("PUT", f"{API}/sites/{SITE}/special-category-allow", {"patterns": []}),
     ("POST", f"{API}/sites/{SITE}/crawl", None),
+    ("POST", f"{API}/sites/{SITE}/withdraw", {"reason": "r"}),
+    ("POST", f"{API}/sources/{SOURCE}/restore", None),
     ("GET", f"{API}/tags", None),
     ("POST", f"{API}/tags/sync", None),
 ]
@@ -610,6 +612,69 @@ async def test_sites_are_registered_reviewed_crawled_and_shown_with_their_pages(
     assert {p["url"] for p in detail["pages"]} == {ROOT + "/", ROOT + "/a", ROOT + "/report"}
     for event in ("site.proposed", "site.approved", "site.settings_changed", "site.crawled"):
         assert await console.events(event, "site_id", site_id), event
+
+
+async def test_a_reviewer_withdraws_a_site_and_restores_a_page_from_the_console(
+    console: Console,
+) -> None:
+    """P1c-14: "withdraw site" and "restore" are reviewer actions, audited."""
+    await console.roles("content_editor", "content_reviewer")
+    editor = console.editor()
+    created = await editor.post(
+        f"{API}/sites",
+        json={
+            "start_url": ROOT + "/",
+            "name": "Synthetic Energy Institute",
+            "publisher": "Synthetic Energy Institute",
+            "licence_basis": "publisher-terms",
+            "tags": ["sample-web"],
+            "schedule": "weekly",
+        },
+    )
+    site_id = created.json()["id"]
+    assert (await editor.post(f"{API}/sites/{site_id}/approve", json={})).status_code == 200
+    await console.run_jobs()
+    pages = (await editor.get(f"{API}/sources", params={"site_id": site_id})).json()
+    page = next(p for p in pages if p["canonical_url"] == ROOT + "/a")
+    withdrawn = await editor.post(
+        f"{API}/sources/{page['id']}/withdraw", json={"reason": "licence check"}
+    )
+    assert withdrawn.status_code == 200
+    await console.run_jobs()
+
+    await console.roles("content_editor")
+    assert (await editor.post(f"{API}/sources/{page['id']}/restore")).status_code == 403
+    refused = await editor.post(f"{API}/sites/{site_id}/withdraw", json={"reason": "stop"})
+    assert refused.status_code == 403
+    await console.roles("content_editor", "content_reviewer")
+    restored = await editor.post(f"{API}/sources/{page['id']}/restore")
+    assert restored.status_code == 204, restored.text
+    again = await editor.post(f"{API}/sources/{page['id']}/restore")
+    assert (again.status_code, again.json()["detail"]) == (409, "not_a_withdrawn_page")
+    detail = (await editor.get(f"{API}/sites/{site_id}")).json()
+    assert {p["url"]: (p["state"], p["reason"]) for p in detail["pages"]}[ROOT + "/a"] == (
+        "removed",
+        "restored",
+    )
+
+    empty = await editor.post(f"{API}/sites/{site_id}/withdraw", json={"reason": " "})
+    assert (empty.status_code, empty.json()["detail"]) == (422, "note_required")
+    done = await editor.post(f"{API}/sites/{site_id}/withdraw", json={"reason": "retired"})
+    assert done.status_code == 200, done.text
+    assert len(done.json()["job_ids"]) == len(pages) - 1  # every page but the withdrawn one
+    await console.run_jobs()
+    detail = (await editor.get(f"{API}/sites/{site_id}")).json()
+    assert (detail["status"], detail["next_crawl_at"]) == ("withdrawn", None)
+    assert (detail["withdrawal_reason"], detail["withdrawn_at"] is not None) == ("retired", True)
+    assert "live" not in {p["state"] for p in detail["pages"]}
+    sources = (await editor.get(f"{API}/sources", params={"site_id": site_id})).json()
+    assert {s["status"] for s in sources} == {"withdrawn"}
+    crawl = await editor.post(f"{API}/sites/{site_id}/crawl")
+    assert (crawl.status_code, crawl.json()["detail"]) == (409, "not_approved")
+    twice = await editor.post(f"{API}/sites/{site_id}/withdraw", json={"reason": "retired"})
+    assert (twice.status_code, twice.json()["detail"]) == (409, "already_withdrawn")
+    assert await console.events("site.withdrawn", "site_id", site_id)
+    assert await console.events("source.restored", "source_id", page["id"])
 
 
 # --- tags ----------------------------------------------------------------------------------

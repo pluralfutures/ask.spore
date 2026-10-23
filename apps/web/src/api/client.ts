@@ -413,6 +413,10 @@ export const contentApi = {
   retry: (id: string) => json<{ job_id: string }>("POST", `/content/sources/${id}/retry`),
   withdraw: (id: string, reason: string) =>
     json<{ job_id: string }>("POST", `/content/sources/${id}/withdraw`, { reason }),
+  // P1c-14: a withdrawn crawled page comes back at the next crawl of its site.
+  restore: async (id: string) => {
+    await send("POST", `/content/sources/${id}/restore`);
+  },
   takedown: (id: string, body: TakedownIn) =>
     json<Takedown>("POST", `/content/sources/${id}/takedown`, body),
   takedowns: () => json<Takedown[]>("GET", "/content/takedowns"),
@@ -431,6 +435,9 @@ export const contentApi = {
     await send("PUT", `/content/sites/${id}/special-category-allow`, { patterns });
   },
   crawl: (id: string) => json<{ job_id: string }>("POST", `/content/sites/${id}/crawl`),
+  // P1c-14: retires the site and withdraws every page, one job per page.
+  withdrawSite: (id: string, reason: string) =>
+    json<{ job_ids: string[] }>("POST", `/content/sites/${id}/withdraw`, { reason }),
   tags: () => json<ContentTag[]>("GET", "/content/tags"),
   syncTags: () => json<TagSync[]>("POST", "/content/tags/sync"),
 };

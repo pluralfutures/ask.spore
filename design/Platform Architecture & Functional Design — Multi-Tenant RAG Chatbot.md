@@ -264,6 +264,7 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 - Rate-limit per host; never crawl behind logins; strip tracking parameters; skip pages that match obvious special-category patterns (health, religion, politics about named individuals) unless a reviewer whitelists them.
 - Store the HTML snapshot for provenance; serve users only excerpts and links.
 - Phase 1b (P1b-04): sites live in a `sites` table with scope rules (path allow and deny patterns), schedule (none, weekly, monthly), page budget, the allow decision and the last crawl; each page URL is a `site_pages` row (live, blocked with its reason, or removed). A reviewer's approval of a site covers its pages: each crawl records new and changed pages as approved register rows in the reviewer's name, audited. The worker and API fetch only public http(s) addresses on the default ports (no private, loopback or link-local hosts, redirects included).
+- Phase 1c (P1c-14): a reviewer may **withdraw a whole site**: the site is retired (status `withdrawn`, no further crawls), every page is blocked and each page's register row is withdrawn by the same per-page job as §6.3, audited; a crawl running at that moment stops at its next page. A reviewer may **restore** a crawled page they withdrew: the next crawl that meets it takes it again as a new register row; a page any version of which had a takedown recorded cannot be restored.
 
 ---
 

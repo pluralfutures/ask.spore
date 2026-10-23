@@ -477,6 +477,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/content/sites/{site_id}/withdraw": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Withdraw Site
+     * @description P1c-14: a reviewer withdraws the whole site: retired (never crawled again), every
+     *     page blocked, and every page's register row withdrawn by its own job.
+     */
+    post: operations["withdraw_site_api_v1_content_sites__site_id__withdraw_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/content/sources": {
     parameters: {
       query?: never;
@@ -574,6 +595,27 @@ export interface paths {
     put?: never;
     /** Reject Source */
     post: operations["reject_source_api_v1_content_sources__source_id__reject_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sources/{source_id}/restore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Restore Source
+     * @description P1c-14: a reviewer restores a crawled page they withdrew; the next crawl of its
+     *     site takes it again as a new register row.
+     */
+    post: operations["restore_source_api_v1_content_sources__source_id__restore_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2496,6 +2538,10 @@ export interface components {
       status: string;
       /** Tags */
       tags: string[];
+      /** Withdrawal Reason */
+      withdrawal_reason: string | null;
+      /** Withdrawn At */
+      withdrawn_at: string | null;
     };
     /** SiteOut */
     SiteOut: {
@@ -2567,6 +2613,14 @@ export interface components {
        * @enum {string}
        */
       schedule: "none" | "weekly" | "monthly";
+    };
+    /**
+     * SiteWithdrawnOut
+     * @description P1c-14: the per-page ``withdraw_source`` jobs a site withdrawal queued.
+     */
+    SiteWithdrawnOut: {
+      /** Job Ids */
+      job_ids: string[];
     };
     /** SourceDownloadableIn */
     SourceDownloadableIn: {
@@ -3748,6 +3802,41 @@ export interface operations {
       };
     };
   };
+  withdraw_site_api_v1_content_sites__site_id__withdraw_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WithdrawIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SiteWithdrawnOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_sources_api_v1_content_sources_get: {
     parameters: {
       query?: {
@@ -3969,6 +4058,35 @@ export interface operations {
         "application/json": components["schemas"]["NoteIn"];
       };
     };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  restore_source_api_v1_content_sources__source_id__restore_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
     responses: {
       /** @description Successful Response */
       204: {

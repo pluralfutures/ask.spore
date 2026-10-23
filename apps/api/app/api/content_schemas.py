@@ -153,6 +153,12 @@ class JobQueuedOut(BaseModel):
     job_id: UUID
 
 
+class SiteWithdrawnOut(BaseModel):
+    """P1c-14: the per-page ``withdraw_source`` jobs a site withdrawal queued."""
+
+    job_ids: list[UUID]
+
+
 class SiteOut(BaseModel):
     id: UUID
     name: str
@@ -191,6 +197,8 @@ class SiteDetail(SiteOut):
     proposed_by: str | None
     approved_by: str | None
     approved_at: datetime | None
+    withdrawn_at: datetime | None  # P1c-14: the whole site was withdrawn
+    withdrawal_reason: str | None
     pages: list[SitePageOut]
     jobs: list[JobOut]
 

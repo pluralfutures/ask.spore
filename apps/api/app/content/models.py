@@ -1,7 +1,7 @@
 """Source register and tag-to-dataset mapping. Shared corpus metadata, not tenant-scoped.
 
-Mirrors alembic revisions 0001, 0003, 0012, 0013, 0015, 0023 and 0024; the migrations are
-authoritative.
+Mirrors alembic revisions 0001, 0003, 0012, 0013, 0015, 0023, 0024 and 0060; the migrations
+are authoritative.
 """
 
 from __future__ import annotations
@@ -35,7 +35,8 @@ SOURCE_TYPES = ("pdf", "docx", "pptx", "html", "markdown")
 SOURCE_STATUSES = ("proposed", "approved", "ingested", "failed", "withdrawn", "rejected")
 CONTENT_ROLES = ("content_editor", "content_reviewer")
 # P1b-04: crawl management.
-SITE_STATUSES = ("proposed", "approved", "rejected")
+# P1c-14: withdrawn retires an approved site (revision 0060).
+SITE_STATUSES = ("proposed", "approved", "rejected", "withdrawn")
 SITE_SCHEDULES = ("none", "weekly", "monthly")
 ALLOW_DECISIONS = ("unchecked", "allowed", "robots_disallowed", "tdm_reserved")
 PAGE_STATES = ("live", "blocked", "removed")
@@ -133,8 +134,9 @@ class Source(Base):
     )
     takedown_requested_on: Mapped[date | None] = mapped_column(Date)
     takedown_due_on: Mapped[date | None] = mapped_column(Date)
-    # Revision 0023 (owner decision 5, Oct 22, 2026): the takedown is on licence grounds,
-    # so the withdrawal blanks the excerpts stored in users' history.
+    # Revision 0023 (owner decision 5, Oct 22, 2026): the takedown is on licence grounds.
+    # Since owner decision 3 (Oct 23, 2026) every withdrawal blanks the stored excerpts,
+    # so the flag is a record for the queue and the audit trail only.
     takedown_licence_grounds: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     # Revision 0024 (P1b-04): a crawled page's site, its raw HTML snapshot under
     # ``[files] content_root`` (``snapshots/<sha256>.html``) and when it was fetched.
@@ -188,6 +190,11 @@ class Site(Base):
         CheckConstraint(
             "status <> 'approved' OR approved_at IS NOT NULL", name="approval_recorded"
         ),
+        CheckConstraint(
+            "status <> 'withdrawn' OR (withdrawn_at IS NOT NULL "
+            "AND length(btrim(coalesce(withdrawal_reason, ''))) > 0)",
+            name="withdrawal_recorded",
+        ),
         CheckConstraint(f"allow_decision IN {ALLOW_DECISIONS}", name="allow_decision_valid"),
         CheckConstraint(
             f"last_crawl_status IS NULL OR last_crawl_status ~ {_CODE}",
@@ -230,6 +237,9 @@ class Site(Base):
     review_note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Revision 0060 (P1c-14): a reviewer withdrew the whole site.
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    withdrawal_reason: Mapped[str | None] = mapped_column(Text)
 
 
 class SitePage(Base):

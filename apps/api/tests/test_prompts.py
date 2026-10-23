@@ -113,12 +113,14 @@ def _template(name: str = "corpus_only", version: str = "v5") -> Prompt:
 
 
 # Every released template with a slot; the active ones are corpus_only/v5 and
-# general_knowledge/v2 (findings section 11).
+# general_knowledge/v2 (findings section 11). corpus_only/v6 is P1c-13's candidate,
+# awaiting the live eval (findings 1c section 3).
 SLOT_TEMPLATES = [
     ("corpus_only", "v2"),
     ("corpus_only", "v3"),
     ("corpus_only", "v4"),
     ("corpus_only", "v5"),
+    ("corpus_only", "v6"),
     ("general_knowledge", "v1"),
     ("general_knowledge", "v2"),
 ]
@@ -239,6 +241,7 @@ def test_active_prompts_are_the_section_11_versions(name: str, version: str) -> 
         ("corpus_only", "v3"),
         ("corpus_only", "v4"),
         ("corpus_only", "v5"),
+        ("corpus_only", "v6"),
         ("general_knowledge", "v2"),
     ],
 )
@@ -305,6 +308,36 @@ def test_repository_corpus_only_v5_keeps_combined_claims_to_what_each_passage_st
     assert "is marked as a conclusion" in v5 and "adds no fact they do not state" in v5
     assert v5.index("is marked as a conclusion") < v5.index("5. If passages disagree")
     assert len(v5.splitlines()) == len(v4.splitlines())  # one sentence added, no new rule
+
+
+def test_repository_corpus_only_v6_holds_named_editions_and_numbered_citations() -> None:
+    # Findings 1c section 3 (P1c-13): v5 answered wrong-year questions (hc-v1-055, 058)
+    # from another edition, and withheld or declined a named-sources synthesis
+    # (hc-v1-039). v6 changes four sentences of rules 2 to 4 and nothing else.
+    v5, v6 = _template("corpus_only", "v5").text, _template("corpus_only", "v6").text
+    assert "asks what several named sources each say" in v6
+    assert "names a particular report, edition or year" in v6
+    assert "check each passage's title and publication date" in v6
+    assert "even of the same publisher's series, does not give it" in v6
+    assert "figures from another year or edition than the one asked about are not part" in v6
+    assert "Cite by passage number only, also when the question asks you to cite" in v6
+    assert "An answer without passage numbers cannot be shown." in v6
+    # Everything v5 says is still there, in the same rules and order.
+    assert len(v6.splitlines()) == len(v5.splitlines())
+    pairs = zip(v5.splitlines(), v6.splitlines(), strict=True)
+    changed = [new[:2] for old, new in pairs if old != new]
+    assert changed == ["2.", "3.", "4."]
+    for sentence in (
+        "merely the same topic does not give it.",
+        "Only if no passage gives any of the information asked for",
+        f'nothing else: "{ABSTAIN_SENTENCE}" Then cite nothing',
+        "claim no more than that passage states",
+        "Cite only passage numbers of the `<context>` block",
+    ):
+        assert sentence in v5 and sentence in v6
+    # The decision still comes before the fixed decline; the secrecy reply is unchanged.
+    assert v6.index("names a particular report") < v6.index(ABSTAIN_SENTENCE)
+    assert v6.split("8. ")[1] == v5.split("8. ")[1]
 
 
 def test_repository_general_knowledge_v2_marks_general_knowledge_by_leaving_it_uncited() -> None:

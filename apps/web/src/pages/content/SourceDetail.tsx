@@ -174,11 +174,16 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
     mutationFn: () => contentApi.withdraw(source.id, reason),
     onSuccess: refresh,
   });
+  const restore = useMutation({
+    mutationFn: () => contentApi.restore(source.id),
+    onSuccess: refresh,
+  });
   const error =
     errorMessage(approve.error) ??
     errorMessage(reject.error) ??
     errorMessage(retry.error) ??
-    errorMessage(withdraw.error);
+    errorMessage(withdraw.error) ??
+    errorMessage(restore.error);
   return (
     <div className="flex flex-col gap-3 rounded bg-white p-3">
       <h3 className="font-semibold">Review</h3>
@@ -247,6 +252,23 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
           >
             Withdraw everywhere
           </button>
+        </div>
+      ) : null}
+      {source.status === "withdrawn" && source.site_id ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => restore.mutate()}
+            disabled={restore.isPending || restore.isSuccess}
+            className="w-fit rounded border px-3 py-1 disabled:opacity-50"
+          >
+            Restore page
+          </button>
+          <span className="text-slate-600">
+            {restore.isSuccess
+              ? "Restored: the next crawl of the site takes it again."
+              : "The next crawl of its site takes the page again as a new version."}
+          </span>
         </div>
       ) : null}
       {source.status !== "withdrawn" ? <TakedownForm id={source.id} /> : null}
@@ -348,7 +370,7 @@ function TakedownForm({ id }: { id: string }) {
           disabled={breach}
           onChange={(e) => setGrounds(e.target.checked)}
         />{" "}
-        On licence grounds (stored excerpts are blanked on withdrawal)
+        On licence grounds
       </label>
       <button type="submit" disabled={record.isPending} className="rounded border px-3 py-1">
         Record

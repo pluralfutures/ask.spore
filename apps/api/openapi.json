@@ -2764,6 +2764,16 @@
             "title": "Possible Replacements",
             "type": "array"
           },
+          "replaces": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "source_id": {
             "format": "uuid",
             "title": "Source Id",
@@ -3132,6 +3142,29 @@
             },
             "title": "Tags",
             "type": "array"
+          },
+          "withdrawal_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawal Reason"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
           }
         },
         "required": [
@@ -3159,6 +3192,8 @@
           "proposed_by",
           "approved_by",
           "approved_at",
+          "withdrawn_at",
+          "withdrawal_reason",
           "pages",
           "jobs"
         ],
@@ -3414,6 +3449,24 @@
           "max_pages"
         ],
         "title": "SiteSettingsIn",
+        "type": "object"
+      },
+      "SiteWithdrawnOut": {
+        "description": "P1c-14: the per-page ``withdraw_source`` jobs a site withdrawal queued.",
+        "properties": {
+          "job_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Job Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "job_ids"
+        ],
+        "title": "SiteWithdrawnOut",
         "type": "object"
       },
       "SourceDownloadableIn": {
@@ -5278,6 +5331,57 @@
         "summary": "Site Whitelist"
       }
     },
+    "/api/v1/content/sites/{site_id}/withdraw": {
+      "post": {
+        "description": "P1c-14: a reviewer withdraws the whole site: retired (never crawled again), every\npage blocked, and every page's register row withdrawn by its own job.",
+        "operationId": "withdraw_site_api_v1_content_sites__site_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteWithdrawnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Site"
+      }
+    },
     "/api/v1/content/sources": {
       "get": {
         "description": "The register, newest change first, filtered by status, tag, type and publisher\n(a case-insensitive part of the name); at most 500 rows.",
@@ -5657,6 +5761,40 @@
           }
         },
         "summary": "Reject Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/restore": {
+      "post": {
+        "description": "P1c-14: a reviewer restores a crawled page they withdrew; the next crawl of its\nsite takes it again as a new register row.",
+        "operationId": "restore_source_api_v1_content_sources__source_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Source"
       }
     },
     "/api/v1/content/sources/{source_id}/retry": {

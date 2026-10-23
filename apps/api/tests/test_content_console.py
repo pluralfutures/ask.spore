@@ -69,6 +69,8 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     ),
     ("PUT", f"{API}/sites/{SITE}/special-category-allow", {"patterns": []}),
     ("POST", f"{API}/sites/{SITE}/crawl", None),
+    ("POST", f"{API}/sites/{SITE}/withdraw", {"reason": "r"}),
+    ("POST", f"{API}/sources/{SOURCE}/restore", None),
     ("GET", f"{API}/tags", None),
     ("POST", f"{API}/tags/sync", None),
 ]
@@ -359,14 +361,18 @@ async def test_list_filters_by_status_tag_type_and_publisher(console: Console) -
 async def test_a_possible_replacement_is_flagged_and_needs_the_reviewers_choice(
     console: Console,
 ) -> None:
+    """Same canonical link, another title: flagged for the reviewer (decisions 4 and 3)."""
     await console.roles("content_editor", "content_reviewer")
     client = console.editor()
     first = (await console.propose(client, PDF.read_bytes())).json()["source_id"]
     await client.post(f"{API}/sources/{first}/approve", json={})
     await console.run_jobs()
 
-    response = await console.propose(client, PDF.read_bytes() + b"\n% revised")
+    response = await console.propose(
+        client, PDF.read_bytes() + b"\n% revised", title="Synthetic Outlook, revised edition"
+    )
     body = response.json()
+    assert body["replaces"] is None
     assert [r["id"] for r in body["possible_replacements"]] == [first]
     second = body["source_id"]
     listed = {s["id"]: s for s in (await client.get(f"{API}/sources")).json()}
@@ -383,6 +389,32 @@ async def test_a_possible_replacement_is_flagged_and_needs_the_reviewers_choice(
     detail = (await client.get(f"{API}/sources/{second}")).json()
     assert detail["supersedes"]["id"] == first
     assert (await client.get(f"{API}/sources/{first}")).json()["status"] == "withdrawn"
+
+
+async def test_the_same_link_and_title_replace_without_a_choice(console: Console) -> None:
+    """Owner decision 3 (Oct 23, 2026, P1c-14): a new file with the canonical link and the
+    title of an ingested source replaces it; the console says so and flags nothing."""
+    await console.roles("content_editor", "content_reviewer")
+    client = console.editor()
+    first = (await console.propose(client, PDF.read_bytes())).json()["source_id"]
+    await client.post(f"{API}/sources/{first}/approve", json={})
+    await console.run_jobs()
+
+    title = f"  {PROPOSAL['title'].upper()} "  # case and spacing do not matter
+    body = (await console.propose(client, PDF.read_bytes() + b"\n% revised", title=title)).json()
+    second = body["source_id"]
+    assert body["possible_replacements"] == [] and body["replaces"]["id"] == first
+    listed = {s["id"]: s for s in (await client.get(f"{API}/sources")).json()}
+    assert listed[second]["possible_replacement"] is False
+    detail = (await client.get(f"{API}/sources/{second}")).json()
+    assert (detail["supersedes"]["id"], detail["possible_replacements"]) == (first, [])
+
+    ok = await client.post(f"{API}/sources/{second}/approve", json={})
+    assert ok.status_code == 200, ok.text
+    await console.run_jobs()
+    assert (await client.get(f"{API}/sources/{first}")).json()["status"] == "withdrawn"
+    [approval] = await console.events("source.approved", "source_id", second)
+    assert (approval["replaces"], approval["method"]) == (first, "same_link_and_title")
 
 
 async def test_downloadable_needs_no_letter_and_an_attached_letter_is_kept(
@@ -580,6 +612,69 @@ async def test_sites_are_registered_reviewed_crawled_and_shown_with_their_pages(
     assert {p["url"] for p in detail["pages"]} == {ROOT + "/", ROOT + "/a", ROOT + "/report"}
     for event in ("site.proposed", "site.approved", "site.settings_changed", "site.crawled"):
         assert await console.events(event, "site_id", site_id), event
+
+
+async def test_a_reviewer_withdraws_a_site_and_restores_a_page_from_the_console(
+    console: Console,
+) -> None:
+    """P1c-14: "withdraw site" and "restore" are reviewer actions, audited."""
+    await console.roles("content_editor", "content_reviewer")
+    editor = console.editor()
+    created = await editor.post(
+        f"{API}/sites",
+        json={
+            "start_url": ROOT + "/",
+            "name": "Synthetic Energy Institute",
+            "publisher": "Synthetic Energy Institute",
+            "licence_basis": "publisher-terms",
+            "tags": ["sample-web"],
+            "schedule": "weekly",
+        },
+    )
+    site_id = created.json()["id"]
+    assert (await editor.post(f"{API}/sites/{site_id}/approve", json={})).status_code == 200
+    await console.run_jobs()
+    pages = (await editor.get(f"{API}/sources", params={"site_id": site_id})).json()
+    page = next(p for p in pages if p["canonical_url"] == ROOT + "/a")
+    withdrawn = await editor.post(
+        f"{API}/sources/{page['id']}/withdraw", json={"reason": "licence check"}
+    )
+    assert withdrawn.status_code == 200
+    await console.run_jobs()
+
+    await console.roles("content_editor")
+    assert (await editor.post(f"{API}/sources/{page['id']}/restore")).status_code == 403
+    refused = await editor.post(f"{API}/sites/{site_id}/withdraw", json={"reason": "stop"})
+    assert refused.status_code == 403
+    await console.roles("content_editor", "content_reviewer")
+    restored = await editor.post(f"{API}/sources/{page['id']}/restore")
+    assert restored.status_code == 204, restored.text
+    again = await editor.post(f"{API}/sources/{page['id']}/restore")
+    assert (again.status_code, again.json()["detail"]) == (409, "not_a_withdrawn_page")
+    detail = (await editor.get(f"{API}/sites/{site_id}")).json()
+    assert {p["url"]: (p["state"], p["reason"]) for p in detail["pages"]}[ROOT + "/a"] == (
+        "removed",
+        "restored",
+    )
+
+    empty = await editor.post(f"{API}/sites/{site_id}/withdraw", json={"reason": " "})
+    assert (empty.status_code, empty.json()["detail"]) == (422, "note_required")
+    done = await editor.post(f"{API}/sites/{site_id}/withdraw", json={"reason": "retired"})
+    assert done.status_code == 200, done.text
+    assert len(done.json()["job_ids"]) == len(pages) - 1  # every page but the withdrawn one
+    await console.run_jobs()
+    detail = (await editor.get(f"{API}/sites/{site_id}")).json()
+    assert (detail["status"], detail["next_crawl_at"]) == ("withdrawn", None)
+    assert (detail["withdrawal_reason"], detail["withdrawn_at"] is not None) == ("retired", True)
+    assert "live" not in {p["state"] for p in detail["pages"]}
+    sources = (await editor.get(f"{API}/sources", params={"site_id": site_id})).json()
+    assert {s["status"] for s in sources} == {"withdrawn"}
+    crawl = await editor.post(f"{API}/sites/{site_id}/crawl")
+    assert (crawl.status_code, crawl.json()["detail"]) == (409, "not_approved")
+    twice = await editor.post(f"{API}/sites/{site_id}/withdraw", json={"reason": "retired"})
+    assert (twice.status_code, twice.json()["detail"]) == (409, "already_withdrawn")
+    assert await console.events("site.withdrawn", "site_id", site_id)
+    assert await console.events("source.restored", "source_id", page["id"])
 
 
 # --- tags ----------------------------------------------------------------------------------

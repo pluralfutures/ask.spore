@@ -47,11 +47,12 @@ describe("citation status (P1b-03)", () => {
     expect(html).toContain("Synthetic excerpt."); // the stored citation itself stays visible
   });
 
-  it("explains a blanked excerpt and keeps the withdrawn label (licence takedown)", () => {
+  it("explains a blanked excerpt and keeps the withdrawn label (any withdrawal)", () => {
     const html = render([citation(1), citation(2, { withdrawn: true, excerpt: "" })]);
     expect(html).toMatch(/data-testid="citation-status-2"[^>]*>withdrawn</);
     expect(html).toContain('data-testid="citation-no-excerpt-2"');
     expect(html).not.toContain('data-testid="citation-no-excerpt-1"');
-    expect(html).toContain("withdrawn on licence grounds");
+    expect(html).toContain("The quoted passage was removed because the source was withdrawn.");
+    expect(html).not.toContain("licence grounds");
   });
 });

@@ -122,6 +122,9 @@ class ProposeOut(BaseModel):
     outcome: Literal["proposed", "pending", "duplicate", "retag", "taken_down"]
     status: str
     possible_replacements: list[SourceRef]
+    # Owner decision 3: same canonical link and title as this ingested source, which the
+    # proposal replaces once approved and ingested (no choice needed).
+    replaces: SourceRef | None = None
 
 
 class ApproveIn(_In):
@@ -148,6 +151,12 @@ class TakedownIn(_In):
 
 class JobQueuedOut(BaseModel):
     job_id: UUID
+
+
+class SiteWithdrawnOut(BaseModel):
+    """P1c-14: the per-page ``withdraw_source`` jobs a site withdrawal queued."""
+
+    job_ids: list[UUID]
 
 
 class SiteOut(BaseModel):
@@ -188,6 +197,8 @@ class SiteDetail(SiteOut):
     proposed_by: str | None
     approved_by: str | None
     approved_at: datetime | None
+    withdrawn_at: datetime | None  # P1c-14: the whole site was withdrawn
+    withdrawal_reason: str | None
     pages: list[SitePageOut]
     jobs: list[JobOut]
 

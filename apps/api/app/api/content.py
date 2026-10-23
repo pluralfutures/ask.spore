@@ -61,6 +61,7 @@ from app.api.content_schemas import (
     SiteOut,
     SitePageOut,
     SiteSettingsIn,
+    SiteWithdrawnOut,
     SourceRef,
     TagOut,
     TagSyncOut,
@@ -278,7 +279,8 @@ async def content_me(
 
 def _replacement_flag() -> Any:
     """``possible_replacement`` for a list query: a proposal at the canonical link of an
-    ingested source that is not a crawled page (owner decision 4)."""
+    ingested source that is not a crawled page (owner decision 4), unless it replaces one
+    with the same title (``supersedes_id`` set at proposal, owner decision 3)."""
     other = Source.__table__.alias("other")
     return (
         select(func.count())
@@ -341,7 +343,12 @@ async def list_sources(
     rows = (await session.execute(query.limit(MAX_LIST))).all()
     return [
         ContentSourceOut(
-            **_source_out(row.Source, row.Source.status == "proposed" and row.candidates > 0)
+            **_source_out(
+                row.Source,
+                row.Source.status == "proposed"
+                and row.candidates > 0
+                and row.Source.supersedes_id is None,
+            )
         )
         for row in rows
     ]
@@ -426,7 +433,7 @@ async def source_detail(
     settings = _settings(request)
     candidates = (
         await register.replacement_candidates(session, row.canonical_url, exclude=row.id)
-        if row.status == "proposed" and row.site_id is None
+        if row.status == "proposed" and row.site_id is None and row.supersedes_id is None
         else []
     )
     datasets = {d.ragflow_dataset_id: d.tag for d in (await session.scalars(select(Dataset))).all()}
@@ -594,11 +601,13 @@ async def propose_source(
     )
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         replacements = await _refs(session, list(submission.possible_replacements))
+        replaces = await _refs(session, [submission.replaces] if submission.replaces else [])
     return ProposeOut(
         source_id=submission.source_id,
         outcome=submission.outcome,
         status=submission.status,
         possible_replacements=replacements,
+        replaces=replaces[0] if replaces else None,
     )
 
 
@@ -678,6 +687,16 @@ async def withdraw_source(
         register.request_withdrawal(_factory(request), source_id, user.user_id, reason=body.reason)
     )
     return JobQueuedOut(job_id=job_id)
+
+
+@router.post("/sources/{source_id}/restore", status_code=status.HTTP_204_NO_CONTENT)
+async def restore_source(
+    source_id: UUID, request: Request, user: ContentUser = Depends(require_content_user)
+) -> Response:
+    """P1c-14: a reviewer restores a crawled page they withdrew; the next crawl of its
+    site takes it again as a new register row."""
+    await _decide(sites.restore_page(_factory(request), source_id, user.user_id))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/sources/{source_id}/takedown", response_model=TakedownOut)
@@ -831,6 +850,8 @@ async def site_detail(
         proposed_by=emails.get(site.proposed_by) if site.proposed_by else None,
         approved_by=emails.get(site.approved_by) if site.approved_by else None,
         approved_at=site.approved_at,
+        withdrawn_at=site.withdrawn_at,
+        withdrawal_reason=site.withdrawal_reason,
         pages=[
             SitePageOut(
                 url=p.url,
@@ -893,6 +914,27 @@ async def site_whitelist(
         sites.set_special_category_allow(_factory(request), site_id, user.user_id, body.patterns)
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/sites/{site_id}/withdraw", response_model=SiteWithdrawnOut)
+async def withdraw_site(
+    site_id: UUID,
+    body: WithdrawIn,
+    request: Request,
+    user: ContentUser = Depends(require_content_user),
+) -> SiteWithdrawnOut:
+    """P1c-14: a reviewer withdraws the whole site: retired (never crawled again), every
+    page blocked, and every page's register row withdrawn by its own job."""
+    job_ids = await _decide(
+        sites.withdraw_site(_factory(request), site_id, user.user_id, reason=body.reason)
+    )
+    log(
+        "content.site_withdrawn",
+        user_id=str(user.user_id),
+        site_id=str(site_id),
+        count=len(job_ids),
+    )
+    return SiteWithdrawnOut(job_ids=job_ids)
 
 
 @router.post("/sites/{site_id}/crawl", response_model=JobQueuedOut)

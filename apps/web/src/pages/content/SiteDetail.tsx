@@ -16,8 +16,8 @@ import { formatDate } from "../../lib/format";
 
 // One site (P1b-04, P1b-05): its settings, allow decision and last crawl, every page a
 // crawl met (blocked ones with the reason), and the reviewer's actions: approve or
-// reject, scope rules, schedule and page budget, the special-category whitelist. Any
-// content role may ask for a crawl now.
+// reject, scope rules, schedule and page budget, the special-category whitelist, and
+// withdrawing the whole site (P1c-14). Any content role may ask for a crawl now.
 export function SiteDetail({ roles }: { roles: string[] }) {
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
@@ -81,6 +81,12 @@ export function SiteSummary({ site }: { site: ContentSiteDetail }) {
         {site.special_category_allow.join(", ") || "—"}
       </p>
       {site.review_note ? <p>Reviewer's note: {site.review_note}</p> : null}
+      {site.status === "withdrawn" ? (
+        <p data-testid="site-withdrawn" className="text-red-800">
+          Withdrawn {formatDate(site.withdrawn_at)}: {site.withdrawal_reason}. Never crawled again;
+          every page is withdrawn.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -152,11 +158,17 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
     mutationFn: () => contentApi.siteWhitelist(site.id, parsePatterns(whitelist)),
     onSuccess: refresh,
   });
+  const [reason, setReason] = useState("");
+  const withdraw = useMutation({
+    mutationFn: () => contentApi.withdrawSite(site.id, reason),
+    onSuccess: refresh,
+  });
   const error =
     errorMessage(approve.error) ??
     errorMessage(reject.error) ??
     errorMessage(save.error) ??
-    errorMessage(saveWhitelist.error);
+    errorMessage(saveWhitelist.error) ??
+    errorMessage(withdraw.error);
   return (
     <div className="flex flex-col gap-3 rounded bg-white p-3">
       <h3 className="font-semibold">Review</h3>
@@ -184,7 +196,15 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
           </button>
         </div>
       ) : null}
-      {site.status !== "rejected" ? (
+      {site.status === "approved" ? (
+        <WithdrawSite
+          reason={reason}
+          onReason={setReason}
+          onWithdraw={() => withdraw.mutate()}
+          pending={withdraw.isPending}
+        />
+      ) : null}
+      {site.status !== "rejected" && site.status !== "withdrawn" ? (
         <div className="grid gap-2 md:grid-cols-2">
           <label className="flex flex-col">
             Paths to crawl (one per line)
@@ -249,6 +269,39 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
           </button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+// P1c-14: retires the site (no further crawls) and withdraws every page everywhere.
+export function WithdrawSite({
+  reason,
+  onReason,
+  onWithdraw,
+  pending,
+}: {
+  reason: string;
+  onReason: (value: string) => void;
+  onWithdraw: () => void;
+  pending: boolean;
+}) {
+  return (
+    <div data-testid="withdraw-site" className="flex flex-wrap items-end gap-2">
+      <label className="flex flex-col">
+        Reason for withdrawing the site
+        <input value={reason} onChange={(e) => onReason(e.target.value)} className="border px-1" />
+      </label>
+      <button
+        type="button"
+        onClick={onWithdraw}
+        disabled={pending || !reason.trim()}
+        className="rounded border border-red-700 px-3 py-1 text-red-700 disabled:opacity-50"
+      >
+        Withdraw site
+      </button>
+      <span className="text-slate-600">
+        Every page leaves every dataset, and the site is never crawled again.
+      </span>
     </div>
   );
 }

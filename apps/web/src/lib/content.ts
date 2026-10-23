@@ -48,6 +48,8 @@ export const PAGE_REASONS: Record<string, string> = {
   duplicate_content: "same text as another source",
   taken_down: "taken down",
   withdrawn: "withdrawn by a reviewer",
+  site_withdrawn: "the whole site was withdrawn",
+  restored: "restored by a reviewer: taken again at the next crawl",
   robots_disallowed: "robots.txt disallows the site",
   tdm_reserved: "the site reserves text-and-data mining",
   http_404: "gone (404)",

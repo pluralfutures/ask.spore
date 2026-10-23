@@ -7,10 +7,12 @@ One job per source (architecture §6.3), run by the worker, idempotent on retry:
    RAGFlow no longer has counts as deleted;
 2. flag the stored citations of the source in every tenant's history, as
    ``askspore_content`` (identifier and flag columns only): ``superseded_at`` when a
-   re-ingested version of the file replaced it, ``withdrawn_at`` otherwise. For a
-   takedown on licence grounds the stored excerpts are the licensed text and are
-   blanked as well, for this source and the earlier versions it replaced (owner
-   decision 5, Oct 22, 2026); every other withdrawal keeps them;
+   re-ingested version of the file replaced it, ``withdrawn_at`` otherwise. Every
+   withdrawal blanks the stored excerpts as well, for this source and the earlier
+   versions it replaced, whatever the grounds (owner decision 3, Oct 23, 2026; until
+   then only a takedown on licence grounds did), and labels those versions' citations
+   withdrawn too; the citation, its provenance and its label stay. A supersession
+   keeps them: the document is still in the corpus;
 3. mark the register row ``withdrawn`` with its date and reason, audited;
 4. delete our stored copy of the file, unless another live source has the same content,
    and a crawled page's raw HTML snapshot (P1b-04) likewise;
@@ -163,8 +165,9 @@ async def withdraw_source(
         if row is None:
             return WithdrawResult(source_id, "refused", error_code="no_source")
         kind = await _kind(session, source_id)
-        licence_takedown = bool(row.takedown_reference) and row.takedown_licence_grounds
-        versions = await _versions(session, source_id) if licence_takedown else []
+        # Owner decision 3 (Oct 23, 2026): every withdrawal blanks, a supersession does not.
+        blank = kind == "withdrawn"
+        versions = await _versions(session, source_id) if blank else []
     if row.status not in ("ingested", "failed", "withdrawn"):
         return WithdrawResult(source_id, "refused", kind, error_code="not_withdrawable")
 
@@ -188,9 +191,12 @@ async def withdraw_source(
             )
         return WithdrawResult(source_id, "failed", kind, error_code=exc.error_code)
 
-    # 2. Stored history, every tenant; excerpts blanked for a licence-ground takedown.
+    # 2. Stored history, every tenant; excerpts blanked unless superseded. The earlier
+    # versions are the same document: labelled withdrawn too (P1c-14).
     flagged = await flag_citations(factory, source_id, kind)
-    if licence_takedown:
+    if blank:
+        for version in versions[1:]:
+            await flag_citations(factory, version, "withdrawn")
         await blank_excerpts(factory, versions)
 
     # 3. The register row, audited.
@@ -224,7 +230,7 @@ async def withdraw_source(
                     "after": {"status": "withdrawn"},
                     "outcome": kind,
                     "count": flagged,
-                    "excerpts_blanked": licence_takedown,
+                    "excerpts_blanked": blank,
                 },
             )
 

@@ -442,6 +442,63 @@ async def ingest_source(
     return result
 
 
+async def _map_retag(
+    factory: async_sessionmaker[AsyncSession],
+    source_id: UUID,
+    mapping: Mapping[str, str],
+    datasets: Container[str],
+) -> None:
+    """Map exactly ``mapping`` among ``datasets`` (the re-tag's) on an ingested row."""
+    async with factory() as session, session.begin():
+        current = await session.scalar(
+            select(Source.ragflow_document_ids)
+            .where(Source.id == source_id, Source.status == "ingested")
+            .with_for_update()
+        )
+        if current is None:
+            return
+        kept = {k: v for k, v in current.items() if k not in datasets}
+        await session.execute(
+            update(Source)
+            .where(Source.id == source_id)
+            .values(ragflow_document_ids={**kept, **mapping}, updated_at=func.now())
+        )
+
+
+async def _clean_unfinished_retag(
+    factory: async_sessionmaker[AsyncSession], client: RagflowClient, source_id: UUID
+) -> None:
+    """Delete the documents an interrupted re-tag left mapped on the row: those in the
+    dataset of a synced tag the source does not hold. Keys that are not a synced
+    dataset's ID (mappings from before Phase 1a) are never touched."""
+    async with factory() as session:
+        row = (
+            await session.execute(
+                select(Source.tags, Source.ragflow_document_ids).where(Source.id == source_id)
+            )
+        ).one()
+        other = set(
+            (
+                await session.scalars(
+                    select(Dataset.ragflow_dataset_id).where(Dataset.tag.not_in(list(row.tags)))
+                )
+            ).all()
+        )
+    leftover = {k: str(v) for k, v in (row.ragflow_document_ids or {}).items() if k in other}
+    if not leftover:
+        return
+    remaining = dict(leftover)
+    try:
+        for dataset_id, document_id in leftover.items():
+            await client.delete_documents(dataset_id, [document_id])
+            del remaining[dataset_id]
+    except RagflowError as exc:
+        message = f"clean-up of an interrupted re-tag failed: {exc}"
+        raise _Failure(exc.error_code, message) from None
+    finally:
+        await _map_retag(factory, source_id, remaining, set(leftover))
+
+
 async def add_tags(
     factory: async_sessionmaker[AsyncSession],
     client: RagflowClient,
@@ -461,11 +518,17 @@ async def add_tags(
 
     RAGFlow cannot attach an existing document to a second dataset, so the file is
     uploaded and parsed again in each new dataset, as on first ingestion. On failure
-    the new documents are deleted and the source row is not touched: it keeps its
-    status, tags and other datasets. On success the source gains the tags and
-    documents, and the row's ``downloadable`` from the request (the owner's
-    declaration), audited under the platform tenant. A source that is not ``ingested``
-    is refused.
+    the new documents are deleted and the source keeps its status, tags and other
+    datasets. On success the source gains the tags and documents, and the row's
+    ``downloadable`` from the request (the owner's declaration), audited under the
+    platform tenant. A source that is not ``ingested`` is refused.
+
+    Each new upload is mapped on the row at once, as on first ingestion (P1c-14): a
+    document in the dataset of a tag the row does not hold yet belongs to an
+    unfinished re-tag. A run cut off by a stopped worker therefore leaves a mapping
+    the next re-tag of the source deletes from RAGFlow before uploading (and a
+    withdrawal deletes with the rest); a failed run unmaps what it deleted and keeps
+    mapped only the documents whose deletion failed.
     """
     async with factory() as session:
         row = (
@@ -478,6 +541,12 @@ async def add_tags(
     if row is None or row.status != "ingested" or row.file_sha256 is None:
         code = "no_source" if row is None else "not_ingested"
         return IngestResult(source_id=source_id, status="refused", error_code=code)
+    try:
+        await _clean_unfinished_retag(factory, client, source_id)
+    except _Failure as exc:
+        return IngestResult(
+            source_id=source_id, status="failed", error_code=exc.code, error=_short(str(exc))
+        )
     new_tags = tuple(tag for tag in dict.fromkeys(new_tags) if tag not in row.tags)
     if not new_tags:
         return IngestResult(source_id=source_id, status="duplicate")
@@ -494,6 +563,11 @@ async def add_tags(
             source_id=source_id, status="failed", error_code=exc.code, error=_short(str(exc))
         )
     name = upload_name(row.title, source_id, row.type)
+    new_datasets = {datasets[tag] for tag in new_tags}
+
+    async def record_uploads(mapping: dict[str, str]) -> None:
+        await _map_retag(factory, source_id, mapping, new_datasets)
+
     uploaded, chunk_count, failure = await _upload_and_parse(
         client,
         tags_config,
@@ -505,10 +579,12 @@ async def add_tags(
         parse_timeout=parse_timeout,
         sleep=sleep,
         clock=clock,
+        on_upload=record_uploads,
     )
     if failure is not None:
-        # Documents whose clean-up failed are named in the error, not mapped on the
-        # row: they are not part of the source until a re-run succeeds.
+        # Documents whose clean-up failed stay mapped (and named in the error), so the
+        # next re-tag or a withdrawal deletes them; the tags are not the source's.
+        await record_uploads(uploaded)
         return IngestResult(
             source_id=source_id,
             status="failed",

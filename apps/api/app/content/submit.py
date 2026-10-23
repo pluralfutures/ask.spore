@@ -62,7 +62,8 @@ async def submit(
     Raises IngestError on bad input (nothing recorded), RoleError when a named user lacks
     the role. The result's status is ``proposed`` or ``retag_pending`` while a reviewer
     has to decide (``proposed`` with ``possible_replacement`` when the file sits at the
-    canonical link of an ingested source: the reviewer chooses replace or keep both),
+    canonical link of an ingested source under another title: the reviewer chooses
+    replace or keep both; with the same title it replaces that source, owner decision 3),
     ``queued`` (with the job) once approved, ``duplicate`` when there is nothing to do,
     or ``failed`` (``taken_down``; ``needs_retry`` for a failed source without a
     reviewer).
@@ -105,9 +106,10 @@ async def submit(
     except RegisterError as exc:
         if exc.code != "replacement_choice_required":
             raise
-        # Owner decision 4 (Oct 22, 2026): a file at the canonical link of an ingested
-        # source waits for the reviewer's choice, replace or keep both, in the console
-        # (or ``sources approve --replace | --keep-both``); the CLI never decides it.
+        # Owner decisions 4 (Oct 22) and 3 (Oct 23, 2026): a file at the canonical link
+        # of an ingested source under another title waits for the reviewer's choice,
+        # replace or keep both, in the console (or ``sources approve --replace |
+        # --keep-both``); the CLI never decides it.
         return IngestResult(
             source_id=source_id, status="proposed", error_code="possible_replacement"
         )

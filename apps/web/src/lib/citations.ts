@@ -53,7 +53,7 @@ export const CITATION_STATUS_NOTE: Record<Exclude<CitationStatus, null>, string>
   superseded: "A newer version of this source has replaced the one this answer quoted.",
 };
 
-// Owner decision 5 (Oct 22, 2026): a source taken down on licence grounds has its stored
-// excerpts blanked; the citation and its "withdrawn" label stay.
+// Owner decision 3 (Oct 23, 2026, P1c-14): every withdrawal blanks the stored excerpts of
+// the source's citations; the citation and its "withdrawn" label stay.
 export const EXCERPT_REMOVED_NOTE =
-  "The quoted passage was removed because the source was withdrawn on licence grounds.";
+  "The quoted passage was removed because the source was withdrawn.";

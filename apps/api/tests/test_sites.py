@@ -9,14 +9,15 @@ from collections.abc import AsyncIterator
 from dataclasses import replace
 from datetime import date
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import asyncpg
 import pytest
 
-from app.content import worker
-from app.content.crawler import HostLimiter
+from app.content import sitecrawl, worker
+from app.content.crawler import HostLimiter, Visit
 from app.content.fetch import FetchError
+from app.content.jobs import enqueue
 from app.content.register import RegisterError, record_takedown, request_withdrawal
 from app.content.roles import RoleError
 from app.content.sites import (
@@ -26,16 +27,19 @@ from app.content.sites import (
     register_site,
     reject_site,
     request_crawl,
+    restore_page,
     schedule_due_crawls,
     set_special_category_allow,
     update_site,
+    withdraw_site,
 )
 from app.content.submit import settle, settle_site, submit_site
+from app.core.db import tenant_session
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.fakes import FakeRedis
 from tests.test_crawler import ROOT, Clock, Rebinding, Site, html, resolver
-from tests.test_ingest import TAGS, Env, Ingest, content_user, env
-from tests.test_withdraw import cite, flags
+from tests.test_ingest import TAGS, Env, Ingest, content_user, env, source_row
+from tests.test_withdraw import cite, flags, other_tenant
 
 __all__ = ["env"]  # the fixture, imported for its use here
 
@@ -612,3 +616,186 @@ async def test_a_crawl_never_connects_to_a_rebound_internal_address(
     assert crawls.site.requested == []
     assert (await crawls.site_row(site_id))["last_crawl_status"] == "unreachable"
     assert await crawls.sources(site_id) == {}
+
+
+# --- P1c-14: withdraw a whole site, restore a withdrawn page -----------------------------
+
+
+async def test_a_withdrawn_site_leaves_no_page_in_any_dataset_and_no_schedule(
+    crawls: Crawls, admin_conn: asyncpg.Connection
+) -> None:
+    e = crawls.e
+    site_id = await crawls.approved(schedule="weekly", tags=("sample-web", "sample-reports"))
+    await crawls.run()
+    live = await crawls.sources(site_id)
+    assert len(live) == 3 and all(r["status"] == "ingested" for r in live.values())
+    documents = {d for r in live.values() for d in json.loads(r["ragflow_document_ids"]).values()}
+    assert len(documents) == 6 and documents <= set(e.fake.documents)  # two datasets each
+    client_tenant, client_user = await other_tenant(admin_conn)
+    citation = await cite(admin_conn, client_tenant, client_user, live[ROOT + "/a"]["id"])
+    # A page still waiting for its ingestion when the site is withdrawn.
+    crawls.site.pages["/a"] = html("Page A", "Alpha, second version", DATED)
+    await request_crawl(e.factory, site_id, e.user_id)
+    registry = worker.handlers(crawls.context)
+    await worker.run_once(e.factory, registry)  # the crawl only: its ingestion is queued
+    pending = await admin_conn.fetchval(
+        "SELECT id FROM sources WHERE site_id = $1 AND status = 'approved'", site_id
+    )
+    assert pending is not None
+
+    await content_user(admin_conn, "content_editor")
+    with pytest.raises(RoleError):  # an editor cannot
+        await withdraw_site(e.factory, site_id, e.user_id, reason="publisher asked us to stop")
+    await content_user(admin_conn, "content_editor", "content_reviewer")
+    jobs = await withdraw_site(e.factory, site_id, e.user_id, reason="publisher asked us to stop")
+    assert len(jobs) == 3
+    await crawls.run()
+
+    # No page of the site remains in any dataset, and every row of the site is withdrawn.
+    assert not documents & set(e.fake.documents)
+    rows = await admin_conn.fetch(
+        "SELECT status, ragflow_document_ids FROM sources WHERE site_id = $1", site_id
+    )
+    assert {r["status"] for r in rows} == {"withdrawn"}
+    assert all(json.loads(r["ragflow_document_ids"]) == {} for r in rows)
+    assert not any(doc.name.endswith(".md") for doc in e.fake.documents.values())
+    # The first version was superseded by the pending one, then withdrawn with it.
+    assert (await flags(admin_conn, citation))[1] is True
+    assert await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", citation) == ""
+    pages = await crawls.pages(site_id)
+    assert {(p["state"], p["reason"]) for p in pages.values() if p["source_id"]} == {
+        ("blocked", "site_withdrawn")
+    }
+    assert "live" not in {p["state"] for p in pages.values()}
+    # The site is retired: no schedule, and nothing crawls it again.
+    site = await crawls.site_row(site_id)
+    assert (site["status"], site["next_crawl_at"]) == ("withdrawn", None)
+    assert site["withdrawal_reason"] == "publisher asked us to stop"
+    await admin_conn.execute("UPDATE sites SET next_crawl_at = now() - interval '1 day'")
+    assert await schedule_due_crawls(e.factory) == 0
+    with pytest.raises(RegisterError) as refused:
+        await request_crawl(e.factory, site_id, e.user_id)
+    assert refused.value.code == "not_approved"
+    with pytest.raises(RegisterError) as again:
+        await withdraw_site(e.factory, site_id, e.user_id, reason="twice")
+    assert again.value.code == "already_withdrawn"
+    requested = len(crawls.site.requested)
+    async with tenant_session(e.factory, INTERNAL_TENANT_ID) as session:  # a stale job
+        await enqueue(session, "crawl_site", {"site_id": str(site_id)}, created_by=None)
+    await crawls.run()
+    assert len(crawls.site.requested) == requested
+    # Audited, with the reviewer, and no reason text in the audit trail.
+    [done] = await crawls.events("site.withdrawn", site_id)
+    assert (done["actor"], done["before"]["status"], done["after"]["status"], done["count"]) == (
+        e.user_id,
+        "approved",
+        "withdrawn",
+        3,
+    )
+    requests = await crawls.events("source.withdrawal_requested", site_id)
+    assert {r["method"] for r in requests} >= {"site_withdrawal"}
+    assert "publisher asked" not in json.dumps([{**d, "actor": None} for d in [done, *requests]])
+
+
+async def test_a_crawl_running_when_its_site_is_withdrawn_admits_nothing_more(
+    crawls: Crawls, admin_conn: asyncpg.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    e = crawls.e
+    site_id = await crawls.approved(schedule="weekly")
+    real_apply = sitecrawl._Crawl.apply
+
+    async def apply(self: sitecrawl._Crawl, visit: Visit) -> None:
+        if visit.url == ROOT + "/b":  # the reviewer withdraws the site mid-crawl
+            await withdraw_site(e.factory, site_id, e.user_id, reason="synthetic")
+        await real_apply(self, visit)
+
+    monkeypatch.setattr(sitecrawl._Crawl, "apply", apply)
+    await crawls.run()
+    job = await admin_conn.fetchrow("SELECT status, error_code FROM jobs WHERE type = 'crawl_site'")
+    assert (job["status"], job["error_code"]) == ("failed", "site_not_approved")
+    rows = await admin_conn.fetch(
+        "SELECT canonical_url, status FROM sources WHERE site_id = $1", site_id
+    )
+    assert rows and ROOT + "/b" not in {r["canonical_url"] for r in rows}
+    assert {r["status"] for r in rows} == {"withdrawn"}  # admitted before it: withdrawn
+    assert not any(doc.name.endswith(".md") for doc in e.fake.documents.values())
+    assert (await crawls.site_row(site_id))["next_crawl_at"] is None
+
+
+async def test_a_restored_page_is_crawled_again(
+    crawls: Crawls, admin_conn: asyncpg.Connection
+) -> None:
+    e = crawls.e
+    site_id = await crawls.approved()
+    await crawls.run()
+    page_a = (await crawls.sources(site_id))[ROOT + "/a"]
+    with pytest.raises(RegisterError) as early:
+        await restore_page(e.factory, page_a["id"], e.user_id)
+    assert early.value.code == "not_withdrawn"
+    await request_withdrawal(e.factory, page_a["id"], e.user_id, reason="checking the licence")
+    with pytest.raises(RegisterError) as running:  # the withdrawal job has not run yet
+        await restore_page(e.factory, page_a["id"], e.user_id)
+    assert running.value.code == "not_withdrawn"
+    await crawls.run()
+    await crawls.crawl(site_id)
+    assert ROOT + "/a" not in await crawls.sources(site_id)  # held out, as before
+
+    await content_user(admin_conn, "content_editor")
+    with pytest.raises(RoleError):
+        await restore_page(e.factory, page_a["id"], e.user_id)
+    await content_user(admin_conn, "content_editor", "content_reviewer")
+    assert await restore_page(e.factory, page_a["id"], e.user_id) == site_id
+    page = (await crawls.pages(site_id))[ROOT + "/a"]
+    assert (page["state"], page["reason"]) == ("removed", "restored")
+    await crawls.crawl(site_id)
+
+    back = (await crawls.sources(site_id))[ROOT + "/a"]
+    assert back["id"] != page_a["id"] and back["status"] == "ingested"
+    assert back["file_sha256"] == page_a["file_sha256"] and back["supersedes_id"] is None
+    assert set(json.loads(back["ragflow_document_ids"]).values()) <= set(e.fake.documents)
+    page = (await crawls.pages(site_id))[ROOT + "/a"]
+    assert (page["state"], page["reason"], page["source_id"]) == ("live", None, back["id"])
+    [restored] = await crawls.events("source.restored", site_id)
+    assert (restored["actor"], restored["source_id"]) == (e.user_id, str(page_a["id"]))
+    assert (await source_row(admin_conn, page_a["id"]))["status"] == "withdrawn"
+
+
+async def test_a_taken_down_or_unwithdrawn_page_cannot_be_restored(
+    crawls: Crawls, admin_conn: asyncpg.Connection
+) -> None:
+    e = crawls.e
+    site_id = await crawls.approved()
+    await crawls.run()
+    live = await crawls.sources(site_id)
+    page_a, page_b = live[ROOT + "/a"], live[ROOT + "/b"]
+    await record_takedown(
+        e.factory,
+        page_a["id"],
+        e.user_id,
+        reference="TD-WEB-9",
+        requested_on=date(2026, 10, 22),
+        licence_breach=False,
+    )
+    await request_withdrawal(e.factory, page_a["id"], e.user_id, reason="takedown")
+    await crawls.run()
+    with pytest.raises(RegisterError) as taken:
+        await restore_page(e.factory, page_a["id"], e.user_id)
+    assert taken.value.code == "taken_down"
+    # A page the crawler removed is not a reviewer's withdrawal: nothing to restore.
+    del crawls.site.pages["/b"]
+    await crawls.crawl(site_id)
+    with pytest.raises(RegisterError) as removed:
+        await restore_page(e.factory, page_b["id"], e.user_id)
+    assert removed.value.code == "not_a_withdrawn_page"
+    # Nor a page of a withdrawn site.
+    other = await crawls.sources(site_id)
+    await request_withdrawal(e.factory, other[ROOT + "/"]["id"], e.user_id, reason="r")
+    await crawls.run()
+    await withdraw_site(e.factory, site_id, e.user_id, reason="site retired")
+    await crawls.run()
+    with pytest.raises(RegisterError) as retired:
+        await restore_page(e.factory, other[ROOT + "/"]["id"], e.user_id)
+    assert retired.value.code == "site_not_approved"
+    with pytest.raises(RegisterError) as file_source:
+        await restore_page(e.factory, uuid4(), e.user_id)
+    assert file_source.value.code == "no_source"

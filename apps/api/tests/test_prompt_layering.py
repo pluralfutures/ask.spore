@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -25,6 +26,16 @@ from tests.test_orchestrator import done_of, orchestrator, run
 pytestmark = pytest.mark.usefixtures("database")
 
 INSTRUCTIONS = "Prefer the most recent sources. Use British spelling & short paragraphs."
+# The active corpus-only version, and P1c-13's candidate (not active until the release
+# session's live eval switches it): both must layer the same way and carry no identifier.
+CORPUS_ONLY_VERSIONS = [None, "v6"]
+
+
+def _with_corpus_only(settings: Settings, version: str | None) -> Settings:
+    if version is None:
+        return settings
+    prompts = settings.models.prompts.model_copy(update={"corpus_only": version})
+    return replace(settings, models=settings.models.model_copy(update={"prompts": prompts}))
 
 
 async def _save_instructions(world: World, workspace_id: uuid.UUID, text: str) -> uuid.UUID:
@@ -45,9 +56,13 @@ def _messages(recorder: Recorder, index: int = 0) -> list[dict[str, Any]]:
     return messages
 
 
+@pytest.mark.parametrize("version", CORPUS_ONLY_VERSIONS)
 async def test_system_message_is_the_rendered_template_and_carries_no_identifiers(
-    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis, version: str | None
 ) -> None:
+    settings = _with_corpus_only(settings, version)
+    if version is not None:
+        assert active_prompt(settings, "corpus_only").ref == f"corpus_only/{version}"
     workspace = await world.new_workspace(list(TAGS), slug="ws-zebra-quartz")
     await world.admin.execute(
         "UPDATE workspaces SET name = 'Zebra Quartz Desk' WHERE id = $1", workspace
@@ -101,9 +116,11 @@ async def test_system_message_is_the_rendered_template_and_carries_no_identifier
         assert [name for name, value in identifiers.items() if value in wire] == []
 
 
+@pytest.mark.parametrize("version", CORPUS_ONLY_VERSIONS)
 async def test_without_instructions_the_slot_is_absent(
-    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis, version: str | None
 ) -> None:
+    settings = _with_corpus_only(settings, version)
     recorder = Recorder(sse(delta("Grew [1].")))
     await run(
         orchestrator(settings, engine, FakeRetriever(chunks_for(world)), recorder), world, "Q?"

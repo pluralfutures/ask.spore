@@ -262,6 +262,10 @@ async def test_a_tag_without_a_tenant_is_offered_to_no_client_and_refused_on_sav
     assert created.json()["tag_ids"] == ["common-tag"]
     kept = await op.post(base.format(internal), json=body("p1c01", ["unset-tag"]))
     assert kept.status_code == 201, kept.text
+    # The internal tenant is shared by later tests, which expect its one workspace.
+    await console.auth.admin.execute(
+        "DELETE FROM workspaces WHERE id = $1", uuid.UUID(kept.json()["id"])
+    )
 
 
 # --- spend and token usage from the ledger -----------------------------------------------

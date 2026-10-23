@@ -644,6 +644,19 @@ sections 3 to 7 to follow.
   for the test was not possible: verified domains are fixed at tenant creation (backlog). The
   refusal is tested with an Entra **guest user** whose address is outside both domains.
 
+
+| 3.2 Check (Oct 23, UTC) | Result |
+| --- | --- |
+| `ssotest2` created | Console "Saved." for tenant and login policy; active, 2 verified domains, JIT on, admin MFA required; `operator.tenant_created`, `operator.login_policy_changed`. |
+| Entra source saved | Policy kind `entra`, source `sso-ssotest2`; stored config holds the directory and client IDs and admin groups only, no secret; `operator.sso_source_changed` carries kind, slug and a config SHA-256. |
+| Entra refusal (guest, personal address) | First attempt stopped at Microsoft, `AADSTS50011`: the app registration listed only the Phase 1b callback `/sso-ssotest/`; the owner added `/sso-ssotest2/` (nothing reached us). Retry 19:5x: our landing page, `?sign_in=failed&reason=domain`, the domain message; `auth.login_failed` `method = sso:entra`, `domain_not_verified`; no user in our database or Authentik; no Authentik event at all (no `configuration_error`, no `property_mapping_exception`; the last ones are the Phase 1b drill's, Oct 22). **Pass.** |
+| Entra success (member user) | 20:02:51 `auth.user_provisioned` and `auth.login`, `method = sso:entra`; user role `user`, consent pending (kept for 3.3 b); Authentik `external` user with the tenant attribute, `source_linked`, `login`. A refusal at 20:01:01 (`sso:entra`, `domain_not_verified`) preceded it: the owner saw a time-out and reloaded; most likely the private session still held the guest's Microsoft sign-in. **Pass.** |
+| Entra source removed | "SSO source removed.", form cleared; policy kind `none`, no slug, config `{}`; no `sso-*` source or mapping in Authentik. **Pass.** |
+| Google source saved | "Saved." shown, with the earlier "SSO source removed." still under it (F2). Owner added `/sso-ssotest2/` to the Google OAuth client's redirect URIs. |
+| Google refusal (`myceliumgastronomy.com` Workspace user, `cc`'s domain) | 20:18:25 our landing page, `reason=domain`; `auth.login_failed` `method = sso:google`, `domain_not_verified` (address check before the `hd` check); no user anywhere; no Authentik error event. **Pass.** One `auth.login_failed` `method = sso`, `no_binding` at 20:10:26 (before the Google source existed): a callback without its attempt's cookie, refused; cause being confirmed with the owner. |
+| Google source removed | "SSO source removed.", form cleared; policy `none`; no `sso-*` source in Authentik. **Pass.** |
+| Keycloak drill (generic OIDC) | Needs F3 on `main` first. |
+
 ### Issues found and fixed during the release
 
 | # | Where | Issue | Fix |

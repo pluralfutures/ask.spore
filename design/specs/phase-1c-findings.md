@@ -571,8 +571,9 @@ The Instance runs `main` at **1758623** (`ASK_SPORE_DEPLOY_VERSION=175862320a89`
 
 ### Release status
 
-**In progress** (Oct 23, 2026): sections 0 to 4 done (independent review signed, no blocker;
-five fixes, F1 to F5, deployed at 80ac763cdd63 and re-checked); sections 5 to 7 to follow.
+**In progress** (Oct 23, 2026): sections 0 to 5 done (independent review signed, no blocker;
+five fixes, F1 to F5, deployed at 80ac763cdd63 and re-checked; `corpus_only/v6` not adopted,
+owner decision); sections 6 and 7 to follow.
 
 ### Section 0: credentials rotation
 
@@ -751,6 +752,70 @@ the drill (four named files and the directory).
 | One page: withdraw, restore, re-crawl | `sources withdraw` one page (22:10:03): page `blocked` (`withdrawn`), `sample-web` 19/35 → 18/33. `sources restore` (22:10:08): page `removed` (`restored`), `source.restored`. Re-crawl with `ask-spore crawl <start URL> --approve-as … --wait` (an existing start URL queues a crawl of that site): crawl 30 s, 1 page new, **taken again** as a new register row, ingested (2 chunks, 22:11:13); `sample-web` 19/35. |
 | Whole site | `sites withdraw` with reason, `--wait` (22:11:51, 28 s): `site.withdrawn`; site `withdrawn`, `withdrawn_at` and reason set, **`next_crawl_at` null**; 19 pages `blocked` (`site_withdrawn`), the 2 pages blocked at crawl unchanged; all 39 register rows of the site `withdrawn`; 20 `source.withdrawal_requested` / `source.withdrawn`, all `excerpts_blanked true`. **No page in any dataset:** `sample-web` 0/0. The scheduler and "crawl now" act only on `approved` sites, so no crawl runs again; the site page still prints "Schedule weekly" (the stored setting; backlog). |
 | Dataset counts | Every dataset back at the Oct 20 figures above. |
+
+### Section 5: evals (P1c-13), per §3.1.3
+
+Setup as findings 1b §7. Config copies rebuilt from the live `config/` of 80ac763:
+`/srv/ask-spore/eval-config/` differs from it only by `[auth.eval_service]` (the Phase 1b copy,
+made before the weight change and Phase 1c, set aside as `eval-config-1b`), and
+`/srv/ask-spore/eval-config-v6/` differs from that only by `[prompts] corpus_only = "v6"`.
+Temporary api `askspore-eval-api` from the release image (`docker compose run --no-deps`),
+`127.0.0.1:8001` only, `ASK_SPORE_DEPLOY_VERSION=80ac763cdd63-r2` (fresh answers, live cache
+not flushed), logged `api.eval_service_enabled`; recreated on the v6 copy for step 2 and
+removed after it. The harness ran from the release worktree (code identical to 80ac763 apart
+from documents, hence the run IDs' `3b92b0a4c746`) through `/root/eval-1c.sh`, run by the
+owner, which exports the secrets by name and prints none. Full outputs in
+`/srv/ask-spore/eval-runs/`. One change to §3.1.3's command: `--results-dir
+/srv/ask-spore/eval-runs` is refused since P1c-12 (a runs directory equal to the results
+directory), so the full outputs went to the default runs directory and the redacted copies to
+the worktree's `results/`, then moved to `/srv/ask-spore/eval-runs/p1c13-redacted/` (neither run
+is committed: v6 was not adopted and the baseline stays). Baseline
+`20261023T085603Z-c06e9e99bae9`. 0 cache hits and 0 errors in both runs.
+
+| Metric | Baseline | Step 1: v5 `20261023T221804Z` | Step 2: v6 `20261023T222656Z` | v6 vs baseline / vs step 1 |
+| --- | ---: | ---: | ---: | ---: |
+| Retrieval hit@5 | 98.0 | 98.0 | 98.0 | 0 / 0 |
+| Retrieval hit@10 | 100.0 | 100.0 | 100.0 | 0 / 0 |
+| Citation precision | 82.8 | 82.8 | 82.7 | −0.1 / −0.1 |
+| Faithfulness | 90.8 | 89.1 | 88.5 | −2.3 / −0.6 |
+| Abstention correctness (out_of_corpus) | 80.0 | 80.0 | 90.0 | +10.0 / +10.0 |
+| Cited-answer rate (factual + synthesis) | 98.0 | 98.0 | **94.0** | **−4.0 / −4.0, regression** |
+| Answered / unsupported | 51 / 9 | 51 / 9 | 48 / 12 | |
+
+- **5.2 Second run at weight 0.4, v5:** 305 s, `eval compare` against the baseline exit 0 (no
+  regression; faithfulness −1.7), and **no item's outcome changed**: hc-v1-010 answered with 4
+  citations (expected source at rank 6 to 10), hc-v1-039 uncited and withheld, hc-v1-046
+  answered, hc-v1-055 and hc-v1-058 answered. Confirms the Oct 23 tuning (weight 0.4). The
+  corpus version differs from the baseline's while every dataset count equals the Oct 20
+  figures (the section 4 drills re-created documents).
+- **5.3 v6 on eval set v1:** 282 s, `eval compare` exit 1 against both. The acceptance rule
+  fails on every count but one: hc-v1-039 still withheld uncited; hc-v1-055 still answered (10
+  citations); hc-v1-058 now withheld (`unsupported`), the one target met; and two answerable
+  items that step 1 answered with citations are withheld: **hc-v1-006** (factual; baseline
+  answer faithfulness 1.0, step 1 0.5, both citing the expected source) and **hc-v1-038**
+  (synthesis; baseline and step 1 precision 1.0, faithfulness 1.0, 12 and 13 supported
+  statements). Neither step 1 answer was itself wrong, so the rule's exception does not apply.
+- **5.4 Owner decision (Oct 23, 2026): option (a).** v6 not adopted; `[prompts] corpus_only`
+  stays `"v5"`; the step 1 run is the confirmation of weight 0.4 and the baseline stays
+  `20261023T085603Z-c06e9e99bae9`. **Known limits under decision 12:** hc-v1-039 (synthesis,
+  retrieved, answered without a citation and withheld), hc-v1-055 and hc-v1-058 (out of
+  corpus, near-miss/wrong-year, answered with citations; v6 declined 058 only at the cost of
+  006 and 038). `config/prompts/corpus_only/v6.md` stays in the repository as a candidate not
+  adopted. The relevance check (§3.1.4) stays a backlog design for Phase 2, not a Phase 1c
+  follow-up.
+- **5.3 Guardrails, live, v5** (`20261023T223253Z-…-guardrails`, `deepseek-v4.1-flash`, 18
+  blocks × 11 items per mode): every block 100 except `03-drop-citations` cited-answer rate
+  (`corpus_only` 16.7, `general_knowledge` 66.7: the accepted G6, enforced in code) and
+  `general_knowledge / 09-forged-passage` citation validity 93.3: one invalid marker in one
+  answer (syn-036, 14 of 15 valid, nothing leaked), the single-answer noise Phase 1a recorded
+  for the same block (92.9, B14); the orchestrator's marker filter drops a marker that names no
+  passage before it reaches a user. Harness exit 1 on these three. The owner decided to skip
+  v6's guardrail run; it ran anyway, because the script was changed while the owner's run had
+  already started (`20261023T223649Z-…-guardrails`: the same three, `corpus_only`
+  03-drop-citations 33.3, 09-forged-passage 92.3); not used for any decision.
+- **5.5:** temporary api removed (live api healthz 200, unchanged); `packages/eval/results/`
+  holds the committed redacted runs only, in the Instance tree and the worktree; `eval gate`:
+  **Pass** in both; the Instance tree clean.
 
 ### Issues found and fixed during the release
 

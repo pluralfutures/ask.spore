@@ -41,15 +41,17 @@ test("an admin saves the instructions as a new version", async ({ page }) => {
   await page.getByRole("link", { name: "Administration" }).click();
   await expect(page.getByTestId("user-analyst@example.org")).toContainText("sign-in link");
 
+  const workspace = page.getByTestId("workspace-team-alpha");
   const instructions = page.getByLabel("Additional instructions");
   const save = page.getByRole("button", { name: "Save as new version" });
   const texts = ["Synthetic first instructions.", "Synthetic second instructions."];
   for (const [index, text] of texts.entries()) {
     await instructions.fill(text);
     await save.click();
-    // Wait for the save to land in the reloaded history, not just for the button to be
-    // disabled (it is disabled while the save is pending too): otherwise the next fill
-    // races the first save's completion (P1b-13 f, flaky on PR #35).
+    // Wait for the end of the save, which the editor shows once the history is reloaded
+    // and the draft settled (P1c-11). The history count and a disabled button are not
+    // enough: both also hold while the save is still finishing (P1b-13 f, PR #35).
+    await expect(workspace.getByRole("status")).toHaveText(`Saved as version ${index + 1}.`);
     await expect(page.getByText(`Version history (${index + 1})`)).toBeVisible();
     await expect(save).toBeDisabled();
     await expect(instructions).toHaveValue(text);

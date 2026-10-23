@@ -38,6 +38,24 @@ export function formAfterRemoval(): SourceForm {
   return emptySourceForm();
 }
 
+interface SourceActionState {
+  isSuccess: boolean;
+  error: unknown;
+  submittedAt: number;
+}
+
+// P1c-08 (Phase 1c release F2): the source form shows the status of its latest action only,
+// so "SSO source removed." does not stay under a later "Saved." (and the reverse).
+export function latestSourceAction(
+  save: SourceActionState,
+  remove: SourceActionState,
+): { isSuccess: boolean; error: unknown; savedText: string } {
+  if (remove.submittedAt > save.submittedAt) {
+    return { isSuccess: remove.isSuccess, error: remove.error, savedText: "SSO source removed." };
+  }
+  return { isSuccess: save.isSuccess, error: save.error, savedText: "Saved." };
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // The request for PUT /operator/tenants/{id}/login-policy/sso. An empty secret is left

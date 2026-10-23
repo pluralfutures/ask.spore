@@ -23,6 +23,7 @@ import { capShare, count, euros } from "../lib/spend";
 import {
   emptySourceForm,
   formAfterRemoval,
+  latestSourceAction,
   sourceBody,
   type SourceForm,
   type SsoKind,
@@ -369,14 +370,7 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
       {problem ? (
         <p className="text-red-700">{problem}</p>
       ) : (
-        <>
-          <SaveStatus isSuccess={save.isSuccess} error={save.error} />
-          <SaveStatus
-            isSuccess={remove.isSuccess}
-            error={remove.error}
-            savedText="SSO source removed."
-          />
-        </>
+        <SaveStatus {...latestSourceAction(save, remove)} />
       )}
     </form>
   );

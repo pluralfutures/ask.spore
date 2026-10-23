@@ -4,6 +4,7 @@ import type { LoginPolicyOut } from "../api/types";
 import {
   emptySourceForm,
   formAfterRemoval,
+  latestSourceAction,
   policySummary,
   sourceBody,
   ssoButtonLabel,
@@ -90,5 +91,34 @@ describe("formAfterRemoval (P1c-02)", () => {
     expect(Object.entries(formAfterRemoval()).filter(([k, v]) => k !== "kind" && v !== "")).toEqual(
       [],
     );
+  });
+});
+
+describe("latestSourceAction (P1c-08, release F2)", () => {
+  const idle = { isSuccess: false, error: null, submittedAt: 0 };
+  it("shows only the latest action: a save after a removal says Saved.", () => {
+    const removed = { isSuccess: true, error: null, submittedAt: 1 };
+    const saved = { isSuccess: true, error: null, submittedAt: 2 };
+    expect(latestSourceAction(saved, removed)).toEqual({
+      isSuccess: true,
+      error: null,
+      savedText: "Saved.",
+    });
+  });
+  it("a removal after a save says SSO source removed.", () => {
+    const saved = { isSuccess: true, error: null, submittedAt: 1 };
+    const removed = { isSuccess: true, error: null, submittedAt: 2 };
+    expect(latestSourceAction(saved, removed).savedText).toBe("SSO source removed.");
+  });
+  it("a refused save after a removal shows the refusal, not the removal", () => {
+    const removed = { isSuccess: true, error: null, submittedAt: 1 };
+    const refused = { isSuccess: false, error: new Error("x"), submittedAt: 2 };
+    const status = latestSourceAction(refused, removed);
+    expect(status.isSuccess).toBe(false);
+    expect(status.error).toBe(refused.error);
+  });
+  it("nothing before any action", () => {
+    expect(latestSourceAction(idle, idle).isSuccess).toBe(false);
+    expect(latestSourceAction(idle, idle).error).toBeNull();
   });
 });

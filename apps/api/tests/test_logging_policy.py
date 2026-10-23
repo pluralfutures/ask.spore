@@ -4,7 +4,10 @@ Fails on, anywhere under app/:
 - importing or calling the stdlib ``logging`` module (except app/core/logging.py);
 - ``print(...)`` and direct writes to ``sys.stdout`` / ``sys.stderr``;
 - ``log(...)`` with a keyword that is not an allow-listed field, or with ``**kwargs``;
-- importing ``redis`` (except app/core/cache.py).
+- importing ``redis`` (except app/core/cache.py);
+- (P1c-04) using a caught ``FetchError`` other than through ``.code`` or ``.status``
+  (or handing it to ``_refused``, which answers with the code): its message names the
+  URL, so it must never reach a log line, an error text or another exception.
 """
 
 from __future__ import annotations
@@ -89,10 +92,59 @@ def scan_source(source: str, path: Path) -> list[str]:
     return violations
 
 
+# P1c-04 (independent review, Oct 22, 2026): what a FetchError handler may read.
+FETCH_ERROR_FIELDS = frozenset({"code", "status"})
+FETCH_ERROR_SINKS = frozenset({"_refused"})  # returns HTTPException(detail=exc.code)
+
+
+def _catches_fetch_error(handler: ast.ExceptHandler) -> bool:
+    kinds = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    return any(
+        (isinstance(k, ast.Name) and k.id == "FetchError")
+        or (isinstance(k, ast.Attribute) and k.attr == "FetchError")
+        for k in kinds
+    )
+
+
+def scan_fetch_errors(source: str, path: Path) -> list[str]:
+    """Uses of a caught FetchError other than ``.code``, ``.status`` or ``_refused(exc)``."""
+    tree = ast.parse(source, filename=str(path))
+    violations: list[str] = []
+    for handler in ast.walk(tree):
+        if not (isinstance(handler, ast.ExceptHandler) and handler.name):
+            continue
+        if not _catches_fetch_error(handler):
+            continue
+        name = handler.name
+        allowed: set[int] = set()
+        for node in ast.walk(ast.Module(body=handler.body, type_ignores=[])):
+            if (
+                isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == name
+                and node.attr in FETCH_ERROR_FIELDS
+            ):
+                allowed.add(id(node.value))
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in FETCH_ERROR_SINKS
+            ):
+                allowed.update(id(a) for a in node.args if isinstance(a, ast.Name) and a.id == name)
+        for node in ast.walk(ast.Module(body=handler.body, type_ignores=[])):
+            if isinstance(node, ast.Name) and node.id == name and id(node) not in allowed:
+                violations.append(
+                    f"{path}:{node.lineno}: FetchError {name!r} used other than "
+                    "through .code or .status (its message names the URL)"
+                )
+    return violations
+
+
 def scan_tree(root: Path) -> list[str]:
     violations: list[str] = []
     for path in sorted(root.rglob("*.py")):
-        violations += scan_source(path.read_text(encoding="utf-8"), path)
+        text = path.read_text(encoding="utf-8")
+        violations += scan_source(text, path) + scan_fetch_errors(text, path)
     return violations
 
 
@@ -135,3 +187,38 @@ def test_policy_allows_allow_listed_log_call() -> None:
         "log('chat.answer', level='info', tenant_id=t, latency_ms=12, model=m, status='ok')\n"
     )
     assert scan_source(source, SOMEWHERE) == []
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        "log('crawl.failed', error_code=str(exc))",
+        "log('crawl.failed', error_code=f'{exc}')",
+        "log('crawl.failed', status=exc.args[0])",
+        "raise IngestError(exc.code, str(exc)) from None",
+        "raise SystemExit(f'failed: {exc}') from None",
+        "detail = repr(exc)",
+        "log('crawl.failed', error_code=exc)",
+    ],
+)
+def test_a_fetch_error_message_never_leaves_its_handler(handler: str) -> None:
+    for caught in ("FetchError", "(FetchError, IngestError)", "fetch.FetchError"):
+        source = f"try:\n    pass\nexcept {caught} as exc:\n    {handler}\n"
+        assert scan_fetch_errors(source, SOMEWHERE), (caught, handler)
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        "log('crawl.failed', error_code=exc.code)",
+        "return Visit(url, 'missing', f'http_{exc.status}')",
+        "raise _refused(exc) from None",
+        "raise SystemExit(f'ask-spore crawl: {exc.code}') from None",
+    ],
+)
+def test_a_fetch_error_handler_may_use_the_code_and_status(handler: str) -> None:
+    source = f"try:\n    pass\nexcept FetchError as exc:\n    {handler}\n"
+    assert scan_fetch_errors(source, SOMEWHERE) == []
+    # Other exceptions are not this rule's business.
+    other = "try:\n    pass\nexcept IngestError as exc:\n    raise SystemExit(str(exc))\n"
+    assert scan_fetch_errors(other, SOMEWHERE) == []

@@ -18,7 +18,12 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[3]
 COMPOSE_FILES = sorted(
-    {*REPO.glob("infra/**/docker-compose*.yml"), *REPO.glob("infra/**/compose*.yml")}
+    {
+        *REPO.glob("infra/**/docker-compose*.yml"),
+        *REPO.glob("infra/**/docker-compose*.yaml"),
+        *REPO.glob("infra/**/compose*.yml"),
+        *REPO.glob("infra/**/compose*.yaml"),
+    }
 )
 PUBLIC = {("caddy", "80"), ("caddy", "443")}
 LOOPBACK = "127.0.0.1"

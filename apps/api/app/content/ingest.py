@@ -151,8 +151,9 @@ def load_path(path: Path) -> SourceFile:
 def from_fetched(fetched: Fetched) -> SourceFile:
     """A fetched URL as a source file; refuses content with a TDM reservation."""
     if tdm_reserved(fetched.headers, fetched.content, fetched.is_html):
+        # The message never carries the URL: it reaches the CLI's exit text (P1c-04 rule).
         raise IngestError(
-            "tdm_reserved", f"{fetched.url} reserves text-and-data-mining rights; not ingested"
+            "tdm_reserved", "the page reserves text-and-data-mining rights; not ingested"
         )
     name = Path(fetched.url.split("?")[0].rstrip("/")).name or "index"
     source_type = TYPE_BY_MEDIA_TYPE.get(fetched.content_type) or TYPE_BY_SUFFIX.get(
@@ -161,7 +162,7 @@ def from_fetched(fetched: Fetched) -> SourceFile:
     if source_type is None:
         raise IngestError("unsupported_type", f"unsupported content type '{fetched.content_type}'")
     if not fetched.content:
-        raise IngestError("empty", f"{fetched.url} returned an empty body")
+        raise IngestError("empty", "the page returned an empty body")
     stem = Path(name).stem or "index"
     return SourceFile(stem + SUFFIX_BY_TYPE[source_type], source_type, fetched.content)
 

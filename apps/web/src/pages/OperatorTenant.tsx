@@ -17,7 +17,13 @@ import { formFrom, toRequest, type EntitlementsForm } from "../lib/entitlements"
 import { formatDate } from "../lib/format";
 import { TENANT_TABS, errorText, tabFrom, toggle, type TenantTab } from "../lib/operator";
 import { capShare, count, euros } from "../lib/spend";
-import { emptySourceForm, sourceBody, type SourceForm, type SsoKind } from "../lib/sso";
+import {
+  emptySourceForm,
+  formAfterRemoval,
+  sourceBody,
+  type SourceForm,
+  type SsoKind,
+} from "../lib/sso";
 import { OperatorsOnly } from "./OperatorConsole";
 import { PolicySummary } from "./TenantAdmin";
 
@@ -277,7 +283,11 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
   });
   const remove = useMutation({
     mutationFn: () => operatorApi.removeSsoSource(tenant.id),
-    onSuccess: refresh,
+    onSuccess: () => {
+      setForm(formAfterRemoval());
+      setProblem(null);
+      void refresh();
+    },
   });
   const field = (key: keyof SourceForm, label: string, type = "text") => (
     <label className="flex flex-col">

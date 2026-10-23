@@ -77,3 +77,110 @@ Docker Hub allows 100 anonymous manifest requests an hour per address; behind a 
 add `--hub-mirror mirror.gcr.io` (same content-addressed digests; a mirror can lag a re-pushed
 tag, so `--check` against Docker Hub before trusting a changed digest). The pins of Oct 22, 2026
 were taken through that mirror for Docker Hub images and from ghcr.io directly for Authentik.
+
+## Credentials rotation (P1c-03)
+
+The `.env.example` files, the Compose defaults (`${POSTGRES_PASSWORD:-askspore-dev}`,
+`${APP_DB_PASSWORD:-askspore-app-dev}`) and the CI workflow publish passwords for local
+stacks. No deployment users sign in to may run on them:
+
+- **Startup check.** In `[auth] mode = "oidc"` the API, the worker and the CLI refuse to
+  start when a secret they read, or the password of `DATABASE_URL`,
+  `MIGRATIONS_DATABASE_URL` or `REDIS_URL`, equals a published value
+  (`app/core/credentials.py`). The error names the keys, never the values. Phase 0 mode
+  (the loopback dev and eval stack) is not checked.
+- **Host check.** `python3 infra/scripts/check-credentials.py` compares `.env`,
+  `infra/.env` (Compose interpolation), `infra/authentik/.env` and `infra/ragflow/.env`
+  with the published values, including the services the API never sees; it also fails on
+  an unset `POSTGRES_PASSWORD` or `APP_DB_PASSWORD` (Compose would use its default) and on
+  any `AUTHENTIK_BOOTSTRAP_*` key. Exit 1 and key names only.
+
+The owner runs the rotation in their own terminal on the Instance. **Secrets never pass
+through a session**: a session may run the two checks and read their key names, nothing
+else. Generate each value with `openssl rand -hex 32` (hex: safe in a URL, no quoting), type
+or paste it only into the prompts and files below, and keep every `.env` at mode 0600.
+Run the commands from the repository root with `C="docker compose -f infra/compose.dev.yml"`.
+The Phase 1c code refuses to start on the Instance until step 1 is done, so do it before
+(or as the first step of) the deploy that brings P1c-03.
+
+1. **Database roles** (the application database). Roles with LOGIN: the schema owner
+   `askspore` and the application role `askspore_app`; `askspore_auth`, `askspore_operator`,
+   `askspore_content` and `askspore_retention` are NOLOGIN (no password) and stay so.
+   1. `$C exec postgres psql -U askspore -d askspore`, then `\password askspore` and
+      `\password askspore_app` (psql prompts twice for each and sends only the SCRAM hash,
+      so the value is in no shell history or server log); `\q`.
+   2. In `infra/.env` (the Compose interpolation file; create it, mode 0600) set
+      `POSTGRES_PASSWORD=` and `APP_DB_PASSWORD=` to the two new values. Compose passes
+      them to `migrate` (owner DSN), `api` and `worker` (`DATABASE_URL`) and, on a fresh
+      volume only, to Postgres and `infra/postgres/10-app-role.sh`.
+   3. In the root `.env`, replace the password in `MIGRATIONS_DATABASE_URL` and, if
+      present, `DATABASE_URL` (host-run tools) with the same values.
+   4. `$C up -d --force-recreate migrate api worker`; `migrate` exits 0, `/healthz` 200,
+      the worker logs its startup line. A refusal names the keys still published.
+2. **Authentik bootstrap token and admin password.**
+   1. Remove every `AUTHENTIK_BOOTSTRAP_*` line from `infra/authentik/.env` (Authentik
+      re-creates the bootstrap token from them when it starts).
+   2. `$C --profile auth up -d --force-recreate authentik-server authentik-worker`.
+   3. Over the SSH tunnel (`ssh -L 9000:127.0.0.1:9000 <instance>`), signed in as
+      `akadmin`: Directory → Tokens, delete `authentik-bootstrap-token` (first check that
+      `AUTHENTIK_API_TOKEN` in the root `.env` is the provisioner's token
+      `ask-spore-provisioner-api`, not this one); then the user menu → Settings → Change
+      password for `akadmin`, and enrol a TOTP device for it if it has none.
+   4. Optional, if `POSTGRES_PASSWORD` / `AUTHENTIK_POSTGRESQL__PASSWORD` in
+      `infra/authentik/.env` were ever shared: `$C --profile auth exec authentik-postgresql
+      psql -U authentik -d authentik`, `\password authentik`, set both keys to the new
+      value, recreate the three Authentik services. `AUTHENTIK_SECRET_KEY` is not rotated
+      in place (it signs sessions and encrypts stored secrets; changing it signs everyone
+      out of the admin interface).
+   5. Check: an operator sign-in link still arrives and signs in; the api logs no
+      `authentik_unavailable`.
+3. **RAGFlow** (`infra/ragflow/.env`; the Phase 1b release found these already differ
+   from the example, so only if the host check names one):
+   - `REDIS_PASSWORD` (Valkey, set on its command line) and `MINIO_PASSWORD` (MinIO's root
+     credentials, read from the environment at start): change the value, then
+     `$C up -d --force-recreate ragflow-redis ragflow-minio ragflow`.
+   - `MYSQL_PASSWORD` (stored in the MySQL volume): `$C exec ragflow-mysql mysql -uroot -p`,
+     then `ALTER USER 'root'@'%' IDENTIFIED BY '<new>';` typed at the prompt, then set the
+     key and recreate `ragflow-mysql` and `ragflow`.
+   - `ELASTIC_PASSWORD` (stored in Elasticsearch's security index):
+     `$C exec ragflow-es bin/elasticsearch-reset-password -u elastic -i`, then set the
+     key and recreate `ragflow-es` and `ragflow`.
+   - `RAGFLOW_API_KEY` (root `.env`): create a new key in the RAGFlow UI (loopback,
+     avatar → API), set it, `$C up -d --force-recreate api worker`, then delete the old
+     key in the UI.
+   - Check: RAGFlow healthy, its document counts per dataset unchanged, one question
+     answered with citations.
+4. **Redis (application).** No password is set: `redis` listens on the Compose network
+   and on loopback only, and `REDIS_URL` carries no secret, so there is nothing to rotate.
+   If one is ever set (`--requirepass` in `compose.dev.yml` and
+   `REDIS_URL=redis://:<password>@redis:6379/0`), rotate it like `REDIS_PASSWORD` above.
+5. **Verify.** `python3 infra/scripts/check-credentials.py` prints `ok`; the api starts.
+   Record in the findings the date and which steps ran (names only).
+
+## Mail domain policy (P1c-05)
+
+Platform mail is sent from `reply@askspore.myceliumgastronomy.com` through Scaleway
+Transactional Email (fr-par), with SPF, DKIM and DMARC passing (Phase 1b release 2.1).
+The organisation domain's DMARC record is still `p=none` (monitor only), so a forged
+message in the domain's name is delivered. Before the first `customculinary.com` user
+is invited it moves to `p=quarantine` (the paperwork checklist row; owner action at the
+DNS, no code).
+
+1. **Collect.** Keep the existing `_dmarc.myceliumgastronomy.com` TXT record's `rua=`
+   address as it is; aggregate reports arrive there daily from the receiving providers.
+2. **Condition: one week clean.** Seven consecutive days of aggregate reports in which
+   every message sent by the platform's source (Scaleway TEM's sending IPs, DKIM `d=` the
+   sending domain) passes DMARC (aligned DKIM or aligned SPF), and every other source
+   sending as the domain is known and passes too (or is stopped). A session may help by
+   reading the reports' **summary as counts only**: per day and per sending source,
+   messages, DMARC pass, DMARC fail. No address, subject or message content is copied
+   from a report into a session, a file or the findings.
+3. **Change.** The owner edits the TXT record at the DNS provider: `p=none` becomes
+   `p=quarantine`, everything else unchanged, for example
+   `v=DMARC1; p=quarantine; rua=mailto:<existing address>; adkim=r; aspf=r`
+   (no `pct` tag, so it applies to all mail; `sp` absent, so subdomains such as
+   `askspore.` follow `p`). Check with `dig +short TXT _dmarc.myceliumgastronomy.com`.
+4. **After.** Send one invitation or sign-in link to a test address and confirm it lands
+   in the inbox with `dmarc=pass`; watch the next week's reports for failures; record the
+   date of the change in the paperwork checklist and the Phase 1c findings. `p=reject` is
+   a later owner decision after a clean period at `quarantine`.

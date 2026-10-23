@@ -139,7 +139,8 @@ async def _load(location: str) -> SourceFile:
             try:
                 return from_fetched(await fetch(http, location))
             except FetchError as exc:
-                raise IngestError(exc.code, str(exc)) from None
+                # The code only: a FetchError's message names the URL (P1c-04).
+                raise IngestError(exc.code, f"could not fetch the URL: {exc.code}") from None
     return load_path(Path(location))
 
 

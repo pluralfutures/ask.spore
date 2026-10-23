@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { ApiError, discoverMethods, requestSignInLink, startSso } from "../api/client";
 import type { DiscoverOut } from "../api/types";
 import { ssoButtonLabel } from "../lib/sso";
-import { failureText } from "./emailSignInText";
+import { failureText, ssoRefusalText } from "./emailSignInText";
 
 type Step = { kind: "email" } | { kind: "choose"; found: DiscoverOut } | { kind: "sent" };
 
@@ -11,8 +11,14 @@ type Step = { kind: "email" } | { kind: "choose"; found: DiscoverOut } | { kind:
 // decides the methods (tenant discovery). An unknown domain gets the same answer as any
 // domain without SSO, and the link answer is the same for every address. SSO sends the
 // browser to the organisation's IdP, which sends it back to the API; a refused SSO
-// sign-in comes back here as ?sign_in=failed, with no reason given.
-export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
+// sign-in comes back here as ?sign_in=failed with a coarse reason (P1c-02).
+export function EmailSignIn({
+  ssoFailed = false,
+  ssoReason = null,
+}: {
+  ssoFailed?: boolean;
+  ssoReason?: string | null;
+}) {
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<Step>({ kind: "email" });
   const [failed, setFailed] = useState(false);
@@ -111,9 +117,8 @@ export function EmailSignIn({ ssoFailed = false }: { ssoFailed?: boolean }) {
         Continue
       </button>
       {ssoFailed && !failed && (
-        <p className="text-sm text-red-700">
-          Single sign-on did not complete. Start again, or ask your administrator whether your
-          account can use SporeBot.
+        <p role="alert" className="text-sm text-red-700">
+          {ssoRefusalText(ssoReason)}
         </p>
       )}
       {failed && <p className="text-sm text-red-700">{failureText(limited)}</p>}

@@ -28,9 +28,16 @@ Controls, enforced here whatever the IdP and Authentik say:
   role follows membership at every sign-in (audited when it changes).
 - **Browser binding, single use, 10 minutes**, as for links: the callback needs the
   starting browser's cookie, and the attempt is consumed before Authentik is called.
-- **Audit**: login (``auth.login``, method ``sso``), failed login (``auth.login_failed``
-  with an error code), and provisioning (``auth.user_provisioned``). Logs carry codes
-  and IDs only, never an address, a token or the IdP's answer.
+- **Audit**: login (``auth.login``), failed login (``auth.login_failed`` with an error
+  code), and provisioning (``auth.user_provisioned``), with ``method`` ``sso:<kind>``
+  (P1c-02) once the attempt's source is known, ``sso`` before (another browser, an
+  unknown, used or expired attempt). Logs carry codes and IDs only, never an address, a
+  token or the IdP's answer.
+- **Refusals by the source** (P1c-02): the source's mapping refuses an address outside
+  the verified domains, a Google ``hd`` outside them and an unverified address as a
+  return value; Authentik denies the flow with the code (no user written there, no
+  exception) and the API audits that code. The browser lands on the sign-in page with a
+  coarse reason (``refusal_reason``), never the code itself.
 """
 
 from __future__ import annotations
@@ -62,7 +69,7 @@ from app.tenancy.context import RequestContext, resolve_user
 from app.tenancy.login_policy import SSO_KINDS, SsoKind, TenantLoginPolicy, discover
 from app.tenancy.models import Tenant, User
 
-METHOD: Final = "sso"
+METHOD: Final = "sso"  # users.last_login_method, and audits before the kind is known
 ATTEMPT_TTL: Final = timedelta(minutes=10)
 MAX_RESUME_LENGTH: Final = 4096
 CallbackKind = Literal["oauth", "saml"]
@@ -78,6 +85,32 @@ class SsoStarted:
 
 def callback_kind(kind: SsoKind) -> CallbackKind:
     return "saml" if kind == "saml" else "oauth"
+
+
+def audit_method(kind: SsoKind) -> str:
+    """The audit events' ``method`` for a sign-in through a source of ``kind`` (P1c-02)."""
+    return f"{METHOD}:{kind}"
+
+
+# P1c-02: what the sign-in page may say about a refusal. Codes that would tell an
+# outsider something about another tenant's users (``email_in_other_tenant``) share the
+# answer of an uninvited address; anything unlisted is the generic failure.
+REFUSAL_REASONS: Final[Mapping[str, str]] = {
+    "domain_not_verified": "domain",
+    "hd_mismatch": "domain",
+    "email_unverified": "unverified",
+    "not_invited": "no_access",
+    "email_in_other_tenant": "no_access",
+    "user_inactive": "no_access",
+    "no_binding": "start_again",
+    "unknown_binding": "start_again",
+    "used": "start_again",
+    "expired": "start_again",
+}
+
+
+def refusal_reason(error_code: str) -> str:
+    return REFUSAL_REASONS.get(error_code, "failed")
 
 
 async def start(
@@ -213,8 +246,10 @@ async def complete(
 ) -> SignedIn:
     """Finish a sign-in from the IdP's answer, arriving in the browser that started it."""
 
+    method = METHOD
+
     async def refuse(tenant_id: UUID | None, user_id: UUID | None, code: str) -> NoReturn:
-        await refuse_sign_in(factory, tenant_id, user_id, code, method=METHOD)
+        await refuse_sign_in(factory, tenant_id, user_id, code, method=method)
 
     if not binding or not resume or len(resume) > MAX_RESUME_LENGTH:
         # Another browser, or cookies lost: refused before anything is consumed.
@@ -225,6 +260,7 @@ async def complete(
     tenant = await _tenant(factory, attempt)
     if tenant is None or callback_kind(tenant.kind) != callback:
         await refuse(attempt.tenant_id, None, "source_changed")
+    method = audit_method(tenant.kind)
 
     try:
         issued = await provider.finish_sso(tenant.kind, attempt.source_slug, params, resume)
@@ -249,7 +285,9 @@ async def complete(
     role = None
     if tenant.admin_groups:
         role = "tenant_admin" if identity.sso.admin else "user"
-    user_id, refusal = await _sign_in_user(factory, attempt.tenant_id, email, tenant.jit, role)
+    user_id, refusal = await _sign_in_user(
+        factory, attempt.tenant_id, email, tenant.jit, role, method
+    )
     if user_id is None:
         await refuse(attempt.tenant_id, None, refusal or "not_invited")
     context = await resolve_user(factory, attempt.tenant_id, email)
@@ -272,6 +310,7 @@ async def _sign_in_user(
     email: str,
     jit: bool,
     role: str | None,
+    method: str,
 ) -> tuple[UUID | None, str | None]:
     """Find, or provision just in time, the tenant's user; record the sign-in."""
     async with tenant_session(factory, tenant_id) as session:
@@ -311,7 +350,7 @@ async def _sign_in_user(
                 actor_user_id=user_id,
                 event="auth.user_provisioned",
                 metadata={
-                    "method": METHOD,
+                    "method": method,
                     "before": {},
                     "after": {
                         "user_id": str(user_id),
@@ -336,7 +375,7 @@ async def _sign_in_user(
                     actor_user_id=user_id,
                     event="auth.role_from_sso",
                     metadata={
-                        "method": METHOD,
+                        "method": method,
                         "before": {"user_id": str(user_id), "role": user.role},
                         "after": {"user_id": str(user_id), "role": role},
                     },
@@ -349,6 +388,6 @@ async def _sign_in_user(
             tenant_id=tenant_id,
             actor_user_id=user_id,
             event="auth.login",
-            metadata={"method": METHOD, "status": "ok"},
+            metadata={"method": method, "status": "ok"},
         )
     return user_id, None

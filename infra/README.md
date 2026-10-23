@@ -156,3 +156,31 @@ The Phase 1c code refuses to start on the Instance until step 1 is done, so do i
    `REDIS_URL=redis://:<password>@redis:6379/0`), rotate it like `REDIS_PASSWORD` above.
 5. **Verify.** `python3 infra/scripts/check-credentials.py` prints `ok`; the api starts.
    Record in the findings the date and which steps ran (names only).
+
+## Mail domain policy (P1c-05)
+
+Platform mail is sent from `reply@askspore.myceliumgastronomy.com` through Scaleway
+Transactional Email (fr-par), with SPF, DKIM and DMARC passing (Phase 1b release 2.1).
+The organisation domain's DMARC record is still `p=none` (monitor only), so a forged
+message in the domain's name is delivered. Before the first `customculinary.com` user
+is invited it moves to `p=quarantine` (the paperwork checklist row; owner action at the
+DNS, no code).
+
+1. **Collect.** Keep the existing `_dmarc.myceliumgastronomy.com` TXT record's `rua=`
+   address as it is; aggregate reports arrive there daily from the receiving providers.
+2. **Condition: one week clean.** Seven consecutive days of aggregate reports in which
+   every message sent by the platform's source (Scaleway TEM's sending IPs, DKIM `d=` the
+   sending domain) passes DMARC (aligned DKIM or aligned SPF), and every other source
+   sending as the domain is known and passes too (or is stopped). A session may help by
+   reading the reports' **summary as counts only**: per day and per sending source,
+   messages, DMARC pass, DMARC fail. No address, subject or message content is copied
+   from a report into a session, a file or the findings.
+3. **Change.** The owner edits the TXT record at the DNS provider: `p=none` becomes
+   `p=quarantine`, everything else unchanged, for example
+   `v=DMARC1; p=quarantine; rua=mailto:<existing address>; adkim=r; aspf=r`
+   (no `pct` tag, so it applies to all mail; `sp` absent, so subdomains such as
+   `askspore.` follow `p`). Check with `dig +short TXT _dmarc.myceliumgastronomy.com`.
+4. **After.** Send one invitation or sign-in link to a test address and confirm it lands
+   in the inbox with `dmarc=pass`; watch the next week's reports for failures; record the
+   date of the change in the paperwork checklist and the Phase 1c findings. `p=reject` is
+   a later owner decision after a clean period at `quarantine`.

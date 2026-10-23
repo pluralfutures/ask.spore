@@ -1947,6 +1947,27 @@
         "title": "HistoryEntry",
         "type": "object"
       },
+      "InvitationResentOut": {
+        "description": "P1c-07: the invitation email is queued again (one ``send_mail`` job; an invitation\nstill waiting to be sent is not queued twice).",
+        "properties": {
+          "status": {
+            "const": "queued",
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "status"
+        ],
+        "title": "InvitationResentOut",
+        "type": "object"
+      },
       "JobOut": {
         "properties": {
           "attempts": {
@@ -2187,6 +2208,11 @@
             "title": "Email",
             "type": "string"
           },
+          "operator": {
+            "default": false,
+            "title": "Operator",
+            "type": "boolean"
+          },
           "role": {
             "enum": [
               "user",
@@ -2278,6 +2304,11 @@
             ],
             "title": "Model"
           },
+          "partial": {
+            "default": false,
+            "title": "Partial",
+            "type": "boolean"
+          },
           "reasoning": {
             "anyOf": [
               {
@@ -2296,6 +2327,11 @@
             ],
             "title": "Role",
             "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
           },
           "unsupported": {
             "title": "Unsupported",
@@ -3960,6 +3996,61 @@
         "title": "TenantSpendOut",
         "type": "object"
       },
+      "TerminatedTenantOut": {
+        "description": "P1c-08: a tenant whose data the termination purge deleted (P1b-14). The row stays\n(the audit log names it), suspended, with the purge's date and certificate number from\nits ``tenant.purged`` audit event; ``None`` when no such event is found.",
+        "properties": {
+          "certificate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "purged_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purged At"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "display_name",
+          "status",
+          "purged_at",
+          "certificate"
+        ],
+        "title": "TerminatedTenantOut",
+        "type": "object"
+      },
       "TokenData": {
         "properties": {
           "text": {
@@ -4596,6 +4687,38 @@
       }
     },
     "/api/v1/admin/users/{user_id}": {
+      "delete": {
+        "description": "P1c-07: delete a user of the admin's tenant with their history; audited.",
+        "operationId": "remove_tenant_user_api_v1_admin_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Tenant User"
+      },
       "patch": {
         "description": "Change role or status. Deactivated users are refused at sign-in and on every\nrequest; reactivating returns them to ``active``, or ``invited`` if they never\nsigned in.",
         "operationId": "change_user_api_v1_admin_users__user_id__patch",
@@ -4644,6 +4767,47 @@
           }
         },
         "summary": "Change User"
+      }
+    },
+    "/api/v1/admin/users/{user_id}/invitation": {
+      "post": {
+        "description": "P1c-07: queue the invitation email again for a user who has not signed in yet.",
+        "operationId": "resend_invitation_api_v1_admin_users__user_id__invitation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Invitation"
       }
     },
     "/api/v1/admin/workspaces/{workspace_id}/defaults": {
@@ -7036,6 +7200,101 @@
         "summary": "List Tenant Users"
       }
     },
+    "/api/v1/operator/tenants/{tenant_id}/users/{user_id}": {
+      "delete": {
+        "description": "P1c-07: delete any tenant's user with their history; audited under the tenant.",
+        "operationId": "remove_tenant_user_api_v1_operator_tenants__tenant_id__users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Tenant User"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/users/{user_id}/invitation": {
+      "post": {
+        "description": "P1c-07: queue the invitation email again for a user still ``invited``.",
+        "operationId": "resend_invitation_api_v1_operator_tenants__tenant_id__users__user_id__invitation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Invitation"
+      }
+    },
     "/api/v1/operator/tenants/{tenant_id}/workspaces": {
       "get": {
         "operationId": "list_workspaces_api_v1_operator_tenants__tenant_id__workspaces_get",
@@ -7187,6 +7446,29 @@
           }
         },
         "summary": "Set Workspace Tags"
+      }
+    },
+    "/api/v1/operator/terminated-tenants": {
+      "get": {
+        "description": "P1c-08 (Phase 1b F5): the tenants the termination purge emptied, shown as such.\n\nA purged tenant keeps its ``tenants`` row, suspended, without entitlements or a login\npolicy. Its purge date and certificate number come from the ``tenant.purged`` event,\nrecorded under the internal tenant with the tenant's slug in ``before`` (the event\ncarries no other identifier of it).",
+        "operationId": "list_terminated_tenants_api_v1_operator_terminated_tenants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TerminatedTenantOut"
+                  },
+                  "title": "Response List Terminated Tenants Api V1 Operator Terminated Tenants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Terminated Tenants"
       }
     },
     "/api/v1/sources/{source_id}": {

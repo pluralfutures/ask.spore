@@ -118,7 +118,11 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    delete?: never;
+    /**
+     * Remove Tenant User
+     * @description P1c-07: delete a user of the admin's tenant with their history; audited.
+     */
+    delete: operations["remove_tenant_user_api_v1_admin_users__user_id__delete"];
     options?: never;
     head?: never;
     /**
@@ -128,6 +132,26 @@ export interface paths {
      *     signed in.
      */
     patch: operations["change_user_api_v1_admin_users__user_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/admin/users/{user_id}/invitation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resend Invitation
+     * @description P1c-07: queue the invitation email again for a user who has not signed in yet.
+     */
+    post: operations["resend_invitation_api_v1_admin_users__user_id__invitation_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/api/v1/admin/workspaces/{workspace_id}/defaults": {
@@ -1205,6 +1229,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/operator/tenants/{tenant_id}/users/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Remove Tenant User
+     * @description P1c-07: delete any tenant's user with their history; audited under the tenant.
+     */
+    delete: operations["remove_tenant_user_api_v1_operator_tenants__tenant_id__users__user_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/users/{user_id}/invitation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resend Invitation
+     * @description P1c-07: queue the invitation email again for a user still ``invited``.
+     */
+    post: operations["resend_invitation_api_v1_operator_tenants__tenant_id__users__user_id__invitation_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/operator/tenants/{tenant_id}/workspaces": {
     parameters: {
       query?: never;
@@ -1236,6 +1300,31 @@ export interface paths {
      * @description Assign the workspace's tags (its corpus). Audited with before and after.
      */
     put: operations["set_workspace_tags_api_v1_operator_tenants__tenant_id__workspaces__workspace_id__tags_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/terminated-tenants": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Terminated Tenants
+     * @description P1c-08 (Phase 1b F5): the tenants the termination purge emptied, shown as such.
+     *
+     *     A purged tenant keeps its ``tenants`` row, suspended, without entitlements or a login
+     *     policy. Its purge date and certificate number come from the ``tenant.purged`` event,
+     *     recorded under the internal tenant with the tenant's slug in ``before`` (the event
+     *     carries no other identifier of it).
+     */
+    get: operations["list_terminated_tenants_api_v1_operator_terminated_tenants_get"];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -2055,6 +2144,23 @@ export interface components {
       /** Method */
       method: string | null;
     };
+    /**
+     * InvitationResentOut
+     * @description P1c-07: the invitation email is queued again (one ``send_mail`` job; an invitation
+     *     still waiting to be sent is not queued twice).
+     */
+    InvitationResentOut: {
+      /**
+       * Status
+       * @constant
+       */
+      status: "queued";
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
+    };
     /** JobOut */
     JobOut: {
       /** Attempts */
@@ -2163,6 +2269,11 @@ export interface components {
       /** Email */
       email: string;
       /**
+       * Operator
+       * @default false
+       */
+      operator: boolean;
+      /**
        * Role
        * @enum {string}
        */
@@ -2196,6 +2307,11 @@ export interface components {
       mode: string;
       /** Model */
       model?: string | null;
+      /**
+       * Partial
+       * @default false
+       */
+      partial: boolean;
       /** Reasoning */
       reasoning?: boolean | null;
       /**
@@ -2203,6 +2319,11 @@ export interface components {
        * @enum {string}
        */
       role: "user" | "assistant";
+      /**
+       * Truncated
+       * @default false
+       */
+      truncated: boolean;
       /** Unsupported */
       unsupported: boolean;
     };
@@ -2823,6 +2944,29 @@ export interface components {
       /** Thresholds */
       thresholds: components["schemas"]["SpendThresholdOut"][];
     };
+    /**
+     * TerminatedTenantOut
+     * @description P1c-08: a tenant whose data the termination purge deleted (P1b-14). The row stays
+     *     (the audit log names it), suspended, with the purge's date and certificate number from
+     *     its ``tenant.purged`` audit event; ``None`` when no such event is found.
+     */
+    TerminatedTenantOut: {
+      /** Certificate */
+      certificate: string | null;
+      /** Display Name */
+      display_name: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Purged At */
+      purged_at: string | null;
+      /** Slug */
+      slug: string;
+      /** Status */
+      status: string;
+    };
     /** TokenData */
     TokenData: {
       /** Text */
@@ -3175,6 +3319,35 @@ export interface operations {
       };
     };
   };
+  remove_tenant_user_api_v1_admin_users__user_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   change_user_api_v1_admin_users__user_id__patch: {
     parameters: {
       query?: never;
@@ -3197,6 +3370,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AdminUserOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  resend_invitation_api_v1_admin_users__user_id__invitation_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InvitationResentOut"];
         };
       };
       /** @description Validation Error */
@@ -5077,6 +5281,68 @@ export interface operations {
       };
     };
   };
+  remove_tenant_user_api_v1_operator_tenants__tenant_id__users__user_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  resend_invitation_api_v1_operator_tenants__tenant_id__users__user_id__invitation_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InvitationResentOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_workspaces_api_v1_operator_tenants__tenant_id__workspaces_get: {
     parameters: {
       query?: never;
@@ -5175,6 +5441,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_terminated_tenants_api_v1_operator_terminated_tenants_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TerminatedTenantOut"][];
         };
       };
     };

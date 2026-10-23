@@ -323,7 +323,9 @@ class GuardrailOptions:
     blocks: Path
     contexts: Path
     eval_set: Path
-    results_root: Path
+    # P1c-12: the run's folder goes here, outside the repository (eval.outputs); the
+    # answers are synthetic but full, so nothing of a guardrail run goes under results/.
+    runs_root: Path
     modes: tuple[AnswerPrompt, ...] = MODES
     threshold: float = 3.0
     mock: bool = False
@@ -400,7 +402,7 @@ async def run(
         "notes": options.notes,
     }
     data = build(meta, results, found)
-    directory = options.results_root / run_id
+    directory = options.runs_root / run_id
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "results.json").write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

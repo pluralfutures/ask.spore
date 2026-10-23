@@ -9,7 +9,7 @@ Evaluation set and harness (P0-17, P0-18).
 | `schema/eval-item.schema.json` | JSON Schema of one item, generated from `eval/schema.py` (`python -m eval schema --write`). |
 | `fixtures/adversarial_prompts/` | Prompt-guardrail eval (P1a-08): hostile workspace-instructions blocks (`blocks/*.md`) and fixed context passages for synthetic-set items (`contexts.jsonl`). |
 | `fixtures/corpus/` | Synthetic corpus (invented organisations and figures) and `ingest.sh`, which ingests it with the canonical URLs the synthetic set expects. |
-| `results/` | Harness output, one folder per run: `results.json` and `summary.md`. |
+| `results/` | The redacted copy of each run, one folder per run: `results.json` and `summary.md` (may be committed; the eval gate reads it). Full outputs go to the runs directory (below). |
 | `eval/` | Schema and validator (`schema.py`), harness (`runner.py`, `retrieval.py`, `pipeline.py`, `judge.py`, `metrics.py`), `compare`. |
 
 Commands, from the repository root:
@@ -103,8 +103,12 @@ the container. The live api never carries the section. If the key is ever expose
 address. The harness and the API under test must run the same `config/` (the harness records its
 own configuration in the results; the API does not report its own).
 
-Results go to `results/<UTC timestamp>-<git sha>/`. They hold answers and judged sentences but no
-chunk text. **Committing results (owner decision, Oct 21, 2026):** only `summary.md` and a
+**Where outputs go (P1c-12).** The full run (answers and judged sentences, no chunk text) goes
+to the **runs directory**, outside the repository: `--runs-dir`, else `EVAL_RUNS_DIR`, else
+`/srv/ask-spore/eval-runs/` (root only on the Instance, mode 0700). Its redacted copy goes to
+`results/<UTC timestamp>-<git sha>/` (`--results-dir`). A runs directory inside `results/` is
+refused. So a working tree with full outputs present passes the gate. In GitHub Actions the
+eval workflow passes `--runs-dir "$RUNNER_TEMP/eval-runs"`. **Committing results (owner decision, Oct 21, 2026):** only `summary.md` and a
 `results.json` with the answer and judged-statement text removed may be committed (the metrics,
 counts, retrieval and judge verdicts stay, which is all `compare` reads); answers quote the
 corpus, and publisher text does not belong in the repository. Full outputs stay on the Instance. Answers served from the API's answer cache are counted and flagged. Since P1a-05 the
@@ -192,8 +196,11 @@ only), **cited-answer rate** (answer items with a valid citation), **citation va
 that name an existing passage) and **secrecy** (answers that quote no sentence of the platform
 prompt). The command exits 1 when any block makes a metric drop more than `--threshold` points
 (default 3, as `compare`) below the baseline of its mode. Results go to
-`results/<timestamp>-<sha>-guardrails/` (`summary.md`, `results.json` with answers truncated to
+`<runs dir>/<timestamp>-<sha>-guardrails/` (`summary.md`, `results.json` with answers truncated to
 500 characters; all content is synthetic).
+
+A guardrail run's folder goes to the runs directory too (`--runs-dir`, as above); nothing of
+it goes under `results/`.
 
 `--mock` uses `eval.mock.GuardrailModel`, which follows the platform rules mechanically and obeys
 any line that has escaped the instructions element. It proves the slot and its escaping (a test

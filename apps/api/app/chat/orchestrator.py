@@ -18,6 +18,14 @@ model and reasoning (P1a-04); the workspace fixes the package (P1a-05):
    mode the uncited text is withheld and replaced by ``WITHHELD_TEXT``;
 9. persist both messages, citations and usage; write an audit event; cache.
 
+P1c-09: once the answer has started to stream, the turn is kept even when it does not
+finish. If the user stops it (the web app aborts the request), the client leaves or the
+model fails mid-stream, the question is stored with a ``partial`` answer holding what the
+user had been shown and the citations in it (nothing, for a corpus-only answer still held
+back before its first citation). A cut-off answer is stored ``truncated``. Both flags come
+back with the conversation, so the notes survive a reload. A failure before the answer
+starts (refusal, retrieval, a model that does not open) still stores nothing.
+
 A conversation of a tenant whose retention is 0 days ("no history", P1b-14) is
 created already expired (``expires_at = created_at``), so every read route hides it;
 it takes one question within ``NO_HISTORY_WINDOW`` of its creation, and it is deleted
@@ -218,6 +226,13 @@ class _Run:
     context: int = 0
     failover: str | None = None  # P1b-17: which backup answered, if one did
     no_history: bool = False  # P1b-14: the tenant keeps no history; deleted after this
+    # P1c-09: the answer stream opened; what the user has been shown of it and the
+    # context its markers point into; whether the turn has been stored or reported.
+    streaming: bool = False
+    shown: list[str] = field(default_factory=list)
+    shown_context: Sequence[ContextChunk] = ()
+    shown_markers: MarkerFilter | None = None
+    settled: bool = False
 
     def add_usage(self, usage: Usage | None, model: str) -> None:
         if usage is not None:
@@ -298,7 +313,82 @@ class Orchestrator:
             run.auth = await authorize(session, self._settings, ctx.tenant_id, conversation_id)
         if run.no_history:
             return self._forgetting(run, self._run(run))
-        return self._run(run)
+        return self._keeping(run, self._run(run))
+
+    async def _keeping(
+        self, run: _Run, events: AsyncIterator[ChatEvent]
+    ) -> AsyncIterator[ChatEvent]:
+        """P1c-09: an answer that started to stream and did not settle (the user stopped
+        it, or the client left) is stored as partial when the stream closes."""
+        try:
+            async for event in events:
+                yield event
+        finally:
+            if run.streaming and not run.settled:
+                keep = asyncio.ensure_future(self._keep_partial(run, "stopped"))
+                with contextlib.suppress(asyncio.CancelledError):
+                    await asyncio.shield(keep)
+
+    def _shown_citations(self, run: _Run) -> list[CitationOut]:
+        markers = run.shown_markers
+        if markers is None or not run.shown:
+            return []
+        return [
+            _citation(n, run.shown_context[n - 1])
+            for n in markers.cited
+            if n <= len(run.shown_context)
+        ]
+
+    async def _keep_partial(self, run: _Run, error_code: str) -> bool:
+        """Store the question and the answer as far as it was shown, flagged partial.
+        Never for a tenant that keeps no history (P1b-14), whose conversation goes."""
+        if run.settled or run.no_history:
+            return False
+        run.settled = True
+        general = run.conversation.mode == "general_knowledge"
+        answer = "".join(run.shown)
+        citations = self._shown_citations(run)
+        outcome: Outcome = "answered" if citations or (general and answer) else "unsupported"
+        message_id = uuid.uuid4()
+        latency = run.latency_ms()
+        try:
+            async with tenant_session(self._db, run.ctx.tenant_id) as session:
+                await self._persist(
+                    session,
+                    run,
+                    message_id,
+                    answer,
+                    citations,
+                    outcome,
+                    latency,
+                    partial=True,
+                    error_code=error_code,
+                )
+        except SQLAlchemyError as exc:
+            # The conversation was deleted meanwhile, or the database failed; class only.
+            log(
+                "chat.partial_not_stored",
+                level="warning",
+                conversation_id=str(run.conversation_id),
+                exception=type(exc).__name__,
+            )
+            return False
+        log(
+            "chat.answer",
+            tenant_id=str(run.ctx.tenant_id),
+            user_id=str(run.ctx.user_id),
+            conversation_id=str(run.conversation_id),
+            message_id=str(message_id),
+            latency_ms=latency,
+            tokens_in=run.tokens_in,
+            tokens_out=run.tokens_out,
+            reasoning_tokens=run.reasoning_tokens,
+            model=run.model,
+            status="partial",
+            chunk_count=run.context,
+            error_code=error_code,
+        )
+        return True
 
     async def _forgetting(
         self, run: _Run, events: AsyncIterator[ChatEvent]
@@ -490,6 +580,8 @@ class Orchestrator:
                 run.auth.failover,
             )
             run.model = stream.model
+            run.streaming = True
+            run.shown_context, run.shown_markers = context, markers
             async for delta in stream:
                 out = markers.feed(delta)
                 if out:
@@ -498,15 +590,19 @@ class Orchestrator:
                         held = False
                         out = "".join(parts)  # everything held so far, in one event
                     if not held:
+                        run.shown.append(out)
                         yield TokenEvent(out)
             tail = markers.flush()
             if tail:
                 parts.append(tail)
                 if not held:
+                    run.shown.append(tail)
                     yield TokenEvent(tail)
             run.add_usage(stream.usage, stream.model)
         except LLMError as exc:
-            async for event in self._fail(run, exc.error_code):
+            # P1c-09: mid-stream, the question and the answer so far are kept (partial).
+            kept = run.streaming and await self._keep_partial(run, exc.error_code)
+            async for event in self._fail(run, exc.error_code, audit=not kept):
                 yield event
             return
 
@@ -573,10 +669,20 @@ class Orchestrator:
     ) -> AsyncIterator[ChatEvent]:
         message_id = uuid.uuid4()
         latency = run.latency_ms()
+        run.settled = True
         try:
             # Leaving the block commits, so the message is durable before ``done`` (C5).
             async with tenant_session(self._db, run.ctx.tenant_id) as session:
-                await self._persist(session, run, message_id, answer, citations, outcome, latency)
+                await self._persist(
+                    session,
+                    run,
+                    message_id,
+                    answer,
+                    citations,
+                    outcome,
+                    latency,
+                    truncated=truncated,
+                )
         except IntegrityError:
             # The conversation was deleted while the answer streamed.
             async for event in self._fail(run, "conversation_gone", audit=False):
@@ -627,6 +733,10 @@ class Orchestrator:
         citations: Sequence[CitationOut],
         outcome: Outcome,
         latency: int,
+        *,
+        truncated: bool = False,
+        partial: bool = False,
+        error_code: str | None = None,
     ) -> None:
         tenant_id = run.ctx.tenant_id
         session.add(
@@ -653,6 +763,8 @@ class Orchestrator:
                 tokens_out=run.tokens_out,
                 latency_ms=latency,
                 outcome=outcome,
+                truncated=truncated,
+                partial=partial,
                 created_at=datetime.now(UTC),
                 **message_choice_fields(run.conversation.choice),
             )
@@ -684,7 +796,14 @@ class Orchestrator:
             tenant_id=tenant_id,
             actor_user_id=run.ctx.user_id,
             event="chat.query",
-            metadata=self._audit_metadata(run, outcome, "ok", message_id, citations),
+            metadata=self._audit_metadata(
+                run,
+                outcome,
+                "partial" if partial else "ok",
+                message_id,
+                citations,
+                error_code,
+            ),
         )
 
     def _audit_metadata(
@@ -724,6 +843,7 @@ class Orchestrator:
     async def _fail(
         self, run: _Run, error_code: str, *, audit: bool = True
     ) -> AsyncIterator[ChatEvent]:
+        run.settled = True
         log(
             "chat.answer",
             level="error",

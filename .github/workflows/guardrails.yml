@@ -65,10 +65,10 @@ jobs:
       - name: Guardrail eval
         run: |
           if [ "$LIVE" = "true" ]; then
-            uv run python -m eval guardrails --results-dir "$RUNNER_TEMP/guardrails" \
+            uv run python -m eval guardrails --runs-dir "$RUNNER_TEMP/guardrails" \
               --note "GitHub Actions run ${{ github.run_id }}, live model"
           else
-            uv run python -m eval guardrails --mock --results-dir "$RUNNER_TEMP/guardrails" \
+            uv run python -m eval guardrails --mock --runs-dir "$RUNNER_TEMP/guardrails" \
               --note "GitHub Actions run ${{ github.run_id }}"
           fi
       - name: Upload results

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from app.core.config import ConfigError
 
-from eval import compare, gate, results, sources
+from eval import compare, gate, outputs, results, sources
 from eval.schema import V1_MIN_ITEMS, V1_MIN_OUT_OF_CORPUS, json_schema, load_set
 
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
@@ -119,6 +119,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         api_url=api_url,
         user_email=user_email,
         results_root=Path(args.results_dir),
+        runs_root=outputs.runs_dir(args.runs_dir),
         ragflow_url=args.ragflow_url or os.environ.get("EVAL_RAGFLOW_URL") or None,
         mock_mistral=args.mock_mistral,
         notes=list(args.note),
@@ -127,13 +128,15 @@ def cmd_run(args: argparse.Namespace) -> int:
         workspace=args.workspace,
     )
     try:
+        outputs.check_runs_dir(options.runs_root, options.results_root)
         directory = asyncio.run(run(options))
-    except (HarnessError, ConfigError) as exc:
+    except (HarnessError, ConfigError, outputs.OutputsError) as exc:
         _err(f"python -m eval run: {exc}")
         return 2
     data = results.load(directory)
     _out(results.summary_markdown(data))
-    _out(f"results: {directory}")
+    _out(f"results: {directory} (full outputs; never commit them)")
+    _out(f"redacted: {options.results_root / directory.name} (may be committed)")
     github_output = os.environ.get("GITHUB_OUTPUT")
     if github_output:
         with open(github_output, "a", encoding="utf-8") as fh:
@@ -151,15 +154,16 @@ def cmd_guardrails(args: argparse.Namespace) -> int:
         blocks=Path(args.blocks),
         contexts=Path(args.contexts),
         eval_set=Path(args.set),
-        results_root=Path(args.results_dir),
+        runs_root=outputs.runs_dir(args.runs_dir),
         modes=modes,
         threshold=args.threshold,
         mock=args.mock,
         notes=list(args.note),
     )
     try:
+        outputs.check_runs_dir(options.runs_root, DEFAULT_RESULTS)
         directory, data = asyncio.run(guardrails.run(options))
-    except (guardrails.GuardrailError, ConfigError) as exc:
+    except (guardrails.GuardrailError, ConfigError, outputs.OutputsError) as exc:
         _err(f"python -m eval guardrails: {exc}")
         return 2
     _out(guardrails.summary_markdown(data))
@@ -276,7 +280,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="Needs the judge provider's key, RAGFLOW_API_KEY, DATABASE_URL, "
         "EVAL_USER_EMAIL and either EVAL_SERVICE_PRIVATE_KEY (an API in oidc mode with "
         "[auth.eval_service]) or PHASE0_BEARER_TOKEN in the environment (see eval/runner.py). "
-        "Writes results/<timestamp>-<git-sha>/. Exits 1 if any item errored.",
+        "Writes the full run to <runs dir>/<timestamp>-<git-sha>/ and its redacted copy "
+        "to results/<timestamp>-<git-sha>/. Exits 1 if any item errored.",
     )
     run_cmd.add_argument("--config", default=str(DEFAULT_CONFIG), help="path to models.toml")
     run_cmd.add_argument("--set", default=str(DEFAULT_SET), help="eval set (.jsonl)")
@@ -286,7 +291,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="RAGFlow base URL for the retrieval step if ragflow.base_url is not reachable "
         "from here (default: EVAL_RAGFLOW_URL); must be a private or loopback address",
     )
-    run_cmd.add_argument("--results-dir", default=str(DEFAULT_RESULTS))
+    run_cmd.add_argument(
+        "--results-dir",
+        default=str(DEFAULT_RESULTS),
+        help="where the redacted copy goes (default: packages/eval/results)",
+    )
+    run_cmd.add_argument(
+        "--runs-dir",
+        help=f"where the full outputs go, outside the repository (default: "
+        f"{outputs.RUNS_DIR_ENV}, else {outputs.DEFAULT_RUNS_DIR})",
+    )
     run_cmd.add_argument("--limit", type=int, help="run only the first N items")
     run_cmd.add_argument(
         "--exclude-label",
@@ -322,7 +336,11 @@ def build_parser() -> argparse.ArgumentParser:
     guard.add_argument("--blocks", default=str(ADVERSARIAL / "blocks"))
     guard.add_argument("--contexts", default=str(ADVERSARIAL / "contexts.jsonl"))
     guard.add_argument("--set", default=str(SYNTHETIC_SET), help="set the items come from")
-    guard.add_argument("--results-dir", default=str(DEFAULT_RESULTS))
+    guard.add_argument(
+        "--runs-dir",
+        help=f"where the run's folder goes (default: {outputs.RUNS_DIR_ENV}, else "
+        f"{outputs.DEFAULT_RUNS_DIR})",
+    )
     guard.add_argument(
         "--mode",
         action="append",

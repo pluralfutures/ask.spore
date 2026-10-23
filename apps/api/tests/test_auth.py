@@ -221,6 +221,7 @@ async def test_post_from_the_requesting_browser_signs_in(auth: Auth) -> None:
         "role": "tenant_admin",
         "tenant_display_name": "Synthetic Client",
         "consent_required": False,
+        "operator": False,  # P1c-08: a client tenant's admin is never an operator
     }
     user = await auth.admin.fetchrow(
         "SELECT status, last_login_at, last_login_method FROM users WHERE id = $1", t.user_id

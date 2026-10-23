@@ -34,7 +34,7 @@ from app.auth.authentik import oidc_services
 from app.auth.provider import ProviderError
 from app.consent.notices import ConsentNoticeTick
 from app.content import worker
-from app.content.datasets import sync_datasets
+from app.content.datasets import dataset_counts, sync_datasets
 from app.content.fetch import FetchError, fetch, http_client
 from app.content.ingest import (
     IngestError,
@@ -76,6 +76,31 @@ from app.operator.grants import create_eval_identity, grant_operator, revoke_ope
 from app.retrieval.ragflow import RagflowClient
 from app.tenancy.purge import purge_retention, schedule_purge
 from app.tenancy.termination import TerminationError, terminate_tenant
+
+
+async def _datasets_counts() -> int:
+    settings = get_settings()
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    try:
+        async with (
+            RagflowClient.from_settings(settings) as client,
+            session_factory(engine)() as session,
+            session.begin(),
+        ):
+            counts = await dataset_counts(session, client)
+    finally:
+        await engine.dispose()
+    for item in counts:
+        log(
+            "datasets.counts",
+            level="info" if item.documents is not None else "error",
+            tag=item.tag,
+            dataset_id=item.dataset_id,
+            status="ok" if item.documents is not None else "missing",
+            count=item.documents,
+            chunk_count=item.chunks,
+        )
+    return 0 if all(item.documents is not None for item in counts) else 1
 
 
 async def _datasets_sync() -> int:
@@ -745,6 +770,10 @@ def build_parser() -> argparse.ArgumentParser:
     datasets_commands.add_parser(
         "sync", help="create missing datasets for config/tags.toml and record the mapping"
     )
+    datasets_commands.add_parser(
+        "counts",
+        help="RAGFlow's document and chunk counts per mapped tag (P1c-10; metadata only)",
+    )
 
     ingest_cmd = commands.add_parser(
         "ingest",
@@ -1014,6 +1043,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "datasets" and args.datasets_command == "sync":
         return asyncio.run(_datasets_sync())
+    if args.command == "datasets" and args.datasets_command == "counts":
+        return asyncio.run(_datasets_counts())
     if args.command == "ingest":
         return asyncio.run(_ingest(args))
     if args.command == "crawl":

@@ -35,7 +35,7 @@ from app.llm.mistral import MistralClient
 from app.retrieval.ragflow import RagflowClient
 from pydantic import SecretStr
 
-from eval import mock, results
+from eval import mock, outputs, results
 from eval.judge import Judge
 from eval.metrics import aggregate, citation_precision, matches
 from eval.pipeline import ApiPipeline, PipelineAnswer
@@ -60,7 +60,8 @@ class RunOptions:
     set_path: Path
     api_url: str
     user_email: str
-    results_root: Path
+    results_root: Path  # the redacted copy (packages/eval/results/)
+    runs_root: Path  # the full outputs, outside the repository (P1c-12, eval.outputs)
     ragflow_url: str | None = None
     mock_mistral: bool = False
     notes: list[str] = field(default_factory=list)
@@ -325,6 +326,9 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
         "workspace": options.workspace,
         "warnings": warnings,
     }
-    directory = options.results_root / run_id
-    results.write(directory, results.build(meta, summary, item_results))
-    return directory
+    full, _ = outputs.write_run(
+        results.build(meta, summary, item_results),
+        runs_root=options.runs_root,
+        results_root=options.results_root,
+    )
+    return full

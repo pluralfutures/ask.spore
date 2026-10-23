@@ -4,35 +4,50 @@ import type {
   AdminInviteIn,
   AdminUser,
   Aggregates,
+  ApproveIn,
   AuthMode,
   ChatStreamEvent,
-  ConversationCreated,
+  ConsentNotice,
+  ContentMe,
+  ContentSite,
+  ContentSiteDetail,
+  ContentSource,
+  ContentSourceDetail,
+  ContentTag,
   ConversationCreateIn,
+  ConversationCreated,
   ConversationDetail,
   ConversationSummary,
   DiscoverOut,
   DownloadLink,
-  FeedbackIn,
-  FeedbackOut,
   EntitlementsIn,
   EntitlementsOut,
+  FeedbackIn,
+  FeedbackOut,
+  InvitationResent,
   LoginPolicyIn,
   LoginPolicyOut,
-  MfaRequiredOut,
-  SsoSourceIn,
-  SsoStartOut,
-  ConsentNotice,
   Me,
+  MfaRequiredOut,
   ModelOption,
   NoticeOut,
   OperatorOptions,
   OperatorSource,
   OperatorTag,
   OperatorWorkspace,
+  ProposeOut,
+  SiteCreateIn,
+  SiteSettingsIn,
+  SsoSourceIn,
+  SsoStartOut,
+  TagSync,
+  Takedown,
+  TakedownIn,
   TenantCreateIn,
   TenantOut,
   TenantSettings,
   TenantSpend,
+  TerminatedTenant,
   UserChangeIn,
   UserInviteIn,
   Workspace,
@@ -40,19 +55,6 @@ import type {
   WorkspaceDefaultsIn,
   WorkspaceFiles,
   WorkspacePrompt,
-  ApproveIn,
-  ContentMe,
-  ContentSite,
-  ContentSiteDetail,
-  ContentSource,
-  ContentSourceDetail,
-  ContentTag,
-  ProposeOut,
-  SiteCreateIn,
-  SiteSettingsIn,
-  TagSync,
-  Takedown,
-  TakedownIn,
 } from "./types";
 
 const BASE = "/api/v1";
@@ -316,6 +318,12 @@ export const adminApi = {
   invite: (body: UserInviteIn) => json<AdminUser>("POST", "/admin/users", body),
   changeUser: (userId: string, body: UserChangeIn) =>
     json<AdminUser>("PATCH", `/admin/users/${userId}`, body),
+  // P1c-07: the invitation email again for a user still invited; remove a user.
+  resendInvitation: (userId: string) =>
+    json<InvitationResent>("POST", `/admin/users/${userId}/invitation`),
+  removeUser: async (userId: string): Promise<void> => {
+    await send("DELETE", `/admin/users/${userId}`);
+  },
   setDefaults: (workspaceId: string, body: WorkspaceDefaultsIn) =>
     json<Workspace>("PUT", `/admin/workspaces/${workspaceId}/defaults`, body),
   prompts: (workspaceId: string) =>
@@ -335,6 +343,8 @@ export const adminApi = {
 export const operatorApi = {
   options: () => json<OperatorOptions>("GET", "/operator/options"),
   tenants: () => json<TenantOut[]>("GET", "/operator/tenants"),
+  // P1c-08: tenants the termination purge emptied, with purge date and certificate.
+  terminatedTenants: () => json<TerminatedTenant[]>("GET", "/operator/terminated-tenants"),
   // P1b-12: one tenant per page, its users and spend, and the cross-tenant totals.
   tenant: (tenantId: string) => json<TenantOut>("GET", `/operator/tenants/${tenantId}`),
   tenantTags: (tenantId: string) =>
@@ -351,6 +361,12 @@ export const operatorApi = {
       `/operator/tenants/${tenantId}/admins`,
       body,
     ),
+  // P1c-07: the invitation email again, and removing a tenant's user.
+  resendInvitation: (tenantId: string, userId: string) =>
+    json<InvitationResent>("POST", `/operator/tenants/${tenantId}/users/${userId}/invitation`),
+  removeUser: async (tenantId: string, userId: string): Promise<void> => {
+    await send("DELETE", `/operator/tenants/${tenantId}/users/${userId}`);
+  },
   setEntitlements: (tenantId: string, body: EntitlementsIn) =>
     json<EntitlementsOut>("PUT", `/operator/tenants/${tenantId}/entitlements`, body),
   // Login policy (P1b-06): sign-in links, JIT provisioning, MFA for tenant admins.

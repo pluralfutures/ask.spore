@@ -3,8 +3,8 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { ApiError, operatorApi } from "../api/client";
+import { SaveStatus } from "../components/SaveStatus";
 import { formatDate } from "../lib/format";
-import { errorText } from "../lib/operator";
 
 // Operator console (P1a-03), one tenant per page (P1b-12): this page picks the tenant and
 // creates new ones; each tenant's settings are on its own page (OperatorTenant), so a
@@ -20,7 +20,13 @@ export function OperatorConsole() {
   }
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
-      <h1 className="text-xl font-semibold">Operator console</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Operator console</h1>
+        {/* P1c-08: every operator is also a user of the internal tenant. */}
+        <Link to="/" className="text-sm underline">
+          Chat app
+        </Link>
+      </div>
       <section className="rounded bg-white p-3 text-sm">
         <h2 className="mb-2 font-semibold">Tenants</h2>
         <ul className="flex flex-col gap-1">
@@ -41,6 +47,7 @@ export function OperatorConsole() {
           </Link>
         </p>
       </section>
+      <TerminatedTenants />
       <CreateTenant />
       <Sources />
       <section>
@@ -75,7 +82,7 @@ function Sources() {
   return (
     <section className="rounded bg-white p-3 text-sm">
       <h2 className="mb-2 font-semibold">Downloadable files</h2>
-      {errorText(toggle.error) ? <p className="text-red-700">{errorText(toggle.error)}</p> : null}
+      <SaveStatus isSuccess={toggle.isSuccess} error={toggle.error} />
       {files.length === 0 ? <p className="text-slate-600">No files in the register.</p> : null}
       <ul className="flex flex-col gap-1">
         {files.map((source) => (
@@ -91,6 +98,30 @@ function Sources() {
               {source.tags.join(", ")}
               {source.stored ? null : <span className="text-slate-600">(no stored copy)</span>}
             </label>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// P1c-08 (Phase 1b F5): tenants the termination purge emptied, with the purge's date and
+// certificate number; they have no settings page any more.
+function TerminatedTenants() {
+  const terminated = useQuery({
+    queryKey: ["operator", "terminated"],
+    queryFn: operatorApi.terminatedTenants,
+  });
+  if (!terminated.data?.length) return null;
+  return (
+    <section className="rounded bg-white p-3 text-sm">
+      <h2 className="mb-2 font-semibold">Terminated tenants</h2>
+      <ul className="flex flex-col gap-1">
+        {terminated.data.map((t) => (
+          <li key={t.id} data-testid={`terminated-${t.slug}`}>
+            {t.display_name} <span className="text-slate-500">({t.slug})</span> · {t.status} ·
+            purged {t.purged_at ? formatDate(t.purged_at) : "date not recorded"} · certificate{" "}
+            {t.certificate ?? "not recorded"}
           </li>
         ))}
       </ul>
@@ -156,7 +187,7 @@ function CreateTenant() {
       <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
         Create
       </button>
-      {errorText(create.error) && <p className="w-full text-red-700">{errorText(create.error)}</p>}
+      <SaveStatus isSuccess={create.isSuccess} error={create.error} savedText="Tenant created." />
     </form>
   );
 }

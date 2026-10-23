@@ -409,3 +409,85 @@ async def test_finish_without_error_succeeds(env: tuple[Env, Ingest]) -> None:
     assert job is not None
     assert await finish(e.factory, job, error_code=None) == "succeeded"
     assert (await states(e.factory, [job_id]))[job_id].status == "succeeded"
+
+
+# --- P1c-04: jobs are scoped by the payload's tenant -------------------------------------
+
+
+async def _mail_job(admin_conn: asyncpg.Connection, tenant_id: UUID) -> UUID:
+    payload = {"template": "invitation", "tenant_id": str(tenant_id), "user_id": str(uuid.uuid4())}
+    job_id: UUID = await admin_conn.fetchval(
+        "INSERT INTO jobs (type, payload) VALUES ('send_mail', $1::jsonb) RETURNING id",
+        json.dumps(payload),
+    )
+    return job_id
+
+
+async def _visible(conn: asyncpg.Connection, tenant_id: UUID | None) -> set[UUID]:
+    async with conn.transaction():
+        if tenant_id is not None:
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_id))
+        return {r["id"] for r in await conn.fetch("SELECT id FROM jobs")}
+
+
+async def test_a_tenant_scoped_session_reads_no_job_of_another_tenant(
+    admin_conn: asyncpg.Connection, app_conn: asyncpg.Connection
+) -> None:
+    a, b = uuid.uuid4(), uuid.uuid4()
+    mail_a, mail_b = await _mail_job(admin_conn, a), await _mail_job(admin_conn, b)
+    shared = await admin_conn.fetchval(
+        "INSERT INTO jobs (type, payload) VALUES ('ingest_source', $1::jsonb) RETURNING id",
+        json.dumps({"source_id": str(uuid.uuid4())}),
+    )
+    # Tenant A's scope: its own job and the jobs that name no tenant; zero rows of B's.
+    assert await _visible(app_conn, a) == {mail_a, shared}
+    assert await _visible(app_conn, b) == {mail_b, shared}
+    async with app_conn.transaction():
+        await app_conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(a))
+        assert await app_conn.fetchval("SELECT count(*) FROM jobs WHERE id = $1", mail_b) == 0
+        updated = await app_conn.execute(
+            "UPDATE jobs SET status = 'failed', error_code = 'x' WHERE id = $1", mail_b
+        )
+        assert updated == "UPDATE 0"
+    assert (await job_row(admin_conn, mail_b))["status"] == "queued"
+    # The worker's and the CLI's unscoped sessions see every job, as before.
+    assert {mail_a, mail_b, shared} <= await _visible(app_conn, None)
+
+
+async def test_a_tenant_scoped_session_cannot_queue_a_job_for_another_tenant(
+    app_conn: asyncpg.Connection,
+) -> None:
+    a, b = uuid.uuid4(), uuid.uuid4()
+    payload = {"template": "invitation", "tenant_id": str(b), "user_id": str(uuid.uuid4())}
+    with pytest.raises(asyncpg.InsufficientPrivilegeError, match="row-level security"):
+        async with app_conn.transaction():
+            await app_conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(a))
+            await app_conn.execute(
+                "INSERT INTO jobs (type, payload) VALUES ('send_mail', $1::jsonb)",
+                json.dumps(payload),
+            )
+
+
+async def test_the_operator_role_reads_every_job_even_when_scoped(
+    admin_conn: asyncpg.Connection, app_conn: asyncpg.Connection
+) -> None:
+    a, b = uuid.uuid4(), uuid.uuid4()
+    jobs = {await _mail_job(admin_conn, a), await _mail_job(admin_conn, b)}
+    await app_conn.execute("SET ROLE askspore_operator")
+    assert jobs <= await _visible(app_conn, a)
+    assert jobs <= await _visible(app_conn, None)
+
+
+async def test_jobs_rls_is_forced_with_both_policies(admin_conn: asyncpg.Connection) -> None:
+    row = await admin_conn.fetchrow(
+        "SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = 'jobs'"
+    )
+    assert (row["relrowsecurity"], row["relforcerowsecurity"]) == (True, True)
+    policies = await admin_conn.fetch(
+        "SELECT policyname, roles::text[] AS roles FROM pg_policies WHERE tablename = 'jobs' "
+        "ORDER BY policyname"
+    )
+    assert [(p["policyname"], p["roles"]) for p in policies] == [
+        ("operator_console", ["askspore_operator"]),
+        ("tenant_scope", ["public"]),
+    ]

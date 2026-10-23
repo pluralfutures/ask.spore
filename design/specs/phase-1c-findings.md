@@ -639,6 +639,10 @@ sections 3 to 7 to follow.
   The purged row holds no verified domains. The SSO test tenant for this release is
   **`ssotest2`** with the same two verified domains; the close-out purge certifies `ssotest2`.
   Backlog: reusable slugs after termination, the tenant UUID staying the permanent identifier.
+- **3.2 Entra refusal setup (owner decision, Oct 23, 2026):** the trial tenant has only its own
+  domain, which `ssotest2` verifies (Phase 1b could not test this case). Narrowing the domains
+  for the test was not possible: verified domains are fixed at tenant creation (backlog). The
+  refusal is tested with an Entra **guest user** whose address is outside both domains.
 
 ### Issues found and fixed during the release
 

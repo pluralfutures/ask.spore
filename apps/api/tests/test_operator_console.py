@@ -9,12 +9,14 @@ import json
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
 
 from app.tenancy.models import INTERNAL_TENANT_ID
+from app.tenancy.termination import terminate_tenant
 from app.usage.ledger import month_of
 from tests.test_auth import Auth, auth  # noqa: F401 - fixture
 from tests.test_operator import (  # noqa: F401 - fixtures
@@ -119,6 +121,31 @@ async def test_one_tenant_and_its_users(console: Console) -> None:  # noqa: F811
     missing = uuid.uuid4()
     for path in ("", "/users", "/spend", "/tags"):
         assert (await op.get(f"/api/v1/operator/tenants/{missing}{path}")).status_code == 404
+
+
+async def test_a_terminated_tenant_does_not_hide_the_others(
+    console: Console,  # noqa: F811
+    owner: Any,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    """P1b-16 F5: after `tenant purge` the tenant row stays without entitlements or login
+    policy; the list refused with 404 and the console showed no tenant at all."""
+    op = await console.operator()
+    gone, kept = await create(op), await create(op)
+
+    async def no_cache(_: uuid.UUID) -> int:
+        return 0
+
+    await terminate_tenant(
+        owner, slug=gone["slug"], confirm=gone["slug"], content_root=tmp_path, clear_cache=no_cache
+    )
+
+    listed = await op.get("/api/v1/operator/tenants")
+    assert listed.status_code == 200, listed.text
+    ids = {t["id"] for t in listed.json()}
+    assert kept["id"] in ids and str(INTERNAL_TENANT_ID) in ids
+    assert gone["id"] not in ids
+    assert (await op.get(f"/api/v1/operator/tenants/{gone['id']}")).status_code == 404
 
 
 # --- tag pickers: the tenant's own tags and shared ones ----------------------------------

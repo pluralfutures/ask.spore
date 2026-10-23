@@ -573,7 +573,8 @@ The Instance runs `main` at **1758623** (`ASK_SPORE_DEPLOY_VERSION=175862320a89`
 
 **In progress** (Oct 23, 2026): sections 0 to 5 done (independent review signed, no blocker;
 five fixes, F1 to F5, deployed at 80ac763cdd63 and re-checked; `corpus_only/v6` not adopted,
-owner decision); sections 6 and 7 to follow.
+owner decision); section 6 done with the restore test moved to the backlog (owner decision)
+and DMARC not yet collecting (F6); section 7 to follow.
 
 ### Section 0: credentials rotation
 
@@ -817,6 +818,14 @@ is committed: v6 was not adopted and the baseline stays). Baseline
   holds the committed redacted runs only, in the Instance tree and the worktree; `eval gate`:
   **Pass** in both; the Instance tree clean.
 
+### Section 6: backups, image pins, mail domain
+
+| Step | Result |
+| --- | --- |
+| 6.1 Restore test and content-store copy | **Not run; moved to the backlog (owner decision, Oct 23, 2026).** No volume backup is visible on the Instance: no `/srv/backups`, no backup entry in root's crontab or `/etc/cron.d`, no backup timer (only the system's `dpkg-db-backup`). The nightly content-store copy is not installed either, since it uses the volume backup's destination and retention. |
+| 6.2 Image pins | `image-digests.py --check` without the mirror: exit 0, **18 references, all pinned**, including `quay.io/keycloak/keycloak:26.7.5` (the drill compose file). |
+| 6.3 DMARC | `_dmarc.myceliumgastronomy.com` is `v=DMARC1; p=none` with **no `rua=` tag** (public DNS, Oct 23, 2026): no aggregate report has been sent, so there are no counts to record and the clean week has not started. `infra/README.md` assumed an existing `rua=` address (F6). `p=quarantine` not set; stays a pre-launch owner item ("before the first `customculinary.com` user"), its clean week counted from the first report after the owner adds `rua=`. |
+
 ### Issues found and fixed during the release
 
 | # | Where | Issue | Fix |
@@ -826,3 +835,4 @@ is committed: v6 was not adopted and the baseline stays). Baseline
 | F3 | 3.2, Keycloak drill | The drill's realm template had the Phase 1b callback `/source/oauth/callback/sso-ssotest/` fixed in its client, so with the test tenant `ssotest2` (3.2 deviation) Keycloak would refuse the callback, as Microsoft did before the owner added the new URI to the Entra app (3.2 notes). | `setup.py` takes a required `--source-slug` (`sso-<tenant slug>`, validated) and fills the redirect URI from it; README updated. `tests/test_keycloak_drill.py`: the URI follows the slug; malformed slugs refused; the template names no tenant. ruff, format, `mypy --strict` clean. |
 | F4 | 3.5, P1c-07 / P1c-08 | Same class as F2 on the two user lists (tenant admin page and the operator console's users tab): an invite's refusal and the list's last resend or removal status stood together ("That address already has an account." above "… was removed …"), as neither action cleared the other. | Starting an invite clears the list's status and the resend, removal and role-change states; a resend or removal clears the invite's outcome (the tenant admin page remounts its invite form, the console resets its invite state). Playwright: `admin.spec.ts` extended (the owner's sequence: resend, remove, `email_taken`, resend) and a new `operator.spec.ts` users-tab test; they run in CI (the Instance has no browser build, and none is installed on the live host). Web lint, typecheck and 126 unit tests pass. |
 | F5 | 3.5, P1c-07 | User removal did not deactivate an **SSO-created** Authentik account. `disable_user` looked the account up by `username = email`; the generated source mapping names SSO accounts `<source slug>.<email>`, so the lookup found nothing and returned without error: the removal reported success and the account stayed active (seen live for the removed `ssotest2` member). Our data was not exposed: with no `users` row every token and refresh is refused (`user_inactive`). | `disable_user` lists Authentik users by `email` (exact filter, checked in the `version-2026.8` source) and deactivates each that is the address's sign-in-link account (`username = email`) or an SSO account (`sso-<slug>.<email>`); any other account with that address (for example an Authentik admin) is never touched; still PATCH only, never DELETE. Tests: `test_authentik_adapter::test_a_removed_sso_user_is_deactivated_too` and 8 cases of `test_only_the_addresses_own_accounts_are_deactivated`. Full API suite: 1528 passed against a throwaway PostgreSQL 16.15 (1 deselected); ruff, `mypy --strict` clean. The account left active tonight is removed with `ssotest2`'s Authentik users at close-out. |
+| F6 | 6.3, P1c-05 | `infra/README.md` "Mail domain policy" step 1 said to keep "the existing" `rua=` address of `_dmarc.myceliumgastronomy.com`; the record has none (`v=DMARC1; p=none`), so no aggregate report was ever sent and the clean week the procedure waits for cannot start. | Step 1 now says to add `rua=mailto:<mailbox>` with the policy unchanged (and the external-destination record if the mailbox is on another domain), and that the clean week counts from the first report; step 3's example uses `<mailbox>`. Documentation only. The DNS change is the owner's. |

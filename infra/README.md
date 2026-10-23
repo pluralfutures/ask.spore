@@ -197,8 +197,14 @@ message in the domain's name is delivered. Before the first `customculinary.com`
 is invited it moves to `p=quarantine` (the paperwork checklist row; owner action at the
 DNS, no code).
 
-1. **Collect.** Keep the existing `_dmarc.myceliumgastronomy.com` TXT record's `rua=`
-   address as it is; aggregate reports arrive there daily from the receiving providers.
+1. **Collect.** Aggregate reports are sent only to the address in the record's `rua=` tag.
+   The record had none at the Phase 1c release (`v=DMARC1; p=none`, checked Oct 23, 2026),
+   so no report had been sent. The owner adds one at the DNS provider, policy unchanged:
+   `v=DMARC1; p=none; rua=mailto:<mailbox>` (a mailbox on `myceliumgastronomy.com` needs no
+   further DNS; one on another domain needs that domain to authorise it with a
+   `myceliumgastronomy.com._report._dmarc.<other domain>` TXT record `v=DMARC1`). Reports
+   (zipped XML) then arrive daily from the receiving providers; the clean week counts from
+   the first report.
 2. **Condition: one week clean.** Seven consecutive days of aggregate reports in which
    every message sent by the platform's source (Scaleway TEM's sending IPs, DKIM `d=` the
    sending domain) passes DMARC (aligned DKIM or aligned SPF), and every other source
@@ -208,7 +214,7 @@ DNS, no code).
    from a report into a session, a file or the findings.
 3. **Change.** The owner edits the TXT record at the DNS provider: `p=none` becomes
    `p=quarantine`, everything else unchanged, for example
-   `v=DMARC1; p=quarantine; rua=mailto:<existing address>; adkim=r; aspf=r`
+   `v=DMARC1; p=quarantine; rua=mailto:<mailbox>; adkim=r; aspf=r`
    (no `pct` tag, so it applies to all mail; `sp` absent, so subdomains such as
    `askspore.` follow `p`). Check with `dig +short TXT _dmarc.myceliumgastronomy.com`.
 4. **After.** Send one invitation or sign-in link to a test address and confirm it lands

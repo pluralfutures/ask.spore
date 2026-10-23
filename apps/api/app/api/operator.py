@@ -183,7 +183,16 @@ async def operator_options(request: Request) -> OperatorOptionsOut:
 async def list_tenants(
     request: Request, session: AsyncSession = Depends(operator_session)
 ) -> list[TenantOut]:
-    tenants = (await session.scalars(select(Tenant).order_by(Tenant.created_at))).all()
+    # A terminated tenant keeps its row (the audit log refers to it) but has no entitlements
+    # or login policy (P1b-14); it is not listed, so it cannot hide the others (P1b-16 F5).
+    tenants = (
+        await session.scalars(
+            select(Tenant)
+            .join(TenantEntitlements, TenantEntitlements.tenant_id == Tenant.id)
+            .join(TenantLoginPolicy, TenantLoginPolicy.tenant_id == Tenant.id)
+            .order_by(Tenant.created_at)
+        )
+    ).all()
     return [await _tenant_out(request, session, tenant) for tenant in tenants]
 
 

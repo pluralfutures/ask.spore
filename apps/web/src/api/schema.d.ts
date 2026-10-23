@@ -2371,6 +2371,7 @@ export interface components {
       outcome: "proposed" | "pending" | "duplicate" | "retag" | "taken_down";
       /** Possible Replacements */
       possible_replacements: components["schemas"]["SourceRef"][];
+      replaces?: components["schemas"]["SourceRef"] | null;
       /**
        * Source Id
        * Format: uuid

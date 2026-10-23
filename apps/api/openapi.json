@@ -2764,6 +2764,16 @@
             "title": "Possible Replacements",
             "type": "array"
           },
+          "replaces": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "source_id": {
             "format": "uuid",
             "title": "Source Id",

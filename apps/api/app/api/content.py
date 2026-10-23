@@ -278,7 +278,8 @@ async def content_me(
 
 def _replacement_flag() -> Any:
     """``possible_replacement`` for a list query: a proposal at the canonical link of an
-    ingested source that is not a crawled page (owner decision 4)."""
+    ingested source that is not a crawled page (owner decision 4), unless it replaces one
+    with the same title (``supersedes_id`` set at proposal, owner decision 3)."""
     other = Source.__table__.alias("other")
     return (
         select(func.count())
@@ -341,7 +342,12 @@ async def list_sources(
     rows = (await session.execute(query.limit(MAX_LIST))).all()
     return [
         ContentSourceOut(
-            **_source_out(row.Source, row.Source.status == "proposed" and row.candidates > 0)
+            **_source_out(
+                row.Source,
+                row.Source.status == "proposed"
+                and row.candidates > 0
+                and row.Source.supersedes_id is None,
+            )
         )
         for row in rows
     ]
@@ -426,7 +432,7 @@ async def source_detail(
     settings = _settings(request)
     candidates = (
         await register.replacement_candidates(session, row.canonical_url, exclude=row.id)
-        if row.status == "proposed" and row.site_id is None
+        if row.status == "proposed" and row.site_id is None and row.supersedes_id is None
         else []
     )
     datasets = {d.ragflow_dataset_id: d.tag for d in (await session.scalars(select(Dataset))).all()}
@@ -594,11 +600,13 @@ async def propose_source(
     )
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         replacements = await _refs(session, list(submission.possible_replacements))
+        replaces = await _refs(session, [submission.replaces] if submission.replaces else [])
     return ProposeOut(
         source_id=submission.source_id,
         outcome=submission.outcome,
         status=submission.status,
         possible_replacements=replacements,
+        replaces=replaces[0] if replaces else None,
     )
 
 

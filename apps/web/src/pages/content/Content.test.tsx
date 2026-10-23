@@ -225,6 +225,29 @@ describe("propose result", () => {
       />,
     );
     expect(taken).toContain("takedown request");
+    expect(taken).not.toContain('data-testid="propose-replaces"');
+  });
+
+  it("says which source a same-link, same-title proposal replaces (decision 3)", () => {
+    const html = render(
+      <ProposeResult
+        result={{
+          source_id: ID,
+          outcome: "proposed",
+          status: "proposed",
+          possible_replacements: [],
+          replaces: {
+            id: OLD,
+            title: "Synthetic Outlook 2025",
+            publisher: "Synthetic Institute",
+            status: "ingested",
+          },
+        }}
+      />,
+    );
+    expect(html).toContain('data-testid="propose-replaces"');
+    expect(html).toContain("it replaces that source");
+    expect(html).not.toContain("replace or keep both");
   });
 });
 

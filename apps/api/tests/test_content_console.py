@@ -359,14 +359,18 @@ async def test_list_filters_by_status_tag_type_and_publisher(console: Console) -
 async def test_a_possible_replacement_is_flagged_and_needs_the_reviewers_choice(
     console: Console,
 ) -> None:
+    """Same canonical link, another title: flagged for the reviewer (decisions 4 and 3)."""
     await console.roles("content_editor", "content_reviewer")
     client = console.editor()
     first = (await console.propose(client, PDF.read_bytes())).json()["source_id"]
     await client.post(f"{API}/sources/{first}/approve", json={})
     await console.run_jobs()
 
-    response = await console.propose(client, PDF.read_bytes() + b"\n% revised")
+    response = await console.propose(
+        client, PDF.read_bytes() + b"\n% revised", title="Synthetic Outlook, revised edition"
+    )
     body = response.json()
+    assert body["replaces"] is None
     assert [r["id"] for r in body["possible_replacements"]] == [first]
     second = body["source_id"]
     listed = {s["id"]: s for s in (await client.get(f"{API}/sources")).json()}
@@ -383,6 +387,32 @@ async def test_a_possible_replacement_is_flagged_and_needs_the_reviewers_choice(
     detail = (await client.get(f"{API}/sources/{second}")).json()
     assert detail["supersedes"]["id"] == first
     assert (await client.get(f"{API}/sources/{first}")).json()["status"] == "withdrawn"
+
+
+async def test_the_same_link_and_title_replace_without_a_choice(console: Console) -> None:
+    """Owner decision 3 (Oct 23, 2026, P1c-14): a new file with the canonical link and the
+    title of an ingested source replaces it; the console says so and flags nothing."""
+    await console.roles("content_editor", "content_reviewer")
+    client = console.editor()
+    first = (await console.propose(client, PDF.read_bytes())).json()["source_id"]
+    await client.post(f"{API}/sources/{first}/approve", json={})
+    await console.run_jobs()
+
+    title = f"  {PROPOSAL['title'].upper()} "  # case and spacing do not matter
+    body = (await console.propose(client, PDF.read_bytes() + b"\n% revised", title=title)).json()
+    second = body["source_id"]
+    assert body["possible_replacements"] == [] and body["replaces"]["id"] == first
+    listed = {s["id"]: s for s in (await client.get(f"{API}/sources")).json()}
+    assert listed[second]["possible_replacement"] is False
+    detail = (await client.get(f"{API}/sources/{second}")).json()
+    assert (detail["supersedes"]["id"], detail["possible_replacements"]) == (first, [])
+
+    ok = await client.post(f"{API}/sources/{second}/approve", json={})
+    assert ok.status_code == 200, ok.text
+    await console.run_jobs()
+    assert (await client.get(f"{API}/sources/{first}")).json()["status"] == "withdrawn"
+    [approval] = await console.events("source.approved", "source_id", second)
+    assert (approval["replaces"], approval["method"]) == (first, "same_link_and_title")
 
 
 async def test_downloadable_needs_no_letter_and_an_attached_letter_is_kept(

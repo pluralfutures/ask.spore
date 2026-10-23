@@ -122,6 +122,9 @@ class ProposeOut(BaseModel):
     outcome: Literal["proposed", "pending", "duplicate", "retag", "taken_down"]
     status: str
     possible_replacements: list[SourceRef]
+    # Owner decision 3: same canonical link and title as this ingested source, which the
+    # proposal replaces once approved and ingested (no choice needed).
+    replaces: SourceRef | None = None
 
 
 class ApproveIn(_In):

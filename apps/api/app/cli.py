@@ -823,8 +823,9 @@ def build_parser() -> argparse.ArgumentParser:
             source_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
             _wait_flag(source_cmd)
         if name == "approve":
-            # Owner decision 4 (Oct 22, 2026): a proposal at the canonical link of an
-            # ingested source needs the reviewer's choice.
+            # Owner decisions 4 (Oct 22) and 3 (Oct 23, 2026): a proposal at the canonical
+            # link of an ingested source under another title needs the reviewer's choice;
+            # with the same title it replaces that source unless --keep-both is given.
             choice = source_cmd.add_mutually_exclusive_group()
             choice.add_argument(
                 "--replace",

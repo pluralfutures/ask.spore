@@ -165,6 +165,12 @@ export function ProposeResult({ result }: { result: ProposeOut }) {
           Open the source
         </Link>
       </p>
+      {result.replaces ? (
+        <p data-testid="propose-replaces">
+          Same link and title as {result.replaces.title} ({result.replaces.publisher}): once
+          approved and ingested, it replaces that source.
+        </p>
+      ) : null}
       {result.possible_replacements.length ? (
         <p className="text-amber-900">
           Possible replacement of{" "}

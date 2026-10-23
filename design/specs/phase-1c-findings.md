@@ -629,6 +629,17 @@ sections 3 to 7 to follow.
   invitation resends before the first client user (§4, already a backlog line, now marked
   confirmed).
 
+### Section 3: live checks
+
+- **3.1 Pre-existing SSO sources:** `tenant_login_policy` holds two rows (`internal`, `cc`), both
+  with source kind `none` and no source slug: no SSO source to re-save.
+- **3.2 Deviation from the runbook's fixed values (owner decision, Oct 23, 2026):** the slug
+  `ssotest` is not free. The Phase 1b termination purge keeps the `tenants` row (suspended,
+  Phase 1b F5), and slugs are unique, so the console answered `slug_taken`; nothing was written.
+  The purged row holds no verified domains. The SSO test tenant for this release is
+  **`ssotest2`** with the same two verified domains; the close-out purge certifies `ssotest2`.
+  Backlog: reusable slugs after termination, the tenant UUID staying the permanent identifier.
+
 ### Issues found and fixed during the release
 
 | # | Where | Issue | Fix |

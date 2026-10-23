@@ -39,10 +39,16 @@ function currentPath(): string {
   return typeof window === "undefined" ? "/" : window.location.pathname;
 }
 
-// A refused SSO sign-in returns to the sign-in page with ?sign_in=failed (P1b-07).
+// A refused SSO sign-in returns to the sign-in page with ?sign_in=failed (P1b-07) and,
+// from P1c-02, &reason=<coarse reason>.
 function ssoFailed(): boolean {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("sign_in") === "failed";
+}
+
+function ssoReason(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("reason");
 }
 
 function Signed({ children }: { children: React.ReactNode }) {
@@ -129,7 +135,7 @@ export function App({ initialMode = null }: { initialMode?: AuthMode | null } = 
         </button>
       </Signed>
     ) : (
-      <EmailSignIn ssoFailed={ssoFailed()} />
+      <EmailSignIn ssoFailed={ssoFailed()} ssoReason={ssoReason()} />
     );
   } else {
     body = credentials ? <Signed>{null}</Signed> : <SignIn onSignedIn={setCredentials} />;

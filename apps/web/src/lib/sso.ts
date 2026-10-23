@@ -32,6 +32,12 @@ export function emptySourceForm(kind: SsoKind = "entra"): SourceForm {
   };
 }
 
+// P1c-02: after "Remove SSO source" the form forgets the removed source's kind, issuer,
+// client ID and the rest (Phase 1b release 2.4: it kept them while the summary said none).
+export function formAfterRemoval(): SourceForm {
+  return emptySourceForm();
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // The request for PUT /operator/tenants/{id}/login-policy/sso. An empty secret is left

@@ -18,6 +18,7 @@ import pytest
 import yaml
 
 from app.core.config import DEFAULT_CONFIG_DIR, load_settings
+from tests.authentik_expressions import run_source_policy
 from tests.test_config import ENV
 
 REPO = Path(__file__).resolve().parents[3]
@@ -303,3 +304,16 @@ def test_ci_applies_it_to_an_empty_authentik() -> None:
     # The scripts run in Authentik's shell from stdin: they must at least be valid Python.
     for script in (VERIFY, VERIFY.with_name("wait_for_defaults.py")):
         compile(script.read_text(), str(script), "exec")
+
+
+# --- P1c-02: the source flows' policy turns the mapping's refusal into a denial ----------
+
+
+def test_the_source_policy_denies_a_refused_mapping_with_its_code() -> None:
+    refused = {"prompt_data": {"attributes": {"ask_spore_refusal": "domain_not_verified"}}}
+    assert run_source_policy(refused) == (False, ["ask-spore-refusal:domain_not_verified"])
+    allowed = {"prompt_data": {"email": "x@client.example", "attributes": {"ask_spore_sso": {}}}}
+    assert run_source_policy(allowed) == (True, [])
+    # Never started directly: outside a source's callback the flow does not apply.
+    assert run_source_policy(allowed, sso_flow=False) == (False, [])
+    assert run_source_policy({}) == (True, [])

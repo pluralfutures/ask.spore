@@ -10,19 +10,25 @@ SSO: ``configure_source`` keeps the source as the API specified it; ``start_sso`
 returns an IdP URL carrying a state; ``answer`` plays the IdP (the user signs in there
 with whatever address and claims the test chooses) and returns the callback parameters;
 ``finish_sso`` mints the token Authentik would, with ``ask_spore_tenant`` from the
-source's tenant and ``ask_spore_sso`` from the IdP's claims. It deliberately does
+source's tenant and ``ask_spore_sso`` from the IdP's claims. By default it does
 **not** apply the source mapping's domain and ``hd`` checks, so the tests prove the
 API's own checks; ``mint_tenant`` and ``mint_source`` simulate a misconfigured source.
+With ``apply_mapping`` (P1c-02) it runs the source's real generated mapping and the
+blueprint's source-flow policy as Authentik would: a refusal is the policy's denial page
+(read through ``source_refusal``, as the adapter reads it), and a mapping that raises is
+recorded in ``events`` as Authentik records it (``configuration_error``).
 """
 
 from __future__ import annotations
 
+import html
 import json
 import secrets
 import time
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
+from types import SimpleNamespace
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -31,6 +37,7 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pydantic import SecretStr
 
+from app.auth.authentik import source_refusal
 from app.auth.provider import (
     IssuedTokens,
     LinkRefused,
@@ -42,6 +49,7 @@ from app.auth.provider import (
 )
 from app.auth.tokens import SSO_CLAIM, TENANT_CLAIM, JwksTokenValidator
 from app.tenancy.login_policy import SsoKind
+from tests.authentik_expressions import run_source_mapping, run_source_policy
 
 ISSUER = "http://authentik-server:9000/application/o/ask-spore/"
 # P1b-08: the one TOTP code the fake's authenticator accepts.
@@ -139,6 +147,9 @@ class FakeSignInLinks:
     # A misconfigured source: mint another tenant or source into the token.
     mint_tenant: uuid.UUID | None = None
     mint_source: str | None = None
+    # P1c-02: run the mapping and the source-flow policy; Authentik's events when they fail.
+    apply_mapping: bool = False
+    events: list[str] = field(default_factory=list)
 
     async def send_sign_in_link(self, email: str) -> None:
         if email not in self.users:
@@ -267,6 +278,8 @@ class FakeSignInLinks:
             raise LinkRefused("refused_by_source")
         answer = found[1]
         source = self.sources[slug].spec
+        if self.apply_mapping:
+            self._run_mapping(source, answer, saml=kind == "saml")
         admin_groups = source.config.get("admin_group_ids", [])
         return self._issue(
             {
@@ -280,6 +293,25 @@ class FakeSignInLinks:
                 },
             }
         )
+
+    def _run_mapping(self, source: SourceSpec, answer: _Answer, *, saml: bool) -> None:
+        if saml:
+            variables: dict[str, Any] = {"name_id": SimpleNamespace(text=answer.email)}
+        else:
+            info: dict[str, Any] = {"email": answer.email, "email_verified": answer.email_verified}
+            if answer.hd is not None:
+                info["hd"] = answer.hd
+            variables = {"info": info, "properties": {"groups": list(answer.groups)}}
+        try:
+            properties = run_source_mapping(source, **variables)
+        except Exception:
+            # Authentik: HTTP 500 on the callback, and these two events.
+            self.events += ["property_mapping_exception", "configuration_error"]
+            raise LinkRefused("refused_by_source") from None
+        passing, messages = run_source_policy({"prompt_data": properties})
+        if not passing:
+            # Authentik's access-denied page (policies/denied.html) with the messages.
+            raise source_refusal(f"<p>{html.escape(chr(10).join(messages))}</p>")
 
     def expire_all(self) -> None:
         for link in self.links.values():

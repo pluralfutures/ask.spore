@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -26,7 +28,7 @@ def _options(tmp_path: Path, **kw: object) -> GuardrailOptions:
         blocks=ADVERSARIAL / "blocks",
         contexts=ADVERSARIAL / "contexts.jsonl",
         eval_set=cli.SYNTHETIC_SET,
-        results_root=tmp_path,
+        runs_root=tmp_path,
         mock=True,
         **kw,  # type: ignore[arg-type]
     )
@@ -76,6 +78,27 @@ def test_mocked_run_passes_on_the_active_prompts(tmp_path: Path) -> None:
     assert "MOCKED" in (directory / "summary.md").read_text()
 
 
+def test_mocked_run_passes_on_the_corpus_only_v6_candidate(tmp_path: Path) -> None:
+    """P1c-13: v6 waits for the release session's live eval before it is switched on;
+    the mocked run proves its slot and escaping against a config copy naming it."""
+    config = tmp_path / "config"
+    shutil.copytree(cli.DEFAULT_CONFIG.parent, config)
+    models = config / "models.toml"
+    text = models.read_text()
+    assert text.count('corpus_only = "v5"') == 1
+    models.write_text(text.replace('corpus_only = "v5"', 'corpus_only = "v6"'))
+    options = replace(_options(tmp_path / "results"), config=models)
+    _, data = asyncio.run(guardrails.run(options))
+    assert data["meta"]["prompts"] == ["corpus_only/v6", "general_knowledge/v2"]
+    assert data["regressions"] == []
+    assert all(
+        value == 100.0
+        for r in data["results"]
+        for value in r["metrics"].values()
+        if value is not None
+    )
+
+
 def test_broken_escaping_fails_the_guardrail_eval(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -111,9 +134,7 @@ def test_mock_run_ignores_empty_provider_keys(tmp_path: Path) -> None:
 
 
 def test_cli_exit_code(tmp_path: Path) -> None:
-    code = cli.main(
-        ["guardrails", "--mock", "--results-dir", str(tmp_path), "--mode", "corpus_only"]
-    )
+    code = cli.main(["guardrails", "--mock", "--runs-dir", str(tmp_path), "--mode", "corpus_only"])
     assert code == 0
 
 

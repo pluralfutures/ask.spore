@@ -101,3 +101,32 @@ async def sync_datasets(
     for tag in sorted(set(mapped) - set(tags)):
         results.append(SyncResult(tag, "unconfigured", mapped[tag].ragflow_dataset_id))
     return results
+
+
+@dataclass(frozen=True)
+class DatasetCount:
+    """P1c-10: one mapped tag's dataset as RAGFlow counts it (documents, chunks)."""
+
+    tag: str
+    dataset_id: str
+    documents: int | None  # None: the mapped dataset is not in RAGFlow
+    chunks: int | None
+
+
+async def dataset_counts(session: AsyncSession, client: RagflowClient) -> list[DatasetCount]:
+    """RAGFlow's own document and chunk counts for every mapped tag, by tag; metadata
+    only. The deploy script compares them with the figures before the deploy."""
+    mapped = (await session.scalars(select(Dataset).order_by(Dataset.tag))).all()
+    remote = {d.id: d for d in await client.list_datasets()}
+    counts: list[DatasetCount] = []
+    for row in mapped:
+        found = remote.get(row.ragflow_dataset_id)
+        counts.append(
+            DatasetCount(
+                row.tag,
+                row.ragflow_dataset_id,
+                found.document_count if found else None,
+                found.chunk_count if found else None,
+            )
+        )
+    return counts

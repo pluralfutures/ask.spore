@@ -137,6 +137,11 @@ class SignInLinkProvider(Protocol):
         """Create or update the provider's user, carrying ``tenant_id`` into its tokens."""
         ...
 
+    async def disable_user(self, email: str) -> None:
+        """Deactivate the provider's user (P1c-07, a removed user); nothing if there is
+        none. A later ``provision_user`` for the address activates it again."""
+        ...
+
     async def refresh_session(self, refresh_token: str) -> IssuedTokens:
         """New tokens for a refresh token (rotated: the old one is spent); LinkRefused if
         the provider will not (P1b-08)."""

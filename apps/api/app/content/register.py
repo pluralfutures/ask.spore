@@ -64,6 +64,9 @@ class Submission:
     # proposed: ingested sources at the same canonical link, which the reviewer may
     # choose to replace (owner decision 4, Oct 22, 2026); nothing is replaced unasked.
     possible_replacements: tuple[UUID, ...] = ()
+    # proposed: the one ingested source with the same canonical link and the same title,
+    # which the new file replaces once ingested (owner decision 3, Oct 23, 2026).
+    replaces: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -152,6 +155,46 @@ async def replacement_candidates(
     return list((await session.scalars(query)).all())
 
 
+def same_title(a: str, b: str) -> bool:
+    """Titles match ignoring case and runs of whitespace (owner decision 3)."""
+    return " ".join(a.split()).casefold() == " ".join(b.split()).casefold()
+
+
+async def _being_replaced(session: AsyncSession, source_id: UUID, *, by: UUID | None) -> bool:
+    """Another approved (or ingested, or failed) proposal already replaces the source."""
+    query = select(Source.id).where(
+        Source.supersedes_id == source_id,
+        Source.status.in_(("approved", "ingested", "failed")),
+    )
+    if by is not None:
+        query = query.where(Source.id != by)
+    return await session.scalar(query.limit(1)) is not None
+
+
+async def exact_replacement(
+    session: AsyncSession, canonical_url: str | None, title: str, *, exclude: UUID | None = None
+) -> UUID | None:
+    """The ingested source a new file at ``canonical_url`` replaces without asking.
+
+    Owner decision 3 (Oct 23, 2026): a re-ingestion replaces a document only when both
+    the canonical link and the title match; a link match with another title stays a
+    possible replacement for the reviewer (decision 4 of Oct 22). Exactly one ingested
+    source at the link may have the title, and no other proposal may already be
+    replacing it; otherwise there is no automatic replacement.
+    """
+    candidates = await replacement_candidates(session, canonical_url, exclude=exclude)
+    if not candidates:
+        return None
+    titles = (
+        await session.execute(select(Source.id, Source.title).where(Source.id.in_(candidates)))
+    ).all()
+    matches = [r.id for r in titles if same_title(r.title, title)]
+    if len(matches) != 1 or await _being_replaced(session, matches[0], by=exclude):
+        return None
+    match: UUID = matches[0]
+    return match
+
+
 async def propose(
     factory: async_sessionmaker[AsyncSession],
     tags_config: Mapping[str, TagConfig],
@@ -222,12 +265,16 @@ async def propose(
         waiting = next((r for r in same if r.status in ("proposed", "approved", "failed")), None)
         if waiting is not None:
             return Submission(waiting.id, "pending", waiting.status)
-        candidates = await replacement_candidates(session, metadata.canonical_url)
+        title = metadata.title.strip()
+        replaces = await exact_replacement(session, metadata.canonical_url, title)
+        candidates = (
+            [] if replaces else await replacement_candidates(session, metadata.canonical_url)
+        )
 
         path = staged()
         row = Source(
             type=source.type,
-            title=metadata.title.strip(),
+            title=title,
             publisher=metadata.publisher.strip(),
             published_on=metadata.published_on,
             canonical_url=metadata.canonical_url,
@@ -239,6 +286,7 @@ async def propose(
             downloadable=metadata.downloadable,
             proposed_by=proposer_id,
             licence_file_path=licence_file_path,
+            supersedes_id=replaces,
         )
         session.add(row)
         await session.flush()
@@ -251,7 +299,13 @@ async def propose(
             "proposed",
             method="cli" if proposer_id is None else "editor",
         )
-        return Submission(row.id, "proposed", "proposed", possible_replacements=tuple(candidates))
+        return Submission(
+            row.id,
+            "proposed",
+            "proposed",
+            possible_replacements=tuple(candidates),
+            replaces=replaces,
+        )
 
 
 async def _locked(session: AsyncSession, source_id: UUID) -> Source:
@@ -285,7 +339,9 @@ async def _review(
     """The transition; the ``ingest_source`` job's ID when the row becomes approved.
 
     With ``choice`` (a first approval), a proposal at the canonical link of ingested
-    sources needs the reviewer's decision: replace one of them, or keep both.
+    sources needs the reviewer's decision, replace one of them or keep both, unless it
+    has the same title as exactly one of them (recorded at proposal as ``supersedes_id``):
+    that one is replaced without a choice, and "keep both" or another source overrides.
     """
     job_id: UUID | None = None
     extra: dict[str, AuditValue] = {}
@@ -302,24 +358,28 @@ async def _review(
             candidates = await replacement_candidates(session, row.canonical_url, exclude=source_id)
             if choice.replaces is not None and choice.keep_both:
                 raise RegisterError("replace_or_keep_both")
+            # Same link and same title, recorded at proposal (owner decision 3): still
+            # the one exact match now, or the reviewer decides as for any other.
+            automatic = row.supersedes_id
+            if automatic is not None and automatic != await exact_replacement(
+                session, row.canonical_url, row.title, exclude=source_id
+            ):
+                automatic = None
+            values["supersedes_id"] = None
             if choice.replaces is not None:
                 if choice.replaces not in candidates:
                     raise RegisterError("not_a_replacement_candidate")
-                taken = await session.scalar(
-                    select(Source.id).where(
-                        Source.supersedes_id == choice.replaces,
-                        Source.id != source_id,
-                        Source.status.in_(("approved", "ingested", "failed")),
-                    )
-                )
-                if taken is not None:  # another approved version already replaces it
+                if await _being_replaced(session, choice.replaces, by=source_id):
                     raise RegisterError("already_being_replaced")
                 values["supersedes_id"] = choice.replaces
                 extra["replaces"] = str(choice.replaces)
-            elif candidates and not choice.keep_both:
-                raise RegisterError("replacement_choice_required")
-            elif candidates:
+            elif choice.keep_both and candidates:
                 extra["keep_both"] = True
+            elif automatic is not None:
+                values["supersedes_id"] = automatic
+                extra |= {"replaces": str(automatic), "method": "same_link_and_title"}
+            elif candidates:
+                raise RegisterError("replacement_choice_required")
         if note is not None:
             values["review_note"] = note
         await session.execute(update(Source).where(Source.id == source_id).values(**values))
@@ -360,7 +420,9 @@ async def approve(
     (owner decision 4, Oct 22, 2026): ``replaces`` names the one the new file replaces
     (once ingested, the old one is withdrawn and its citations show as superseded), or
     ``keep_both`` keeps them side by side. Without a choice the approval is refused
-    (``replacement_choice_required``).
+    (``replacement_choice_required``), unless the proposal also has the title of exactly
+    one of them: that one is replaced (owner decision 3, Oct 23, 2026), audited with
+    ``method: same_link_and_title``.
     """
     job_id = await _review(
         factory,
@@ -520,8 +582,9 @@ async def record_takedown(
     """Put a source on the takedown queue with its due date; returns the due date.
 
     ``licence_grounds``: the request is on licence grounds (a licence breach we find
-    ourselves always is), so the withdrawal blanks the stored citation excerpts (owner
-    decision 5, Oct 22, 2026).
+    ourselves always is). Recorded for the queue and the audit trail; since owner
+    decision 3 (Oct 23, 2026) every withdrawal blanks the stored citation excerpts, so it
+    no longer changes what the withdrawal does.
     """
     licence_grounds = licence_grounds or licence_breach
     reference = reference.strip()

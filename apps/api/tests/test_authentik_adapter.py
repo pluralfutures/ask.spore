@@ -40,6 +40,7 @@ class Simulated:
         self.mfa_needed = False
         self.refresh_ok = True
         self.at_mfa = False  # the link flow's plan stands at the second factor
+        self.callback_page: str | None = None  # P1c-02: the source flow's denial page
 
     def _list(self, path: str, query: dict[str, list[str]]) -> httpx.Response:
         found = [
@@ -71,6 +72,8 @@ class Simulated:
                 return httpx.Response(400, text="bad state")
             if "denied" in str(query) + str(form):
                 return httpx.Response(400, text="Request to authenticate has been denied")
+            if self.callback_page is not None:
+                return httpx.Response(200, text=self.callback_page)
             return httpx.Response(
                 302, headers={"location": "/if/flow/ask-spore-source-authentication/?next=%2F"}
             )
@@ -191,6 +194,32 @@ async def test_a_refused_source_answer_is_a_refusal() -> None:
         await p.finish_sso("entra", "sso-cc", {"error": "denied"}, redirect.resume)
     with pytest.raises(LinkRefused):
         await p.finish_sso("entra", "sso-cc", {"code": "c"}, "not-a-resume")
+    assert sim.sent("POST", "/application/o/token/") == []
+
+
+@pytest.mark.parametrize(
+    ("page", "code"),
+    [
+        ("<p>ask-spore-refusal:domain_not_verified</p>", "domain_not_verified"),
+        ("<p>ask-spore-refusal:hd_mismatch</p>", "hd_mismatch"),
+        ("<p>ask-spore-refusal:email_unverified</p>", "email_unverified"),
+        ("<p>ask-spore-refusal:something_else</p>", "refused_by_source"),
+        ("<p>Flow does not apply to current user.</p>", "refused_by_source"),
+        ("", "refused_by_source"),
+    ],
+)
+async def test_a_policy_denial_of_the_source_flow_is_refused_with_the_mappings_code(
+    page: str, code: str
+) -> None:
+    # P1c-02: Authentik answers a refused mapping with its access-denied page (HTTP 200,
+    # no redirect into a flow); only a code of ours is taken from it.
+    sim = Simulated()
+    sim.callback_page = page
+    p = provider(sim)
+    redirect = await p.start_sso("entra", "sso-cc")
+    with pytest.raises(LinkRefused) as refused:
+        await p.finish_sso("entra", "sso-cc", {"code": "c", "state": "s1"}, redirect.resume)
+    assert refused.value.error_code == code
     assert sim.sent("POST", "/application/o/token/") == []
 
 
@@ -318,6 +347,18 @@ async def test_admin_group_membership() -> None:
     sim.objects["/api/v3/core/groups/"] = []
     with pytest.raises(ProviderError):
         await p.set_admin_mfa("a@client.example", True)
+
+
+async def test_a_removed_user_is_deactivated_never_deleted() -> None:
+    """P1c-07: the provisioner may change users, not delete them (blueprint)."""
+    sim = Simulated()
+    sim.objects["/api/v3/core/users/"] = [{"pk": 7, "username": "a@client.example"}]
+    p = provider(sim)
+    await p.disable_user("a@client.example")
+    (patch,) = sim.sent("PATCH", "/api/v3/core/users/7/")
+    assert json.loads(patch.content) == {"is_active": False}
+    await p.disable_user("nobody@client.example")  # no such user: nothing to do
+    assert [r.method for r in sim.requests if r.method in ("PATCH", "DELETE")] == ["PATCH"]
 
 
 def test_the_public_host_is_ours() -> None:

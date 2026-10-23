@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { ApiError, operatorApi } from "../api/client";
 import type {
+  AdminUser,
   EntitlementsIn,
   LoginPolicyIn,
   OperatorOptions,
@@ -12,12 +13,20 @@ import type {
   SsoSourceIn,
   TenantOut,
 } from "../api/types";
+import { SaveStatus } from "../components/SaveStatus";
+import { UserActions } from "../components/UserActions";
 import { lastLogin } from "../lib/admin";
 import { formFrom, toRequest, type EntitlementsForm } from "../lib/entitlements";
 import { formatDate } from "../lib/format";
 import { TENANT_TABS, errorText, tabFrom, toggle, type TenantTab } from "../lib/operator";
 import { capShare, count, euros } from "../lib/spend";
-import { emptySourceForm, sourceBody, type SourceForm, type SsoKind } from "../lib/sso";
+import {
+  emptySourceForm,
+  formAfterRemoval,
+  sourceBody,
+  type SourceForm,
+  type SsoKind,
+} from "../lib/sso";
 import { OperatorsOnly } from "./OperatorConsole";
 import { PolicySummary } from "./TenantAdmin";
 
@@ -55,9 +64,12 @@ function TenantPage({ tenantId }: { tenantId: string }) {
   const current = tenant.data;
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-sm">
-      <p>
+      <p className="flex gap-4">
         <Link to="/operator" className="underline">
           Operator console
+        </Link>
+        <Link to="/" className="underline">
+          Chat app
         </Link>
       </p>
       <header>
@@ -207,9 +219,10 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
       <button type="submit" className="self-start rounded bg-slate-900 px-3 py-1 text-white">
         Save entitlements for {tenant.display_name}
       </button>
-      {save.isSuccess && <p>Saved.</p>}
-      {(problem ?? errorText(save.error)) && (
-        <p className="text-red-700">{problem ?? errorText(save.error)}</p>
+      {problem ? (
+        <p className="text-red-700">{problem}</p>
+      ) : (
+        <SaveStatus isSuccess={save.isSuccess} error={save.error} />
       )}
     </form>
   );
@@ -254,7 +267,7 @@ function LoginPolicy({ tenant }: { tenant: TenantOut }) {
       <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
         Save login policy
       </button>
-      {errorText(save.error) && <p className="w-full text-red-700">{errorText(save.error)}</p>}
+      <SaveStatus isSuccess={save.isSuccess} error={save.error} />
     </form>
   );
 }
@@ -277,7 +290,11 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
   });
   const remove = useMutation({
     mutationFn: () => operatorApi.removeSsoSource(tenant.id),
-    onSuccess: refresh,
+    onSuccess: () => {
+      setForm(formAfterRemoval());
+      setProblem(null);
+      void refresh();
+    },
   });
   const field = (key: keyof SourceForm, label: string, type = "text") => (
     <label className="flex flex-col">
@@ -349,10 +366,17 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
           </button>
         )}
       </div>
-      {(problem ?? errorText(save.error) ?? errorText(remove.error)) && (
-        <p className="text-red-700">
-          {problem ?? errorText(save.error) ?? errorText(remove.error)}
-        </p>
+      {problem ? (
+        <p className="text-red-700">{problem}</p>
+      ) : (
+        <>
+          <SaveStatus isSuccess={save.isSuccess} error={save.error} />
+          <SaveStatus
+            isSuccess={remove.isSuccess}
+            error={remove.error}
+            savedText="SSO source removed."
+          />
+        </>
       )}
     </form>
   );
@@ -421,9 +445,11 @@ function Workspaces({ tenant }: { tenant: TenantOut }) {
         <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
           Add workspace
         </button>
-        {errorText(create.error) && (
-          <p className="w-full text-red-700">{errorText(create.error)}</p>
-        )}
+        <SaveStatus
+          isSuccess={create.isSuccess}
+          error={create.error}
+          savedText="Workspace added."
+        />
       </form>
     </div>
   );
@@ -471,7 +497,7 @@ function WorkspaceTags({
       <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
         Save tags
       </button>
-      {errorText(save.error) && <p className="w-full text-red-700">{errorText(save.error)}</p>}
+      <SaveStatus isSuccess={save.isSuccess} error={save.error} />
     </form>
   );
 }
@@ -491,6 +517,21 @@ function Users({ tenant }: { tenant: TenantOut }) {
       await refresh();
     },
   });
+  // P1c-07: resend an invitation; remove a user (any tenant's, never a platform role).
+  const [done, setDone] = useState<string | null>(null);
+  const resend = useMutation({
+    mutationFn: (user: AdminUser) => operatorApi.resendInvitation(tenant.id, user.id),
+    onSuccess: (_, user) => setDone(`Invitation sent again to ${user.email}.`),
+  });
+  const remove = useMutation({
+    mutationFn: (user: AdminUser) => operatorApi.removeUser(tenant.id, user.id),
+    onSuccess: async (_, user) => {
+      setDone(`${user.email} was removed with their conversations.`);
+      await queryClient.invalidateQueries({ queryKey: key });
+      await refresh();
+    },
+  });
+  const failed = errorText(resend.error) ?? errorText(remove.error);
 
   return (
     <div className="flex flex-col gap-3 rounded bg-white p-3">
@@ -502,6 +543,7 @@ function Users({ tenant }: { tenant: TenantOut }) {
             <th>Role</th>
             <th>Status</th>
             <th>Last sign-in</th>
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -512,10 +554,30 @@ function Users({ tenant }: { tenant: TenantOut }) {
               <td>{user.role}</td>
               <td>{user.status}</td>
               <td>{lastLogin(user)}</td>
+              <td>
+                <UserActions
+                  user={user}
+                  canResend={user.status === "invited"}
+                  canRemove
+                  onResend={() => {
+                    setDone(null);
+                    remove.reset();
+                    resend.mutate(user);
+                  }}
+                  onRemove={() => {
+                    setDone(null);
+                    resend.reset();
+                    remove.mutate(user);
+                  }}
+                  busy={resend.isPending || remove.isPending}
+                />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {failed && <p className="text-red-700">{failed}</p>}
+      {done && !failed && <p role="status">{done}</p>}
       <form
         onSubmit={(e) => {
           e.preventDefault();

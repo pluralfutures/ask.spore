@@ -148,6 +148,10 @@ class MessageOut(BaseModel):
     # P1b-17: a backup model answered (``model`` is not the conversation's): "eu" or
     # "external" (served outside the EU).
     failover: Literal["eu", "external"] | None = None
+    # P1c-09, assistant messages: cut off at the output budget, or ended early (stopped,
+    # the client left, or the model failed mid-stream).
+    truncated: bool = False
+    partial: bool = False
 
 
 class ConversationDetail(ConversationSummary):
@@ -286,6 +290,9 @@ class MeOut(BaseModel):
     session_expires_at: datetime | None = None
     # P1b-10: true until the user accepts the active use and privacy notice.
     consent_required: bool = False
+    # P1c-08: the user may open the operator console (an operator of the internal
+    # tenant); the chat app links to it, the console's API decides again on every call.
+    operator: bool = False
 
 
 class ConsentNoticeOut(BaseModel):
@@ -459,6 +466,19 @@ class TenantOut(BaseModel):
     login_policy: LoginPolicyOut
 
 
+class TerminatedTenantOut(BaseModel):
+    """P1c-08: a tenant whose data the termination purge deleted (P1b-14). The row stays
+    (the audit log names it), suspended, with the purge's date and certificate number from
+    its ``tenant.purged`` audit event; ``None`` when no such event is found."""
+
+    id: UUID
+    slug: str
+    display_name: str
+    status: str
+    purged_at: datetime | None
+    certificate: str | None
+
+
 class AdminInviteIn(_In):
     email: str = Field(min_length=3, max_length=320)
     display_name: str = Field(min_length=1, max_length=128)
@@ -467,6 +487,14 @@ class AdminInviteIn(_In):
 class AdminInvitedOut(BaseModel):
     user_id: UUID
     status: Literal["invited"]
+
+
+class InvitationResentOut(BaseModel):
+    """P1c-07: the invitation email is queued again (one ``send_mail`` job; an invitation
+    still waiting to be sent is not queued twice)."""
+
+    user_id: UUID
+    status: Literal["queued"]
 
 
 class NoticeOut(BaseModel):

@@ -682,6 +682,14 @@ def test_from_fetched_refuses_tdm_reserved_content(headers: dict[str, str], body
     with pytest.raises(IngestError) as excinfo:
         from_fetched(fetched("text/html", body, headers))
     assert excinfo.value.code == "tdm_reserved"
+    # The message reaches the CLI's exit text: a code and words, never the URL (P1c-04).
+    assert "://" not in str(excinfo.value)
+
+
+def test_from_fetched_messages_carry_no_url() -> None:
+    with pytest.raises(IngestError) as excinfo:
+        from_fetched(fetched("text/html", b"", {}))
+    assert excinfo.value.code == "empty" and "://" not in str(excinfo.value)
 
 
 def test_tdm_reservation_zero_is_allowed() -> None:

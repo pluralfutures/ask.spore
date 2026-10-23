@@ -13,7 +13,7 @@ import type {
 } from "../../api/types";
 import { ProposeResult } from "./Propose";
 import { SourceTable } from "./Register";
-import { PageTable, SiteSummary } from "./SiteDetail";
+import { PageTable, SiteSummary, WithdrawSite } from "./SiteDetail";
 import { SiteTable } from "./Sites";
 import { ReplacementChoice, SourceRecord, SourceSummary } from "./SourceDetail";
 import { TagTable } from "./Tags";
@@ -225,6 +225,29 @@ describe("propose result", () => {
       />,
     );
     expect(taken).toContain("takedown request");
+    expect(taken).not.toContain('data-testid="propose-replaces"');
+  });
+
+  it("says which source a same-link, same-title proposal replaces (decision 3)", () => {
+    const html = render(
+      <ProposeResult
+        result={{
+          source_id: ID,
+          outcome: "proposed",
+          status: "proposed",
+          possible_replacements: [],
+          replaces: {
+            id: OLD,
+            title: "Synthetic Outlook 2025",
+            publisher: "Synthetic Institute",
+            status: "ingested",
+          },
+        }}
+      />,
+    );
+    expect(html).toContain('data-testid="propose-replaces"');
+    expect(html).toContain("it replaces that source");
+    expect(html).not.toContain("replace or keep both");
   });
 });
 
@@ -287,12 +310,29 @@ describe("sites", () => {
       proposed_by: "editor@example.org",
       approved_by: "editor@example.org",
       approved_at: "2026-10-20T10:00:00Z",
+      withdrawn_at: null,
+      withdrawal_reason: null,
       pages: [],
       jobs: [],
     };
     expect(render(<SiteSummary site={full} />)).toContain(
       "crawl /reports/*; never /reports/draft-*",
     );
+    expect(render(<SiteSummary site={full} />)).not.toContain('data-testid="site-withdrawn"');
+    const retired = render(
+      <SiteSummary
+        site={{
+          ...full,
+          status: "withdrawn",
+          withdrawn_at: "2026-10-23T10:00:00Z",
+          withdrawal_reason: "Publisher asked us to stop",
+          next_crawl_at: null,
+        }}
+      />,
+    );
+    expect(retired).toContain('data-testid="site-withdrawn"');
+    expect(retired).toContain("Publisher asked us to stop");
+    expect(retired).toContain("Never crawled");
     const pages = render(
       <PageTable
         pages={[
@@ -320,6 +360,34 @@ describe("sites", () => {
     expect(pages).toContain(`href="/content/sources/${ID}"`);
     expect(pages).toContain("special category: health");
     expect(pages).toContain("10 Feb 2026");
+    const reasons = render(
+      <PageTable
+        pages={["site_withdrawn", "restored"].map((reason) => ({
+          url: `https://site.example/${reason}`,
+          state: reason === "restored" ? "removed" : "blocked",
+          reason,
+          special_category: null,
+          source_id: ID,
+          published_on: null,
+          fetched_at: "2026-10-21T10:00:00Z",
+        }))}
+      />,
+    );
+    expect(reasons).toContain("the whole site was withdrawn");
+    expect(reasons).toContain("taken again at the next crawl");
+  });
+
+  it("asks for a reason before a site can be withdrawn (P1c-14)", () => {
+    const empty = render(
+      <WithdrawSite reason="" onReason={() => {}} onWithdraw={() => {}} pending={false} />,
+    );
+    expect(empty).toContain("Withdraw site");
+    expect(empty).toMatch(/<button[^>]*disabled=""[^>]*>Withdraw site/);
+    const ready = render(
+      <WithdrawSite reason="retired" onReason={() => {}} onWithdraw={() => {}} pending={false} />,
+    );
+    expect(ready).not.toMatch(/<button[^>]*disabled=""[^>]*>Withdraw site/);
+    expect(ready).toContain("never crawled again");
   });
 });
 

@@ -190,3 +190,7 @@ jobs:
           if docker compose -f infra/compose.dev.yml config --images | grep -E ':latest$'; then
             echo "floating :latest tag"; exit 1
           fi
+      - name: Deploy script dry run (P1c-10)
+        # compose config with every profile, then the image-digest check against the
+        # registries; a moved tag or an unreachable registry fails the job (fail closed).
+        run: bash infra/scripts/deploy.sh --dry-run

@@ -92,7 +92,8 @@ class WorkspacePrompt(Base):
     workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
     version: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
-    author_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    # Revision 0051: NULL once the author was removed (P1c-07); the version stays.
+    author_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

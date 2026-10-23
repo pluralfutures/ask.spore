@@ -34,7 +34,7 @@ from app.auth.authentik import oidc_services
 from app.auth.provider import ProviderError
 from app.consent.notices import ConsentNoticeTick
 from app.content import worker
-from app.content.datasets import sync_datasets
+from app.content.datasets import dataset_counts, sync_datasets
 from app.content.fetch import FetchError, fetch, http_client
 from app.content.ingest import (
     IngestError,
@@ -63,7 +63,7 @@ from app.content.register import (
     retry,
 )
 from app.content.roles import RoleError, grant_role, revoke_role, user_by_email
-from app.content.sites import SiteSpec, schedule_due_crawls
+from app.content.sites import SiteSpec, restore_page, schedule_due_crawls, withdraw_site
 from app.content.submit import settle, settle_site, submit, submit_site
 from app.content.tags import TagConfig, load_tags
 from app.core import cache
@@ -76,6 +76,31 @@ from app.operator.grants import create_eval_identity, grant_operator, revoke_ope
 from app.retrieval.ragflow import RagflowClient
 from app.tenancy.purge import purge_retention, schedule_purge
 from app.tenancy.termination import TerminationError, terminate_tenant
+
+
+async def _datasets_counts() -> int:
+    settings = get_settings()
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    try:
+        async with (
+            RagflowClient.from_settings(settings) as client,
+            session_factory(engine)() as session,
+            session.begin(),
+        ):
+            counts = await dataset_counts(session, client)
+    finally:
+        await engine.dispose()
+    for item in counts:
+        log(
+            "datasets.counts",
+            level="info" if item.documents is not None else "error",
+            tag=item.tag,
+            dataset_id=item.dataset_id,
+            status="ok" if item.documents is not None else "missing",
+            count=item.documents,
+            chunk_count=item.chunks,
+        )
+    return 0 if all(item.documents is not None for item in counts) else 1
 
 
 async def _datasets_sync() -> int:
@@ -139,7 +164,8 @@ async def _load(location: str) -> SourceFile:
             try:
                 return from_fetched(await fetch(http, location))
             except FetchError as exc:
-                raise IngestError(exc.code, str(exc)) from None
+                # The code only: a FetchError's message names the URL (P1c-04).
+                raise IngestError(exc.code, f"could not fetch the URL: {exc.code}") from None
     return load_path(Path(location))
 
 
@@ -436,6 +462,10 @@ async def _sources(args: argparse.Namespace) -> int:
             )
             log("sources.takedown", source_id=str(source_id), status="recorded")
             return 0
+        if args.sources_command == "restore":
+            site_id = await restore_page(factory, source_id, reviewer_id)
+            log("sources.restore", source_id=str(source_id), site_id=str(site_id), status="ok")
+            return 0
         if args.sources_command == "withdraw":
             job_id = await request_withdrawal(factory, source_id, reviewer_id, reason=args.reason)
             if args.wait:
@@ -479,6 +509,42 @@ async def _sources(args: argparse.Namespace) -> int:
         await engine.dispose()
     _log_ingest(result)
     return 1 if result.status == "failed" else 0
+
+
+async def _sites(args: argparse.Namespace) -> int:
+    """A reviewer withdraws a whole site (P1c-14): retired, never crawled again, every
+    page withdrawn by its own ``withdraw_source`` job."""
+    settings = get_settings()
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    site_id: UUID = args.site_id
+    try:
+        factory = session_factory(engine)
+        reviewer_id = await user_by_email(factory, args.reviewer)
+        job_ids = await withdraw_site(factory, site_id, reviewer_id, reason=args.reason)
+        status = "queued"
+        if args.wait and job_ids:
+            found = await wait_for(factory, job_ids)
+            failed = [j for j, state in found.items() if state.status != "succeeded"]
+            status = "failed" if failed else "succeeded"
+    except (RoleError, RegisterError) as exc:
+        log(
+            "sites.withdraw",
+            level="error",
+            site_id=str(site_id),
+            status="refused",
+            error_code=exc.code,
+        )
+        return 1
+    finally:
+        await engine.dispose()
+    log(
+        "sites.withdraw",
+        level="error" if status == "failed" else "info",
+        site_id=str(site_id),
+        count=len(job_ids),
+        status=status,
+    )
+    return 1 if status == "failed" else 0
 
 
 async def _tick(factory: async_sessionmaker[AsyncSession], notices: ConsentNoticeTick) -> None:
@@ -704,6 +770,10 @@ def build_parser() -> argparse.ArgumentParser:
     datasets_commands.add_parser(
         "sync", help="create missing datasets for config/tags.toml and record the mapping"
     )
+    datasets_commands.add_parser(
+        "counts",
+        help="RAGFlow's document and chunk counts per mapped tag (P1c-10; metadata only)",
+    )
 
     ingest_cmd = commands.add_parser(
         "ingest",
@@ -823,8 +893,9 @@ def build_parser() -> argparse.ArgumentParser:
             source_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
             _wait_flag(source_cmd)
         if name == "approve":
-            # Owner decision 4 (Oct 22, 2026): a proposal at the canonical link of an
-            # ingested source needs the reviewer's choice.
+            # Owner decisions 4 (Oct 22) and 3 (Oct 23, 2026): a proposal at the canonical
+            # link of an ingested source under another title needs the reviewer's choice;
+            # with the same title it replaces that source unless --keep-both is given.
             choice = source_cmd.add_mutually_exclusive_group()
             choice.add_argument(
                 "--replace",
@@ -848,6 +919,28 @@ def build_parser() -> argparse.ArgumentParser:
     withdraw_cmd.add_argument("--reason", required=True, help="kept on the register row")
     _wait_flag(withdraw_cmd)
 
+    restore_cmd = sources_commands.add_parser(
+        "restore",
+        help="restore a crawled page a reviewer withdrew: the next crawl of its site takes "
+        "it again (P1c-14)",
+    )
+    restore_cmd.add_argument("source_id", type=UUID, help="the page's withdrawn register row")
+    restore_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+
+    sites_parser = commands.add_parser(
+        "sites", help="a reviewer's decision on a registered site (P1c-14)"
+    )
+    sites_commands = sites_parser.add_subparsers(dest="sites_command", required=True)
+    site_withdraw = sites_commands.add_parser(
+        "withdraw",
+        help="withdraw a whole site: retired (no further crawls), every page withdrawn from "
+        "every dataset, the answer caches and stored citations",
+    )
+    site_withdraw.add_argument("site_id", type=UUID)
+    site_withdraw.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+    site_withdraw.add_argument("--reason", required=True, help="kept on the site and its rows")
+    _wait_flag(site_withdraw)
+
     takedown_cmd = sources_commands.add_parser(
         "takedown",
         help="put a source on the takedown queue: due 10 working days after the request, "
@@ -865,8 +958,8 @@ def build_parser() -> argparse.ArgumentParser:
     takedown_cmd.add_argument(
         "--licence-grounds",
         action="store_true",
-        help="the request is on licence grounds: the withdrawal blanks stored excerpts "
-        "(implied by --licence-breach)",
+        help="the request is on licence grounds, recorded on the queue (implied by "
+        "--licence-breach); every withdrawal blanks stored excerpts",
     )
 
     worker_cmd = commands.add_parser(
@@ -950,6 +1043,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "datasets" and args.datasets_command == "sync":
         return asyncio.run(_datasets_sync())
+    if args.command == "datasets" and args.datasets_command == "counts":
+        return asyncio.run(_datasets_counts())
     if args.command == "ingest":
         return asyncio.run(_ingest(args))
     if args.command == "crawl":
@@ -964,6 +1059,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_content_roles(args))
     if args.command == "sources":
         return asyncio.run(_sources(args))
+    if args.command == "sites":
+        return asyncio.run(_sites(args))
     if args.command == "worker":
         return asyncio.run(_worker(args))
     if args.command == "purge":

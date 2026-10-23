@@ -25,7 +25,7 @@ from app.content.jobs import (
     finish,
     states,
 )
-from app.content.register import approve, propose
+from app.content.register import approve, approve_retag, propose, request_withdrawal
 from app.content.submit import settle
 from app.core.db import tenant_session
 from app.core.logging import format_line
@@ -234,6 +234,82 @@ async def test_an_interrupted_run_is_cleaned_up_before_the_next_upload(
     assert stale.id not in json.loads(row["ragflow_document_ids"]).values()
 
 
+async def test_an_interrupted_retag_is_cleaned_up_before_the_next_upload(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    """P1c-14 (findings 1b A1-11): a re-tag cut off by a stopped worker leaves its new
+    document mapped on the row, under a tag the row does not hold; the next attempt
+    deletes it from RAGFlow before uploading again, as an interrupted first ingestion."""
+    e, _ = env
+    source_id, _ = await approved(e)
+    ctx = context(e)
+    await worker.run_once(e.factory, worker.handlers(ctx))
+    [(reports_dataset, reports_doc)] = json.loads(
+        (await source_row(admin_conn, source_id))["ragflow_document_ids"]
+    ).items()
+    await approve_retag(e.factory, source_id, e.user_id, ["sample-web"], downloadable=False)
+
+    e.fake.outcomes[".pdf"] = Outcome(chunk_count=4, polls_until_done=10**9)  # never parses
+    web = e.datasets["sample-web"]
+    parsing = asyncio.Event()
+    start_parse = e.fake.start_parse
+
+    async def started(dataset_id: str, document_ids: list[str]) -> None:
+        await start_parse(dataset_id, document_ids)
+        if dataset_id == web:  # after the upload was recorded on the row
+            parsing.set()
+
+    e.fake.start_parse = started  # type: ignore[method-assign]
+    task = asyncio.create_task(worker.run_once(e.factory, worker.handlers(ctx)))
+    await asyncio.wait_for(parsing.wait(), 10)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    row = await source_row(admin_conn, source_id)
+    assert row["tags"] == ["sample-reports"]  # the re-tag did not finish
+    stale = json.loads(row["ragflow_document_ids"])[web]
+    assert stale in e.fake.documents and stale not in e.fake.deleted
+
+    e.fake.start_parse = start_parse  # type: ignore[method-assign]
+    e.fake.outcomes[".pdf"] = Outcome(chunk_count=4)
+    await worker.run_once(e.factory, worker.handlers(ctx))  # the job was put back
+    assert stale in e.fake.deleted and stale not in e.fake.documents
+    row = await source_row(admin_conn, source_id)
+    mapping = json.loads(row["ragflow_document_ids"])
+    assert row["tags"] == ["sample-reports", "sample-web"]
+    assert mapping[reports_dataset] == reports_doc and mapping[web] != stale
+    assert set(mapping.values()) <= set(e.fake.documents)
+    assert [doc.id for doc in e.fake.documents.values() if doc.dataset_id == web] == [mapping[web]]
+
+
+async def test_a_failed_retag_unmaps_what_it_deleted_and_keeps_what_it_could_not(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    e, _ = env
+    source_id, _ = await approved(e)
+    ctx = context(e)
+    await worker.run_once(e.factory, worker.handlers(ctx))
+    before = json.loads((await source_row(admin_conn, source_id))["ragflow_document_ids"])
+    await approve_retag(e.factory, source_id, e.user_id, ["sample-web"], downloadable=False)
+    e.fake.outcomes[".pdf"] = Outcome(run="FAIL", chunk_count=0, progress_msg="[ERROR] x")
+    e.fake.fail_delete = RagflowError("delete_documents", "unreachable")
+    await worker.run_once(e.factory, worker.handlers(ctx))
+    row = await source_row(admin_conn, source_id)
+    mapping = json.loads(row["ragflow_document_ids"])
+    web = e.datasets["sample-web"]
+    assert row["tags"] == ["sample-reports"] and set(mapping) == {*before, web}
+    left = mapping[web]  # its clean-up failed: still mapped, so nothing loses track of it
+
+    # A withdrawal deletes it with the rest; the next re-tag would have, too.
+    e.fake.fail_delete = None
+    await request_withdrawal(e.factory, source_id, e.user_id, reason="synthetic")
+    await admin_conn.execute("UPDATE jobs SET run_after = now()")
+    while await worker.run_once(e.factory, worker.handlers(ctx)):
+        pass
+    assert left in e.fake.deleted and left not in e.fake.documents
+    assert (await source_row(admin_conn, source_id))["status"] == "withdrawn"
+
+
 async def test_a_stopped_worker_puts_the_job_back(
     env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
 ) -> None:
@@ -409,3 +485,87 @@ async def test_finish_without_error_succeeds(env: tuple[Env, Ingest]) -> None:
     assert job is not None
     assert await finish(e.factory, job, error_code=None) == "succeeded"
     assert (await states(e.factory, [job_id]))[job_id].status == "succeeded"
+
+
+# --- P1c-04: jobs are scoped by the payload's tenant -------------------------------------
+
+
+async def _mail_job(admin_conn: asyncpg.Connection, tenant_id: UUID) -> UUID:
+    payload = {"template": "invitation", "tenant_id": str(tenant_id), "user_id": str(uuid.uuid4())}
+    job_id: UUID = await admin_conn.fetchval(
+        "INSERT INTO jobs (type, payload) VALUES ('send_mail', $1::jsonb) RETURNING id",
+        json.dumps(payload),
+    )
+    return job_id
+
+
+async def _visible(conn: asyncpg.Connection, tenant_id: UUID | None) -> set[UUID]:
+    async with conn.transaction():
+        if tenant_id is not None:
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_id))
+        return {r["id"] for r in await conn.fetch("SELECT id FROM jobs")}
+
+
+async def test_a_tenant_scoped_session_reads_no_job_of_another_tenant(
+    admin_conn: asyncpg.Connection, app_conn: asyncpg.Connection
+) -> None:
+    a, b = uuid.uuid4(), uuid.uuid4()
+    mail_a, mail_b = await _mail_job(admin_conn, a), await _mail_job(admin_conn, b)
+    shared = await admin_conn.fetchval(
+        "INSERT INTO jobs (type, payload) VALUES ('ingest_source', $1::jsonb) RETURNING id",
+        json.dumps({"source_id": str(uuid.uuid4())}),
+    )
+    # Tenant A's scope: its own job and the jobs that name no tenant; zero rows of B's.
+    assert await _visible(app_conn, a) == {mail_a, shared}
+    assert await _visible(app_conn, b) == {mail_b, shared}
+    async with app_conn.transaction():
+        await app_conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(a))
+        assert await app_conn.fetchval("SELECT count(*) FROM jobs WHERE id = $1", mail_b) == 0
+        updated = await app_conn.execute(
+            "UPDATE jobs SET status = 'failed', error_code = 'x' WHERE id = $1", mail_b
+        )
+        assert updated == "UPDATE 0"
+    assert (await job_row(admin_conn, mail_b))["status"] == "queued"
+    # The worker's and the CLI's unscoped sessions see every job, as before.
+    assert {mail_a, mail_b, shared} <= await _visible(app_conn, None)
+
+
+async def test_a_tenant_scoped_session_cannot_queue_a_job_for_another_tenant(
+    app_conn: asyncpg.Connection,
+) -> None:
+    a, b = uuid.uuid4(), uuid.uuid4()
+    payload = {"template": "invitation", "tenant_id": str(b), "user_id": str(uuid.uuid4())}
+    with pytest.raises(asyncpg.InsufficientPrivilegeError, match="row-level security"):
+        async with app_conn.transaction():
+            await app_conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(a))
+            await app_conn.execute(
+                "INSERT INTO jobs (type, payload) VALUES ('send_mail', $1::jsonb)",
+                json.dumps(payload),
+            )
+
+
+async def test_the_operator_role_reads_every_job_even_when_scoped(
+    admin_conn: asyncpg.Connection, app_conn: asyncpg.Connection
+) -> None:
+    a, b = uuid.uuid4(), uuid.uuid4()
+    jobs = {await _mail_job(admin_conn, a), await _mail_job(admin_conn, b)}
+    await app_conn.execute("SET ROLE askspore_operator")
+    assert jobs <= await _visible(app_conn, a)
+    assert jobs <= await _visible(app_conn, None)
+
+
+async def test_jobs_rls_is_forced_with_both_policies(admin_conn: asyncpg.Connection) -> None:
+    row = await admin_conn.fetchrow(
+        "SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = 'jobs'"
+    )
+    assert (row["relrowsecurity"], row["relforcerowsecurity"]) == (True, True)
+    policies = await admin_conn.fetch(
+        "SELECT policyname, roles::text[] AS roles FROM pg_policies WHERE tablename = 'jobs' "
+        "ORDER BY policyname"
+    )
+    # P1c-04's two policies, plus P1c-07's user-removal role (migration 0051).
+    assert [(p["policyname"], p["roles"]) for p in policies] == [
+        ("operator_console", ["askspore_operator"]),
+        ("tenant_scope", ["public"]),
+        ("user_removal", ["askspore_user_removal"]),
+    ]

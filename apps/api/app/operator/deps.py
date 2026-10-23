@@ -28,6 +28,7 @@ from app.auth.middleware import IDENTITY_KEY
 from app.core.db import AUTH_ROLE, OPERATOR_ROLE, role_session
 from app.core.logging import log
 from app.operator.models import Operator
+from app.tenancy.context import STATE_KEY, RequestContext
 from app.tenancy.models import INTERNAL_TENANT_ID
 
 FORBIDDEN = HTTPException(status.HTTP_403_FORBIDDEN, detail="forbidden")
@@ -36,6 +37,29 @@ FORBIDDEN = HTTPException(status.HTTP_403_FORBIDDEN, detail="forbidden")
 @dataclass(frozen=True)
 class OperatorContext:
     user_id: UUID
+
+
+async def listed_operator(request: Request, user_id: UUID) -> bool:
+    """Whether ``user_id`` is in ``operators`` (read as the pre-authentication role)."""
+    async with role_session(request.app.state.db_factory, AUTH_ROLE) as session:
+        listed = await session.scalar(
+            select(Operator.user_id).where(
+                Operator.tenant_id == INTERNAL_TENANT_ID, Operator.user_id == user_id
+            )
+        )
+    return listed is not None
+
+
+async def is_operator(request: Request) -> bool:
+    """P1c-08: whether ``require_operator`` would admit this request; never raises. The
+    chat app uses it to offer the operator console's link, nothing more."""
+    context = getattr(request.state, STATE_KEY, None)
+    identity = getattr(request.state, IDENTITY_KEY, None)
+    if not isinstance(context, RequestContext) or identity is None or identity.service:
+        return False
+    if context.tenant_id != INTERNAL_TENANT_ID:
+        return False
+    return await listed_operator(request, context.user_id)
 
 
 async def require_operator(request: Request) -> OperatorContext:
@@ -51,13 +75,7 @@ async def require_operator(request: Request) -> OperatorContext:
     if context.tenant_id != INTERNAL_TENANT_ID:
         log("operator.refused", tenant_id=str(context.tenant_id), error_code="not_platform")
         raise FORBIDDEN
-    async with role_session(request.app.state.db_factory, AUTH_ROLE) as session:
-        listed = await session.scalar(
-            select(Operator.user_id).where(
-                Operator.tenant_id == INTERNAL_TENANT_ID, Operator.user_id == context.user_id
-            )
-        )
-    if listed is None:
+    if not await listed_operator(request, context.user_id):
         log("operator.refused", user_id=str(context.user_id), error_code="not_operator")
         raise FORBIDDEN
     return OperatorContext(user_id=context.user_id)

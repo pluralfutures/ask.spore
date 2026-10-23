@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { LoginPolicyOut } from "../api/types";
-import { emptySourceForm, policySummary, sourceBody, ssoButtonLabel } from "./sso";
+import {
+  emptySourceForm,
+  formAfterRemoval,
+  policySummary,
+  sourceBody,
+  ssoButtonLabel,
+} from "./sso";
 
 const TENANT_ID = "0b1c2d3e-4f50-4617-8899-aabbccddeeff";
 
@@ -75,5 +81,14 @@ describe("ssoButtonLabel", () => {
     expect(ssoButtonLabel("entra")).toBe("Continue with Microsoft");
     expect(ssoButtonLabel("google")).toBe("Continue with Google");
     expect(ssoButtonLabel("saml")).toBe("Continue with your organisation's sign-in");
+  });
+});
+
+describe("formAfterRemoval (P1c-02)", () => {
+  it("keeps nothing of the removed source", () => {
+    expect(formAfterRemoval()).toEqual(emptySourceForm());
+    expect(Object.entries(formAfterRemoval()).filter(([k, v]) => k !== "kind" && v !== "")).toEqual(
+      [],
+    );
   });
 });

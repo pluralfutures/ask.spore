@@ -68,6 +68,7 @@ from app.core.logging import log
 from app.llm import catalogue
 from app.llm.factory import FailoverKind
 from app.mail.queue import enqueue_operator_notice
+from app.operator.deps import is_operator
 from app.operator.models import OperatorNotice
 from app.tenancy.entitlements import ModelRefused, eu_fallback_choice, usable_models
 from app.tenancy.models import Tenant, TenantEntitlements, User
@@ -138,6 +139,7 @@ async def me(request: Request, session: AsyncSession = Depends(db_session)) -> M
         session_expires_at=identity.expires_at if isinstance(identity, Identity) else None,
         # P1b-10: the web app shows the notice until the active version is accepted.
         consent_required=row.consent_version != active_version(request),
+        operator=await is_operator(request),
     )
 
 
@@ -321,6 +323,8 @@ async def get_conversation(
                 model=m.model if m.role == "assistant" else None,
                 reasoning=m.reasoning if m.role == "assistant" else None,
                 failover=_failover(request, conversation.model, m),
+                truncated=m.truncated,
+                partial=m.partial,
             )
             for m in messages
         ],

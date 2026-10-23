@@ -14,6 +14,7 @@ import {
   retentionSummary,
   userActions,
 } from "../lib/admin";
+import { UserActions } from "../components/UserActions";
 import { formatDate } from "../lib/format";
 import { policySummary } from "../lib/sso";
 import { modelLabel } from "../lib/startPanel";
@@ -66,12 +67,31 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
       adminApi.changeUser(id, body),
     onSuccess: refresh,
   });
+  // P1c-07: resend an invitation; remove a user.
+  const [done, setDone] = useState<string | null>(null);
+  const resend = useMutation({
+    mutationFn: (user: AdminUser) => adminApi.resendInvitation(user.id),
+    onSuccess: (_, user) => setDone(`Invitation sent again to ${user.email}.`),
+  });
+  const remove = useMutation({
+    mutationFn: (user: AdminUser) => adminApi.removeUser(user.id),
+    onSuccess: async (_, user) => {
+      setDone(`${user.email} was removed with their conversations.`);
+      await refresh();
+    },
+  });
+  const failed = refusal(change.error) ?? refusal(resend.error) ?? refusal(remove.error);
 
   return (
     <section className="flex flex-col gap-2 rounded bg-white p-3 text-sm">
       <h2 className="font-semibold">Users</h2>
       <Invite onInvited={refresh} />
-      {refusal(change.error) ? <p className="text-red-700">{refusal(change.error)}</p> : null}
+      {failed ? <p className="text-red-700">{failed}</p> : null}
+      {done && !failed ? (
+        <p role="status" className="text-slate-700">
+          {done}
+        </p>
+      ) : null}
       <table className="w-full text-left">
         <thead>
           <tr>
@@ -90,6 +110,17 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
               user={user}
               selfEmail={selfEmail}
               onChange={(body) => change.mutate({ id: user.id, body })}
+              onResend={() => {
+                setDone(null);
+                remove.reset();
+                resend.mutate(user);
+              }}
+              onRemove={() => {
+                setDone(null);
+                resend.reset();
+                remove.mutate(user);
+              }}
+              busy={resend.isPending || remove.isPending}
             />
           ))}
         </tbody>
@@ -102,10 +133,16 @@ function UserRow({
   user,
   selfEmail,
   onChange,
+  onResend,
+  onRemove,
+  busy,
 }: {
   user: AdminUser;
   selfEmail: string | undefined;
   onChange: (body: { role?: "user" | "tenant_admin"; status?: "active" | "deactivated" }) => void;
+  onResend: () => void;
+  onRemove: () => void;
+  busy: boolean;
 }) {
   const actions = userActions(user, selfEmail);
   return (
@@ -149,6 +186,14 @@ function UserRow({
             Reactivate
           </button>
         ) : null}
+        <UserActions
+          user={user}
+          canResend={actions.canResend}
+          canRemove={actions.canRemove}
+          onResend={onResend}
+          onRemove={onRemove}
+          busy={busy}
+        />
       </td>
     </tr>
   );
@@ -344,15 +389,19 @@ function Instructions({ workspace }: { workspace: Workspace }) {
   const key = ["admin", "prompts", workspace.id];
   const history = useQuery({ queryKey: key, queryFn: () => adminApi.prompts(workspace.id) });
   const [draft, setDraft] = useState<string | null>(null);
+  // P1c-11: the version the last save created, shown once the save has fully landed
+  // (history reloaded, draft settled); the end of a save is visible, not inferred.
+  const [savedVersion, setSavedVersion] = useState<number | null>(null);
   const text = draft ?? history.data?.[0]?.text ?? "";
   const save = useMutation({
     mutationFn: (saved: string) => adminApi.savePrompt(workspace.id, saved),
     // The draft stays until the reloaded history holds the saved version (so the field
     // never shows the previous one in between), and is cleared only if it is still the
     // text that was saved: an edit typed while the save ran is kept (P1b-13 f).
-    onSuccess: async (_, saved) => {
+    onSuccess: async (result, saved) => {
       await queryClient.invalidateQueries({ queryKey: key });
       setDraft((current) => (current === saved ? null : current));
+      setSavedVersion(result.version);
     },
   });
 
@@ -368,7 +417,10 @@ function Instructions({ workspace }: { workspace: Workspace }) {
       <textarea
         id={`instructions-${workspace.id}`}
         value={text}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setSavedVersion(null);
+        }}
         maxLength={MAX_INSTRUCTIONS_CHARS}
         rows={4}
         className="rounded border px-2 py-1"
@@ -385,6 +437,11 @@ function Instructions({ workspace }: { workspace: Workspace }) {
         <span className="text-slate-600">
           {text.length} / {MAX_INSTRUCTIONS_CHARS}
         </span>
+        {savedVersion !== null && !save.isPending ? (
+          <span role="status" className="text-slate-600">
+            Saved as version {savedVersion}.
+          </span>
+        ) : null}
       </div>
       {refusal(save.error) ? <p className="text-red-700">{refusal(save.error)}</p> : null}
       <VersionHistory versions={history.data ?? []} />

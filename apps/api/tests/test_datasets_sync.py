@@ -238,3 +238,30 @@ def test_cli_logs_metadata_and_exits_non_zero_on_failure(
 def test_cli_requires_a_subcommand() -> None:
     with pytest.raises(SystemExit):
         cli.main(["datasets"])
+
+
+async def test_counts_report_ragflows_figures_per_mapped_tag(
+    sync: Sync, database: MigratedDatabase, admin_conn: asyncpg.Connection
+) -> None:
+    """P1c-10: the deploy script's dataset check, metadata only."""
+    from dataclasses import replace
+
+    from app.content.datasets import dataset_counts
+
+    fake = FakeRagflow()
+    await sync(fake)
+    ids = await mapping(admin_conn)
+    reports = ids["sample-reports"]
+    fake.datasets[reports] = replace(fake.datasets[reports], document_count=59, chunk_count=2580)
+    del fake.datasets[ids["sample-web"]]  # mapped, but gone from RAGFlow
+    engine = create_engine(database.sqlalchemy_url)
+    try:
+        async with session_factory(engine)() as session, session.begin():
+            await session.execute(text("SET LOCAL ROLE askspore_app"))
+            counts = {c.tag: c for c in await dataset_counts(session, fake)}  # type: ignore[arg-type]
+    finally:
+        await engine.dispose()
+    assert set(counts) == set(TAGS)
+    assert (counts["sample-reports"].documents, counts["sample-reports"].chunks) == (59, 2580)
+    assert (counts["cc-shared"].documents, counts["cc-shared"].chunks) == (0, 0)
+    assert counts["sample-web"].documents is None

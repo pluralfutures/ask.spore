@@ -403,3 +403,23 @@ def test_deploy_version_falls_back_to_a_hash_of_the_config(tmp_path: Path) -> No
 def test_rejects_a_malformed_deploy_version(tmp_path: Path) -> None:
     problems = problems_for(tmp_path, VALID_TOML, {**ENV, "ASK_SPORE_DEPLOY_VERSION": "a b;c"})
     assert any("ASK_SPORE_DEPLOY_VERSION" in p for p in problems)
+
+
+# --- P1c-04: [retention] downloads_days is capped at a year ---------------------------------
+
+
+@pytest.mark.parametrize(
+    ("days", "ok"), [(1, True), (90, True), (365, True), (366, False), (3650, False), (0, False)]
+)
+def test_downloads_retention_is_capped_at_365_days(tmp_path: Path, days: int, ok: bool) -> None:
+    text = VALID_TOML + f"\n[retention]\ndownloads_days = {days}\n"
+    if ok:
+        settings = load_settings(environ=ENV, config_dir=write_config(tmp_path, text))
+        assert settings.models.retention.downloads_days == days
+    else:
+        assert any("downloads_days" in p for p in problems_for(tmp_path, text))
+
+
+def test_repository_downloads_retention_is_the_owners_90_days() -> None:
+    settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
+    assert settings.models.retention.downloads_days == 90

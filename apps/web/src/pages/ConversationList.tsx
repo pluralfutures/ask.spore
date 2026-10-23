@@ -24,6 +24,12 @@ export function ConversationList() {
             Administration
           </Link>
         ) : null}
+        {/* P1c-08: operators reach their console from the chat app. */}
+        {me.data?.operator ? (
+          <Link to="/operator" className="text-sm underline">
+            Operator console
+          </Link>
+        ) : null}
         <Link to="/new" className="rounded bg-slate-900 px-3 py-1.5 text-white">
           New conversation
         </Link>

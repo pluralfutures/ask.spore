@@ -256,8 +256,9 @@ async def test_reingesting_a_changed_file_supersedes_the_old_version_when_the_re
     await cache.set(INTERNAL_TENANT_ID, "answer:corpus_only:x", cached([old], [old]), 60)
 
     changed = SourceFile("tidewater-v2.pdf", "pdf", PDF.read_bytes() + b"\n% revised")
-    second = await run(changed, meta("sample-reports", "sample-web"))  # same canonical link
-    # Owner decision 4: flagged for the reviewer, nothing replaced or queued unasked.
+    # Same canonical link, another title.
+    second = await run(changed, meta("sample-reports", "sample-web", title="Revised title"))
+    # Owner decisions 4 and 3: flagged for the reviewer, nothing replaced or queued unasked.
     assert (second.status, second.error_code) == ("proposed", "possible_replacement")
     assert (await source_row(admin_conn, second.source_id))["supersedes_id"] is None
     assert await admin_conn.fetchval("SELECT count(*) FROM jobs WHERE status = 'queued'") == 0
@@ -283,6 +284,69 @@ async def test_reingesting_a_changed_file_supersedes_the_old_version_when_the_re
     # The new version's own staged copy is kept.
     sha = new_row["file_sha256"]
     assert (e.content_root / f"{sha[:2]}/{sha}.pdf").is_file()
+
+
+async def test_the_same_link_and_title_replace_the_old_version_without_a_choice(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection, redis: FakeRedis, history: None
+) -> None:
+    """Owner decision 3 (Oct 23, 2026, P1c-14): a new file with the canonical link and the
+    title of exactly one ingested source replaces it, also from the CLI; a link match under
+    another title is only flagged (the test above)."""
+    e, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    citation = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, first.source_id)
+    changed = SourceFile("tidewater-v2.pdf", "pdf", PDF.read_bytes() + b"\n% revised")
+    retitled = meta("sample-reports", title="  tidewater offshore  WIND outlook 2026 ")
+    second = await run(changed, retitled)  # the CLI path: propose, then approve
+    assert (second.status, second.error_code) == ("ingested", None)
+    await run_queue(e)
+    new_row = await source_row(admin_conn, second.source_id)
+    assert (new_row["status"], new_row["supersedes_id"]) == ("ingested", first.source_id)
+    old_row = await source_row(admin_conn, first.source_id)
+    assert (old_row["status"], old_row["withdrawal_reason"]) == ("withdrawn", SUPERSEDED_REASON)
+    assert await flags(admin_conn, citation) == (True, False)
+    approval = await admin_conn.fetchval(
+        "SELECT metadata FROM audit_events WHERE event = 'source.approved' "
+        "AND metadata->>'source_id' = $1",
+        str(second.source_id),
+    )
+    assert json.loads(approval)["replaces"] == str(first.source_id)
+    assert json.loads(approval)["method"] == "same_link_and_title"
+
+
+async def test_an_automatic_replacement_can_be_overridden_or_falls_back_to_a_choice(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    e, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    pages = [PDF.read_bytes() + f"\n% v{n}".encode() for n in range(3)]
+    # The reviewer may still keep both.
+    kept = await run(
+        SourceFile("v0.pdf", "pdf", pages[0]), meta("sample-reports"), reviewer_id=None
+    )
+    assert (await source_row(admin_conn, kept.source_id))["supersedes_id"] == first.source_id
+    await approve(e.factory, kept.source_id, e.user_id, keep_both=True)
+    await run_queue(e)
+    assert (await source_row(admin_conn, kept.source_id))["supersedes_id"] is None
+    assert (await source_row(admin_conn, first.source_id))["status"] == "ingested"
+    # Two ingested sources now share the link and the title: no automatic replacement.
+    third = await run(SourceFile("v1.pdf", "pdf", pages[1]), meta("sample-reports"))
+    assert (third.status, third.error_code) == ("proposed", "possible_replacement")
+    assert (await source_row(admin_conn, third.source_id))["supersedes_id"] is None
+    # A proposal recorded as an exact match whose target was withdrawn meanwhile.
+    await approve(e.factory, third.source_id, e.user_id, keep_both=True)
+    await run_queue(e)
+    for source in (kept.source_id, third.source_id):
+        await request_withdrawal(e.factory, source, e.user_id, reason="synthetic")
+    await run_queue(e)
+    late = await run(
+        SourceFile("v2.pdf", "pdf", pages[2]), meta("sample-reports"), reviewer_id=None
+    )
+    assert (await source_row(admin_conn, late.source_id))["supersedes_id"] == first.source_id
+    await request_withdrawal(e.factory, first.source_id, e.user_id, reason="synthetic")
+    await run_queue(e)
+    await approve(e.factory, late.source_id, e.user_id)  # nothing left to replace
+    assert (await source_row(admin_conn, late.source_id))["supersedes_id"] is None
 
 
 async def test_keep_both_leaves_the_ingested_source_in_place(
@@ -357,7 +421,7 @@ async def test_withdrawal_on_licence_grounds_blanks_the_stored_excerpts(
     e, run = env
     first = await run(load_path(PDF), meta("sample-reports"))
     changed = SourceFile("tidewater-v2.pdf", "pdf", PDF.read_bytes() + b"\n% revised")
-    second = await run(changed, meta("sample-reports"))
+    second = await run(changed, meta("sample-reports", title="Revised title"))
     old_citation = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, first.source_id)
     await approve(e.factory, second.source_id, e.user_id, replaces=first.source_id)
     await run_queue(e)
@@ -409,16 +473,36 @@ async def test_withdrawal_on_licence_grounds_blanks_the_stored_excerpts(
 
 
 @pytest.mark.parametrize("takedown", [None, "TD-OTHER-1"])
-async def test_other_withdrawals_keep_the_stored_excerpts(
+async def test_every_other_withdrawal_blanks_the_stored_excerpts_too(
     env: tuple[Env, Ingest],
     admin_conn: asyncpg.Connection,
     redis: FakeRedis,
     history: None,
     takedown: str | None,
 ) -> None:
+    """Owner decision 3 (Oct 23, 2026, P1c-14): a plain withdrawal, or a takedown not on
+    licence grounds, blanks the excerpt as a licence takedown does; the citation stays,
+    labelled withdrawn, in every tenant, and other sources' excerpts are untouched."""
     e, run = env
-    ingested = await run(load_path(PDF), meta("sample-reports"))
+    first = await run(load_path(PDF), meta("sample-reports"))
+    old_citation = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, first.source_id)
+    changed = SourceFile("tidewater-v2.pdf", "pdf", PDF.read_bytes() + b"\n% revised")
+    ingested = await run(changed, meta("sample-reports", title="Revised title"))
+    await approve(e.factory, ingested.source_id, e.user_id, replaces=first.source_id)
+    await run_queue(e)
+    # The supersession kept the old version's excerpt: the document is still in.
+    assert (
+        await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", old_citation)
+        == "Synthetic excerpt."
+    )
     cited = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, ingested.source_id)
+    client_tenant, client_user = await other_tenant(admin_conn)
+    there = await cite(admin_conn, client_tenant, client_user, ingested.source_id)
+    keep = await run(
+        SourceFile("other.md", "markdown", b"# Synthetic other page"),
+        linked("sample-web", "https://example.org/other"),
+    )
+    unrelated = await cite(admin_conn, client_tenant, client_user, keep.source_id)
     if takedown:  # a takedown, but not on licence grounds (e.g. a privacy request)
         await record_takedown(
             e.factory,
@@ -430,16 +514,34 @@ async def test_other_withdrawals_keep_the_stored_excerpts(
         )
     await request_withdrawal(e.factory, ingested.source_id, e.user_id, reason="withdrawn")
     await run_queue(e)
-    row = await admin_conn.fetchrow(
-        "SELECT excerpt, withdrawn_at FROM citations WHERE id = $1", cited
+    for blanked in (cited, there):
+        row = await admin_conn.fetchrow(
+            "SELECT excerpt, withdrawn_at, marker, source_id FROM citations WHERE id = $1",
+            blanked,
+        )
+        assert row["excerpt"] == "" and row["withdrawn_at"] is not None
+        assert (row["marker"], row["source_id"]) == (1, ingested.source_id)
+    # The earlier version it replaced is the same document: blanked and labelled too.
+    assert (
+        await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", old_citation) == ""
     )
-    assert row["excerpt"] == "Synthetic excerpt." and row["withdrawn_at"] is not None
+    assert await flags(admin_conn, old_citation) == (True, True)
+    assert (
+        await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", unrelated)
+        == "Synthetic excerpt."
+    )
     done = await admin_conn.fetchval(
         "SELECT metadata FROM audit_events WHERE event = 'source.withdrawn' "
         "AND metadata->>'source_id' = $1",
         str(ingested.source_id),
     )
-    assert json.loads(done)["excerpts_blanked"] is False
+    assert json.loads(done)["excerpts_blanked"] is True
+    superseded = await admin_conn.fetchval(
+        "SELECT metadata FROM audit_events WHERE event = 'source.withdrawn' "
+        "AND metadata->>'source_id' = $1",
+        str(first.source_id),
+    )
+    assert json.loads(superseded)["excerpts_blanked"] is False
 
 
 async def test_a_licence_breach_is_on_licence_grounds(
@@ -642,6 +744,25 @@ async def test_takedown_queue_lists_requests_by_due_date(
         await admin_conn.execute(
             "UPDATE sources SET takedown_reference = NULL WHERE id = $1", first.source_id
         )
+
+
+def test_cli_site_withdrawal_and_restore_flags() -> None:
+    """P1c-14: ``sites withdraw`` and ``sources restore``."""
+    site, source = str(uuid.UUID(int=6)), str(uuid.UUID(int=7))
+    args = cli.build_parser().parse_args(
+        ["sites", "withdraw", site, "--as", "r@example.org", "--reason", "retired", "--wait"]
+    )
+    assert (args.command, args.sites_command, str(args.site_id)) == ("sites", "withdraw", site)
+    assert (args.reviewer, args.reason, args.wait) == ("r@example.org", "retired", True)
+    args = cli.build_parser().parse_args(["sources", "restore", source, "--as", "r@example.org"])
+    assert (args.sources_command, str(args.source_id), args.reviewer) == (
+        "restore",
+        source,
+        "r@example.org",
+    )
+    for missing in (["sites", "withdraw", site, "--as", "r@example.org"], ["sources", "restore"]):
+        with pytest.raises(SystemExit):
+            cli.build_parser().parse_args(missing)
 
 
 def test_cli_withdraw_and_takedown_flags() -> None:

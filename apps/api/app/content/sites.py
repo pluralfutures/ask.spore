@@ -15,6 +15,12 @@ Every change is audited under the internal tenant with before and after.
 
 ``schedule_due_crawls`` (called by the worker between jobs) queues the crawls that are
 due. The start URL must be a public http(s) URL (``app.content.fetch.require_public_url``).
+
+P1c-14: a reviewer may withdraw a whole site (``withdraw_site``): the site is retired
+(``withdrawn``, never crawled again), every page is blocked and every page's register
+row is withdrawn by the per-page ``withdraw_source`` job. A reviewer may also restore a
+withdrawn crawled page (``restore_page``), so the next crawl takes it again. Both are
+audited.
 """
 
 from __future__ import annotations
@@ -34,7 +40,7 @@ from app.audit.writer import AuditValue, Change, record
 from app.content.crawler import normalise
 from app.content.fetch import Resolver, require_public_url, resolve_host
 from app.content.jobs import enqueue
-from app.content.models import MAX_SITE_PAGES, SITE_SCHEDULES, Dataset, Site
+from app.content.models import MAX_SITE_PAGES, SITE_SCHEDULES, Dataset, Site, SitePage, Source
 from app.content.register import MAX_NOTE_LENGTH, RegisterError
 from app.content.roles import EDITOR, REVIEWER, require, roles_of
 from app.content.tags import TagConfig
@@ -42,6 +48,10 @@ from app.core.db import tenant_session
 from app.tenancy.models import INTERNAL_TENANT_ID
 
 SCHEDULE_DAYS: Final[Mapping[str, int]] = {"weekly": 7, "monthly": 30}
+# Page reasons (``site_pages.reason``, P1c-14): the whole site was withdrawn; a reviewer
+# restored a page they had withdrawn (the next crawl takes it again).
+SITE_WITHDRAWN: Final = "site_withdrawn"
+RESTORED: Final = "restored"
 MAX_PATTERNS: Final = 50
 MAX_PATTERN_LENGTH: Final = 128  # an audit value's limit
 MAX_FIELD_LENGTH: Final = 300
@@ -420,3 +430,160 @@ async def schedule_due_crawls(factory: async_sessionmaker[AsyncSession]) -> int:
             )
             queued += 1
     return queued
+
+
+async def withdraw_site(
+    factory: async_sessionmaker[AsyncSession],
+    site_id: UUID,
+    reviewer_id: UUID,
+    *,
+    reason: str,
+) -> list[UUID]:
+    """A reviewer withdraws a whole site (P1c-14); returns the ``withdraw_source`` jobs.
+
+    In one transaction: the site becomes ``withdrawn`` with the date and reason and no
+    next crawl (so no schedule, "crawl now" or queued crawl runs it again; a running
+    crawl stops at its next page, ``app.content.sitecrawl``); every live page is
+    ``blocked`` (``site_withdrawn``); every ingested or failed register row of the site
+    gets the reason and its ``withdraw_source`` job, the same job a single page's
+    withdrawal runs. A row still being ingested is withdrawn as soon as its ingestion
+    finishes, because its page is no longer live (findings 1b A2-7). Audited
+    ``site.withdrawn`` and, per page, ``source.withdrawal_requested``.
+    """
+    note = _note(reason, required=True)
+    jobs: list[UUID] = []
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        roles = await require(session, reviewer_id, REVIEWER)
+        site = await _locked(session, site_id)
+        if site.status == "withdrawn":
+            raise RegisterError("already_withdrawn")
+        if site.status != "approved":
+            raise RegisterError("not_approved")
+        before: Change = {"status": site.status, "schedule": site.schedule}
+        await session.execute(
+            update(Site)
+            .where(Site.id == site_id)
+            .values(
+                status="withdrawn",
+                withdrawn_at=func.now(),
+                withdrawal_reason=note,
+                next_crawl_at=None,
+                updated_at=func.now(),
+            )
+        )
+        await session.execute(
+            update(SitePage)
+            .where(SitePage.site_id == site_id, SitePage.state == "live")
+            .values(state="blocked", reason=SITE_WITHDRAWN, special_category=None)
+        )
+        rows = (
+            await session.execute(
+                select(Source.id, Source.status)
+                .where(Source.site_id == site_id, Source.status.in_(("ingested", "failed")))
+                .order_by(Source.created_at)
+                .with_for_update()
+            )
+        ).all()
+        for row in rows:
+            await session.execute(
+                update(Source)
+                .where(Source.id == row.id)
+                .values(
+                    withdrawal_reason=func.coalesce(Source.withdrawal_reason, note),
+                    updated_at=func.now(),
+                )
+            )
+            jobs.append(
+                await enqueue(
+                    session, "withdraw_source", {"source_id": str(row.id)}, created_by=reviewer_id
+                )
+            )
+            await record(
+                session,
+                tenant_id=INTERNAL_TENANT_ID,
+                actor_user_id=reviewer_id,
+                event="source.withdrawal_requested",
+                metadata={
+                    "source_id": str(row.id),
+                    "site_id": str(site_id),
+                    "before": {"status": row.status},
+                    "after": {"status": row.status},
+                    "roles": sorted(roles),
+                    "method": "site_withdrawal",
+                },
+            )
+        await _audit(
+            session,
+            reviewer_id,
+            "site.withdrawn",
+            site_id,
+            before,
+            {**before, "status": "withdrawn"},
+            roles=sorted(roles),
+            count=len(jobs),
+        )
+    return jobs
+
+
+async def restore_page(
+    factory: async_sessionmaker[AsyncSession], source_id: UUID, reviewer_id: UUID
+) -> UUID:
+    """A reviewer restores a crawled page they withdrew (P1c-14); returns its site.
+
+    ``source_id`` is the page's withdrawn register row. The page stops being held out
+    (``removed``, reason ``restored``), so the next crawl of its site that meets it
+    takes it again as a new register row, approved in the site approver's name and
+    ingested like any new page. Refused while the withdrawal is still running, for a
+    URL any version of which had a takedown recorded (it stays ``taken_down``), and on
+    a site that is no longer approved. Audited ``source.restored``.
+    """
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        roles = await require(session, reviewer_id, REVIEWER)
+        row = await session.scalar(select(Source).where(Source.id == source_id))
+        if row is None:
+            raise RegisterError("no_source")
+        if row.site_id is None:
+            raise RegisterError("not_a_crawled_page")
+        if row.status != "withdrawn":
+            raise RegisterError("not_withdrawn")
+        site = await _locked(session, row.site_id)
+        if site.status != "approved":
+            raise RegisterError("site_not_approved")
+        page = await session.scalar(
+            select(SitePage)
+            .where(SitePage.site_id == site.id, SitePage.source_id == source_id)
+            .with_for_update()
+        )
+        if page is None or (page.state, page.reason) != ("blocked", "withdrawn"):
+            raise RegisterError("not_a_withdrawn_page")
+        taken_down = await session.scalar(
+            select(func.count())
+            .select_from(Source)
+            .where(
+                Source.site_id == site.id,
+                Source.canonical_url == page.url,
+                Source.takedown_reference.is_not(None),
+            )
+        )
+        if taken_down:
+            raise RegisterError("taken_down")
+        await session.execute(
+            update(SitePage)
+            .where(SitePage.site_id == site.id, SitePage.url == page.url)
+            .values(state="removed", reason=RESTORED, special_category=None)
+        )
+        await record(
+            session,
+            tenant_id=INTERNAL_TENANT_ID,
+            actor_user_id=reviewer_id,
+            event="source.restored",
+            metadata={
+                "source_id": str(source_id),
+                "site_id": str(site.id),
+                "before": {"status": "withdrawn"},
+                "after": {"status": "withdrawn"},
+                "roles": sorted(roles),
+            },
+        )
+        restored: UUID = site.id
+    return restored

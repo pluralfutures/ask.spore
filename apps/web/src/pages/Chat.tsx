@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Citation, DoneData } from "../api/types";
 import { AssistantMessage } from "../components/AssistantMessage";
+import { answerNote, hasBody, PARTIAL_NOTE } from "../lib/answerNotes";
 import { failoverNote } from "../lib/failover";
 import { NO_HISTORY_NOTE, sameChoice } from "../lib/noHistory";
 import { CitationPanel } from "../components/CitationPanel";
@@ -17,6 +18,8 @@ interface Live {
   citations: Citation[];
   done: DoneData | null;
   error: string | null;
+  // P1c-09: the user pressed "Stop"; the server keeps what was shown, flagged partial.
+  stopped?: boolean;
 }
 
 interface Selection {
@@ -38,7 +41,10 @@ const ERRORS: Record<string, string> = {
     "new conversation with reasoning off.",
 };
 
-const CUT_OFF_NOTE = "This answer was cut off at the length limit.";
+// After a stop or a failed answer, the server stores the partial turn when it notices the
+// closed stream: the conversation is reloaded until it holds the turn (or gives up).
+const SETTLE_TRIES = 6;
+const SETTLE_DELAY_MS = 400;
 
 export function Chat() {
   const { id = "" } = useParams();
@@ -61,8 +67,6 @@ export function Chat() {
   const [question, setQuestion] = useState("");
   const [live, setLive] = useState<Live | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
-  // Answers that stopped at the output budget, for this visit (the flag is not stored).
-  const [cutOff, setCutOff] = useState<ReadonlySet<string>>(new Set());
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
@@ -75,8 +79,27 @@ export function Chat() {
     await send(text);
   }
 
+  function stop() {
+    abort.current?.abort();
+  }
+
+  // The partial turn the server kept after a stop or a failure: once the reloaded
+  // conversation has it, the live copy goes (P1c-09).
+  async function settle(before: number) {
+    for (let i = 0; i < SETTLE_TRIES; i++) {
+      const { data } = await conversation.refetch();
+      if ((data?.messages.length ?? 0) > before) {
+        setLive(null);
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, SETTLE_DELAY_MS));
+    }
+    await queryClient.invalidateQueries({ queryKey: ["conversations"] });
+  }
+
   async function send(text: string) {
     setSelection(null);
+    const before = conversation.data?.messages.length ?? 0;
     const state: Live = { question: text, text: "", citations: [], done: null, error: null };
     setLive(state);
     abort.current = new AbortController();
@@ -90,22 +113,26 @@ export function Chat() {
       for await (const e of api.ask(target, text, abort.current.signal)) {
         if (e.event === "token") state.text += e.data.text;
         else if (e.event === "citations") state.citations = e.data.citations;
-        else if (e.event === "done") {
-          state.done = e.data;
-          const cut = e.data.message_id;
-          if (e.data.truncated) setCutOff((ids) => new Set(ids).add(cut));
-        } else state.error = ERRORS[e.data.error_code] ?? "The answer could not be completed.";
+        else if (e.event === "done") state.done = e.data;
+        else state.error = ERRORS[e.data.error_code] ?? "The answer could not be completed.";
         setLive({ ...state });
       }
     } catch {
-      state.error = "The answer could not be completed.";
+      if (abort.current?.signal.aborted) state.stopped = true;
+      else state.error = "The answer could not be completed.";
       setLive({ ...state });
+      if (state.stopped && !noHistory) await settle(before);
       return;
     }
     if (noHistory) {
       // Nothing to reload: the answer is gone from the server once it ends.
       setPast((turns) => [...turns, { ...state }]);
       setLive(null);
+      return;
+    }
+    if (state.error && !noHistory) {
+      // A model that failed mid-stream leaves the partial turn stored; show that one.
+      await settle(before);
       return;
     }
     if (state.done) {
@@ -177,17 +204,17 @@ export function Chat() {
               </li>
             ) : (
               <li key={m.id}>
-                <AssistantMessage
-                  text={m.content}
-                  citations={m.citations}
-                  unsupported={m.unsupported}
-                  abstained={m.abstained}
-                  messageId={m.id}
-                  onCite={(marker) => setSelection({ key: m.id, marker })}
-                />
-                {cutOff.has(m.id) ? (
-                  <p className="mt-1 text-sm text-amber-900">{CUT_OFF_NOTE}</p>
+                {hasBody(m.content, m) ? (
+                  <AssistantMessage
+                    text={m.content}
+                    citations={m.citations}
+                    unsupported={m.unsupported && !m.partial}
+                    abstained={m.abstained}
+                    messageId={m.id}
+                    onCite={(marker) => setSelection({ key: m.id, marker })}
+                  />
                 ) : null}
+                <AnswerNote note={answerNote(m)} />
                 <FailoverNote kind={m.failover} />
               </li>
             ),
@@ -205,12 +232,14 @@ export function Chat() {
                     messageId={noHistory ? null : (live.done?.message_id ?? null)}
                     onCite={(marker) => setSelection({ key: "live", marker })}
                   />
-                ) : (
+                ) : live.stopped || live.error ? null : (
                   <p className="text-slate-600">Searching your research package…</p>
                 )}
-                {live.done?.truncated ? (
-                  <p className="mt-1 text-sm text-amber-900">{CUT_OFF_NOTE}</p>
-                ) : null}
+                <AnswerNote
+                  note={
+                    live.stopped ? PARTIAL_NOTE : answerNote({ truncated: live.done?.truncated })
+                  }
+                />
                 <FailoverNote kind={live.done?.failover} />
                 {live.error ? <p className="mt-2 text-red-700">{live.error}</p> : null}
               </li>
@@ -230,13 +259,23 @@ export function Chat() {
             placeholder="Ask a question about your research package"
             className="flex-1 rounded border px-2 py-1"
           />
-          <button
-            type="submit"
-            disabled={busy || !question.trim()}
-            className="rounded bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50"
-          >
-            Ask
-          </button>
+          {busy ? (
+            <button
+              type="button"
+              onClick={stop}
+              className="rounded border border-slate-900 px-3 py-1.5 text-slate-900"
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!question.trim()}
+              className="rounded bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50"
+            >
+              Ask
+            </button>
+          )}
         </form>
       </main>
       {selection ? (
@@ -267,14 +306,22 @@ function PastTurn({ turn, onCite }: { turn: Live; onCite: (marker: number) => vo
             onCite={onCite}
           />
         ) : null}
-        {turn.done?.truncated ? (
-          <p className="mt-1 text-sm text-amber-900">{CUT_OFF_NOTE}</p>
-        ) : null}
+        <AnswerNote
+          note={turn.stopped ? PARTIAL_NOTE : answerNote({ truncated: turn.done?.truncated })}
+        />
         <FailoverNote kind={turn.done?.failover} />
         {turn.error ? <p className="mt-2 text-red-700">{turn.error}</p> : null}
       </li>
     </>
   );
+}
+
+function AnswerNote({ note }: { note: string | null }) {
+  return note ? (
+    <p data-testid="answer-note" className="mt-1 text-sm text-amber-900">
+      {note}
+    </p>
+  ) : null;
 }
 
 function FailoverNote({ kind }: { kind: "eu" | "external" | null | undefined }) {

@@ -134,9 +134,7 @@ def test_mock_run_ignores_empty_provider_keys(tmp_path: Path) -> None:
 
 
 def test_cli_exit_code(tmp_path: Path) -> None:
-    code = cli.main(
-        ["guardrails", "--mock", "--runs-dir", str(tmp_path), "--mode", "corpus_only"]
-    )
+    code = cli.main(["guardrails", "--mock", "--runs-dir", str(tmp_path), "--mode", "corpus_only"])
     assert code == 0
 
 

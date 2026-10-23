@@ -525,3 +525,30 @@ result was committed. Not run: anything that needs the Instance, RAGFlow or a pr
    (a migration; backlog line)?
 7. **Migration number.** 0060 on 0041 as briefed; if Groups A to C also chain on 0041, the
    integration step re-parents one `down_revision` line.
+
+## 4. Integration of Groups A, B/C and D (Oct 23, 2026)
+
+Branch `phase-1c/integration`: `main` plus the approved spec (eb8caf3), then
+`phase-1c/group-a`, `phase-1c/group-d` and `phase-1c/group-bc`, by the orchestrating session,
+with the three independent reviews (no blocker in any). Conflicts: this file (three
+sections, kept in order), `design/specs/backlog.md` (Group D's triage taken as the base,
+Groups B and C's eight strikes re-applied on it), `infra/README.md` (both sides kept).
+
+| # | Item | What | Why |
+| --- | --- | --- | --- |
+| I-1 | Migrations | Chain 0041 → **0042** (jobs RLS) → **0050** (message flags) → **0051** (user removal) → **0060** (site withdrawal); 0050 and 0060 re-parented. | Three heads otherwise. |
+| I-2 | P1c-04 | `IngestError` messages carry no URL (they reached the CLI's exit text, the same sink the `FetchError` rule closed); two tests. | Group A review item 1. |
+| I-3 | P1c-04 | The Compose port test also finds `.yaml` files. | Group A review note 9. |
+| I-4 | P1c-01 | Compliance guide §15 wording: a tag with no `tenant` is internal; a platform tag says `shared = true`. | Owner decision 6. |
+| I-5 | P1c-04 × P1c-07 | The jobs-policy test expects the third policy `user_removal` (0051) beside `tenant_scope` and `operator_console`. | Both groups touched `jobs` policies in parallel. |
+| I-6 | P1c-06 | **Re-pinned here** with `image-digests.py --write`: `postgres:16.15-alpine` (Authentik's database), `redis:7.4.11-alpine`, `caddy:2.11.7-alpine`; same application versions on newer Alpine bases (Group A's reading of the tag pages); `--check` passes for every reference this container can reach. Decision 10 (re-pin from the Instance) was taken because the build container was rate-limited; this container was not, and the new CI dry run of the deploy script (P1c-10) would otherwise fail on the moved tags. The release step runs `--check` on the Instance, where quay.io (the Keycloak drill image) is reachable. | P1c-06, P1c-10. |
+
+**Not run here:** the Playwright suite (this container lacks the headless-shell build the
+project's Playwright version expects; the three build sessions ran it, 13 passed each) and
+`--check` against quay.io (proxy). Both are release-step checks.
+
+**Checks on the integration branch:** API ruff, format, `mypy --strict` clean; 1511 tests pass
+against PostgreSQL 16 (1 deselected); eval package ruff, format, mypy, 94 tests and `eval gate`
+pass; web lint, typecheck and 122 unit tests pass; `openapi.json` and `schema.d.ts`
+regenerated and in sync; `compose config` valid with the example RAGFlow env; the deploy
+script's dry run passes after the re-pins (fails closed on a moved tag, as designed).

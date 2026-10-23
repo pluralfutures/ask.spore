@@ -563,7 +563,9 @@ async def test_jobs_rls_is_forced_with_both_policies(admin_conn: asyncpg.Connect
         "SELECT policyname, roles::text[] AS roles FROM pg_policies WHERE tablename = 'jobs' "
         "ORDER BY policyname"
     )
+    # P1c-04's two policies, plus P1c-07's user-removal role (migration 0051).
     assert [(p["policyname"], p["roles"]) for p in policies] == [
         ("operator_console", ["askspore_operator"]),
         ("tenant_scope", ["public"]),
+        ("user_removal", ["askspore_user_removal"]),
     ]

@@ -15,6 +15,7 @@ from typing import Any
 import httpx
 import pytest
 
+from app.content.tags import TagConfig, load_tags
 from app.tenancy.models import INTERNAL_TENANT_ID
 from app.tenancy.termination import terminate_tenant
 from app.usage.ledger import month_of
@@ -207,6 +208,60 @@ async def test_tag_picker_offers_the_tenants_own_and_shared_tags(console: Consol
     refused = await op.put(path, json={"tag_ids": ["sample-web"]})
     assert (refused.status_code, refused.json()["detail"]) == (422, "tag_not_for_tenant")
     assert (await op.put(path, json={"tag_ids": ["cc-team1-healthcare-gpo"]})).status_code == 200
+
+
+async def test_a_tag_without_a_tenant_is_offered_to_no_client_and_refused_on_save(
+    console: Console,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # P1c-01: the loader refuses a file with an unset tenant; a TagConfig built without one
+    # still belongs to the internal tenant, and only an explicit shared = true is shared.
+    def with_extra_tags(config_dir: Path) -> dict[str, TagConfig]:
+        return {
+            **load_tags(config_dir),
+            "unset-tag": TagConfig(chunk_method="naive"),
+            "common-tag": TagConfig(chunk_method="naive", shared=True),
+        }
+
+    monkeypatch.setattr("app.api.operator.load_tags", with_extra_tags)
+    op = await console.operator()
+    cc = await tenant_with_slug(console, op, "cc")
+    internal = await tenant_with_slug(console, op, "internal")
+    other = (await create(op))["id"]
+
+    async def offered(tenant: str) -> dict[str, bool]:
+        response = await op.get(f"/api/v1/operator/tenants/{tenant}/tags")
+        assert response.status_code == 200, response.text
+        return {t["tag"]: t["shared"] for t in response.json()}
+
+    for client in (cc, other):
+        picker = await offered(client)
+        assert "unset-tag" not in picker
+        assert picker["common-tag"] is True
+    assert (await offered(internal))["unset-tag"] is False
+
+    def body(slug: str, tags: list[str]) -> dict[str, Any]:
+        return {
+            "slug": slug,
+            "name": slug.title(),
+            "tag_ids": tags,
+            "default_mode": "corpus_only",
+            "default_model": MODEL,
+            "default_reasoning": False,
+        }
+
+    base = "/api/v1/operator/tenants/{}/workspaces"
+    refused = await op.post(base.format(other), json=body("main", ["unset-tag"]))
+    assert (refused.status_code, refused.json()["detail"]) == (422, "tag_not_for_tenant")
+    # A shared tag is not a way in: a mixed save is refused as a whole and writes nothing.
+    mixed = await op.post(base.format(other), json=body("main", ["common-tag", "cc-shared"]))
+    assert (mixed.status_code, mixed.json()["detail"]) == (422, "tag_not_for_tenant")
+    assert (await op.get(base.format(other))).json() == []
+    created = await op.post(base.format(other), json=body("main", ["common-tag"]))
+    assert created.status_code == 201, created.text
+    assert created.json()["tag_ids"] == ["common-tag"]
+    kept = await op.post(base.format(internal), json=body("p1c01", ["unset-tag"]))
+    assert kept.status_code == 201, kept.text
 
 
 # --- spend and token usage from the ledger -----------------------------------------------

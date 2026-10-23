@@ -408,7 +408,9 @@ async def test_operator_creates_workspaces_and_assigns_tags(
     def shared_samples(config_dir: Path) -> dict[str, TagConfig]:
         tags = load_tags(config_dir)
         return {
-            tag: cfg.model_copy(update={"tenant": None}) if tag.startswith("sample-") else cfg
+            tag: cfg.model_copy(update={"tenant": None, "shared": True})
+            if tag.startswith("sample-")
+            else cfg
             for tag, cfg in tags.items()
         }
 

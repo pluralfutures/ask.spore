@@ -6,8 +6,10 @@
 # P0-08) live inside each table.
 #
 # tenant (P1b-12) names the one tenant (by slug) whose workspaces may use the tag: a
-# client's own corpus. Without it the tag is shared: the operator console offers it to
-# every tenant's workspaces and refuses another tenant's tags. The sample-* tags hold our
+# client's own corpus. A tag shared with every tenant says so with shared = true (P1c-01);
+# a tag with neither is refused at startup (before P1c-01 an unset tenant meant shared).
+# The operator console offers a tenant its own and the shared tags and refuses any other
+# tag on a workspace save (422 tag_not_for_tenant). The sample-* tags hold our
 # own and test content (the Phase 0 corpus, synthetic fixtures, drill crawls) and belong
 # to the internal tenant, so no client workspace is offered them (owner, Oct 22, 2026,
 # Phase 1b release 5.1).

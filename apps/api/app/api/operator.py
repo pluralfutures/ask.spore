@@ -652,7 +652,7 @@ async def list_tenant_tags(
     """What the tenant's workspace tag pickers offer (P1b-12)."""
     tags = load_tags(request.app.state.settings.config_dir)
     return [
-        OperatorTagOut(tag=tag, shared=tags[tag].tenant is None)
+        OperatorTagOut(tag=tag, shared=tags[tag].shared)
         for tag in await _tenant_tags(request, session, tenant_id)
     ]
 

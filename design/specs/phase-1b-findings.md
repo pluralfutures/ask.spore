@@ -236,7 +236,7 @@ The Instance runs `main` at **bd1bc46** (`ASK_SPORE_DEPLOY_VERSION=bd1bc464ca60`
 
 ### Release status
 
-In progress. Paused Oct 22, 2026, 23:45 UTC (Instance powered down); resumed Oct 23, 2026, 07:38 UTC. Done: sections 0 to 6 (F5 live at `c06e9e9`), 7.1 to 7.4, 7.6. Open: weight 0.4 live (merge, restart api and worker), 7.5, 8.
+**Done, awaiting the owner's confirmation** (Oct 23, 2026). Run over two sessions: Oct 22 (sections 0 to 5, 6.1; paused 23:45 UTC, Instance powered down) and Oct 23 from 07:38 UTC (6.2 to 8). Every section passed; five issues found and fixed (F1 to F5); one eval regression at weight 0.3 resolved by the owner's choice of 0.4 (7.4). The Instance runs `main` at a837345 (images from c06e9e9).
 
 ### Resumption, Oct 23, 2026
 
@@ -383,6 +383,29 @@ Code `c06e9e9` (F5 live) throughout. The harness ran on the Instance; the steps 
 | 7.3 Guardrails | Run `20261023T084101Z-c06e9e99bae9-guardrails`, live on `deepseek-v4.1-flash`: 2 regressions, both the accepted `03-drop-citations` (G6, enforced in code): cited-answer rate `corpus_only` 33.3 (16.7 on Oct 21), `general_knowledge` 66.7 (unchanged). Every other block 100. |
 | 7.4 Vector weight | One full v1 run per weight, each against a config copy differing only in the weight, with the temporary api recreated on it; threshold 0.25. **0.2** `20261023T085034Z-…`: hit@5/@10 66.0 (−34), cited-answer rate 56.0 (−44), 22 answerable items abstained (their hybrid score fell under the threshold); 039 and 046 not retrieved. **0.3** `20261023T085424Z-…` (a repeat of 7.3; 50 answers from the cache, 039 and 046 fresh): metrics as 7.3 (faithfulness 88.6), 039 uncited and withheld, 046 the fixed decline again. **0.4** `20261023T085603Z-…`: hit@5 98.0 (−2.0: hc-v1-010's expected source at rank 6 to 10, still answered with 4 citations), hit@10 100, citation precision 82.8 (−0.7), **faithfulness 90.8 (+9.9)**, abstention 80.0, **cited-answer rate 98.0 (−2.0)**, **no regression**; 046 answered with 6 citations, 039 the fixed decline, 055 and 058 answered. **Owner chose 0.4** (`config/models.toml`). Caveat: one run per weight; 0.3 against 0.4 on the cited-answer rate is one item (046), the faithfulness gain is broader (603 judged statements against 548). Backlog: confirm with a second run at the next eval workflow run. |
 | 7.6 Baseline | Owner accepted `20261023T085603Z-c06e9e99bae9` with `accept-baseline` (no regression, so no `--accept-regression`), reason "Phase 1b release run, vector weight 0.4; supersedes the Phase 0 baseline after the Oct 21 decision trading cited-answer rate for abstention". Committed redacted (`eval gate`: pass); full outputs of all five runs stay on the Instance under `/srv/ask-spore/eval-runs/`. |
+| 7.4 live | PR #55 merged (`a837345`); api and worker restarted (config mounted; no rebuild, deploy version label stays `c06e9e99bae9`, application code unchanged); both load `vector_similarity_weight` 0.4, `eval_service` absent; `/healthz` 200, no warning. |
+| 7.5 Reasoning tokens | **Pass.** The owner, as `cc` admin daniel+cc2, asked one question in `team1-healthcare-gpo` on `qwen3.8-27b` with reasoning on (09:21 UTC): `chat.query` `reasoning: true`, answered, 5,067 in / 1,463 out, 16.8 s; the `chat.answer` log line carries `reasoning_tokens: 939` (an integer, no body field); `cc`'s Qwen ledger row rose by exactly 5,067 / 1,463 and `reasoning_tokens` 939 (+0.78 cents). |
+| Spend | Answers through the API for the four v1 runs, on the internal tenant's ledger: 856,608 in / 40,947 out (exactly the four runs' pipeline tokens), about **58 cents** (the internal DeepSeek row now 174.75 cents for October, from about 116 at 5.2, whose figures were read to the euro cent). The judge (Qwen) and the guardrail eval call the provider directly and are not in the ledger. October total in the ledger after the release: 185.30 cents. |
+
+### Section 8: close-out (Oct 23)
+
+| Item | Result |
+| --- | --- |
+| Test identities | `ssotest` purged with its 4 Authentik users (6.3). `cc` admin daniel+cc2 **deactivated** by `cc`'s other tenant admin on the tenant admin page (`tenant_admin.user_changed`, active → deactivated, 09:27:44 UTC) and its Authentik user deleted by the owner (with its TOTP device), 09:28 UTC; Authentik 7 → 6 accounts, `cc`'s other admin unchanged. Owner decision: the database row stays deactivated (no delete-user action exists; its conversations age out within 30 days); backlog line for an audited remove action. The eval identity `eval-service@…` stays (needed for every eval gate run; role `user`, no access without the temporary api's `[auth.eval_service]`). |
+| Admin second factor, fail closed (live) | `cc`'s other admin had last signed in on Oct 21, before the admin MFA requirement. Their first link today was refused at the callback with `mfa_not_enforced` (tokens revoked, the user put in the MFA group, as designed in P1b-08); the next link asked for TOTP enrolment, `auth.login` `mfa: true`; they then accepted the consent notice (v1) before the app opened. First live pass of this path. |
+| On the Instance | `main` at **a837345**: images built from `c06e9e9` (`ASK_SPORE_DEPLOY_VERSION=c06e9e99bae9`; nothing in the application code changed after it), Alembic head 0041, `config/` from the working tree (weight 0.4). Eval keys in `/srv/ask-spore/eval-keys/`, eval config copies in `/srv/ask-spore/eval-config*` (not used by the live api), full eval outputs in `/srv/ask-spore/eval-runs/` (13 folders). |
+
+**Models in use after the release**
+
+| Model | Provider (region) | Tenants entitled | Reasoning | Role |
+| --- | --- | --- | --- | --- |
+| `deepseek-v4.1-flash` | Scaleway (EU) | `internal`, `cc` | off only | default answer model, query rewrite |
+| `qwen3.8-27b` | Scaleway (EU) | `cc` | on offered (7.5) | answer model; the eval judge (pinned separately) |
+| `openai/gpt-6.1-sol`, `anthropic/claude-opus-5.5` | OpenRouter (external) | none: entitlement never granted | effort | in the catalogue only; paperwork items 10 and 11 deferred |
+
+**Eval baseline:** `20261023T085603Z-c06e9e99bae9` (v1, `corpus_only/v5`, weight 0.4): hit@5 98.0, hit@10 100, citation precision 82.8, faithfulness 90.8, abstention 80.0, cited-answer rate 98.0.
+
+**Owner, still to do:** confirm the release closed (spec status line); the restore test of the nightly backup (open since Oct 22, dae6e2a); the pre-launch and before-first-client-user backlog lines dated Oct 22 and 23 (default passwords, SSO refusal as an Authentik 500, tags default to internal, DMARC, TOTP QR code, re-pin the three moved images); DPA clause 10.2 wording (paperwork checklist); close any SSH tunnel left open to the Authentik admin.
 
 ### Issues found and fixed during the release
 

@@ -211,7 +211,7 @@ async def test_retrieve_sends_the_configured_vector_weight() -> None:
             dataset_ids=[DATASET_ID], question=QUESTION, top_k=3, similarity_threshold=0.2
         )
     assert rec.last_json()["vector_similarity_weight"] == 0.55
-    assert settings.models.chat.vector_similarity_weight == 0.3  # the repository's default
+    assert settings.models.chat.vector_similarity_weight == 0.4  # the repository's value (7.4)
 
 
 async def test_retrieve_with_nothing_above_threshold_returns_empty() -> None:

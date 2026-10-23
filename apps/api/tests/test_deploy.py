@@ -32,7 +32,8 @@ def test_the_script_does_what_the_release_did_by_hand() -> None:
     assert "authentik-postgresql authentik-server authentik-worker" in text
     assert "run --rm migrate" in text
     # Phase 1b F3: RAGFlow starts with the application, and ragflow-tei is checked.
-    assert "up -d ragflow api worker caddy" in text
+    assert "up -d ragflow caddy" in text and "up -d --force-recreate api worker" in text
+    assert "check-credentials.py" in text and "compose port api 8000" in text
     assert "grep -qx ragflow-tei" in text
     # Phase 1b F2: the worker's mail warning stops the deploy.
     assert '"event":"worker.mail_not_configured"' in text

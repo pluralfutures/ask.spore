@@ -23,15 +23,17 @@
 #   3. image digests: infra/scripts/image-digests.py --check (a moved tag or an unreachable
 #      registry stops the deploy)
 #   4. docker compose config --quiet with the auth and public profiles
-#   5. RAGFlow's dataset counts before (when the API is running), for step 9
-#   6. build every image we build: migrate, api, worker, web-build (Phase 1b F1)
-#   7. the three Authentik services; migrations (`run --rm migrate`) and the Alembic head
-#   8. RAGFlow with its embedding service (the Compose dependency, Phase 1b F3), api,
-#      worker, Caddy
-#   9. checks: /healthz (loopback, and the public host if given), auth/mode, ragflow-tei
+#   5. RAGFlow's dataset counts before (when the API is running), for step 10
+#   6. credentials: infra/scripts/check-credentials.py (P1c-03; a published example
+#      password in any .env stops the deploy, key names only)
+#   7. build every image we build: migrate, api, worker, web-build (Phase 1b F1)
+#   8. the three Authentik services; migrations (`run --rm migrate`) and the Alembic head
+#   9. RAGFlow with its embedding service (the Compose dependency, Phase 1b F3) and Caddy;
+#      api and worker recreated so their startup lines are fresh
+#  10. checks: /healthz (loopback, and the public host if given), auth/mode, ragflow-tei
 #      running, the worker's startup line and no `worker.mail_not_configured` since the
 #      start, RAGFlow's dataset counts equal to those before
-#  10. a metadata-only summary: no secret, address, query or document text is printed.
+#  11. a metadata-only summary: no secret, address, query or document text is printed.
 #
 # Secrets stay in .env and infra/*/.env; this script never prints them (`config --quiet`
 # only, no environment dumps).
@@ -156,10 +158,14 @@ else
   printf 'api not running: no figures to compare with\n'
 fi
 
-step "6. build"
+step "6. credentials"
+# P1c-03: no published (example) password may be in use; key names only in the output.
+python3 "$ROOT/infra/scripts/check-credentials.py" --root "$ROOT" || fail "published credentials in use (rotate them first: infra/README.md, Credentials rotation)"
+
+step "7. build"
 compose_all build migrate api worker web-build || fail "image build"
 
-step "7. Authentik, then migrations"
+step "8. Authentik, then migrations"
 # The three Authentik services only: a bare `--profile auth up -d` would also start the
 # api, worker and RAGFlow on the previous images (Phase 1b release, section 0.4).
 compose --profile auth up -d authentik-postgresql authentik-server authentik-worker ||
@@ -170,11 +176,17 @@ HEAD_REVISION="$(compose run --rm migrate alembic current 2>/dev/null |
 [ -n "$HEAD_REVISION" ] || fail "the database is not at the Alembic head"
 printf 'alembic head: %s\n' "$HEAD_REVISION"
 
-step "8. RAGFlow (with ragflow-tei), api, worker, Caddy"
-compose --profile public up -d ragflow api worker caddy || fail "docker compose up"
+step "9. RAGFlow (with ragflow-tei), api, worker, Caddy"
+# api and worker are recreated even when nothing changed, so the startup lines checked
+# below are fresh (a re-run of the same commit after a failed check would otherwise find
+# no new "worker.started" line).
+compose --profile public up -d ragflow caddy || fail "docker compose up"
+compose --profile public up -d --force-recreate api worker || fail "docker compose up (api, worker)"
 
-step "9. checks"
-API_URL="http://127.0.0.1:${API_PORT:-8000}"
+step "10. checks"
+# The published port comes from Compose (API_PORT in .env), not from this shell.
+API_ADDRESS="$(compose port api 8000 2>/dev/null | tail -n1)"
+API_URL="http://${API_ADDRESS:-127.0.0.1:8000}"
 deadline=$((SECONDS + TIMEOUT))
 until curl -fsS -o /dev/null "$API_URL/api/v1/healthz"; do
   [ "$SECONDS" -lt "$deadline" ] || fail "/healthz did not answer within ${TIMEOUT}s"
@@ -212,7 +224,7 @@ else
   COUNTS="recorded (no earlier figures)"
 fi
 
-step "10. summary"
+step "11. summary"
 printf 'commit:              %s\n' "$FULL_SHA"
 printf 'deploy version:      %s\n' "$ASK_SPORE_DEPLOY_VERSION"
 printf 'alembic head:        %s\n' "$HEAD_REVISION"

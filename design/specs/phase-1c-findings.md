@@ -543,6 +543,17 @@ Groups B and C's eight strikes re-applied on it), `infra/README.md` (both sides 
 | I-5 | P1c-04 × P1c-07 | The jobs-policy test expects the third policy `user_removal` (0051) beside `tenant_scope` and `operator_console`. | Both groups touched `jobs` policies in parallel. |
 | I-6 | P1c-06 | **Re-pinned here** with `image-digests.py --write`: `postgres:16.15-alpine` (Authentik's database), `redis:7.4.11-alpine`, `caddy:2.11.7-alpine`; same application versions on newer Alpine bases (Group A's reading of the tag pages); `--check` passes for every reference this container can reach. Decision 10 (re-pin from the Instance) was taken because the build container was rate-limited; this container was not, and the new CI dry run of the deploy script (P1c-10) would otherwise fail on the moved tags. The release step runs `--check` on the Instance, where quay.io (the Keycloak drill image) is reachable. | P1c-06, P1c-10. |
 
+| I-7 | P1c-08 | The terminated-tenant list requires `status = suspended` as well as the missing entitlements or login policy; a half-created active tenant is not listed (test added). | B/C review item 5. |
+| I-8 | P1c-10 | The deploy script runs `check-credentials.py` before the build (step 6; fail closed, key names only), reads the api port from Compose (`compose port api 8000`) instead of the shell, and recreates api and worker so their startup lines are fresh on a re-run. Steps renumbered 1 to 11. | B/C review items 6, 7, 9. |
+| I-9 | Backlog | B/C's note on the truncated-flag line re-applied on the triaged file. | Merge resolution. |
+
+Noted, not changed (B/C review): a resend is unbounded once the previous mail was sent
+(backlog, before the first client user: refuse a resend within a few minutes of the last);
+Authentik deactivation runs before the database commit on user removal (recoverable by a
+re-invite); the 0051 downgrade deletes authorless workspace prompts (forward-only deploy);
+a disconnect before the first token stores an empty partial answer; the eval workflow still
+uploads the full run folder as a 30-day artifact (owner question, findings §2).
+
 **Not run here:** the Playwright suite (this container lacks the headless-shell build the
 project's Playwright version expects; the three build sessions ran it, 13 passed each) and
 `--check` against quay.io (proxy). Both are release-step checks.

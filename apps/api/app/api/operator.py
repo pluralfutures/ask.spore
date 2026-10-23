@@ -222,7 +222,9 @@ async def list_terminated_tenants(
     tenants = (
         await session.scalars(
             select(Tenant)
-            .where(~has_entitlements.exists() | ~has_policy.exists())
+            # Suspended and emptied: a half-created tenant that merely lacks its
+            # entitlements or login policy is not a terminated one (B/C review item 5).
+            .where(Tenant.status == "suspended", ~has_entitlements.exists() | ~has_policy.exists())
             .order_by(Tenant.created_at)
         )
     ).all()

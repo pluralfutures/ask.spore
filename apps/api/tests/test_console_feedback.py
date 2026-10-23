@@ -66,6 +66,12 @@ async def test_a_terminated_tenant_is_listed_with_its_certificate(
     # The active list still holds the others and not the purged one (Phase 1b F5).
     active = {t["id"] for t in (await op.get("/api/v1/operator/tenants")).json()}
     assert kept["id"] in active and gone["id"] not in active
+    # An active tenant that merely lacks its login policy row is not "terminated".
+    await console.auth.admin.execute(
+        "DELETE FROM tenant_login_policy WHERE tenant_id = $1", uuid.UUID(kept["id"])
+    )
+    listed_again = {t["id"] for t in (await op.get("/api/v1/operator/terminated-tenants")).json()}
+    assert kept["id"] not in listed_again and gone["id"] in listed_again
 
 
 async def test_only_operators_see_terminated_tenants(auth: Auth) -> None:  # noqa: F811

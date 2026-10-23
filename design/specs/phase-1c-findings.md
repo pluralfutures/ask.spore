@@ -571,8 +571,8 @@ The Instance runs `main` at **1758623** (`ASK_SPORE_DEPLOY_VERSION=175862320a89`
 
 ### Release status
 
-**In progress** (Oct 23, 2026): sections 0 to 2.2 done; 2.3 (independent review) launched by
-the orchestrating session; sections 3 to 7 to follow.
+**In progress** (Oct 23, 2026): sections 0 to 2 done (independent review signed, no blocker);
+sections 3 to 7 to follow.
 
 ### Section 0: credentials rotation
 
@@ -619,8 +619,15 @@ the orchestrating session; sections 3 to 7 to follow.
   The Phase 1a and 1b controls keep their tests (findings 1a §10; 1b §8 1.2); all ran in 2.1.
   **Signed:** the isolation review of the Phase 1c changes passes at 175862320a89.
 
-- **2.3 Independent review:** launched by the orchestrating session on `main` since 1a714fe;
-  verdict to follow.
+- **2.3 Independent review (5.2): signed, no blocker.** Launched by the orchestrating session
+  on `main` since 1a714fe, signed at 175862320a89; every CLAUDE.md non-negotiable holds. The
+  report is `design/specs/phase-1c-independent-review.md` (commit c270784, on the
+  orchestrating session's branch, to reach `main` with its PR). Four backlog items, none a
+  change before this release: `RagflowError` detail kept out of logs and added to the static
+  scan (its item 3); the Keycloak drill Compose file asserted in the port test's file list
+  (8); a case-insensitive, minimum-length credentials comparison (11); rate-limiting
+  invitation resends before the first client user (§4, already a backlog line, now marked
+  confirmed).
 
 ### Issues found and fixed during the release
 

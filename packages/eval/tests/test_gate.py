@@ -116,4 +116,4 @@ def test_the_repository_gate_passes() -> None:
     # The committed baseline exists, every committed run is redacted, nothing regresses.
     outcome = gate.gate(REPO_RESULTS)
     assert outcome.ok, gate.gate_markdown(outcome, 3)
-    assert outcome.baseline == "20261018T234701Z-a981e7bd8911"
+    assert outcome.baseline == "20261023T085603Z-c06e9e99bae9"  # P1b-16 release run (7.6)

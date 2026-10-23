@@ -6,3 +6,4 @@ CI) compares every newer committed run against the last one.
 | Date | Run | Previous | Verdict | Reason |
 | --- | --- | --- | --- | --- |
 | 2026-10-22 | `20261018T234701Z-a981e7bd8911` | `-` | first baseline | Recorded by hand when the gate was built (P1b-15 b): the Phase 0 real-corpus baseline that the Phase 1a gate runs were compared with (findings 1a G7 to G9); already redacted (findings 1a §12). The Phase 1a gate runs were not committed. `20261018T235229Z-11fba9927728` (the P0-20 threshold 0.25 run, findings 1a section 5) was reviewed then and is history (`reviewed-through`). |
+| 2026-10-23 | `20261023T085603Z-c06e9e99bae9` | `20261018T234701Z-a981e7bd8911` | no regression | Phase 1b release run, vector weight 0.4; supersedes the Phase 0 baseline after the Oct 21 decision trading cited-answer rate for abstention |

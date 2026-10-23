@@ -133,8 +133,9 @@ class Source(Base):
     )
     takedown_requested_on: Mapped[date | None] = mapped_column(Date)
     takedown_due_on: Mapped[date | None] = mapped_column(Date)
-    # Revision 0023 (owner decision 5, Oct 22, 2026): the takedown is on licence grounds,
-    # so the withdrawal blanks the excerpts stored in users' history.
+    # Revision 0023 (owner decision 5, Oct 22, 2026): the takedown is on licence grounds.
+    # Since owner decision 3 (Oct 23, 2026) every withdrawal blanks the stored excerpts,
+    # so the flag is a record for the queue and the audit trail only.
     takedown_licence_grounds: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     # Revision 0024 (P1b-04): a crawled page's site, its raw HTML snapshot under
     # ``[files] content_root`` (``snapshots/<sha256>.html``) and when it was fetched.

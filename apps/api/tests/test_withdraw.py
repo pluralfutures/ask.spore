@@ -409,16 +409,36 @@ async def test_withdrawal_on_licence_grounds_blanks_the_stored_excerpts(
 
 
 @pytest.mark.parametrize("takedown", [None, "TD-OTHER-1"])
-async def test_other_withdrawals_keep_the_stored_excerpts(
+async def test_every_other_withdrawal_blanks_the_stored_excerpts_too(
     env: tuple[Env, Ingest],
     admin_conn: asyncpg.Connection,
     redis: FakeRedis,
     history: None,
     takedown: str | None,
 ) -> None:
+    """Owner decision 3 (Oct 23, 2026, P1c-14): a plain withdrawal, or a takedown not on
+    licence grounds, blanks the excerpt as a licence takedown does; the citation stays,
+    labelled withdrawn, in every tenant, and other sources' excerpts are untouched."""
     e, run = env
-    ingested = await run(load_path(PDF), meta("sample-reports"))
+    first = await run(load_path(PDF), meta("sample-reports"))
+    old_citation = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, first.source_id)
+    changed = SourceFile("tidewater-v2.pdf", "pdf", PDF.read_bytes() + b"\n% revised")
+    ingested = await run(changed, meta("sample-reports", title="Revised title"))
+    await approve(e.factory, ingested.source_id, e.user_id, replaces=first.source_id)
+    await run_queue(e)
+    # The supersession kept the old version's excerpt: the document is still in.
+    assert (
+        await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", old_citation)
+        == "Synthetic excerpt."
+    )
     cited = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, ingested.source_id)
+    client_tenant, client_user = await other_tenant(admin_conn)
+    there = await cite(admin_conn, client_tenant, client_user, ingested.source_id)
+    keep = await run(
+        SourceFile("other.md", "markdown", b"# Synthetic other page"),
+        linked("sample-web", "https://example.org/other"),
+    )
+    unrelated = await cite(admin_conn, client_tenant, client_user, keep.source_id)
     if takedown:  # a takedown, but not on licence grounds (e.g. a privacy request)
         await record_takedown(
             e.factory,
@@ -430,16 +450,33 @@ async def test_other_withdrawals_keep_the_stored_excerpts(
         )
     await request_withdrawal(e.factory, ingested.source_id, e.user_id, reason="withdrawn")
     await run_queue(e)
-    row = await admin_conn.fetchrow(
-        "SELECT excerpt, withdrawn_at FROM citations WHERE id = $1", cited
+    for blanked in (cited, there):
+        row = await admin_conn.fetchrow(
+            "SELECT excerpt, withdrawn_at, marker, source_id FROM citations WHERE id = $1",
+            blanked,
+        )
+        assert row["excerpt"] == "" and row["withdrawn_at"] is not None
+        assert (row["marker"], row["source_id"]) == (1, ingested.source_id)
+    # The earlier version it replaced is the same document: blanked as well.
+    assert (
+        await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", old_citation) == ""
     )
-    assert row["excerpt"] == "Synthetic excerpt." and row["withdrawn_at"] is not None
+    assert (
+        await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", unrelated)
+        == "Synthetic excerpt."
+    )
     done = await admin_conn.fetchval(
         "SELECT metadata FROM audit_events WHERE event = 'source.withdrawn' "
         "AND metadata->>'source_id' = $1",
         str(ingested.source_id),
     )
-    assert json.loads(done)["excerpts_blanked"] is False
+    assert json.loads(done)["excerpts_blanked"] is True
+    superseded = await admin_conn.fetchval(
+        "SELECT metadata FROM audit_events WHERE event = 'source.withdrawn' "
+        "AND metadata->>'source_id' = $1",
+        str(first.source_id),
+    )
+    assert json.loads(superseded)["excerpts_blanked"] is False
 
 
 async def test_a_licence_breach_is_on_licence_grounds(

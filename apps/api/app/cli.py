@@ -865,8 +865,8 @@ def build_parser() -> argparse.ArgumentParser:
     takedown_cmd.add_argument(
         "--licence-grounds",
         action="store_true",
-        help="the request is on licence grounds: the withdrawal blanks stored excerpts "
-        "(implied by --licence-breach)",
+        help="the request is on licence grounds, recorded on the queue (implied by "
+        "--licence-breach); every withdrawal blanks stored excerpts",
     )
 
     worker_cmd = commands.add_parser(

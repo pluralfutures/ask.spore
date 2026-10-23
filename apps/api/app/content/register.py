@@ -520,8 +520,9 @@ async def record_takedown(
     """Put a source on the takedown queue with its due date; returns the due date.
 
     ``licence_grounds``: the request is on licence grounds (a licence breach we find
-    ourselves always is), so the withdrawal blanks the stored citation excerpts (owner
-    decision 5, Oct 22, 2026).
+    ourselves always is). Recorded for the queue and the audit trail; since owner
+    decision 3 (Oct 23, 2026) every withdrawal blanks the stored citation excerpts, so it
+    no longer changes what the withdrawal does.
     """
     licence_grounds = licence_grounds or licence_breach
     reference = reference.strip()

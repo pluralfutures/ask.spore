@@ -255,7 +255,7 @@ Re-ingestion is versioned: a new parse creates new chunk IDs, old chunks are wit
 
 ### 6.3 Withdrawal and takedown cascade
 
-A single job per source ID: delete the document from every RAGFlow dataset it is in (which removes file, parsed text, chunks and embeddings), purge cache entries, mark the register row withdrawn with reason and date, and flag citations in stored chat history as withdrawn. For a takedown on licence grounds the stored excerpts are blanked as well, the citation keeping its provenance and the "withdrawn" label; other withdrawals keep the excerpt (owner decision 5, Oct 22, 2026). Target window: 10 working days from a valid request, immediately for licence breaches we identify ourselves.
+A single job per source ID: delete the document from every RAGFlow dataset it is in (which removes file, parsed text, chunks and embeddings), purge cache entries, mark the register row withdrawn with reason and date, and flag citations in stored chat history as withdrawn. Every withdrawal blanks the stored excerpts as well, whatever its grounds, the citation keeping its provenance and the "withdrawn" label (owner decision 3, Oct 23, 2026, P1c-14; decision 5 of Oct 22 had blanked them only for takedowns on licence grounds); a supersession by a re-ingested version keeps them, since the document stays in the corpus. Target window: 10 working days from a valid request, immediately for licence breaches we identify ourselves.
 
 ### 6.4 Crawler policy
 
@@ -571,7 +571,7 @@ A client-supplied file is downloadable only when the client's declaration says s
 
 - **On the client's request.** A tenant admin asks in writing ([privacy contact email] or support) to withdraw one or more of its files; the operator records the request and runs the existing `withdraw_source` job (P1b-03): documents deleted from every dataset, answer caches citing them purged, register row withdrawn with reason and date, stored citations flagged. Target: within [5] working days of the request. A tenant admin action in the app is a later feature (backlog).
 - **On a third party's claim** (a publisher or a person named in a client file, or a data subject's request we receive directly): we tell the client without undue delay and act on its instruction, since the file is the client's data (§15.10); where the claim is manifestly well founded or the client does not answer within [5] working days, we may withdraw the file to protect the service (terms §6A) and tell the client.
-- **Stored excerpts.** Decision 5 of Oct 22 applies: excerpts are blanked in stored citations for withdrawals on licence or rights grounds, and kept, labelled "withdrawn", for other withdrawals. For client-supplied files the stored citations sit only in the supplying tenant's own conversations.
+- **Stored excerpts.** Decision 3 of Oct 23, 2026 applies: excerpts are blanked in stored citations on every withdrawal, the citation kept, labelled "withdrawn" (it replaced decision 5 of Oct 22, which blanked them only for withdrawals on licence or rights grounds). For client-supplied files the stored citations sit only in the supplying tenant's own conversations.
 - Copies in the content store (§15.4 item 5) are deleted with the withdrawal.
 
 ### 15.8 Termination

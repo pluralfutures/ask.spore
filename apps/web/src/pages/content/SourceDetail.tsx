@@ -348,7 +348,7 @@ function TakedownForm({ id }: { id: string }) {
           disabled={breach}
           onChange={(e) => setGrounds(e.target.checked)}
         />{" "}
-        On licence grounds (stored excerpts are blanked on withdrawal)
+        On licence grounds
       </label>
       <button type="submit" disabled={record.isPending} className="rounded border px-3 py-1">
         Record

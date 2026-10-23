@@ -8,8 +8,11 @@ and nothing here takes a tenant ID from the request.
 
 - Users: list (with last login and method), invite (as ``invited``; provisioned in
   Authentik like the operator's first admin, findings A15), change role, deactivate and
-  reactivate. Users are never deleted. An admin cannot change their own role or
-  status, so a tenant cannot lose its last admin through these routes.
+  reactivate. An admin cannot change their own role or status, so a tenant cannot lose
+  its last admin through these routes. P1c-07: resend the invitation of a user still
+  ``invited`` (one ``send_mail`` job), and remove a user: their account data and history
+  are deleted (``app.tenancy.user_removal``), the audit events stay; never the admin
+  themselves or the tenant's last admin.
 - Workspace defaults: mode, model and reasoning among the tenant's enabled options. The
   additional instructions keep their routes (``PUT /workspaces/{id}/prompt``, findings
   B5): each save is a new version, with no revert in Phase 1a.
@@ -44,6 +47,7 @@ from app.api.deps import db_session, require_tenant_admin
 from app.api.policy import policy_out
 from app.api.schemas import (
     AdminUserOut,
+    InvitationResentOut,
     LoginPolicyOut,
     RetentionIn,
     TenantSettingsOut,
@@ -59,7 +63,7 @@ from app.auth.provider import ProviderError, SignInLinkProvider
 from app.chat.selection import load_entitlement
 from app.consent.gate import require_consent
 from app.core import cache
-from app.core.db import AUTH_ROLE, role_session
+from app.core.db import APP_ROLE, AUTH_ROLE, role_session
 from app.core.logging import log
 from app.llm.catalogue import ModelChoice
 from app.mail.queue import enqueue_invitation
@@ -68,6 +72,7 @@ from app.tenancy.entitlements import ModelRefused, check_choice
 from app.tenancy.login_policy import TenantLoginPolicy
 from app.tenancy.models import MAX_RETENTION_DAYS, Tenant, TenantEntitlements, User
 from app.tenancy.retention import retention_days, set_retention
+from app.tenancy.user_removal import RemovalRefused, remove_user
 from app.tenancy.workspaces import Workspace
 
 NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, detail="not_found")
@@ -224,6 +229,97 @@ async def change_user(
     out = AdminUserOut.model_validate(user)
     await session.commit()
     return out
+
+
+@router.post(
+    "/users/{user_id}/invitation",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=InvitationResentOut,
+)
+async def resend_invitation(
+    user_id: UUID,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> InvitationResentOut:
+    """P1c-07: queue the invitation email again for a user who has not signed in yet."""
+    user = await session.scalar(select(User).where(User.id == user_id))
+    if user is None:
+        raise NOT_FOUND
+    if user.status != "invited":
+        raise _unprocessable("not_invited")
+    job_id = await enqueue_invitation(
+        session, tenant_id=admin.tenant_id, user_id=user.id, created_by=admin.user_id
+    )
+    await record(
+        session,
+        tenant_id=admin.tenant_id,
+        actor_user_id=admin.user_id,
+        event="tenant_admin.invitation_resent",
+        metadata={"job_id": str(job_id), "before": _user_values(user), "after": _user_values(user)},
+    )
+    log("tenant_admin.invitation_resent", tenant_id=str(admin.tenant_id), user_id=str(user.id))
+    await session.commit()
+    return InvitationResentOut(user_id=user.id, status="queued")
+
+
+async def disable_provider_user(request: Request, email: str, tenant_id: UUID) -> None:
+    """The removed user's Authentik account is deactivated with the removal (P1c-07); a
+    provider failure rolls the removal back, like a failed invite."""
+    provider: SignInLinkProvider | None = getattr(request.app.state, "sign_in_provider", None)
+    if provider is None:
+        return  # Phase 0 mode: no identity provider holds the user
+    try:
+        await provider.disable_user(email)
+    except ProviderError as exc:
+        log("user_removal.provider_failed", tenant_id=str(tenant_id), error_code=exc.error_code)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="provider_not_updated") from None
+
+
+def removal_refused(exc: RemovalRefused) -> HTTPException:
+    if exc.code == "not_found":
+        return NOT_FOUND
+    return _unprocessable(exc.code)
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_tenant_user(
+    user_id: UUID,
+    request: Request,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> Response:
+    """P1c-07: delete a user of the admin's tenant with their history; audited."""
+    try:
+        removed = await remove_user(
+            session,
+            tenant_id=admin.tenant_id,
+            user_id=user_id,
+            actor_user_id=admin.user_id,
+            restore_role=APP_ROLE,
+        )
+    except RemovalRefused as exc:
+        log("tenant_admin.remove_refused", tenant_id=str(admin.tenant_id), error_code=exc.code)
+        raise removal_refused(exc) from None
+    await disable_provider_user(request, removed.email, admin.tenant_id)
+    await record(
+        session,
+        tenant_id=admin.tenant_id,
+        actor_user_id=admin.user_id,
+        event="tenant_admin.user_removed",
+        metadata={
+            "before": {"user_id": str(user_id), "role": removed.role, "status": removed.status},
+            "after": {},
+            "count": removed.total,
+        },
+    )
+    log(
+        "tenant_admin.user_removed",
+        tenant_id=str(admin.tenant_id),
+        user_id=str(user_id),
+        count=removed.total,
+    )
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # --- workspace defaults -----------------------------------------------------------------

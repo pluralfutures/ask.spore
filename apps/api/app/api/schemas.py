@@ -473,6 +473,14 @@ class AdminInvitedOut(BaseModel):
     status: Literal["invited"]
 
 
+class InvitationResentOut(BaseModel):
+    """P1c-07: the invitation email is queued again (one ``send_mail`` job; an invitation
+    still waiting to be sent is not queued twice)."""
+
+    user_id: UUID
+    status: Literal["queued"]
+
+
 class NoticeOut(BaseModel):
     id: UUID
     tenant_id: UUID

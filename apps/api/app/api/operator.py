@@ -9,7 +9,9 @@ P1b-12: the console shows one tenant per page. Its routes are the tenant's (by I
 the path): the tenant, its entitlements (a save names the page's tenant, which must be
 the path's, Phase 1a findings F2), login policy, workspaces with the tags offered to
 that tenant only (its own and shared ones; another tenant's tags are refused), users,
-and month-to-date spend and token usage by model from ``usage_ledger``. Cross-tenant
+and month-to-date spend and token usage by model from ``usage_ledger``. P1c-07: a
+user still ``invited`` can be sent the invitation again, and any tenant's user can be
+removed (``app.tenancy.user_removal``), as the tenant admin can for their own tenant. Cross-tenant
 totals are on their own route and name no tenant. No route returns query text: the
 role cannot read conversations or messages, and the ledger holds counts and cost only.
 
@@ -26,11 +28,12 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.admin import disable_provider_user, removal_refused
 from app.api.policy import policy_out
 from app.api.schemas import (
     AdminInvitedOut,
@@ -42,6 +45,7 @@ from app.api.schemas import (
     EntitlementsOut,
     EntraSourceIn,
     GoogleSourceIn,
+    InvitationResentOut,
     LoginPolicyIn,
     LoginPolicyOut,
     ModelSpendOut,
@@ -78,6 +82,7 @@ from app.auth.sources import (
 from app.content.models import Source
 from app.content.store import STORABLE_TYPES
 from app.content.tags import load_tags, tags_for_tenant
+from app.core.db import OPERATOR_ROLE
 from app.core.logging import log
 from app.llm import catalogue
 from app.mail.queue import enqueue_invitation
@@ -86,6 +91,7 @@ from app.operator.models import OperatorNotice
 from app.tenancy.entitlements import available_answer_modes, available_models, default_model
 from app.tenancy.login_policy import TenantLoginPolicy
 from app.tenancy.models import INTERNAL_TENANT_ID, Tenant, TenantEntitlements, User
+from app.tenancy.user_removal import RemovalRefused, remove_user
 from app.tenancy.workspaces import Workspace
 from app.usage.ledger import THRESHOLDS, month_of
 from app.usage.models import SpendNotice, UsageLedger
@@ -767,6 +773,87 @@ async def list_tenant_users(
         select(User).where(User.tenant_id == tenant_id).order_by(User.display_name, User.email)
     )
     return list(rows)
+
+
+@router.post(
+    "/tenants/{tenant_id}/users/{user_id}/invitation",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=InvitationResentOut,
+)
+async def resend_invitation(
+    tenant_id: UUID,
+    user_id: UUID,
+    operator: OperatorContext = Depends(require_operator),
+    session: AsyncSession = Depends(operator_session),
+) -> InvitationResentOut:
+    """P1c-07: queue the invitation email again for a user still ``invited``."""
+    user = await session.scalar(select(User).where(User.id == user_id, User.tenant_id == tenant_id))
+    if user is None:
+        raise NOT_FOUND
+    if user.status != "invited":
+        raise _unprocessable("not_invited")
+    job_id = await enqueue_invitation(
+        session, tenant_id=tenant_id, user_id=user.id, created_by=operator.user_id
+    )
+    values: Change = {"user_id": str(user.id), "role": user.role, "status": user.status}
+    await record(
+        session,
+        tenant_id=tenant_id,
+        actor_user_id=None,
+        event="operator.invitation_resent",
+        metadata={
+            "operator_id": str(operator.user_id),
+            "job_id": str(job_id),
+            "before": values,
+            "after": values,
+        },
+    )
+    log("operator.invitation_resent", tenant_id=str(tenant_id), user_id=str(user.id))
+    return InvitationResentOut(user_id=user.id, status="queued")
+
+
+@router.delete("/tenants/{tenant_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_tenant_user(
+    tenant_id: UUID,
+    user_id: UUID,
+    request: Request,
+    operator: OperatorContext = Depends(require_operator),
+    session: AsyncSession = Depends(operator_session),
+) -> Response:
+    """P1c-07: delete any tenant's user with their history; audited under the tenant."""
+    if await session.get(Tenant, tenant_id) is None:
+        raise NOT_FOUND
+    try:
+        removed = await remove_user(
+            session,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            actor_user_id=operator.user_id,
+            restore_role=OPERATOR_ROLE,
+        )
+    except RemovalRefused as exc:
+        log("operator.remove_refused", tenant_id=str(tenant_id), error_code=exc.code)
+        raise removal_refused(exc) from None
+    await disable_provider_user(request, removed.email, tenant_id)
+    await record(
+        session,
+        tenant_id=tenant_id,
+        actor_user_id=None,
+        event="operator.user_removed",
+        metadata={
+            "operator_id": str(operator.user_id),
+            "before": {"user_id": str(user_id), "role": removed.role, "status": removed.status},
+            "after": {},
+            "count": removed.total,
+        },
+    )
+    log(
+        "operator.user_removed",
+        tenant_id=str(tenant_id),
+        user_id=str(user_id),
+        count=removed.total,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _model_spend(request: Request, row: UsageLedger) -> ModelSpendOut:

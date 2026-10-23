@@ -91,6 +91,20 @@ function summary(c: Conversation) {
   };
 }
 
+function fakeUser(id: string, email: string, role: string, status = "active") {
+  const signedIn = status !== "invited";
+  return {
+    id,
+    email,
+    display_name: `Synthetic ${email.split("@")[0]}`,
+    role,
+    status,
+    last_login_at: signedIn ? NOW : null,
+    last_login_method: signedIn ? "sign_in_link" : null,
+    created_at: NOW,
+  };
+}
+
 function sse(events: [string, unknown][]): string {
   return events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
 }
@@ -106,6 +120,13 @@ export class FakeApi {
   private readonly conversations = new Map<string, Conversation>();
   private next = 1;
   readonly accepted: unknown[] = []; // P1b-10: bodies of POST /consent
+  // Tenant admin users (P1a-13, P1c-07): the admin, one invited and one active member.
+  readonly users = [
+    fakeUser("55555555-5555-4555-8555-555555555555", "analyst@example.org", "tenant_admin"),
+    fakeUser("55555555-5555-4555-8555-555555555556", "invited@example.org", "user", "invited"),
+    fakeUser("55555555-5555-4555-8555-555555555557", "member@example.org", "user"),
+  ];
+  readonly resent: string[] = []; // user IDs whose invitation was queued again
   private consented: boolean;
 
   constructor(private readonly options: FakeOptions) {
@@ -228,21 +249,32 @@ export class FakeApi {
     if (this.options.role !== "tenant_admin") {
       return route.fulfill({ status: 403, json: { detail: "forbidden" } });
     }
-    if (path === "/admin/users") {
-      return route.fulfill({
-        json: [
-          {
-            id: "55555555-5555-4555-8555-555555555555",
-            email: "analyst@example.org",
-            display_name: "Synthetic Analyst",
-            role: "tenant_admin",
-            status: "active",
-            last_login_at: NOW,
-            last_login_method: "sign_in_link",
-            created_at: NOW,
-          },
-        ],
-      });
+    if (path === "/admin/users" && method === "POST") {
+      const { email, display_name, role } = body as Record<string, string>;
+      if (this.users.some((u) => u.email === email)) {
+        return route.fulfill({ status: 409, json: { detail: "email_taken" } });
+      }
+      const user = { ...fakeUser(this.id("55555555"), email, role ?? "user", "invited") };
+      this.users.push({ ...user, display_name });
+      return route.fulfill({ status: 201, json: user });
+    }
+    if (path === "/admin/users") return route.fulfill({ json: this.users });
+    const resend = path.match(/^\/admin\/users\/([^/]+)\/invitation$/);
+    if (resend && method === "POST") {
+      const user = this.users.find((u) => u.id === resend[1]);
+      if (!user) return route.fulfill({ status: 404, json: { detail: "not_found" } });
+      if (user.status !== "invited") {
+        return route.fulfill({ status: 422, json: { detail: "not_invited" } });
+      }
+      this.resent.push(user.id);
+      return route.fulfill({ status: 202, json: { user_id: user.id, status: "queued" } });
+    }
+    const removal = path.match(/^\/admin\/users\/([^/]+)$/);
+    if (removal && method === "DELETE") {
+      const index = this.users.findIndex((u) => u.id === removal[1]);
+      if (index < 0) return route.fulfill({ status: 404, json: { detail: "not_found" } });
+      this.users.splice(index, 1);
+      return route.fulfill({ status: 204 });
     }
     if (path === "/admin/settings") {
       return route.fulfill({

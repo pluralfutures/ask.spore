@@ -34,13 +34,16 @@ export function lastLogin(user: AdminUser): string {
   return method ? `${formatDate(user.last_login_at)} · ${method}` : formatDate(user.last_login_at);
 }
 
-// An admin cannot change their own role or status (the API refuses it too).
+// An admin cannot change their own role or status, nor remove themselves (the API
+// refuses it too). P1c-07: an invitation can be sent again while the user is invited.
 export function userActions(user: AdminUser, selfEmail: string | undefined) {
   const self = user.email === selfEmail;
   return {
     canChangeRole: !self,
     canDeactivate: !self && user.status !== "deactivated",
     canReactivate: !self && user.status === "deactivated",
+    canResend: user.status === "invited",
+    canRemove: !self,
   };
 }
 
@@ -50,6 +53,14 @@ const REFUSALS: Record<string, string> = {
   email_taken: "That address already has an account.",
   invalid_email: "That is not an email address.",
   cannot_change_self: "You cannot change your own role or status.",
+  // P1c-07: resend and remove.
+  not_invited: "This user has already signed in; there is no invitation to send again.",
+  cannot_remove_self: "You cannot remove yourself.",
+  last_admin: "The organisation's last admin cannot be removed. Make another user admin first.",
+  platform_role: "This user holds an operator or content role; revoke it first.",
+  register_author: "This user is named in the source register and cannot be removed.",
+  provider_not_updated: "The sign-in service could not be updated; nothing was removed.",
+  unknown_user_table: "Removal is not available until the platform is updated.",
   model_not_enabled: "That model is not enabled for your organisation.",
   external_not_entitled: "That model is not enabled for your organisation.",
   model_unavailable: "That model is not available.",

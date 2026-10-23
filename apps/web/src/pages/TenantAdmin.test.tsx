@@ -94,15 +94,24 @@ describe("users", () => {
       canChangeRole: false,
       canDeactivate: false,
       canReactivate: false,
+      canResend: false,
+      canRemove: false,
     });
     expect(userActions(user(), "admin@client.example")).toEqual({
       canChangeRole: true,
       canDeactivate: true,
       canReactivate: false,
+      canResend: false,
+      canRemove: true,
     });
     expect(userActions(user({ status: "deactivated" }), "admin@client.example").canReactivate).toBe(
       true,
     );
+  });
+
+  it("offers a resend only while the user is invited (P1c-07)", () => {
+    expect(userActions(user({ status: "invited" }), "admin@client.example").canResend).toBe(true);
+    expect(userActions(user({ status: "active" }), "admin@client.example").canResend).toBe(false);
   });
 });
 

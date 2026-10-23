@@ -1947,6 +1947,27 @@
         "title": "HistoryEntry",
         "type": "object"
       },
+      "InvitationResentOut": {
+        "description": "P1c-07: the invitation email is queued again (one ``send_mail`` job; an invitation\nstill waiting to be sent is not queued twice).",
+        "properties": {
+          "status": {
+            "const": "queued",
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "status"
+        ],
+        "title": "InvitationResentOut",
+        "type": "object"
+      },
       "JobOut": {
         "properties": {
           "attempts": {
@@ -4553,6 +4574,38 @@
       }
     },
     "/api/v1/admin/users/{user_id}": {
+      "delete": {
+        "description": "P1c-07: delete a user of the admin's tenant with their history; audited.",
+        "operationId": "remove_tenant_user_api_v1_admin_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Tenant User"
+      },
       "patch": {
         "description": "Change role or status. Deactivated users are refused at sign-in and on every\nrequest; reactivating returns them to ``active``, or ``invited`` if they never\nsigned in.",
         "operationId": "change_user_api_v1_admin_users__user_id__patch",
@@ -4601,6 +4654,47 @@
           }
         },
         "summary": "Change User"
+      }
+    },
+    "/api/v1/admin/users/{user_id}/invitation": {
+      "post": {
+        "description": "P1c-07: queue the invitation email again for a user who has not signed in yet.",
+        "operationId": "resend_invitation_api_v1_admin_users__user_id__invitation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Invitation"
       }
     },
     "/api/v1/admin/workspaces/{workspace_id}/defaults": {
@@ -6906,6 +7000,101 @@
           }
         },
         "summary": "List Tenant Users"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/users/{user_id}": {
+      "delete": {
+        "description": "P1c-07: delete any tenant's user with their history; audited under the tenant.",
+        "operationId": "remove_tenant_user_api_v1_operator_tenants__tenant_id__users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Tenant User"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/users/{user_id}/invitation": {
+      "post": {
+        "description": "P1c-07: queue the invitation email again for a user still ``invited``.",
+        "operationId": "resend_invitation_api_v1_operator_tenants__tenant_id__users__user_id__invitation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Invitation"
       }
     },
     "/api/v1/operator/tenants/{tenant_id}/workspaces": {

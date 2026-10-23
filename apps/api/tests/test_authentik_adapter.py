@@ -320,5 +320,17 @@ async def test_admin_group_membership() -> None:
         await p.set_admin_mfa("a@client.example", True)
 
 
+async def test_a_removed_user_is_deactivated_never_deleted() -> None:
+    """P1c-07: the provisioner may change users, not delete them (blueprint)."""
+    sim = Simulated()
+    sim.objects["/api/v3/core/users/"] = [{"pk": 7, "username": "a@client.example"}]
+    p = provider(sim)
+    await p.disable_user("a@client.example")
+    (patch,) = sim.sent("PATCH", "/api/v3/core/users/7/")
+    assert json.loads(patch.content) == {"is_active": False}
+    await p.disable_user("nobody@client.example")  # no such user: nothing to do
+    assert [r.method for r in sim.requests if r.method in ("PATCH", "DELETE")] == ["PATCH"]
+
+
 def test_the_public_host_is_ours() -> None:
     assert urlsplit(AUTHENTIK.public_url or "").netloc == PUBLIC_HOST

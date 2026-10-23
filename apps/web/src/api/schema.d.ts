@@ -118,7 +118,11 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    delete?: never;
+    /**
+     * Remove Tenant User
+     * @description P1c-07: delete a user of the admin's tenant with their history; audited.
+     */
+    delete: operations["remove_tenant_user_api_v1_admin_users__user_id__delete"];
     options?: never;
     head?: never;
     /**
@@ -128,6 +132,26 @@ export interface paths {
      *     signed in.
      */
     patch: operations["change_user_api_v1_admin_users__user_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/admin/users/{user_id}/invitation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resend Invitation
+     * @description P1c-07: queue the invitation email again for a user who has not signed in yet.
+     */
+    post: operations["resend_invitation_api_v1_admin_users__user_id__invitation_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/api/v1/admin/workspaces/{workspace_id}/defaults": {
@@ -1163,6 +1187,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/operator/tenants/{tenant_id}/users/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Remove Tenant User
+     * @description P1c-07: delete any tenant's user with their history; audited under the tenant.
+     */
+    delete: operations["remove_tenant_user_api_v1_operator_tenants__tenant_id__users__user_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/users/{user_id}/invitation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resend Invitation
+     * @description P1c-07: queue the invitation email again for a user still ``invited``.
+     */
+    post: operations["resend_invitation_api_v1_operator_tenants__tenant_id__users__user_id__invitation_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/operator/tenants/{tenant_id}/workspaces": {
     parameters: {
       query?: never;
@@ -2012,6 +2076,23 @@ export interface components {
       event: string;
       /** Method */
       method: string | null;
+    };
+    /**
+     * InvitationResentOut
+     * @description P1c-07: the invitation email is queued again (one ``send_mail`` job; an invitation
+     *     still waiting to be sent is not queued twice).
+     */
+    InvitationResentOut: {
+      /**
+       * Status
+       * @constant
+       */
+      status: "queued";
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
     };
     /** JobOut */
     JobOut: {
@@ -3130,6 +3211,35 @@ export interface operations {
       };
     };
   };
+  remove_tenant_user_api_v1_admin_users__user_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   change_user_api_v1_admin_users__user_id__patch: {
     parameters: {
       query?: never;
@@ -3152,6 +3262,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AdminUserOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  resend_invitation_api_v1_admin_users__user_id__invitation_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InvitationResentOut"];
         };
       };
       /** @description Validation Error */
@@ -4955,6 +5096,68 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AdminUserOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  remove_tenant_user_api_v1_operator_tenants__tenant_id__users__user_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  resend_invitation_api_v1_operator_tenants__tenant_id__users__user_id__invitation_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InvitationResentOut"];
         };
       };
       /** @description Validation Error */

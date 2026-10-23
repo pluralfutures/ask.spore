@@ -127,6 +127,9 @@ class FakeSignInLinks:
     mfa_pending: dict[str, dict[str, Any]] = field(default_factory=dict)
     mfa_sync: list[tuple[str, bool]] = field(default_factory=list)
     fail_mfa_sync: bool = False
+    # P1c-07: users disabled on removal (a re-provisioned user is active again).
+    disabled: set[str] = field(default_factory=set)
+    fail_disable: bool = False
     # Make the next redeem return a token for a different identity (identity check).
     impersonate: tuple[str, uuid.UUID] | None = None
     # P1b-07: sources by slug, pending IdP round trips, and what each IdP answered.
@@ -203,6 +206,13 @@ class FakeSignInLinks:
 
     async def provision_user(self, *, email: str, display_name: str, tenant_id: uuid.UUID) -> None:
         self.users[email] = (tenant_id, display_name)
+        self.disabled.discard(email)
+
+    async def disable_user(self, email: str) -> None:
+        if self.fail_disable:
+            raise ProviderError("user_not_disabled")
+        if email in self.users:
+            self.disabled.add(email)
 
     async def revoke_token(self, token: str, kind: TokenKind) -> None:
         self.revoked.append(token)

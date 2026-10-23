@@ -41,6 +41,7 @@ AUTH_ROLE = "askspore_auth"
 OPERATOR_ROLE = "askspore_operator"
 CONTENT_ROLE = "askspore_content"
 RETENTION_ROLE = "askspore_retention"
+USER_REMOVAL_ROLE = "askspore_user_removal"
 TENANT_SETTING = "app.tenant_id"
 
 NAMING_CONVENTION = {
@@ -53,7 +54,7 @@ NAMING_CONVENTION = {
 
 
 # Roles the API may switch to inside one transaction; never built from input.
-_SET_ROLES = frozenset({AUTH_ROLE, OPERATOR_ROLE, CONTENT_ROLE, RETENTION_ROLE})
+_SET_ROLES = frozenset({AUTH_ROLE, OPERATOR_ROLE, CONTENT_ROLE, RETENTION_ROLE, USER_REMOVAL_ROLE})
 
 
 class Base(DeclarativeBase):

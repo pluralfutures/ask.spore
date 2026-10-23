@@ -64,3 +64,43 @@ test("an admin saves the instructions as a new version", async ({ page }) => {
   await expect(page.getByText("Retention cannot exceed 30 days.")).toBeVisible();
   expect(api.adminCalls.filter((c) => c.path === "/admin/settings/retention")).toEqual([]);
 });
+
+test("an admin resends an invitation, removes a user, and sees a taken address", async ({
+  page,
+}) => {
+  const api = new FakeApi({ workspaces: WORKSPACES, models: MODELS, role: "tenant_admin" });
+  await api.install(page);
+  await page.goto("/admin");
+
+  // P1c-07: only the invited user offers a resend; nobody can remove themselves.
+  const invited = page.getByTestId("user-invited@example.org");
+  const member = page.getByTestId("user-member@example.org");
+  const self = page.getByTestId("user-analyst@example.org");
+  await expect(member.getByRole("button", { name: "Resend invitation" })).toHaveCount(0);
+  await expect(self.getByRole("button", { name: "Remove" })).toHaveCount(0);
+  await invited.getByRole("button", { name: "Resend invitation" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Invitation sent again to invited@example.org.",
+  );
+  expect(api.resent).toEqual(["55555555-5555-4555-8555-555555555556"]);
+
+  // Removal asks first; cancelling sends nothing.
+  await member.getByRole("button", { name: "Remove" }).click();
+  await member.getByRole("button", { name: "Cancel" }).click();
+  expect(api.adminCalls.filter((c) => c.method === "DELETE")).toEqual([]);
+  await member.getByRole("button", { name: "Remove" }).click();
+  await member.getByRole("button", { name: "Remove member@example.org" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "member@example.org was removed with their conversations.",
+  );
+  await expect(member).toHaveCount(0);
+  expect(api.adminCalls.filter((c) => c.method === "DELETE").map((c) => c.path)).toEqual([
+    "/admin/users/55555555-5555-4555-8555-555555555557",
+  ]);
+
+  // The 409 email_taken reads as a sentence, not a status code.
+  await page.getByLabel("Email", { exact: true }).fill("invited@example.org");
+  await page.getByLabel("Name", { exact: true }).fill("Synthetic Again");
+  await page.getByRole("button", { name: "Invite" }).click();
+  await expect(page.getByText("That address already has an account.")).toBeVisible();
+});

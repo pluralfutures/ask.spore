@@ -636,6 +636,21 @@ class AuthentikProvider:
         except (httpx.HTTPError, ValueError, KeyError):
             raise ProviderError("provisioning_failed") from None
 
+    async def disable_user(self, email: str) -> None:
+        """``is_active`` off (the provisioner's role may change users, not delete them,
+        blueprint ``ask-spore-provisioner``); the operator deletes the account in
+        Authentik's admin interface."""
+        try:
+            user = await self._find("/api/v3/core/users/", username=email)
+            if user is None:
+                return
+            response = await self._api.patch(
+                f"/api/v3/core/users/{user['pk']}/", json={"is_active": False}
+            )
+            response.raise_for_status()
+        except (httpx.HTTPError, ValueError, KeyError):
+            raise ProviderError("user_not_disabled") from None
+
 
 def oidc_services(
     settings: Settings, http: httpx.AsyncClient

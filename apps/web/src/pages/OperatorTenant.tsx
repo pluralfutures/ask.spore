@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { ApiError, operatorApi } from "../api/client";
 import type {
+  AdminUser,
   EntitlementsIn,
   LoginPolicyIn,
   OperatorOptions,
@@ -12,6 +13,7 @@ import type {
   SsoSourceIn,
   TenantOut,
 } from "../api/types";
+import { UserActions } from "../components/UserActions";
 import { lastLogin } from "../lib/admin";
 import { formFrom, toRequest, type EntitlementsForm } from "../lib/entitlements";
 import { formatDate } from "../lib/format";
@@ -491,6 +493,21 @@ function Users({ tenant }: { tenant: TenantOut }) {
       await refresh();
     },
   });
+  // P1c-07: resend an invitation; remove a user (any tenant's, never a platform role).
+  const [done, setDone] = useState<string | null>(null);
+  const resend = useMutation({
+    mutationFn: (user: AdminUser) => operatorApi.resendInvitation(tenant.id, user.id),
+    onSuccess: (_, user) => setDone(`Invitation sent again to ${user.email}.`),
+  });
+  const remove = useMutation({
+    mutationFn: (user: AdminUser) => operatorApi.removeUser(tenant.id, user.id),
+    onSuccess: async (_, user) => {
+      setDone(`${user.email} was removed with their conversations.`);
+      await queryClient.invalidateQueries({ queryKey: key });
+      await refresh();
+    },
+  });
+  const failed = errorText(resend.error) ?? errorText(remove.error);
 
   return (
     <div className="flex flex-col gap-3 rounded bg-white p-3">
@@ -502,6 +519,7 @@ function Users({ tenant }: { tenant: TenantOut }) {
             <th>Role</th>
             <th>Status</th>
             <th>Last sign-in</th>
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -512,10 +530,30 @@ function Users({ tenant }: { tenant: TenantOut }) {
               <td>{user.role}</td>
               <td>{user.status}</td>
               <td>{lastLogin(user)}</td>
+              <td>
+                <UserActions
+                  user={user}
+                  canResend={user.status === "invited"}
+                  canRemove
+                  onResend={() => {
+                    setDone(null);
+                    remove.reset();
+                    resend.mutate(user);
+                  }}
+                  onRemove={() => {
+                    setDone(null);
+                    resend.reset();
+                    remove.mutate(user);
+                  }}
+                  busy={resend.isPending || remove.isPending}
+                />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {failed && <p className="text-red-700">{failed}</p>}
+      {done && !failed && <p role="status">{done}</p>}
       <form
         onSubmit={(e) => {
           e.preventDefault();

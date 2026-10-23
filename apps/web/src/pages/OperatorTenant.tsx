@@ -555,11 +555,13 @@ function Users({ tenant }: { tenant: TenantOut }) {
                   canRemove
                   onResend={() => {
                     setDone(null);
+                    invite.reset();
                     remove.reset();
                     resend.mutate(user);
                   }}
                   onRemove={() => {
                     setDone(null);
+                    invite.reset();
                     resend.reset();
                     remove.mutate(user);
                   }}
@@ -575,6 +577,10 @@ function Users({ tenant }: { tenant: TenantOut }) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          // Release F4: the invite's outcome replaces the list's last status.
+          setDone(null);
+          resend.reset();
+          remove.reset();
           invite.mutate();
         }}
         className="flex flex-wrap items-end gap-2"

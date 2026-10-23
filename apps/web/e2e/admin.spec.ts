@@ -105,4 +105,12 @@ test("an admin resends an invitation, removes a user, and sees a taken address",
   await page.getByLabel("Name", { exact: true }).fill("Synthetic Again");
   await page.getByRole("button", { name: "Invite" }).click();
   await expect(page.getByText("That address already has an account.")).toBeVisible();
+  // Release F4: the invite's refusal replaces the removal's status, and the next
+  // resend replaces the refusal (both stood together on the Instance).
+  await expect(page.getByText("was removed with their conversations.")).toHaveCount(0);
+  await invited.getByRole("button", { name: "Resend invitation" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Invitation sent again to invited@example.org.",
+  );
+  await expect(page.getByText("That address already has an account.")).toHaveCount(0);
 });

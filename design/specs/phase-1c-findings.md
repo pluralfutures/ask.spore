@@ -571,8 +571,9 @@ The Instance runs `main` at **1758623** (`ASK_SPORE_DEPLOY_VERSION=175862320a89`
 
 ### Release status
 
-**In progress** (Oct 23, 2026): sections 0 to 2 done (independent review signed, no blocker);
-sections 3 to 7 to follow.
+**In progress** (Oct 23, 2026): sections 0 to 3 done (independent review signed, no blocker;
+five fixes, F1 to F5); the F2, F4 and F5 deploy and its re-check pending; sections 4 to 7 to
+follow.
 
 ### Section 0: credentials rotation
 
@@ -655,7 +656,71 @@ sections 3 to 7 to follow.
 | Google source saved | "Saved." shown, with the earlier "SSO source removed." still under it (F2). Owner added `/sso-ssotest2/` to the Google OAuth client's redirect URIs. |
 | Google refusal (`myceliumgastronomy.com` Workspace user, `cc`'s domain) | 20:18:25 our landing page, `reason=domain`; `auth.login_failed` `method = sso:google`, `domain_not_verified` (address check before the `hd` check); no user anywhere; no Authentik error event. **Pass.** One `auth.login_failed` `method = sso`, `no_binding` at 20:10:26 (before the Google source existed): a callback without its attempt's cookie, refused; cause being confirmed with the owner. |
 | Google source removed | "SSO source removed.", form cleared; policy `none`; no `sso-*` source in Authentik. **Pass.** |
-| Keycloak drill (generic OIDC) | Needs F3 on `main` first. |
+| Keycloak drill (generic OIDC) | F3 merged (PR #62, `main` at 482d955). `setup.py --source-slug sso-ssotest2`, drill users `drill-verified@pluralfutures.com` and `drill-outsider@myceliumgastronomy.com` as in Phase 1b; discovery 200 over TLS, admin console 404. Source saved 20:37:08 (`oidc`, `sso-ssotest2`). Outsider at 20:38:07: our landing page, `reason=domain`; `auth.login_failed` `method = sso:oidc`, `domain_not_verified`; no user anywhere; no Authentik error event. Source removed: form cleared, policy `none`, no `sso-*` source in Authentik (both status lines shown: F2 not yet deployed). Drill torn down: container, volume `ask-spore-dev_keycloak_drill`, the files and directory under `/srv/ask-spore/drills/`; Caddy back on its own config; the drill host no longer answers; `/healthz` 200. **Pass.** |
+
+The 20:10:26 `no_binding` refusal: the owner reloading the Entra windows (confirmed).
+
+- **3.3 (b) before (a)**, as (b) needs a user who has not yet accepted the notice. **(b) Pass:** the
+  `ssotest2` member (signed in by link at 20:42:51; no SSO source left) sent
+  `POST /api/v1/conversations` from the browser console before consent: **403
+  `consent_required`** (`consent.refused` lines); `consent.accepted` v1 at 20:44:12; the same call
+  then **422 `no_workspace`** (`ssotest2` has no workspace): the gate let it through.
+  **(a) Pass:** the first replay (20:47) answered 401 without reaching the check: no
+  `auth.refresh_refused` line, because the macOS terminal's 1024-character line limit cut the
+  pasted 2096-character refresh cookie at `read -rs`. Repeated with the value read from the
+  clipboard (`R=$(pbpaste)`, length 2096): sign-out at 20:56:20 (`auth.signed_out`, `revoked`);
+  the old refresh cookie at 20:56:26 answered **401** with `auth.refresh_refused` (Authentik
+  refused the revoked token). Authentik holds no token from the signed-out sessions; one access
+  and one refresh token remain from the 20:02:49 Entra sign-in, whose window was closed without
+  signing out (they expire; the close-out removes the account).
+- **3.4 Pass.** Operator invited a `tenant_admin` (a `+` alias at `pluralfutures.com`):
+  "Invited. …", `operator.admin_invited`, one `send_mail` job, `mail.sent` in 6 s. From the link:
+  `auth.mfa_required`, the enrolment page showed the **QR code and the text key**; the owner
+  enrolled from the QR code alone, first time; `auth.login` 21:01:09, `consent.accepted` v1; one
+  confirmed TOTP device in Authentik; the chat app shows the Administration link.
+- **3.5** A second `tenant_admin` (another `+` alias) was invited, from the operator console (not
+  the tenant admin page, so the operator path was exercised too); job sent in 3 s.
+  **Resend, tenant admin page: Pass.** 7 clicks in three bursts (21:04:33 to 21:04:50): 7
+  `tenant_admin.invitation_resent` events carrying 3 job IDs, 3 `send_mail` jobs, one mail each;
+  every click while a job was queued got that job back. Once a mail is sent the next click
+  queues another (the backlog line on resend rate limits, confirmed live). **Operator resend:
+  Pass** (by accident): 7 clicks at 21:05:04 to 21:05:05, one job, one mail.
+  **`email_taken`: Pass**: "That address already has an account."; nothing written; the
+  previous resend status stayed under it (F4). **Removal from the tenant admin page:** the owner
+  removed the `ssotest2` **member user** (role `user`, active) rather than the invited admin:
+  "… was removed with their conversations." (with the earlier refusal still shown, F4);
+  `tenant_admin.user_removed` (role, status before, count 7); afterwards the only rows naming the
+  user are its 9 `audit_events` (every `user_id`, `*_user_id`, `created_by`, `proposed_by`,
+  `approved_by` column counted, and job payloads). **But its Authentik account stayed active
+  (F5).**
+  **Operator removal: Pass.** The invited admin removed from the console: "… was removed with
+  their conversations.", `operator.user_removed` (role `tenant_admin`, status before `invited`,
+  6 rows); its Authentik link account deactivated (`is_active` false). **Last admin: Pass.**
+  "The organisation's last admin cannot be removed. Make another user admin first.";
+  `operator.remove_refused` `last_admin`; nothing changed. **Internal user with a content role
+  (owner decision (a)):** the only internal user holding one is the operator, whose removal
+  stops first at the self check: "You cannot remove yourself.", `operator.remove_refused`
+  `cannot_remove_self`, nothing removed. The content-role refusal itself is covered by
+  `test_user_removal::test_the_operator_removes_any_tenants_user_but_no_platform_role` (2.1 and
+  the F5 suite run); granting a content role to the other internal user only to show it live
+  was declined.
+- **3.6 Pass** (the F2 and F4 re-checks after their deploy below). Every console save during
+  3.2 to 3.8 showed "Saved." or a worded refusal. The console's **Chat app** link and the chat
+  app's link back to the console show for the operator; the `ssotest2` tenant admin's chat app
+  shows **Administration** and no console link. Terminated tenants: one line, "SSO test
+  (ssotest) · suspended · purged 23 Oct 2026 · certificate COD-20261023-590758e5", matching the
+  `tenant.purged` event; not `cc`, not `ssotest2`.
+- **3.7 Pass.** As the operator in the internal `research` workspace: an answer stopped
+  mid-stream, the page reloaded: the partial answer is there with "This answer was stopped
+  before it finished."; stored as the question and an assistant message `partial = true`,
+  `truncated = false`, with text and 3 citations; `chat.query` audit `status partial`,
+  `error_code stopped`; the `chat.answer` log line carries status and code only. No answer was
+  cut off at the length limit, so that note is recorded as covered by
+  `test_partial_answers::test_a_cut_off_answer_keeps_its_note_after_a_reload`.
+- **3.8 Pass.** `tags_for_tenant` on the live `config/tags.toml`: `ssotest2` none, `internal` the
+  three `sample-*`, `cc` its four `cc-*`. In the console, a workspace `test` added to `ssotest2`
+  ("Workspace added.", `operator.workspace_created`; purged with the tenant) shows no tag
+  checkbox; `internal`'s `research` offers the three `sample-*` tags, all three in use.
 
 ### Issues found and fixed during the release
 
@@ -664,3 +729,5 @@ sections 3 to 7 to follow.
 | F1 | 1.2, P1c-10 | The deploy script's step 10 polled `/api/v1/healthz`, which requires a signed-in user and answers 401 to `curl`, so every deploy would have failed at its checks. Found after the runbook was written and before the deploy. | PR #61 (2244b09): the script checks the public `/healthz`, on loopback and over TLS; `test_deploy` pins the path. In the release commit. |
 | F2 | 3.2, P1c-08 | On the operator console's SSO source form, the save and the removal each kept their own status line and neither cleared the other: after removing the Entra source and saving the Google one, "Saved." and "SSO source removed." both stood (seen by the owner). P1c-08 asks for the outcome of each save. | `latestSourceAction` (`apps/web/src/lib/sso.ts`) picks the action submitted last; the form shows that one status line. Four unit tests in `sso.test.ts` (save after removal, removal after save, refusal after removal, nothing before any action). Web lint, typecheck and 126 unit tests pass. Live after merge and the next deploy; re-checked at 3.6. |
 | F3 | 3.2, Keycloak drill | The drill's realm template had the Phase 1b callback `/source/oauth/callback/sso-ssotest/` fixed in its client, so with the test tenant `ssotest2` (3.2 deviation) Keycloak would refuse the callback, as Microsoft did before the owner added the new URI to the Entra app (3.2 notes). | `setup.py` takes a required `--source-slug` (`sso-<tenant slug>`, validated) and fills the redirect URI from it; README updated. `tests/test_keycloak_drill.py`: the URI follows the slug; malformed slugs refused; the template names no tenant. ruff, format, `mypy --strict` clean. |
+| F4 | 3.5, P1c-07 / P1c-08 | Same class as F2 on the two user lists (tenant admin page and the operator console's users tab): an invite's refusal and the list's last resend or removal status stood together ("That address already has an account." above "… was removed …"), as neither action cleared the other. | Starting an invite clears the list's status and the resend, removal and role-change states; a resend or removal clears the invite's outcome (the tenant admin page remounts its invite form, the console resets its invite state). Playwright: `admin.spec.ts` extended (the owner's sequence: resend, remove, `email_taken`, resend) and a new `operator.spec.ts` users-tab test; they run in CI (the Instance has no browser build, and none is installed on the live host). Web lint, typecheck and 126 unit tests pass. |
+| F5 | 3.5, P1c-07 | User removal did not deactivate an **SSO-created** Authentik account. `disable_user` looked the account up by `username = email`; the generated source mapping names SSO accounts `<source slug>.<email>`, so the lookup found nothing and returned without error: the removal reported success and the account stayed active (seen live for the removed `ssotest2` member). Our data was not exposed: with no `users` row every token and refresh is refused (`user_inactive`). | `disable_user` lists Authentik users by `email` (exact filter, checked in the `version-2026.8` source) and deactivates each that is the address's sign-in-link account (`username = email`) or an SSO account (`sso-<slug>.<email>`); any other account with that address (for example an Authentik admin) is never touched; still PATCH only, never DELETE. Tests: `test_authentik_adapter::test_a_removed_sso_user_is_deactivated_too` and 8 cases of `test_only_the_addresses_own_accounts_are_deactivated`. Full API suite: 1528 passed against a throwaway PostgreSQL 16.15 (1 deselected); ruff, `mypy --strict` clean. The account left active tonight is removed with `ssotest2`'s Authentik users at close-out. |

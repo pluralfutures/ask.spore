@@ -19,7 +19,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from app.auth.authentik import AuthentikProvider
+from app.auth.authentik import AuthentikProvider, _is_account_of
 from app.auth.provider import IssuedTokens, LinkRefused, MfaRequired, ProviderError
 from app.auth.sources import entra_config, parse_idp_metadata, saml_config, spec_for
 from tests.test_auth import AUTHENTIK
@@ -352,13 +352,53 @@ async def test_admin_group_membership() -> None:
 async def test_a_removed_user_is_deactivated_never_deleted() -> None:
     """P1c-07: the provisioner may change users, not delete them (blueprint)."""
     sim = Simulated()
-    sim.objects["/api/v3/core/users/"] = [{"pk": 7, "username": "a@client.example"}]
+    sim.objects["/api/v3/core/users/"] = [
+        {"pk": 7, "username": "a@client.example", "email": "a@client.example"}
+    ]
     p = provider(sim)
     await p.disable_user("a@client.example")
     (patch,) = sim.sent("PATCH", "/api/v3/core/users/7/")
     assert json.loads(patch.content) == {"is_active": False}
     await p.disable_user("nobody@client.example")  # no such user: nothing to do
     assert [r.method for r in sim.requests if r.method in ("PATCH", "DELETE")] == ["PATCH"]
+
+
+async def test_a_removed_sso_user_is_deactivated_too() -> None:
+    """Phase 1c release F5: an SSO-created account is named ``<source slug>.<email>`` by
+    the generated mapping, so a lookup by username alone missed it and the removal
+    reported success with the account still active."""
+    sim = Simulated()
+    sim.objects["/api/v3/core/users/"] = [
+        {"pk": 7, "username": "a@client.example", "email": "a@client.example"},
+        {"pk": 8, "username": "sso-client.a@client.example", "email": "a@client.example"},
+        # Same address, not one of ours: never touched.
+        {"pk": 9, "username": "akadmin", "email": "a@client.example"},
+        {"pk": 10, "username": "sso-client.b@client.example", "email": "b@client.example"},
+    ]
+    await provider(sim).disable_user("a@client.example")
+    patched = sorted(r.url.path for r in sim.requests if r.method == "PATCH")
+    assert patched == ["/api/v3/core/users/7/", "/api/v3/core/users/8/"]
+    assert all(
+        json.loads(r.content) == {"is_active": False} for r in sim.requests if r.method == "PATCH"
+    )
+    assert not [r for r in sim.requests if r.method == "DELETE"]
+
+
+@pytest.mark.parametrize(
+    ("username", "ours"),
+    [
+        ("a@client.example", True),
+        ("sso-client.a@client.example", True),
+        ("sso-client-2.a@client.example", True),
+        ("akadmin", False),
+        ("sso-client.xa@client.example", False),
+        ("sso-.a@client.example", False),
+        ("other.a@client.example", False),
+        ("sso-client.a@client.exampleXcom", False),
+    ],
+)
+def test_only_the_addresses_own_accounts_are_deactivated(username: str, ours: bool) -> None:
+    assert _is_account_of(username, "a@client.example") is ours
 
 
 def test_the_public_host_is_ours() -> None:

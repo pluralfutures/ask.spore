@@ -25,7 +25,7 @@ from app.content.jobs import (
     finish,
     states,
 )
-from app.content.register import approve, propose
+from app.content.register import approve, approve_retag, propose, request_withdrawal
 from app.content.submit import settle
 from app.core.db import tenant_session
 from app.core.logging import format_line
@@ -232,6 +232,82 @@ async def test_an_interrupted_run_is_cleaned_up_before_the_next_upload(
     row = await source_row(admin_conn, source_id)
     assert row["status"] == "ingested"
     assert stale.id not in json.loads(row["ragflow_document_ids"]).values()
+
+
+async def test_an_interrupted_retag_is_cleaned_up_before_the_next_upload(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    """P1c-14 (findings 1b A1-11): a re-tag cut off by a stopped worker leaves its new
+    document mapped on the row, under a tag the row does not hold; the next attempt
+    deletes it from RAGFlow before uploading again, as an interrupted first ingestion."""
+    e, _ = env
+    source_id, _ = await approved(e)
+    ctx = context(e)
+    await worker.run_once(e.factory, worker.handlers(ctx))
+    [(reports_dataset, reports_doc)] = json.loads(
+        (await source_row(admin_conn, source_id))["ragflow_document_ids"]
+    ).items()
+    await approve_retag(e.factory, source_id, e.user_id, ["sample-web"], downloadable=False)
+
+    e.fake.outcomes[".pdf"] = Outcome(chunk_count=4, polls_until_done=10**9)  # never parses
+    web = e.datasets["sample-web"]
+    parsing = asyncio.Event()
+    start_parse = e.fake.start_parse
+
+    async def started(dataset_id: str, document_ids: list[str]) -> None:
+        await start_parse(dataset_id, document_ids)
+        if dataset_id == web:  # after the upload was recorded on the row
+            parsing.set()
+
+    e.fake.start_parse = started  # type: ignore[method-assign]
+    task = asyncio.create_task(worker.run_once(e.factory, worker.handlers(ctx)))
+    await asyncio.wait_for(parsing.wait(), 10)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    row = await source_row(admin_conn, source_id)
+    assert row["tags"] == ["sample-reports"]  # the re-tag did not finish
+    stale = json.loads(row["ragflow_document_ids"])[web]
+    assert stale in e.fake.documents and stale not in e.fake.deleted
+
+    e.fake.start_parse = start_parse  # type: ignore[method-assign]
+    e.fake.outcomes[".pdf"] = Outcome(chunk_count=4)
+    await worker.run_once(e.factory, worker.handlers(ctx))  # the job was put back
+    assert stale in e.fake.deleted and stale not in e.fake.documents
+    row = await source_row(admin_conn, source_id)
+    mapping = json.loads(row["ragflow_document_ids"])
+    assert row["tags"] == ["sample-reports", "sample-web"]
+    assert mapping[reports_dataset] == reports_doc and mapping[web] != stale
+    assert set(mapping.values()) <= set(e.fake.documents)
+    assert [doc.id for doc in e.fake.documents.values() if doc.dataset_id == web] == [mapping[web]]
+
+
+async def test_a_failed_retag_unmaps_what_it_deleted_and_keeps_what_it_could_not(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    e, _ = env
+    source_id, _ = await approved(e)
+    ctx = context(e)
+    await worker.run_once(e.factory, worker.handlers(ctx))
+    before = json.loads((await source_row(admin_conn, source_id))["ragflow_document_ids"])
+    await approve_retag(e.factory, source_id, e.user_id, ["sample-web"], downloadable=False)
+    e.fake.outcomes[".pdf"] = Outcome(run="FAIL", chunk_count=0, progress_msg="[ERROR] x")
+    e.fake.fail_delete = RagflowError("delete_documents", "unreachable")
+    await worker.run_once(e.factory, worker.handlers(ctx))
+    row = await source_row(admin_conn, source_id)
+    mapping = json.loads(row["ragflow_document_ids"])
+    web = e.datasets["sample-web"]
+    assert row["tags"] == ["sample-reports"] and set(mapping) == {*before, web}
+    left = mapping[web]  # its clean-up failed: still mapped, so nothing loses track of it
+
+    # A withdrawal deletes it with the rest; the next re-tag would have, too.
+    e.fake.fail_delete = None
+    await request_withdrawal(e.factory, source_id, e.user_id, reason="synthetic")
+    await admin_conn.execute("UPDATE jobs SET run_after = now()")
+    while await worker.run_once(e.factory, worker.handlers(ctx)):
+        pass
+    assert left in e.fake.deleted and left not in e.fake.documents
+    assert (await source_row(admin_conn, source_id))["status"] == "withdrawn"
 
 
 async def test_a_stopped_worker_puts_the_job_back(

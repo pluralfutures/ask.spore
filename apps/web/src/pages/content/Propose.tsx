@@ -14,6 +14,9 @@ import {
 } from "../../lib/content";
 import { Button } from "../../ui/Button";
 import { LINK } from "../../ui/link";
+import { Field } from "../../ui/Field";
+import { Input } from "../../ui/Input";
+import { Checkbox } from "../../ui/Checkbox";
 
 // The propose form (P1b-05): a file upload or a URL, with the manifest's metadata and
 // tags. The licence basis is always required; a licence or permission letter is optional,
@@ -47,96 +50,65 @@ export function Propose({ roles }: { roles: string[] }) {
       className="flex max-w-2xl flex-col gap-2 rounded-control bg-surface p-3"
     >
       <h2 className="font-strong">Propose a source</h2>
-      <label className="flex flex-col">
-        File (PDF, DOCX, PPTX, HTML, Markdown)
-        <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      </label>
-      <label className="flex flex-col">
-        or URL
-        <input
-          value={fields.url}
-          onChange={(e) => set("url")(e.target.value)}
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Title
-        <input
-          value={fields.title}
-          onChange={(e) => set("title")(e.target.value)}
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Publisher
-        <input
-          value={fields.publisher}
-          onChange={(e) => set("publisher")(e.target.value)}
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Publication date
-        <input
+      <Field label="File (PDF, DOCX, PPTX, HTML, Markdown)">
+        <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      </Field>
+      <Field label="or URL">
+        <Input value={fields.url} onChange={(e) => set("url")(e.target.value)} />
+      </Field>
+      <Field label="Title">
+        <Input value={fields.title} onChange={(e) => set("title")(e.target.value)} />
+      </Field>
+      <Field label="Publisher">
+        <Input value={fields.publisher} onChange={(e) => set("publisher")(e.target.value)} />
+      </Field>
+      <Field label="Publication date">
+        <Input
           type="date"
           value={fields.publishedOn}
           onChange={(e) => set("publishedOn")(e.target.value)}
-          className="border px-1"
         />
-      </label>
-      <label className="flex flex-col">
-        Canonical link (the publisher's page; the URL itself for a URL)
-        <input
-          value={fields.canonicalUrl}
-          onChange={(e) => set("canonicalUrl")(e.target.value)}
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Licence basis
-        <input
+      </Field>
+      <Field label="Canonical link (the publisher's page; the URL itself for a URL)">
+        <Input value={fields.canonicalUrl} onChange={(e) => set("canonicalUrl")(e.target.value)} />
+      </Field>
+      <Field label="Licence basis">
+        <Input
           list="licence-bases"
           value={fields.licenceBasis}
           onChange={(e) => set("licenceBasis")(e.target.value)}
-          className="border px-1"
         />
-        <datalist id="licence-bases">
-          {LICENCE_BASES.map((basis) => (
-            <option key={basis} value={basis} />
-          ))}
-        </datalist>
-      </label>
+      </Field>
+      <datalist id="licence-bases">
+        {LICENCE_BASES.map((basis) => (
+          <option key={basis} value={basis} />
+        ))}
+      </datalist>
       <fieldset className="flex flex-wrap gap-3">
         <legend>Tags</legend>
         {tags.data?.map((t) => (
-          <label key={t.tag}>
-            <input
-              type="checkbox"
-              checked={fields.tags.includes(t.tag)}
-              onChange={(e) =>
-                set("tags")(
-                  e.target.checked
-                    ? [...fields.tags, t.tag]
-                    : fields.tags.filter((x) => x !== t.tag),
-                )
-              }
-            />{" "}
+          <Checkbox
+            key={t.tag}
+            checked={fields.tags.includes(t.tag)}
+            onChange={(e) =>
+              set("tags")(
+                e.target.checked ? [...fields.tags, t.tag] : fields.tags.filter((x) => x !== t.tag),
+              )
+            }
+          >
             {t.tag}
-          </label>
+          </Checkbox>
         ))}
       </fieldset>
-      <label>
-        <input
-          type="checkbox"
-          checked={fields.downloadable}
-          onChange={(e) => set("downloadable")(e.target.checked)}
-        />{" "}
+      <Checkbox
+        checked={fields.downloadable}
+        onChange={(e) => set("downloadable")(e.target.checked)}
+      >
         Users may download the file (only where the licence permits redistribution)
-      </label>
-      <label className="flex flex-col">
-        Licence or permission letter (optional)
-        <input type="file" onChange={(e) => setLicence(e.target.files?.[0] ?? null)} />
-      </label>
+      </Checkbox>
+      <Field label="Licence or permission letter (optional)">
+        <Input type="file" onChange={(e) => setLicence(e.target.files?.[0] ?? null)} />
+      </Field>
       <Button variant="primary" className="w-fit" type="submit" disabled={propose.isPending}>
         Propose
       </Button>

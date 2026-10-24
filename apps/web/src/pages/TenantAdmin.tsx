@@ -20,6 +20,9 @@ import { policySummary } from "../lib/sso";
 import { modelLabel } from "../lib/startPanel";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
+import { Field } from "../ui/Field";
+import { Input, Select, Textarea } from "../ui/Input";
+import { Switch } from "../ui/Switch";
 
 function refusal(error: unknown): string | null {
   if (error === null || error === undefined) return null;
@@ -167,14 +170,14 @@ function UserRow({
       <td>{user.email}</td>
       <td>
         {actions.canChangeRole ? (
-          <select
+          <Select
             aria-label={`Role of ${user.email}`}
             value={user.role}
             onChange={(e) => onChange({ role: e.target.value as "user" | "tenant_admin" })}
           >
             <option value="user">User</option>
             <option value="tenant_admin">Admin</option>
-          </select>
+          </Select>
         ) : user.role === "tenant_admin" ? (
           "Admin"
         ) : (
@@ -228,29 +231,18 @@ function Invite({ onInvited, onStart }: { onInvited: () => void; onStart: () => 
 
   return (
     <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
-      <label className="flex flex-col">
-        Email
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="rounded-control border px-2"
-        />
-      </label>
-      <label className="flex flex-col">
-        Name
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="rounded-control border px-2"
-        />
-      </label>
-      <label className="flex flex-col">
-        Role
-        <select value={role} onChange={(e) => setRole(e.target.value as "user" | "tenant_admin")}>
+      <Field label="Email">
+        <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+      </Field>
+      <Field label="Name">
+        <Input value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="Role">
+        <Select value={role} onChange={(e) => setRole(e.target.value as "user" | "tenant_admin")}>
           <option value="user">User</option>
           <option value="tenant_admin">Admin</option>
-        </select>
-      </label>
+        </Select>
+      </Field>
       <Button
         variant="primary"
         type="submit"
@@ -342,19 +334,17 @@ function Defaults({
       }}
       className="flex flex-wrap items-end gap-2"
     >
-      <label className="flex flex-col">
-        Default mode
-        <select value={mode} onChange={(e) => setMode(e.target.value)}>
+      <Field label="Default mode">
+        <Select value={mode} onChange={(e) => setMode(e.target.value)}>
           {modes.map((m) => (
             <option key={m} value={m}>
               {MODE_LABELS[m] ?? m}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="flex flex-col">
-        Default model
-        <select
+        </Select>
+      </Field>
+      <Field label="Default model">
+        <Select
           value={model}
           onChange={(e) => {
             setModel(e.target.value);
@@ -367,17 +357,15 @@ function Defaults({
               {modelLabel(m)}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="flex items-center gap-1">
-        <input
-          type="checkbox"
-          checked={reasoning}
-          disabled={!switchable}
-          onChange={(e) => setReasoning(e.target.checked)}
-        />
+        </Select>
+      </Field>
+      <Switch
+        checked={reasoning}
+        disabled={!switchable}
+        onChange={(e) => setReasoning(e.target.checked)}
+      >
         Reasoning by default
-      </label>
+      </Switch>
       <Button variant="primary" type="submit" disabled={save.isPending}>
         Save defaults
       </Button>
@@ -417,7 +405,7 @@ function Instructions({ workspace }: { workspace: Workspace }) {
         Added to the assistant&apos;s instructions for this workspace. They cannot change how it
         cites sources or when it declines to answer.
       </p>
-      <textarea
+      <Textarea
         id={`instructions-${workspace.id}`}
         value={text}
         onChange={(e) => {
@@ -426,7 +414,6 @@ function Instructions({ workspace }: { workspace: Workspace }) {
         }}
         maxLength={MAX_INSTRUCTIONS_CHARS}
         rows={4}
-        className="rounded-control border px-2 py-1"
       />
       <div className="flex items-center gap-2">
         <Button
@@ -539,23 +526,22 @@ function Retention() {
           {retentionSummary(settings.data.retention_days)}
         </p>
       ) : null}
-      <form onSubmit={submit} noValidate className="mt-2 flex items-end gap-2">
-        <label className="flex flex-col">
-          Days
-          <input
+      <form onSubmit={submit} noValidate className="mt-2 flex items-start gap-2">
+        <Field label="Days" error={error}>
+          <Input
             type="number"
             min={0}
             max={MAX_RETENTION_DAYS}
             value={current}
             onChange={(e) => setValue(e.target.value)}
-            className="w-20 rounded-control border px-2"
+            className="w-20"
           />
-        </label>
-        <Button variant="primary" type="submit" disabled={save.isPending}>
+        </Field>
+        {/* mt-6: level with the input, below the field's label */}
+        <Button variant="primary" type="submit" disabled={save.isPending} className="mt-6">
           Save retention
         </Button>
       </form>
-      {error ? <p className="text-danger">{error}</p> : null}
       {refusal(save.error) ? <p className="text-danger">{refusal(save.error)}</p> : null}
     </section>
   );

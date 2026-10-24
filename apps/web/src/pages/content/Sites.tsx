@@ -14,6 +14,9 @@ import {
 import { formatDate } from "../../lib/format";
 import { Button } from "../../ui/Button";
 import { LINK } from "../../ui/link";
+import { Field } from "../../ui/Field";
+import { Input, Select, Textarea } from "../../ui/Input";
+import { Checkbox } from "../../ui/Checkbox";
 
 // Sites (P1b-04, P1b-05): registered websites, their crawl state, and the editor's form
 // to register one for a reviewer to approve.
@@ -104,11 +107,10 @@ function RegisterSite() {
     });
   }
   const input = (key: "start_url" | "name" | "publisher" | "licence_basis" | "max_pages") => (
-    <input
+    <Input
       value={form[key]}
       onChange={(e) => setForm({ ...form, [key]: e.target.value })}
       required
-      className="border px-1"
     />
   );
   return (
@@ -117,63 +119,53 @@ function RegisterSite() {
       className="flex max-w-2xl flex-col gap-2 rounded-control bg-surface p-3"
     >
       <h2 className="font-strong">Register a site</h2>
-      <label className="flex flex-col">Start URL{input("start_url")}</label>
-      <label className="flex flex-col">Name{input("name")}</label>
-      <label className="flex flex-col">Publisher{input("publisher")}</label>
-      <label className="flex flex-col">Licence basis{input("licence_basis")}</label>
+      <Field label="Start URL">{input("start_url")}</Field>
+      <Field label="Name">{input("name")}</Field>
+      <Field label="Publisher">{input("publisher")}</Field>
+      <Field label="Licence basis">{input("licence_basis")}</Field>
       <fieldset className="flex flex-wrap gap-3">
         <legend>Tags</legend>
         {tags.data?.map((t) => (
-          <label key={t.tag}>
-            <input
-              type="checkbox"
-              checked={form.tags.includes(t.tag)}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  tags: e.target.checked
-                    ? [...form.tags, t.tag]
-                    : form.tags.filter((x) => x !== t.tag),
-                })
-              }
-            />{" "}
+          <Checkbox
+            key={t.tag}
+            checked={form.tags.includes(t.tag)}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                tags: e.target.checked
+                  ? [...form.tags, t.tag]
+                  : form.tags.filter((x) => x !== t.tag),
+              })
+            }
+          >
             {t.tag}
-          </label>
+          </Checkbox>
         ))}
       </fieldset>
-      <label className="flex flex-col">
-        Paths to crawl, one per line (e.g. /reports/*; empty: the whole site)
-        <textarea
+      <Field label="Paths to crawl, one per line (e.g. /reports/*; empty: the whole site)">
+        <Textarea
           value={form.allow}
           onChange={(e) => setForm({ ...form, allow: e.target.value })}
-          className="border p-1"
         />
-      </label>
-      <label className="flex flex-col">
-        Paths never to crawl, one per line
-        <textarea
-          value={form.deny}
-          onChange={(e) => setForm({ ...form, deny: e.target.value })}
-          className="border p-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Schedule
-        <select
+      </Field>
+      <Field label="Paths never to crawl, one per line">
+        <Textarea value={form.deny} onChange={(e) => setForm({ ...form, deny: e.target.value })} />
+      </Field>
+      <Field label="Schedule">
+        <Select
           value={form.schedule}
           onChange={(e) =>
             setForm({ ...form, schedule: e.target.value as SiteCreateIn["schedule"] })
           }
-          className="border"
         >
           {SCHEDULES.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="flex flex-col">Page budget{input("max_pages")}</label>
+        </Select>
+      </Field>
+      <Field label="Page budget">{input("max_pages")}</Field>
       <Button variant="primary" className="w-fit" type="submit" disabled={create.isPending}>
         Register
       </Button>

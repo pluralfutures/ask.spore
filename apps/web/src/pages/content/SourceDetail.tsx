@@ -8,6 +8,9 @@ import { canEdit, canReview, errorMessage, historyLine, timerText } from "../../
 import { formatDate } from "../../lib/format";
 import { Button } from "../../ui/Button";
 import { LINK } from "../../ui/link";
+import { Field } from "../../ui/Field";
+import { Input, Textarea } from "../../ui/Input";
+import { Checkbox, Radio } from "../../ui/Checkbox";
 
 // One source: its register metadata, history, jobs, ingestion status and errors, the
 // licence file, links to its documents in the private RAGFlow UI, and the reviewer's
@@ -189,14 +192,9 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
               onChange={setChoice}
             />
           ) : null}
-          <label className="flex flex-col">
-            Note (required to reject)
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="border p-1"
-            />
-          </label>
+          <Field label="Note (required to reject)">
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
           <div className="flex gap-2">
             <Button
               variant="primary"
@@ -222,14 +220,9 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
       ) : null}
       {source.status === "ingested" || source.status === "failed" ? (
         <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col">
-            Withdrawal reason
-            <input
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="border px-1"
-            />
-          </label>
+          <Field label="Withdrawal reason">
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+          </Field>
           <Button
             variant="secondary-danger"
             onClick={() => withdraw.mutate()}
@@ -277,27 +270,24 @@ export function ReplacementChoice({
         Possible replacement: this file is at the canonical link of an ingested source.
       </legend>
       {candidates.map((c) => (
-        <label key={c.id}>
-          <input
-            type="radio"
-            name="replacement"
-            value={c.id}
-            checked={value === c.id}
-            onChange={() => onChange(c.id)}
-          />{" "}
-          Replace {c.title} ({c.publisher})
-        </label>
-      ))}
-      <label>
-        <input
-          type="radio"
+        <Radio
+          key={c.id}
           name="replacement"
-          value="keep"
-          checked={value === "keep"}
-          onChange={() => onChange("keep")}
-        />{" "}
+          value={c.id}
+          checked={value === c.id}
+          onChange={() => onChange(c.id)}
+        >
+          Replace {c.title} ({c.publisher})
+        </Radio>
+      ))}
+      <Radio
+        name="replacement"
+        value="keep"
+        checked={value === "keep"}
+        onChange={() => onChange("keep")}
+      >
         Keep both
-      </label>
+      </Radio>
     </fieldset>
   );
 }
@@ -325,38 +315,27 @@ function TakedownForm({ id }: { id: string }) {
   return (
     <form onSubmit={submit} className="flex flex-wrap items-end gap-2 border-t pt-2">
       <span className="w-full font-strong">Record a takedown request</span>
-      <label className="flex flex-col">
-        Reference
-        <input
-          value={reference}
-          onChange={(e) => setReference(e.target.value)}
-          required
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Requested on
-        <input
+      <Field label="Reference">
+        <Input value={reference} onChange={(e) => setReference(e.target.value)} required />
+      </Field>
+      <Field label="Requested on">
+        <Input
           type="date"
           value={requestedOn}
           onChange={(e) => setRequestedOn(e.target.value)}
           required
-          className="border px-1"
         />
-      </label>
-      <label>
-        <input type="checkbox" checked={breach} onChange={(e) => setBreach(e.target.checked)} />{" "}
+      </Field>
+      <Checkbox checked={breach} onChange={(e) => setBreach(e.target.checked)}>
         Licence breach we found (due today)
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={grounds || breach}
-          disabled={breach}
-          onChange={(e) => setGrounds(e.target.checked)}
-        />{" "}
+      </Checkbox>
+      <Checkbox
+        checked={grounds || breach}
+        disabled={breach}
+        onChange={(e) => setGrounds(e.target.checked)}
+      >
         On licence grounds
-      </label>
+      </Checkbox>
       <Button variant="secondary" type="submit" disabled={record.isPending}>
         Record
       </Button>
@@ -380,10 +359,9 @@ function LicenceUpload({ id }: { id: string }) {
   });
   return (
     <div className="flex flex-wrap items-end gap-2 rounded-control bg-surface p-3">
-      <label className="flex flex-col">
-        Licence or permission letter (PDF, DOCX, TXT, EML, image)
-        <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      </label>
+      <Field label="Licence or permission letter (PDF, DOCX, TXT, EML, image)">
+        <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      </Field>
       <Button
         variant="secondary"
         onClick={() => upload.mutate()}

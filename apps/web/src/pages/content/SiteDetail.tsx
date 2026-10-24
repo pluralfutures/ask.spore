@@ -15,6 +15,8 @@ import {
 import { formatDate } from "../../lib/format";
 import { Button } from "../../ui/Button";
 import { LINK } from "../../ui/link";
+import { Field } from "../../ui/Field";
+import { Input, Select, Textarea } from "../../ui/Input";
 
 // One site (P1b-04, P1b-05): its settings, allow decision and last crawl, every page a
 // crawl met (blocked ones with the reason), and the reviewer's actions: approve or
@@ -172,10 +174,9 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
       {error ? <p className="text-danger">{error}</p> : null}
       {site.status === "proposed" ? (
         <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col">
-            Note (required to reject)
-            <input value={note} onChange={(e) => setNote(e.target.value)} className="border px-1" />
-          </label>
+          <Field label="Note (required to reject)">
+            <Input value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
           <Button variant="primary" onClick={() => approve.mutate()}>
             Approve and crawl
           </Button>
@@ -194,56 +195,31 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
       ) : null}
       {site.status !== "rejected" && site.status !== "withdrawn" ? (
         <div className="grid gap-2 md:grid-cols-2">
-          <label className="flex flex-col">
-            Paths to crawl (one per line)
-            <textarea
-              value={allow}
-              onChange={(e) => setAllow(e.target.value)}
-              className="border p-1"
-            />
-          </label>
-          <label className="flex flex-col">
-            Paths never to crawl
-            <textarea
-              value={deny}
-              onChange={(e) => setDeny(e.target.value)}
-              className="border p-1"
-            />
-          </label>
-          <label className="flex flex-col">
-            Schedule
-            <select
-              value={schedule}
-              onChange={(e) => setSchedule(e.target.value)}
-              className="border"
-            >
+          <Field label="Paths to crawl (one per line)">
+            <Textarea value={allow} onChange={(e) => setAllow(e.target.value)} />
+          </Field>
+          <Field label="Paths never to crawl">
+            <Textarea value={deny} onChange={(e) => setDeny(e.target.value)} />
+          </Field>
+          <Field label="Schedule">
+            <Select value={schedule} onChange={(e) => setSchedule(e.target.value)}>
               {SCHEDULES.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="flex flex-col">
-            Page budget
-            <input
-              value={maxPages}
-              onChange={(e) => setMaxPages(e.target.value)}
-              className="border px-1"
-            />
-          </label>
+            </Select>
+          </Field>
+          <Field label="Page budget">
+            <Input value={maxPages} onChange={(e) => setMaxPages(e.target.value)} />
+          </Field>
           <Button variant="secondary" className="w-fit" onClick={() => save.mutate()}>
             Save settings
           </Button>
           <span />
-          <label className="flex flex-col">
-            Special-category whitelist (paths, one per line, e.g. /health/*)
-            <textarea
-              value={whitelist}
-              onChange={(e) => setWhitelist(e.target.value)}
-              className="border p-1"
-            />
-          </label>
+          <Field label="Special-category whitelist (paths, one per line, e.g. /health/*)">
+            <Textarea value={whitelist} onChange={(e) => setWhitelist(e.target.value)} />
+          </Field>
           <Button
             variant="secondary"
             className="w-fit self-end"
@@ -271,10 +247,9 @@ export function WithdrawSite({
 }) {
   return (
     <div data-testid="withdraw-site" className="flex flex-wrap items-end gap-2">
-      <label className="flex flex-col">
-        Reason for withdrawing the site
-        <input value={reason} onChange={(e) => onReason(e.target.value)} className="border px-1" />
-      </label>
+      <Field label="Reason for withdrawing the site">
+        <Input value={reason} onChange={(e) => onReason(e.target.value)} />
+      </Field>
       <Button variant="secondary-danger" onClick={onWithdraw} disabled={pending || !reason.trim()}>
         Withdraw site
       </Button>

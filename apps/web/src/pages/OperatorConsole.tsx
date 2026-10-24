@@ -7,6 +7,9 @@ import { SaveStatus } from "../components/SaveStatus";
 import { formatDate } from "../lib/format";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
+import { Field } from "../ui/Field";
+import { Input } from "../ui/Input";
+import { Checkbox } from "../ui/Checkbox";
 
 // Operator console (P1a-03), one tenant per page (P1b-12): this page picks the tenant and
 // creates new ones; each tenant's settings are on its own page (OperatorTenant), so a
@@ -89,17 +92,15 @@ function Sources() {
       <ul className="flex flex-col gap-1">
         {files.map((source) => (
           <li key={source.id}>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={source.downloadable}
-                disabled={!source.stored || toggle.isPending}
-                onChange={(e) => toggle.mutate({ id: source.id, downloadable: e.target.checked })}
-              />
+            <Checkbox
+              checked={source.downloadable}
+              disabled={!source.stored || toggle.isPending}
+              onChange={(e) => toggle.mutate({ id: source.id, downloadable: e.target.checked })}
+            >
               {source.title} · {source.publisher} · {source.licence_basis} ·{" "}
               {source.tags.join(", ")}
               {source.stored ? null : <span className="text-fg-muted">(no stored copy)</span>}
-            </label>
+            </Checkbox>
           </li>
         ))}
       </ul>
@@ -163,32 +164,15 @@ function CreateTenant() {
       className="flex flex-wrap items-end gap-2 rounded-control bg-surface p-3 text-ui"
     >
       <h2 className="w-full font-strong">New tenant</h2>
-      <label className="flex flex-col">
-        Slug
-        <input
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-          required
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Display name
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Verified domains (comma-separated)
-        <input
-          value={domains}
-          onChange={(e) => setDomains(e.target.value)}
-          className="border px-1"
-        />
-      </label>
+      <Field label="Slug">
+        <Input value={slug} onChange={(e) => setSlug(e.target.value)} required />
+      </Field>
+      <Field label="Display name">
+        <Input value={name} onChange={(e) => setName(e.target.value)} required />
+      </Field>
+      <Field label="Verified domains (comma-separated)">
+        <Input value={domains} onChange={(e) => setDomains(e.target.value)} />
+      </Field>
       <Button variant="primary" type="submit">
         Create
       </Button>

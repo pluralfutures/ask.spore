@@ -123,9 +123,10 @@ describe("StartPanel", () => {
 
   it("renders the reasoning toggle checked, or disabled for a model without a switch", () => {
     const on = render([BETA], [EU, EXTERNAL]);
-    expect(on).toMatch(/<input type="checkbox" checked=""/);
+    // UX-07: reasoning is a switch (a checkbox with role="switch").
+    expect(on).toMatch(/<input type="checkbox" role="switch"[^>]*\schecked=""/);
     const plain = render([ALPHA], [EU_PLAIN]);
-    expect(plain).toMatch(/<input type="checkbox" disabled=""/);
+    expect(plain).toMatch(/<input type="checkbox" role="switch"[^>]*\sdisabled=""/);
     expect(plain).toContain("not available for this model");
   });
 });

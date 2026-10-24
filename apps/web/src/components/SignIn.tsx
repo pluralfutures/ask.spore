@@ -2,6 +2,8 @@ import { useState, type FormEvent } from "react";
 
 import { saveCredentials, type Credentials } from "../api/client";
 import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import { Field } from "../ui/Field";
 
 // PHASE 0 ONLY: shared token + seeded email (P0-06). Replaced by Authentik in Phase 1.
 export function SignIn({ onSignedIn }: { onSignedIn: (credentials: Credentials) => void }) {
@@ -18,28 +20,24 @@ export function SignIn({ onSignedIn }: { onSignedIn: (credentials: Credentials) 
   return (
     <form onSubmit={submit} className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
       <h1 className="text-title font-strong">SporeBot</h1>
-      <label className="flex flex-col gap-1 text-ui">
-        Email
-        <input
+      <Field label="Email">
+        <Input
           type="email"
           required
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded-control border px-2 py-1"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-ui">
-        Access token
-        <input
+      </Field>
+      <Field label="Access token">
+        <Input
           type="password"
           required
           autoComplete="off"
           value={token}
           onChange={(e) => setToken(e.target.value)}
-          className="rounded-control border px-2 py-1"
         />
-      </label>
+      </Field>
       <Button variant="primary" type="submit">
         Sign in
       </Button>

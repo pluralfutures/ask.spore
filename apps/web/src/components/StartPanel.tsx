@@ -7,6 +7,9 @@ import {
   selectWorkspace,
   type StartChoice,
 } from "../lib/startPanel";
+import { Field } from "../ui/Field";
+import { Select } from "../ui/Input";
+import { Switch } from "../ui/Switch";
 
 interface Props {
   workspaces: Workspace[];
@@ -24,38 +27,34 @@ export function StartPanel({ workspaces, models, choice, onChange }: Props) {
     <fieldset className="flex flex-col gap-3 rounded-control border bg-surface p-3 text-ui">
       <legend className="px-1 font-strong">New conversation</legend>
       {view.showWorkspace ? (
-        <label className="flex flex-col gap-1">
-          Workspace
-          <select
+        <Field label="Workspace">
+          <Select
             value={choice.workspaceId ?? ""}
             onChange={(e) => onChange(selectWorkspace(e.target.value, workspaces, models))}
-            className="rounded-control border px-2 py-1"
           >
             {workspaces.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
       ) : view.workspace ? (
         <p>Workspace: {view.workspace.name}</p>
       ) : null}
       {view.showModel ? (
-        <label className="flex flex-col gap-1">
-          Model
-          <select
+        <Field label="Model">
+          <Select
             value={choice.model ?? ""}
             onChange={(e) => onChange(selectModel(choice, e.target.value, models))}
-            className="rounded-control border px-2 py-1"
           >
             {models.map((m) => (
               <option key={m.id} value={m.id}>
                 {modelLabel(m)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
       ) : null}
       {view.external ? (
         <p
@@ -65,18 +64,16 @@ export function StartPanel({ workspaces, models, choice, onChange }: Props) {
           {EXTERNAL_NOTE}
         </p>
       ) : null}
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={choice.reasoning}
-          disabled={!view.reasoningAvailable}
-          onChange={(e) => onChange({ ...choice, reasoning: e.target.checked })}
-        />
+      <Switch
+        checked={choice.reasoning}
+        disabled={!view.reasoningAvailable}
+        onChange={(e) => onChange({ ...choice, reasoning: e.target.checked })}
+      >
         Reasoning
         {view.reasoningAvailable ? null : (
           <span className="text-fg-muted">(not available for this model)</span>
         )}
-      </label>
+      </Switch>
       <p className="text-fg-muted">
         These settings cannot be changed once the conversation has started.
       </p>

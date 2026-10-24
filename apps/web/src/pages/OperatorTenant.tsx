@@ -32,6 +32,10 @@ import { OperatorsOnly } from "./OperatorConsole";
 import { PolicySummary } from "./TenantAdmin";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
+import { Field } from "../ui/Field";
+import { Input, Select, Textarea } from "../ui/Input";
+import { Checkbox } from "../ui/Checkbox";
+import { Switch } from "../ui/Switch";
 
 const TAB_LABELS: Record<TenantTab, string> = {
   entitlements: "Entitlements",
@@ -146,73 +150,63 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
       <fieldset className="flex gap-3">
         <legend>Answer modes</legend>
         {options.answer_modes.map((mode) => (
-          <label key={mode}>
-            <input
-              type="checkbox"
-              checked={form.answerModes.includes(mode)}
-              disabled={mode === "corpus_only"}
-              onChange={(e) =>
-                setForm({ ...form, answerModes: toggle(form.answerModes, mode, e.target.checked) })
-              }
-            />{" "}
+          <Checkbox
+            key={mode}
+            checked={form.answerModes.includes(mode)}
+            disabled={mode === "corpus_only"}
+            onChange={(e) =>
+              setForm({ ...form, answerModes: toggle(form.answerModes, mode, e.target.checked) })
+            }
+          >
             {mode}
-          </label>
+          </Checkbox>
         ))}
       </fieldset>
       <fieldset className="flex gap-3">
         <legend>Enabled models</legend>
         {options.models.map((model) => (
-          <label key={model}>
-            <input
-              type="checkbox"
-              checked={form.enabledModels.includes(model)}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  enabledModels: toggle(form.enabledModels, model, e.target.checked),
-                })
-              }
-            />{" "}
+          <Checkbox
+            key={model}
+            checked={form.enabledModels.includes(model)}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                enabledModels: toggle(form.enabledModels, model, e.target.checked),
+              })
+            }
+          >
             {model}
-          </label>
+          </Checkbox>
         ))}
       </fieldset>
       <fieldset className="flex flex-wrap items-end gap-2">
         <legend>External models (served outside the EU)</legend>
-        <label>
-          <input
-            type="checkbox"
-            checked={form.externalModelsEnabled}
-            onChange={(e) => setForm({ ...form, externalModelsEnabled: e.target.checked })}
-          />{" "}
+        <Checkbox
+          checked={form.externalModelsEnabled}
+          onChange={(e) => setForm({ ...form, externalModelsEnabled: e.target.checked })}
+        >
           Enabled
-        </label>
-        <label className="flex flex-col">
-          Monthly spend cap (EUR)
-          <input
+        </Checkbox>
+        <Field label="Monthly spend cap (EUR)">
+          <Input
             inputMode="decimal"
             value={form.spendCapEuros}
             onChange={(e) => setForm({ ...form, spendCapEuros: e.target.value })}
-            className="border px-1"
           />
-        </label>
-        <label className="flex flex-col">
-          Client acceptance: DPA document
-          <input
+        </Field>
+        <Field label="Client acceptance: DPA document">
+          <Input
             value={form.acceptanceReference}
             onChange={(e) => setForm({ ...form, acceptanceReference: e.target.value })}
-            className="border px-1"
           />
-        </label>
-        <label className="flex flex-col">
-          Accepted on
-          <input
+        </Field>
+        <Field label="Accepted on">
+          <Input
             type="date"
             value={form.acceptanceDate}
             onChange={(e) => setForm({ ...form, acceptanceDate: e.target.value })}
-            className="border px-1"
           />
-        </label>
+        </Field>
         {ent.external_acceptance_reference && (
           <p className="w-full text-fg-muted">
             On file: {ent.external_acceptance_reference}, {ent.external_acceptance_date}
@@ -246,14 +240,9 @@ function LoginPolicy({ tenant }: { tenant: TenantOut }) {
     onSuccess: refresh,
   });
   const box = (key: keyof LoginPolicyIn, label: string) => (
-    <label>
-      <input
-        type="checkbox"
-        checked={form[key]}
-        onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
-      />{" "}
+    <Switch checked={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.checked })}>
       {label}
-    </label>
+    </Switch>
   );
   return (
     <form
@@ -300,16 +289,14 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
     },
   });
   const field = (key: keyof SourceForm, label: string, type = "text") => (
-    <label className="flex flex-col">
-      {label}
-      <input
+    <Field label={label}>
+      <Input
         type={type}
         autoComplete="off"
         value={form[key]}
         onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-        className="border px-1"
       />
-    </label>
+    </Field>
   );
 
   function submit(event: FormEvent) {
@@ -327,19 +314,17 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
     <form onSubmit={submit} className="flex flex-col gap-2 rounded-control bg-surface p-3">
       <h2 className="font-strong">Single sign-on source</h2>
       <PolicySummary policy={current} />
-      <label className="flex gap-2">
-        Kind
-        <select
+      <Field label="Kind" className="w-fit">
+        <Select
           value={form.kind}
           onChange={(e) => setForm({ ...form, kind: e.target.value as SsoKind })}
-          className="border"
         >
           <option value="entra">Microsoft Entra ID</option>
           <option value="google">Google Workspace</option>
           <option value="oidc">OpenID Connect</option>
           <option value="saml">SAML 2.0</option>
-        </select>
-      </label>
+        </Select>
+      </Field>
       <div className="flex flex-wrap items-end gap-2">
         {form.kind === "entra" && field("entraTenantId", "Entra tenant ID")}
         {form.kind === "oidc" && field("issuer", "Issuer (https)")}
@@ -349,15 +334,14 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
           field("adminGroupIds", "Admin group object IDs (comma-separated, optional)")}
       </div>
       {form.kind === "saml" && (
-        <label className="flex flex-col">
-          IdP metadata (XML)
-          <textarea
+        <Field label="IdP metadata (XML)">
+          <Textarea
             value={form.metadataXml}
             onChange={(e) => setForm({ ...form, metadataXml: e.target.value })}
             rows={4}
-            className="border px-1 font-mono text-meta"
+            className="font-mono text-meta"
           />
-        </label>
+        </Field>
       )}
       <div className="flex gap-2">
         <Button variant="primary" type="submit">
@@ -420,24 +404,12 @@ function Workspaces({ tenant }: { tenant: TenantOut }) {
         }}
         className="flex flex-wrap items-end gap-2"
       >
-        <label className="flex flex-col">
-          New workspace: slug
-          <input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
-        <label className="flex flex-col">
-          Name
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
+        <Field label="New workspace: slug">
+          <Input value={slug} onChange={(e) => setSlug(e.target.value)} required />
+        </Field>
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </Field>
         <Button variant="primary" type="submit">
           Add workspace
         </Button>
@@ -480,15 +452,14 @@ function WorkspaceTags({
         {workspace.name} <span className="text-fg-subtle">({workspace.slug})</span>
       </span>
       {tags.map(({ tag, shared }) => (
-        <label key={tag}>
-          <input
-            type="checkbox"
-            checked={selected.includes(tag)}
-            onChange={(e) => setSelected(toggle(selected, tag, e.target.checked))}
-          />{" "}
+        <Checkbox
+          key={tag}
+          checked={selected.includes(tag)}
+          onChange={(e) => setSelected(toggle(selected, tag, e.target.checked))}
+        >
           {tag}
           {shared ? <span className="text-fg-subtle"> (shared)</span> : null}
-        </label>
+        </Checkbox>
       ))}
       <Button variant="primary" type="submit">
         Save tags
@@ -587,25 +558,12 @@ function Users({ tenant }: { tenant: TenantOut }) {
         }}
         className="flex flex-wrap items-end gap-2"
       >
-        <label className="flex flex-col">
-          Invite admin: email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
-        <label className="flex flex-col">
-          Name
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
+        <Field label="Invite admin: email">
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </Field>
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </Field>
         <Button variant="primary" type="submit">
           Invite
         </Button>

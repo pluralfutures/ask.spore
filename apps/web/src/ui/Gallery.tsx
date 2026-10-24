@@ -3,8 +3,12 @@ import { MemoryRouter } from "react-router-dom";
 
 import { Button, ButtonLink } from "./Button";
 import type { ButtonSize, ButtonVariant } from "./buttonClass";
+import { Checkbox, Radio } from "./Checkbox";
+import { Field } from "./Field";
 import { IconButton } from "./IconButton";
+import { Input, Select, Textarea } from "./Input";
 import { LINK } from "./link";
+import { Switch } from "./Switch";
 
 // UX-06: the development-only component gallery at /_ui (App.tsx loads it only when
 // import.meta.env.DEV). The visual suite captures it, so a component change shows up in
@@ -93,6 +97,55 @@ export default function Gallery() {
             <IconButton label="Close" icon={X} />
             <IconButton label="Close" icon={X} variant="secondary" />
             <IconButton label="Close" icon={X} variant="secondary" disabled />
+          </div>
+        </Section>
+        <Section title="Form controls">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Title">
+              <Input defaultValue="Synthetic market outlook" />
+            </Field>
+            <Field label="Days" help="Between 0 and 30.">
+              <Input type="number" defaultValue={30} className="w-20" />
+            </Field>
+            <Field label="Licence basis" error="Enter a licence basis.">
+              <Input />
+            </Field>
+            <Field label="Disabled">
+              <Input defaultValue="Read only" disabled />
+            </Field>
+            <Field label="Model">
+              <Select defaultValue="eu">
+                <option value="eu">Synthetic EU Standard</option>
+                <option value="fast">Synthetic EU Fast</option>
+              </Select>
+            </Field>
+            <Field label="File">
+              <Input type="file" />
+            </Field>
+            <Field label="Allowed paths" help="One pattern per line." className="sm:col-span-2">
+              <Textarea defaultValue={"/reports/*\n/notes/*"} />
+            </Field>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-6">
+            <fieldset className="flex flex-col gap-1">
+              <legend className="mb-1 text-ui font-strong">Checkbox</legend>
+              <Checkbox defaultChecked>Synthetic tag A</Checkbox>
+              <Checkbox>Synthetic tag B</Checkbox>
+              <Checkbox disabled>Disabled</Checkbox>
+            </fieldset>
+            <fieldset className="flex flex-col gap-1">
+              <legend className="mb-1 text-ui font-strong">Radio</legend>
+              <Radio name="gallery-radio" defaultChecked>
+                Keep both
+              </Radio>
+              <Radio name="gallery-radio">Replace</Radio>
+            </fieldset>
+            <fieldset className="flex flex-col gap-1">
+              <legend className="mb-1 text-ui font-strong">Switch</legend>
+              <Switch defaultChecked>Reasoning</Switch>
+              <Switch>Sign-in links</Switch>
+              <Switch disabled>Disabled</Switch>
+            </fieldset>
           </div>
         </Section>
         <Section title="Link">

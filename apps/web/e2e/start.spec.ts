@@ -94,6 +94,7 @@ test("starts a conversation from the panel and gets a cited answer", async ({ pa
   await expect(page.getByTestId("reasoning-badge")).toHaveText("Reasoning on");
   await expect(page.getByRole("combobox")).toHaveCount(0);
   await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await expect(page.getByRole("switch")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Citation 1" }).click();
   const panel = page.getByRole("complementary", { name: "Citations" });

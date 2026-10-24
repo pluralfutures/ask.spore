@@ -57,7 +57,7 @@ test("start panel: back link, workspace, model, reasoning, question", async ({ p
   await tabTo(page, page.getByRole("link", { name: "← Conversations" }));
   await tabTo(page, page.getByLabel("Workspace"));
   await tabTo(page, page.getByLabel("Model"));
-  await tabTo(page, page.getByRole("checkbox", { name: "Reasoning" }));
+  await tabTo(page, page.getByRole("switch", { name: "Reasoning" }));
   await tabTo(page, page.getByLabel("Question"));
 });
 

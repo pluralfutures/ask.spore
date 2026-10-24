@@ -5,6 +5,8 @@ import type { DiscoverOut } from "../api/types";
 import { ssoButtonLabel } from "../lib/sso";
 import { failureText, ssoRefusalText } from "./emailSignInText";
 import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import { Field } from "../ui/Field";
 
 type Step = { kind: "email" } | { kind: "choose"; found: DiscoverOut } | { kind: "sent" };
 
@@ -99,17 +101,15 @@ export function EmailSignIn({
   return (
     <form onSubmit={submit} className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
       <h1 className="text-title font-strong">SporeBot</h1>
-      <label className="flex flex-col gap-1 text-ui">
-        Email
-        <input
+      <Field label="Email">
+        <Input
           type="email"
           required
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded-control border px-2 py-1"
         />
-      </label>
+      </Field>
       <Button variant="primary" type="submit">
         Continue
       </Button>

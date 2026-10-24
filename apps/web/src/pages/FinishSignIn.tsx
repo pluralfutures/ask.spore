@@ -7,6 +7,7 @@ import { setupKey, validCode } from "../lib/mfa";
 import { tokenFromFragment } from "../lib/fragment";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
+import { Input } from "../ui/Input";
 
 // Landing page of the emailed sign-in link (P1a-02). Opening it submits nothing: only the
 // button's POST sends the token, from this browser (the API checks it is the one that
@@ -130,13 +131,12 @@ export function SecondFactor({
         <p className="text-ui">Enter the code from your authenticator app.</p>
       )}
       <form onSubmit={submit} className="flex flex-col gap-2">
-        <input
+        <Input
           inputMode="numeric"
           autoComplete="one-time-code"
           aria-label="Code"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          className="rounded-control border px-2 py-1"
         />
         <Button variant="primary" type="submit" disabled={working || !validCode(code)}>
           Confirm

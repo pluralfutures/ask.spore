@@ -7,6 +7,7 @@ import { api, setConsentRequiredHandler } from "../api/client";
 import type { ConsentNotice } from "../api/types";
 import { mustAccept } from "../lib/consent";
 import { Button } from "../ui/Button";
+import { Checkbox } from "../ui/Checkbox";
 
 // The first-login consent gate (P1b-10): until the active use and privacy notice is
 // accepted, the app shows the notice instead of any conversation, file or admin page.
@@ -95,10 +96,9 @@ export function ConsentView({
           <Markdown>{notice.text}</Markdown>
         </div>
       </section>
-      <label className="flex items-center gap-2">
-        <input type="checkbox" checked={read} onChange={(e) => setRead(e.target.checked)} />I have
-        read the notice ({notice.version}) and accept it.
-      </label>
+      <Checkbox checked={read} onChange={(e) => setRead(e.target.checked)}>
+        I have read the notice ({notice.version}) and accept it.
+      </Checkbox>
       <Button variant="primary" className="w-fit" disabled={!read || pending} onClick={onAccept}>
         Accept and continue
       </Button>

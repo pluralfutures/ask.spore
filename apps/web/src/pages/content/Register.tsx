@@ -7,6 +7,8 @@ import type { ContentSource } from "../../api/types";
 import { SOURCE_STATUSES, SOURCE_TYPES, errorMessage } from "../../lib/content";
 import { formatDate } from "../../lib/format";
 import { LINK } from "../../ui/link";
+import { Field } from "../../ui/Field";
+import { Input, Select } from "../../ui/Input";
 
 // The source register with filters by status, tag, type and publisher (P1b-05).
 export function Register() {
@@ -21,27 +23,30 @@ export function Register() {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end gap-3 rounded-control bg-surface p-3">
-        <Select
+        <FilterSelect
           label="Status"
           value={filters.status}
           options={SOURCE_STATUSES}
           onChange={set("status")}
         />
-        <Select
+        <FilterSelect
           label="Tag"
           value={filters.tag}
           options={tags.data?.map((t) => t.tag) ?? []}
           onChange={set("tag")}
         />
-        <Select label="Type" value={filters.type} options={SOURCE_TYPES} onChange={set("type")} />
-        <label className="flex flex-col">
-          Publisher
-          <input
+        <FilterSelect
+          label="Type"
+          value={filters.type}
+          options={SOURCE_TYPES}
+          onChange={set("type")}
+        />
+        <Field label="Publisher">
+          <Input
             value={filters.publisher ?? ""}
             onChange={(e) => set("publisher")(e.target.value)}
-            className="border px-1"
           />
-        </label>
+        </Field>
       </div>
       {errorMessage(sources.error) ? (
         <p className="text-danger">{errorMessage(sources.error)}</p>
@@ -51,7 +56,7 @@ export function Register() {
   );
 }
 
-function Select({
+function FilterSelect({
   label,
   value,
   options,
@@ -63,17 +68,16 @@ function Select({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex flex-col">
-      {label}
-      <select value={value ?? ""} onChange={(e) => onChange(e.target.value)} className="border">
+    <Field label={label}>
+      <Select value={value ?? ""} onChange={(e) => onChange(e.target.value)}>
         <option value="">any</option>
         {options.map((option) => (
           <option key={option} value={option}>
             {option}
           </option>
         ))}
-      </select>
-    </label>
+      </Select>
+    </Field>
   );
 }
 

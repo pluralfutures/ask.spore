@@ -13,6 +13,7 @@ import { ConversationHeader } from "../components/ConversationHeader";
 import type { StartState } from "./NewConversation";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
+import { Textarea } from "../ui/Input";
 
 interface Live {
   question: string;
@@ -257,14 +258,14 @@ export function Chat() {
           <label htmlFor="question" className="sr-only">
             Question
           </label>
-          <textarea
+          <Textarea
             id="question"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             maxLength={4000}
             rows={2}
             placeholder="Ask a question about your research package"
-            className="flex-1 rounded-control border px-2 py-1"
+            className="flex-1"
           />
           {busy ? (
             <Button variant="secondary" onClick={stop}>

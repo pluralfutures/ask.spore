@@ -9,6 +9,7 @@ import { keepsNoHistory } from "../lib/noHistory";
 import { createBody, initialChoice, refusalText, type StartChoice } from "../lib/startPanel";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
+import { Textarea } from "../ui/Input";
 
 // What the chat page needs from the start: the first question, the spend-cap notice, and,
 // for a tenant that keeps no history (P1b-14), the conversation itself, which no read
@@ -70,14 +71,13 @@ export function NewConversation() {
           <label htmlFor="first-question" className="sr-only">
             Question
           </label>
-          <textarea
+          <Textarea
             id="first-question"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             maxLength={4000}
             rows={3}
             placeholder="Ask a question about this workspace's sources"
-            className="rounded-control border px-2 py-1"
           />
           {create.error ? (
             <p role="alert" className="text-danger">

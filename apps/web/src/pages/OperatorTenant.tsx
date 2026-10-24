@@ -36,6 +36,13 @@ import { Field } from "../ui/Field";
 import { Input, Select, Textarea } from "../ui/Input";
 import { Checkbox } from "../ui/Checkbox";
 import { Switch } from "../ui/Switch";
+import { Notice } from "../ui/Notice";
+import { Loading } from "../ui/States";
+import { cardClass } from "../ui/cardClass";
+import { PageHeader } from "../ui/PageHeader";
+import { StatusBadge } from "../ui/Badge";
+import { Card } from "../ui/Card";
+import { EmptyState } from "../ui/States";
 
 const TAB_LABELS: Record<TenantTab, string> = {
   entitlements: "Entitlements",
@@ -66,7 +73,11 @@ function TenantPage({ tenantId }: { tenantId: string }) {
   if (tenant.error instanceof ApiError && tenant.error.status === 403) return <OperatorsOnly />;
   if (tenant.error) return <main className="mx-auto max-w-3xl p-4 text-ui">No such tenant.</main>;
   if (!tenant.data || !options.data) {
-    return <main className="mx-auto max-w-3xl p-4 text-ui">Loading…</main>;
+    return (
+      <main className="mx-auto max-w-3xl p-4 text-ui">
+        <Loading />
+      </main>
+    );
   }
   const current = tenant.data;
   return (
@@ -79,15 +90,21 @@ function TenantPage({ tenantId }: { tenantId: string }) {
           Chat app
         </Link>
       </p>
-      <header>
-        <h1 className="text-title font-strong">
-          {current.display_name} <span className="text-fg-subtle">({current.slug})</span>
-        </h1>
-        <p className="text-fg-muted">
-          {current.status} · admins: {current.admins} · domains:{" "}
-          {current.verified_domains.join(", ") || "none"}
-        </p>
-      </header>
+      <PageHeader
+        title={
+          <>
+            {current.display_name} <span className="text-fg-subtle">({current.slug})</span>
+          </>
+        }
+        meta={
+          <>
+            <StatusBadge kind="tenant" status={current.status} />
+            <span className="text-fg-muted">
+              admins: {current.admins} · domains: {current.verified_domains.join(", ") || "none"}
+            </span>
+          </>
+        }
+      />
       <nav className="flex gap-3 border-b" aria-label="Tenant settings">
         {TENANT_TABS.map((name) => (
           <button
@@ -146,7 +163,7 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2 rounded-control bg-surface p-3">
+    <form onSubmit={submit} className={cardClass("flex flex-col gap-2")}>
       <fieldset className="flex gap-3">
         <legend>Answer modes</legend>
         {options.answer_modes.map((mode) => (
@@ -217,7 +234,7 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
         Save entitlements for {tenant.display_name}
       </Button>
       {problem ? (
-        <p className="text-danger">{problem}</p>
+        <Notice tone="danger">{problem}</Notice>
       ) : (
         <SaveStatus isSuccess={save.isSuccess} error={save.error} />
       )}
@@ -250,7 +267,7 @@ function LoginPolicy({ tenant }: { tenant: TenantOut }) {
         e.preventDefault();
         save.mutate();
       }}
-      className="flex flex-wrap items-center gap-3 rounded-control bg-surface p-3"
+      className={cardClass("flex flex-wrap items-center gap-3")}
     >
       <h2 className="w-full font-strong">Login policy</h2>
       {box("sign_in_links_enabled", "Sign-in links")}
@@ -311,7 +328,7 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2 rounded-control bg-surface p-3">
+    <form onSubmit={submit} className={cardClass("flex flex-col gap-2")}>
       <h2 className="font-strong">Single sign-on source</h2>
       <PolicySummary policy={current} />
       <Field label="Kind" className="w-fit">
@@ -354,7 +371,7 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
         )}
       </div>
       {problem ? (
-        <p className="text-danger">{problem}</p>
+        <Notice tone="danger">{problem}</Notice>
       ) : (
         <SaveStatus {...latestSourceAction(save, remove)} />
       )}
@@ -388,7 +405,7 @@ function Workspaces({ tenant }: { tenant: TenantOut }) {
   });
 
   return (
-    <div className="flex flex-col gap-2 rounded-control bg-surface p-3">
+    <div className={cardClass("flex flex-col gap-2")}>
       {workspaces.data?.map((workspace) => (
         <WorkspaceTags
           key={workspace.id}
@@ -501,7 +518,7 @@ function Users({ tenant }: { tenant: TenantOut }) {
   const failed = errorText(resend.error) ?? errorText(remove.error);
 
   return (
-    <div className="flex flex-col gap-3 rounded-control bg-surface p-3">
+    <div className={cardClass("flex flex-col gap-3")}>
       <table className="text-left">
         <thead>
           <tr>
@@ -519,7 +536,9 @@ function Users({ tenant }: { tenant: TenantOut }) {
               <td>{user.display_name}</td>
               <td>{user.email}</td>
               <td>{user.role}</td>
-              <td>{user.status}</td>
+              <td>
+                <StatusBadge kind="user" status={user.status} />
+              </td>
               <td>{lastLogin(user)}</td>
               <td>
                 <UserActions
@@ -545,7 +564,7 @@ function Users({ tenant }: { tenant: TenantOut }) {
           ))}
         </tbody>
       </table>
-      {failed && <p className="text-danger">{failed}</p>}
+      {failed && <Notice tone="danger">{failed}</Notice>}
       {done && !failed && <p role="status">{done}</p>}
       <form
         onSubmit={(e) => {
@@ -572,7 +591,11 @@ function Users({ tenant }: { tenant: TenantOut }) {
             Invited. An invitation email is on its way; they sign in from their own browser.
           </p>
         )}
-        {errorText(invite.error) && <p className="w-full text-danger">{errorText(invite.error)}</p>}
+        {errorText(invite.error) && (
+          <Notice tone="danger" className="w-full">
+            {errorText(invite.error)}
+          </Notice>
+        )}
       </form>
     </div>
   );
@@ -585,12 +608,14 @@ function Spend({ tenant }: { tenant: TenantOut }) {
     queryKey: ["operator", "spend", tenant.id],
     queryFn: () => operatorApi.tenantSpend(tenant.id),
   });
-  if (!spend.data) return <p>{errorText(spend.error) ?? "Loading…"}</p>;
+  if (!spend.data) {
+    const problem = errorText(spend.error);
+    return problem ? <Notice tone="danger">{problem}</Notice> : <Loading />;
+  }
   const data = spend.data;
   const share = capShare(data.external_spent_cents, data.external_spend_cap_cents ?? null);
   return (
-    <div className="flex flex-col gap-3 rounded-control bg-surface p-3">
-      <h2 className="font-strong">Month to date ({data.month}, UTC)</h2>
+    <Card title={`Month to date (${data.month}, UTC)`}>
       <p>
         External models: {data.external_models_enabled ? "enabled" : "off"} · spent{" "}
         {euros(data.external_spent_cents)}
@@ -609,7 +634,7 @@ function Spend({ tenant }: { tenant: TenantOut }) {
         </ul>
       )}
       {data.models.length === 0 ? (
-        <p className="text-fg-muted">No usage this month.</p>
+        <EmptyState title="No usage this month." />
       ) : (
         <table className="text-left">
           <thead>
@@ -635,6 +660,6 @@ function Spend({ tenant }: { tenant: TenantOut }) {
           </tbody>
         </table>
       )}
-    </div>
+    </Card>
   );
 }

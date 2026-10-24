@@ -136,9 +136,15 @@
   --color-warning-subtle: #fdf5e3;
   --color-warning-muted: #fbebc7;
   --color-warning-line: #f0ddb0;
-  --color-success: #17663f;
+  --color-success: #17663f; /* 6.3:1 on success-subtle */
+  --color-success-subtle: #ebf6f0;
   --color-info: #244a9a;
   --color-info-subtle: #edf2fc;
+
+  /* Notice outlines */
+  --color-info-line: #c9d7f3;
+  --color-danger-line: #f3c8c2;
+  --color-success-line: #bfe0cd;
 
   /* Lines: hairlines around surfaces; form controls get the stronger input line (3.3:1) */
   --color-line: #e2e5ea;
@@ -156,8 +162,15 @@
   --font-weight-emphasis: 700;
   --font-weight-strong: 700;
 
-  /* Shape */
+  /* Shape: controls 6 px, badges 4 px, cards and tables 8 px, dialogs 10 px */
   --radius-control: 0.375rem;
+  --radius-badge: 0.25rem;
+  --radius-card: 0.5rem;
+  --radius-dialog: 0.625rem;
+
+  /* Only floating layers cast a shadow; cards in the page flow have a border */
+  --shadow-popover: 0 1px 2px rgb(16 24 40 / 0.06), 0 4px 12px rgb(16 24 40 / 0.08);
+  --shadow-overlay: 0 8px 32px rgb(16 24 40 / 0.16);
 }
 
 @layer base {

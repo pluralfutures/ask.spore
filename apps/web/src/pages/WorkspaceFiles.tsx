@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { ApiError, api } from "../api/client";
 import type { WorkspaceFile, WorkspaceSite } from "../api/types";
@@ -7,6 +7,11 @@ import { formatDate } from "../lib/format";
 import { downloadRefusal, fileAction, typeLabel } from "../lib/files";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
+import { Notice } from "../ui/Notice";
+import { EmptyState, Loading } from "../ui/States";
+import { FileText } from "lucide-react";
+import { Card } from "../ui/Card";
+import { PageHeader } from "../ui/PageHeader";
 
 function save(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);
@@ -34,16 +39,16 @@ export function WorkspaceFiles() {
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4">
-      <Link to="/" className={`text-ui ${LINK}`}>
-        ← Conversations
-      </Link>
-      <h1 className="text-title font-strong">Files{name ? ` in ${name}` : ""}</h1>
-      {files.isPending ? <p>Loading…</p> : null}
-      {files.isError ? <p className="text-danger">Could not load the files.</p> : null}
+      <PageHeader
+        back={{ to: "/", label: "← Conversations" }}
+        title={`Files${name ? ` in ${name}` : ""}`}
+      />
+      {files.isPending ? <Loading /> : null}
+      {files.isError ? <Notice tone="danger">Could not load the files.</Notice> : null}
       {download.error ? (
-        <p role="alert" className="text-danger">
+        <Notice tone="danger" role="alert">
           {downloadRefusal(download.error instanceof ApiError ? download.error.code : null)}
-        </p>
+        </Notice>
       ) : null}
       {files.data ? (
         <FileTable
@@ -66,7 +71,7 @@ export function FileTable({
   busy: boolean;
   onDownload: (sourceId: string) => void;
 }) {
-  if (files.length === 0) return <p className="text-fg-muted">No files in this workspace.</p>;
+  if (files.length === 0) return <EmptyState title="No files in this workspace." icon={FileText} />;
   // UX-06: the 44 px Download button made this table wider than a phone, so it scrolls
   // sideways in its own box (the page is w-full for that, ahead of UX-10) until UX-09
   // gives tables a stacked mode.
@@ -120,16 +125,15 @@ export function FileTable({
 
 function SiteList({ sites }: { sites: WorkspaceSite[] }) {
   return (
-    <section className="text-ui">
-      <h2 className="mb-1 font-strong">Websites</h2>
-      <ul className="rounded-control bg-surface">
+    <Card title="Websites" className="text-ui">
+      <ul className="divide-y">
         {sites.map((site) => (
-          <li key={site.site} className="border-t p-2 first:border-t-0">
+          <li key={site.site} className="py-2 first:pt-0 last:pb-0">
             {site.site} · {site.publisher} · {site.page_count}{" "}
             {site.page_count === 1 ? "page" : "pages"} · updated {formatDate(site.last_ingested_on)}
           </li>
         ))}
       </ul>
-    </section>
+    </Card>
   );
 }

@@ -8,6 +8,9 @@ import type { ConsentNotice } from "../api/types";
 import { mustAccept } from "../lib/consent";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
+import { Notice } from "../ui/Notice";
+import { Loading } from "../ui/States";
+import { cardClass } from "../ui/cardClass";
 
 // The first-login consent gate (P1b-10): until the active use and privacy notice is
 // accepted, the app shows the notice instead of any conversation, file or admin page.
@@ -37,10 +40,17 @@ function ConsentPage({ onAccepted }: { onAccepted: () => void }) {
     mutationFn: (version: string) => api.acceptConsent(version),
     onSuccess: onAccepted,
   });
-  if (notice.isPending) return <main className="mx-auto max-w-3xl p-4">Loading…</main>;
+  if (notice.isPending)
+    return (
+      <main className="mx-auto max-w-3xl p-4">
+        <Loading />
+      </main>
+    );
   if (!notice.data) {
     return (
-      <main className="mx-auto max-w-3xl p-4 text-danger">The notice could not be loaded.</main>
+      <main className="mx-auto max-w-3xl p-4">
+        <Notice tone="danger">The notice could not be loaded.</Notice>
+      </main>
     );
   }
   return (
@@ -77,7 +87,7 @@ export function ConsentView({
       ) : (
         <p>Please read and accept the notice before your first conversation.</p>
       )}
-      <section aria-labelledby="consent-summary" className="rounded-control bg-surface p-3">
+      <section aria-labelledby="consent-summary" className={cardClass()}>
         <h2 id="consent-summary" className="font-strong">
           In short
         </h2>
@@ -85,10 +95,7 @@ export function ConsentView({
           <Markdown>{notice.summary}</Markdown>
         </div>
       </section>
-      <section
-        aria-labelledby="consent-full"
-        className="max-h-[50vh] overflow-y-auto rounded-control bg-surface p-3"
-      >
+      <section aria-labelledby="consent-full" className={cardClass("max-h-[50vh] overflow-y-auto")}>
         <h2 id="consent-full" className="font-strong">
           Full notice
         </h2>
@@ -103,7 +110,7 @@ export function ConsentView({
         Accept and continue
       </Button>
       {failed ? (
-        <p className="text-danger">The acceptance was not recorded. Reload and try again.</p>
+        <Notice tone="danger">The acceptance was not recorded. Reload and try again.</Notice>
       ) : null}
     </main>
   );

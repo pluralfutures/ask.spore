@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState, type FormEvent, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 
 import { ApiError, adminApi, api } from "../api/client";
 import type { AdminUser, LoginPolicyOut, Me, ModelOption, Workspace } from "../api/types";
@@ -19,10 +18,14 @@ import { formatDate } from "../lib/format";
 import { policySummary } from "../lib/sso";
 import { modelLabel } from "../lib/startPanel";
 import { Button } from "../ui/Button";
-import { LINK } from "../ui/link";
 import { Field } from "../ui/Field";
 import { Input, Select, Textarea } from "../ui/Input";
 import { Switch } from "../ui/Switch";
+import { Notice } from "../ui/Notice";
+import { Loading } from "../ui/States";
+import { Card } from "../ui/Card";
+import { PageHeader } from "../ui/PageHeader";
+import { StatusBadge } from "../ui/Badge";
 
 function refusal(error: unknown): string | null {
   if (error === null || error === undefined) return null;
@@ -45,14 +48,16 @@ export function AdminGate({ me, children }: { me: Me | null | undefined; childre
 // Tenant admin pages (P1a-13): users, workspaces (instructions and defaults), retention.
 export function TenantAdmin() {
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
-  if (me.isPending) return <main className="mx-auto max-w-3xl p-4">Loading…</main>;
+  if (me.isPending)
+    return (
+      <main className="mx-auto max-w-3xl p-4">
+        <Loading />
+      </main>
+    );
   return (
     <AdminGate me={me.data}>
       <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
-        <Link to="/" className={`text-ui ${LINK}`}>
-          ← Conversations
-        </Link>
-        <h1 className="text-title font-strong">Administration</h1>
+        <PageHeader back={{ to: "/", label: "← Conversations" }} title="Administration" />
         <Users selfEmail={me.data?.email} />
         <Workspaces />
         <Retention />
@@ -89,8 +94,7 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
   const failed = refusal(change.error) ?? refusal(resend.error) ?? refusal(remove.error);
 
   return (
-    <section className="flex flex-col gap-2 rounded-control bg-surface p-3 text-ui">
-      <h2 className="font-strong">Users</h2>
+    <Card title="Users" className="text-ui">
       {/* Release F4: each action shows its own outcome only. An invite clears the list's
           last status; a resend or removal remounts the form, clearing its last refusal. */}
       <Invite
@@ -103,11 +107,11 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
           change.reset();
         }}
       />
-      {failed ? <p className="text-danger">{failed}</p> : null}
+      {failed ? <Notice tone="danger">{failed}</Notice> : null}
       {done && !failed ? (
-        <p role="status" className="text-fg-secondary">
+        <Notice tone="success" role="status">
           {done}
-        </p>
+        </Notice>
       ) : null}
       <table className="w-full text-left">
         <thead>
@@ -144,7 +148,7 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
           ))}
         </tbody>
       </table>
-    </section>
+    </Card>
   );
 }
 
@@ -184,7 +188,9 @@ function UserRow({
           "User"
         )}
       </td>
-      <td>{user.status}</td>
+      <td>
+        <StatusBadge kind="user" status={user.status} />
+      </td>
       <td>{lastLogin(user)}</td>
       <td>
         {actions.canDeactivate ? (
@@ -255,7 +261,11 @@ function Invite({ onInvited, onStart }: { onInvited: () => void; onStart: () => 
           Invited. They sign in by requesting a link on the sign-in page.
         </p>
       ) : null}
-      {refusal(invite.error) ? <p className="w-full text-danger">{refusal(invite.error)}</p> : null}
+      {refusal(invite.error) ? (
+        <Notice tone="danger" className="w-full">
+          {refusal(invite.error)}
+        </Notice>
+      ) : null}
     </form>
   );
 }
@@ -266,7 +276,7 @@ function Workspaces() {
   const settings = useQuery({ queryKey: ["admin", "settings"], queryFn: adminApi.settings });
   return (
     <section className="flex flex-col gap-3 text-ui">
-      <h2 className="font-strong">Workspaces</h2>
+      <h2 className="text-heading font-strong">Workspaces</h2>
       {workspaces.data && models.data && settings.data
         ? workspaces.data.map((w) => (
             <WorkspacePanel
@@ -291,14 +301,10 @@ function WorkspacePanel({
   modes: string[];
 }) {
   return (
-    <div
-      className="flex flex-col gap-3 rounded-control bg-surface p-3"
-      data-testid={`workspace-${workspace.slug}`}
-    >
-      <h3 className="font-strong">{workspace.name}</h3>
+    <Card title={workspace.name} level={3} data-testid={`workspace-${workspace.slug}`}>
       <Defaults workspace={workspace} models={models} modes={modes} />
       <Instructions workspace={workspace} />
-    </div>
+    </Card>
   );
 }
 
@@ -370,7 +376,11 @@ function Defaults({
         Save defaults
       </Button>
       {save.isSuccess ? <span className="text-fg-muted">Saved.</span> : null}
-      {refusal(save.error) ? <p className="w-full text-danger">{refusal(save.error)}</p> : null}
+      {refusal(save.error) ? (
+        <Notice tone="danger" className="w-full">
+          {refusal(save.error)}
+        </Notice>
+      ) : null}
     </form>
   );
 }
@@ -432,7 +442,7 @@ function Instructions({ workspace }: { workspace: Workspace }) {
           </span>
         ) : null}
       </div>
-      {refusal(save.error) ? <p className="text-danger">{refusal(save.error)}</p> : null}
+      {refusal(save.error) ? <Notice tone="danger">{refusal(save.error)}</Notice> : null}
       <VersionHistory versions={history.data ?? []} />
     </div>
   );
@@ -467,11 +477,10 @@ export function VersionHistory({
 function SignInPolicy() {
   const policy = useQuery({ queryKey: ["admin", "login-policy"], queryFn: adminApi.loginPolicy });
   return (
-    <section className="flex flex-col gap-2 rounded-control bg-surface p-3 text-ui">
-      <h2 className="font-strong">Sign-in</h2>
+    <Card title="Sign-in" className="text-ui">
       {policy.data ? <PolicySummary policy={policy.data} /> : null}
       <p className="text-fg-muted">To change single sign-on, contact the platform operator.</p>
-    </section>
+    </Card>
   );
 }
 
@@ -514,8 +523,7 @@ function Retention() {
   }
 
   return (
-    <section className="rounded-control bg-surface p-3 text-ui">
-      <h2 className="font-strong">Chat history retention</h2>
+    <Card title="Chat history retention" className="text-ui">
       <p className="text-fg-muted">
         Conversations are deleted after this many days, at most {MAX_RETENTION_DAYS}. Shortening it
         also removes existing conversations older than the new limit. 0 keeps no history: each
@@ -542,8 +550,8 @@ function Retention() {
           Save retention
         </Button>
       </form>
-      {refusal(save.error) ? <p className="text-danger">{refusal(save.error)}</p> : null}
-    </section>
+      {refusal(save.error) ? <Notice tone="danger">{refusal(save.error)}</Notice> : null}
+    </Card>
   );
 }
 
@@ -561,20 +569,19 @@ function AuditLog() {
     },
   });
   return (
-    <section className="rounded-control bg-surface p-3 text-ui">
-      <h2 className="font-strong">Audit log</h2>
+    <Card title="Audit log" className="text-ui">
       <p className="text-fg-muted">
         Sign-in, administration, operator and notice-acceptance events of the last 90 days, as CSV.
       </p>
       <Button
         variant="primary"
-        className="mt-2"
+        className="w-fit"
         disabled={download.isPending}
         onClick={() => download.mutate()}
       >
         Download audit log
       </Button>
-      {refusal(download.error) ? <p className="text-danger">{refusal(download.error)}</p> : null}
-    </section>
+      {refusal(download.error) ? <Notice tone="danger">{refusal(download.error)}</Notice> : null}
+    </Card>
   );
 }

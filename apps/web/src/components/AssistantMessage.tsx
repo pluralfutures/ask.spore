@@ -1,6 +1,7 @@
 import type { Citation } from "../api/types";
 import { AnswerMarkdown } from "./AnswerMarkdown";
 import { Feedback } from "./Feedback";
+import { Badge } from "../ui/Badge";
 
 interface Props {
   text: string;
@@ -17,7 +18,7 @@ export function AssistantMessage(props: Props) {
     return (
       <div
         data-testid="nothing-found"
-        className="rounded-control border border-dashed p-3 text-fg-muted"
+        className="rounded-card border border-dashed bg-surface p-4 text-fg-muted"
       >
         <p className="font-emphasis">Nothing relevant found</p>
         <p className="text-ui">{text}</p>
@@ -27,14 +28,11 @@ export function AssistantMessage(props: Props) {
   }
   const markers = new Set(citations.map((c) => c.marker));
   return (
-    <div className="rounded-control border bg-surface p-3">
+    <div className="rounded-card border bg-surface p-4">
       {unsupported ? (
-        <p
-          data-testid="unsupported"
-          className="mb-2 inline-block rounded-control bg-danger-subtle px-2 text-meta font-emphasis text-danger-strong"
-        >
+        <Badge tone="danger" data-testid="unsupported" className="mb-2">
           Unsupported answer: no citations to your sources
-        </p>
+        </Badge>
       ) : null}
       <AnswerMarkdown text={text} markers={markers} onCite={onCite} />
       {messageId ? <Feedback messageId={messageId} /> : null}

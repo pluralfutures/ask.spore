@@ -7,6 +7,7 @@ import { failureText, ssoRefusalText } from "./emailSignInText";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Field } from "../ui/Field";
+import { Notice } from "../ui/Notice";
 
 type Step = { kind: "email" } | { kind: "choose"; found: DiscoverOut } | { kind: "sent" };
 
@@ -94,7 +95,7 @@ export function EmailSignIn({
             Email me a sign-in link instead
           </Button>
         )}
-        {failed && <p className="text-ui text-danger">{failureText(limited)}</p>}
+        {failed && <Notice tone="danger">{failureText(limited)}</Notice>}
       </main>
     );
   }
@@ -114,11 +115,11 @@ export function EmailSignIn({
         Continue
       </Button>
       {ssoFailed && !failed && (
-        <p role="alert" className="text-ui text-danger">
+        <Notice tone="danger" role="alert">
           {ssoRefusalText(ssoReason)}
-        </p>
+        </Notice>
       )}
-      {failed && <p className="text-ui text-danger">{failureText(limited)}</p>}
+      {failed && <Notice tone="danger">{failureText(limited)}</Notice>}
     </form>
   );
 }

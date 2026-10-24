@@ -9,6 +9,12 @@ import { formatDate } from "../../lib/format";
 import { LINK } from "../../ui/link";
 import { Field } from "../../ui/Field";
 import { Input, Select } from "../../ui/Input";
+import { Notice } from "../../ui/Notice";
+import { Loading } from "../../ui/States";
+import { cardClass } from "../../ui/cardClass";
+import { SearchX } from "lucide-react";
+import { Badge, StatusBadge } from "../../ui/Badge";
+import { EmptyState } from "../../ui/States";
 
 // The source register with filters by status, tag, type and publisher (P1b-05).
 export function Register() {
@@ -22,7 +28,7 @@ export function Register() {
     setFilters({ ...filters, [key]: value || undefined });
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-3 rounded-control bg-surface p-3">
+      <div className={cardClass("flex flex-wrap items-end gap-3")}>
         <FilterSelect
           label="Status"
           value={filters.status}
@@ -49,9 +55,9 @@ export function Register() {
         </Field>
       </div>
       {errorMessage(sources.error) ? (
-        <p className="text-danger">{errorMessage(sources.error)}</p>
+        <Notice tone="danger">{errorMessage(sources.error)}</Notice>
       ) : null}
-      {sources.data ? <SourceTable sources={sources.data} /> : <p>Loading…</p>}
+      {sources.data ? <SourceTable sources={sources.data} /> : <Loading />}
     </section>
   );
 }
@@ -82,7 +88,7 @@ function FilterSelect({
 }
 
 export function SourceTable({ sources }: { sources: ContentSource[] }) {
-  if (sources.length === 0) return <p className="text-fg-muted">No sources match.</p>;
+  if (sources.length === 0) return <EmptyState title="No sources match." icon={SearchX} />;
   return (
     <table className="w-full rounded-control bg-surface text-left">
       <thead>
@@ -103,12 +109,9 @@ export function SourceTable({ sources }: { sources: ContentSource[] }) {
                 {source.title}
               </Link>
               {source.possible_replacement ? (
-                <span
-                  data-testid={`replacement-${source.id}`}
-                  className="ml-2 rounded-control bg-warning-muted px-1 text-meta text-warning"
-                >
+                <Badge tone="warning" data-testid={`replacement-${source.id}`} className="ml-2">
                   possible replacement
-                </span>
+                </Badge>
               ) : null}
               {source.site_id ? (
                 <span className="ml-2 text-meta text-fg-subtle">web page</span>
@@ -118,7 +121,7 @@ export function SourceTable({ sources }: { sources: ContentSource[] }) {
             <td className="p-2 uppercase">{source.type}</td>
             <td className="p-2">{source.tags.join(", ")}</td>
             <td className="p-2">
-              {source.status}
+              <StatusBadge kind="source" status={source.status} />
               {source.takedown_due_on && source.status !== "withdrawn" ? (
                 <span className="ml-1 text-danger">· takedown</span>
               ) : null}

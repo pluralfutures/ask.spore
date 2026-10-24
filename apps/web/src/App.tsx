@@ -28,6 +28,7 @@ import { OperatorTenant } from "./pages/OperatorTenant";
 import { TenantAdmin } from "./pages/TenantAdmin";
 import { WorkspaceFiles } from "./pages/WorkspaceFiles";
 import { Button } from "./ui/Button";
+import { Loading } from "./ui/States";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -134,7 +135,7 @@ export function App({ initialMode = null }: { initialMode?: AuthMode | null } = 
   } else if (path === FINISH_PATH) {
     body = <FinishSignIn onSignedIn={() => window.location.assign("/")} />;
   } else if (mode === null || (mode === "oidc" && signedIn === null)) {
-    body = <p className="mx-auto mt-16 text-ui">Loading…</p>;
+    body = <Loading className="mx-auto mt-16" />;
   } else if (mode === "oidc") {
     body = signedIn ? (
       <Signed>

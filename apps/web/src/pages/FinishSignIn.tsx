@@ -8,6 +8,7 @@ import { tokenFromFragment } from "../lib/fragment";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
 import { Input } from "../ui/Input";
+import { Notice } from "../ui/Notice";
 
 // Landing page of the emailed sign-in link (P1a-02). Opening it submits nothing: only the
 // button's POST sends the token, from this browser (the API checks it is the one that
@@ -143,7 +144,7 @@ export function SecondFactor({
         </Button>
       </form>
       {challenge.failed && (
-        <p className="text-ui text-danger">That code was not accepted. Try the current one.</p>
+        <Notice tone="danger">That code was not accepted. Try the current one.</Notice>
       )}
     </main>
   );

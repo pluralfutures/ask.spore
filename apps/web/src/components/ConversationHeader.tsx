@@ -1,29 +1,27 @@
 import type { ConversationDetail } from "../api/types";
 import { formatDate } from "../lib/format";
+import { Clock } from "lucide-react";
+import { Badge } from "../ui/Badge";
 
 // The conversation's fixed settings (P1a-12): workspace label, model name and a reasoning
 // badge. Read-only: workspace, model and reasoning cannot change inside a conversation.
 export function ConversationHeader({ conversation }: { conversation: ConversationDetail }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-ui text-fg-secondary">
-      <span data-testid="workspace-label" className="rounded-control bg-neutral-muted px-2">
-        {conversation.workspace_name}
-      </span>
+      <Badge data-testid="workspace-label">{conversation.workspace_name}</Badge>
       <span data-testid="model-name">{conversation.model_display_name}</span>
       {conversation.reasoning ? (
-        <span
-          data-testid="reasoning-badge"
-          className="rounded-control bg-info-subtle px-2 text-meta font-emphasis text-info"
-        >
+        <Badge tone="accent" data-testid="reasoning-badge">
           Reasoning on
-        </span>
+        </Badge>
       ) : null}
       {conversation.mode === "general_knowledge" ? (
-        <span className="rounded-control bg-warning-muted px-2 text-meta font-emphasis text-warning">
-          General knowledge
-        </span>
+        <Badge tone="warning">General knowledge</Badge>
       ) : null}
-      <span className="text-fg-muted">Expires {formatDate(conversation.expires_at)}</span>
+      <span className="inline-flex items-center gap-1 text-fg-muted">
+        <Clock size={14} strokeWidth={1.5} aria-hidden="true" />
+        Expires {formatDate(conversation.expires_at)}
+      </span>
     </div>
   );
 }

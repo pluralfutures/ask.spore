@@ -189,7 +189,8 @@ describe("source detail", () => {
     );
     expect(html).toContain("SSH tunnel");
     expect(html).toContain("proposed (new → proposed) · editor@example.org");
-    expect(html).toContain("ingest_source · failed · parse_failed");
+    // UX-08: the job status is a badge; the words are unchanged.
+    expect(html.replace(/<[^>]+>/g, "")).toContain("ingest_source · failed · parse_failed");
   });
 });
 

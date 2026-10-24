@@ -10,6 +10,7 @@ import {
 import { Field } from "../ui/Field";
 import { Select } from "../ui/Input";
 import { Switch } from "../ui/Switch";
+import { Notice } from "../ui/Notice";
 
 interface Props {
   workspaces: Workspace[];
@@ -24,7 +25,7 @@ interface Props {
 export function StartPanel({ workspaces, models, choice, onChange }: Props) {
   const view = panelView(choice, workspaces, models);
   return (
-    <fieldset className="flex flex-col gap-3 rounded-control border bg-surface p-3 text-ui">
+    <fieldset className="flex flex-col gap-4 rounded-card border bg-surface p-4 text-ui">
       <legend className="px-1 font-strong">New conversation</legend>
       {view.showWorkspace ? (
         <Field label="Workspace">
@@ -57,12 +58,9 @@ export function StartPanel({ workspaces, models, choice, onChange }: Props) {
         </Field>
       ) : null}
       {view.external ? (
-        <p
-          data-testid="external-note"
-          className="rounded-control bg-warning-subtle px-2 py-1 text-warning"
-        >
+        <Notice tone="warning" data-testid="external-note">
           {EXTERNAL_NOTE}
-        </p>
+        </Notice>
       ) : null}
       <Switch
         checked={choice.reasoning}

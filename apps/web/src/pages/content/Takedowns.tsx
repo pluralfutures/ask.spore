@@ -6,20 +6,24 @@ import type { Takedown } from "../../api/types";
 import { errorMessage, timerText, timerTone } from "../../lib/content";
 import { formatDate } from "../../lib/format";
 import { LINK } from "../../ui/link";
+import { Notice } from "../../ui/Notice";
+import { Loading } from "../../ui/States";
+import { StatusBadge } from "../../ui/Badge";
+import { EmptyState } from "../../ui/States";
 
 // The takedown queue with its SLA timer (P1b-03, P1b-05): 10 working days from the
 // request, the same day for a licence breach we find ourselves. Withdrawal is a separate
 // reviewer step on the source's page.
 export function Takedowns() {
   const queue = useQuery({ queryKey: ["content", "takedowns"], queryFn: contentApi.takedowns });
-  if (queue.error) return <p className="text-danger">{errorMessage(queue.error)}</p>;
-  return queue.data ? <TakedownTable items={queue.data} /> : <p>Loading…</p>;
+  if (queue.error) return <Notice tone="danger">{errorMessage(queue.error)}</Notice>;
+  return queue.data ? <TakedownTable items={queue.data} /> : <Loading />;
 }
 
 const TONE = { overdue: "text-danger font-strong", due: "text-attention", ok: "" };
 
 export function TakedownTable({ items }: { items: Takedown[] }) {
-  if (items.length === 0) return <p className="text-fg-muted">No open takedown requests.</p>;
+  if (items.length === 0) return <EmptyState title="No open takedown requests." />;
   return (
     <table className="w-full rounded-control bg-surface text-left">
       <thead>
@@ -52,7 +56,9 @@ export function TakedownTable({ items }: { items: Takedown[] }) {
             >
               {timerText(item.working_days_left)}
             </td>
-            <td className="p-2">{item.status}</td>
+            <td className="p-2">
+              <StatusBadge kind="takedown" status={item.status} />
+            </td>
           </tr>
         ))}
       </tbody>

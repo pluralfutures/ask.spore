@@ -17,6 +17,8 @@ import { LINK } from "../../ui/link";
 import { Field } from "../../ui/Field";
 import { Input } from "../../ui/Input";
 import { Checkbox } from "../../ui/Checkbox";
+import { Notice } from "../../ui/Notice";
+import { cardClass } from "../../ui/cardClass";
 
 // The propose form (P1b-05): a file upload or a URL, with the manifest's metadata and
 // tags. The licence basis is always required; a licence or permission letter is optional,
@@ -45,10 +47,7 @@ export function Propose({ roles }: { roles: string[] }) {
   const set = (key: keyof ProposalFields) => (value: string | boolean | string[]) =>
     setFields({ ...fields, [key]: value });
   return (
-    <form
-      onSubmit={submit}
-      className="flex max-w-2xl flex-col gap-2 rounded-control bg-surface p-3"
-    >
+    <form onSubmit={submit} className={cardClass("flex max-w-2xl flex-col gap-2")}>
       <h2 className="font-strong">Propose a source</h2>
       <Field label="File (PDF, DOCX, PPTX, HTML, Markdown)">
         <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
@@ -112,9 +111,9 @@ export function Propose({ roles }: { roles: string[] }) {
       <Button variant="primary" className="w-fit" type="submit" disabled={propose.isPending}>
         Propose
       </Button>
-      {problem ? <p className="text-danger">{problem}</p> : null}
+      {problem ? <Notice tone="danger">{problem}</Notice> : null}
       {errorMessage(propose.error) ? (
-        <p className="text-danger">{errorMessage(propose.error)}</p>
+        <Notice tone="danger">{errorMessage(propose.error)}</Notice>
       ) : null}
       {propose.data ? <ProposeResult result={propose.data} /> : null}
     </form>
@@ -131,7 +130,7 @@ const OUTCOMES: Record<ProposeOut["outcome"], string> = {
 
 export function ProposeResult({ result }: { result: ProposeOut }) {
   return (
-    <div data-testid="propose-result" className="rounded-control bg-surface-subtle p-2">
+    <Notice tone="success" data-testid="propose-result">
       <p>
         {OUTCOMES[result.outcome]}{" "}
         <Link to={`/content/sources/${result.source_id}`} className={LINK}>
@@ -151,6 +150,6 @@ export function ProposeResult({ result }: { result: ProposeOut }) {
           reviewer chooses replace or keep both.
         </p>
       ) : null}
-    </div>
+    </Notice>
   );
 }

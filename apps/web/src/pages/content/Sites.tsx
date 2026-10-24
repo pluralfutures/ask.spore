@@ -17,6 +17,12 @@ import { LINK } from "../../ui/link";
 import { Field } from "../../ui/Field";
 import { Input, Select, Textarea } from "../../ui/Input";
 import { Checkbox } from "../../ui/Checkbox";
+import { Notice } from "../../ui/Notice";
+import { Loading } from "../../ui/States";
+import { cardClass } from "../../ui/cardClass";
+import { Globe } from "lucide-react";
+import { StatusBadge } from "../../ui/Badge";
+import { EmptyState } from "../../ui/States";
 
 // Sites (P1b-04, P1b-05): registered websites, their crawl state, and the editor's form
 // to register one for a reviewer to approve.
@@ -25,16 +31,16 @@ export function Sites({ roles }: { roles: string[] }) {
   return (
     <section className="flex flex-col gap-4">
       {errorMessage(sites.error) ? (
-        <p className="text-danger">{errorMessage(sites.error)}</p>
+        <Notice tone="danger">{errorMessage(sites.error)}</Notice>
       ) : null}
-      {sites.data ? <SiteTable sites={sites.data} /> : <p>Loading…</p>}
+      {sites.data ? <SiteTable sites={sites.data} /> : <Loading />}
       {canEdit(roles) ? <RegisterSite /> : null}
     </section>
   );
 }
 
 export function SiteTable({ sites }: { sites: ContentSite[] }) {
-  if (sites.length === 0) return <p className="text-fg-muted">No sites registered.</p>;
+  if (sites.length === 0) return <EmptyState title="No sites registered." icon={Globe} />;
   return (
     <table className="w-full rounded-control bg-surface text-left">
       <thead>
@@ -57,7 +63,9 @@ export function SiteTable({ sites }: { sites: ContentSite[] }) {
               </Link>{" "}
               <span className="text-fg-subtle">{site.host}</span>
             </td>
-            <td className="p-2">{site.status}</td>
+            <td className="p-2">
+              <StatusBadge kind="site" status={site.status} />
+            </td>
             <td className="p-2">{ALLOW_DECISIONS[site.allow_decision] ?? site.allow_decision}</td>
             <td className="p-2">{site.schedule}</td>
             <td className="p-2">
@@ -114,10 +122,7 @@ function RegisterSite() {
     />
   );
   return (
-    <form
-      onSubmit={submit}
-      className="flex max-w-2xl flex-col gap-2 rounded-control bg-surface p-3"
-    >
+    <form onSubmit={submit} className={cardClass("flex max-w-2xl flex-col gap-2")}>
       <h2 className="font-strong">Register a site</h2>
       <Field label="Start URL">{input("start_url")}</Field>
       <Field label="Name">{input("name")}</Field>
@@ -170,9 +175,13 @@ function RegisterSite() {
         Register
       </Button>
       {errorMessage(create.error) ? (
-        <p className="text-danger">{errorMessage(create.error)}</p>
+        <Notice tone="danger">{errorMessage(create.error)}</Notice>
       ) : null}
-      {create.data ? <p>Registered: it waits for a reviewer.</p> : null}
+      {create.data ? (
+        <Notice tone="success" role="status">
+          Registered: it waits for a reviewer.
+        </Notice>
+      ) : null}
     </form>
   );
 }

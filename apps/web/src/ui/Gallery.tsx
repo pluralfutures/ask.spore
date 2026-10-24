@@ -3,11 +3,16 @@ import { MemoryRouter } from "react-router-dom";
 
 import { Button, ButtonLink } from "./Button";
 import type { ButtonSize, ButtonVariant } from "./buttonClass";
+import { Badge, StatusBadge } from "./Badge";
+import { Card } from "./Card";
 import { Checkbox, Radio } from "./Checkbox";
 import { Field } from "./Field";
 import { IconButton } from "./IconButton";
 import { Input, Select, Textarea } from "./Input";
 import { LINK } from "./link";
+import { Notice } from "./Notice";
+import { PageHeader } from "./PageHeader";
+import { EmptyState, Loading, Skeleton } from "./States";
 import { Switch } from "./Switch";
 
 // UX-06: the development-only component gallery at /_ui (App.tsx loads it only when
@@ -146,6 +151,43 @@ export default function Gallery() {
               <Switch>Sign-in links</Switch>
               <Switch disabled>Disabled</Switch>
             </fieldset>
+          </div>
+        </Section>
+        <Section title="Surfaces and feedback">
+          <div className="flex flex-col gap-4">
+            <PageHeader
+              back={{ to: "/", label: "← Conversations" }}
+              title="Page title"
+              description="One line that says what the page is for."
+              actions={<Button variant="primary">Primary action</Button>}
+              meta={<StatusBadge kind="tenant" status="active" />}
+            />
+            <Card
+              title="Card title"
+              description="Optional description."
+              actions={<Button size="sm">Edit</Button>}
+            >
+              <p className="text-ui">Card content.</p>
+            </Card>
+            <div className="flex flex-wrap gap-2">
+              <Badge>neutral</Badge>
+              <Badge tone="accent">accent</Badge>
+              <Badge tone="warning">warning</Badge>
+              <Badge tone="danger">danger</Badge>
+              <Badge tone="success">success</Badge>
+              <StatusBadge kind="source" status="ingested" />
+              <StatusBadge kind="source" status="failed" />
+              <StatusBadge kind="user" status="invited" />
+            </div>
+            <Notice>An information notice.</Notice>
+            <Notice tone="warning" title="Warning title">
+              A warning notice with a title.
+            </Notice>
+            <Notice tone="danger">An error notice.</Notice>
+            <Notice tone="success">A success notice.</Notice>
+            <Loading />
+            <Skeleton rows={2} />
+            <EmptyState title="Nothing here yet." action={<Button size="sm">Add one</Button>} />
           </div>
         </Section>
         <Section title="Link">

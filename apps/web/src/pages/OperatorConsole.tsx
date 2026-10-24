@@ -10,6 +10,11 @@ import { LINK } from "../ui/link";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
 import { Checkbox } from "../ui/Checkbox";
+import { Card } from "../ui/Card";
+import { cardClass } from "../ui/cardClass";
+import { PageHeader } from "../ui/PageHeader";
+import { StatusBadge } from "../ui/Badge";
+import { EmptyState } from "../ui/States";
 
 // Operator console (P1a-03), one tenant per page (P1b-12): this page picks the tenant and
 // creates new ones; each tenant's settings are on its own page (OperatorTenant), so a
@@ -25,24 +30,25 @@ export function OperatorConsole() {
   }
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-title font-strong">Operator console</h1>
-        {/* P1c-08: every operator is also a user of the internal tenant. */}
-        <Link to="/" className={`text-ui ${LINK}`}>
-          Chat app
-        </Link>
-      </div>
-      <section className="rounded-control bg-surface p-3 text-ui">
-        <h2 className="mb-2 font-strong">Tenants</h2>
+      <PageHeader
+        title="Operator console"
+        actions={
+          // P1c-08: every operator is also a user of the internal tenant.
+          <Link to="/" className={`text-ui ${LINK}`}>
+            Chat app
+          </Link>
+        }
+      />
+      <Card title="Tenants" className="text-ui">
         <ul className="flex flex-col gap-1">
           {tenants.data?.map((tenant) => (
             <li key={tenant.id}>
               <Link to={`/operator/tenants/${tenant.id}`} className={LINK}>
                 {tenant.display_name}
               </Link>{" "}
-              <span className="text-fg-subtle">
-                ({tenant.slug}) · {tenant.status} · admins: {tenant.admins}
-              </span>
+              <span className="text-fg-subtle">({tenant.slug})</span>{" "}
+              <StatusBadge kind="tenant" status={tenant.status} />{" "}
+              <span className="text-fg-subtle">admins: {tenant.admins}</span>
             </li>
           ))}
         </ul>
@@ -51,12 +57,11 @@ export function OperatorConsole() {
             Totals across tenants
           </Link>
         </p>
-      </section>
+      </Card>
       <TerminatedTenants />
       <CreateTenant />
       <Sources />
-      <section>
-        <h2 className="mb-2 font-strong">Notices</h2>
+      <Card title="Notices">
         {notices.data?.length ? (
           <ul className="text-ui">
             {notices.data.map((n) => (
@@ -66,9 +71,9 @@ export function OperatorConsole() {
             ))}
           </ul>
         ) : (
-          <p className="text-ui text-fg-muted">No notices.</p>
+          <EmptyState title="No notices." />
         )}
-      </section>
+      </Card>
     </main>
   );
 }
@@ -85,10 +90,9 @@ function Sources() {
   });
   const files = sources.data?.filter((s) => ["pdf", "docx", "pptx"].includes(s.type)) ?? [];
   return (
-    <section className="rounded-control bg-surface p-3 text-ui">
-      <h2 className="mb-2 font-strong">Downloadable files</h2>
+    <Card title="Downloadable files" className="text-ui">
       <SaveStatus isSuccess={toggle.isSuccess} error={toggle.error} />
-      {files.length === 0 ? <p className="text-fg-muted">No files in the register.</p> : null}
+      {files.length === 0 ? <EmptyState title="No files in the register." /> : null}
       <ul className="flex flex-col gap-1">
         {files.map((source) => (
           <li key={source.id}>
@@ -104,7 +108,7 @@ function Sources() {
           </li>
         ))}
       </ul>
-    </section>
+    </Card>
   );
 }
 
@@ -117,8 +121,7 @@ function TerminatedTenants() {
   });
   if (!terminated.data?.length) return null;
   return (
-    <section className="rounded-control bg-surface p-3 text-ui">
-      <h2 className="mb-2 font-strong">Terminated tenants</h2>
+    <Card title="Terminated tenants" className="text-ui">
       <ul className="flex flex-col gap-1">
         {terminated.data.map((t) => (
           <li key={t.id} data-testid={`terminated-${t.slug}`}>
@@ -128,7 +131,7 @@ function TerminatedTenants() {
           </li>
         ))}
       </ul>
-    </section>
+    </Card>
   );
 }
 
@@ -159,10 +162,7 @@ function CreateTenant() {
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="flex flex-wrap items-end gap-2 rounded-control bg-surface p-3 text-ui"
-    >
+    <form onSubmit={submit} className={cardClass("flex flex-wrap items-end gap-2 text-ui")}>
       <h2 className="w-full font-strong">New tenant</h2>
       <Field label="Slug">
         <Input value={slug} onChange={(e) => setSlug(e.target.value)} required />

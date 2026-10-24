@@ -10,6 +10,9 @@ import { createBody, initialChoice, refusalText, type StartChoice } from "../lib
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
 import { Textarea } from "../ui/Input";
+import { Notice } from "../ui/Notice";
+import { Loading } from "../ui/States";
+import { EmptyState } from "../ui/States";
 
 // What the chat page needs from the start: the first question, the spend-cap notice, and,
 // for a tenant that keeps no history (P1b-14), the conversation itself, which no read
@@ -41,10 +44,18 @@ export function NewConversation() {
   });
 
   if (workspaces.isPending || models.isPending) {
-    return <main className="mx-auto max-w-3xl p-4">Loading…</main>;
+    return (
+      <main className="mx-auto max-w-3xl p-4">
+        <Loading />
+      </main>
+    );
   }
   if (!workspaces.data || !models.data) {
-    return <main className="mx-auto max-w-3xl p-4 text-danger">Could not load the options.</main>;
+    return (
+      <main className="mx-auto max-w-3xl p-4">
+        <Notice tone="danger">Could not load the options.</Notice>
+      </main>
+    );
   }
   const choice = edited ?? initialChoice(workspaces.data, models.data);
 
@@ -59,7 +70,7 @@ export function NewConversation() {
         ← Conversations
       </Link>
       {workspaces.data.length === 0 ? (
-        <p>No workspace has been set up for your organisation yet.</p>
+        <EmptyState title="No workspace has been set up for your organisation yet." />
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-3">
           <StartPanel
@@ -80,9 +91,9 @@ export function NewConversation() {
             placeholder="Ask a question about this workspace's sources"
           />
           {create.error ? (
-            <p role="alert" className="text-danger">
+            <Notice tone="danger" role="alert">
               {refusalText(create.error instanceof ApiError ? create.error.code : null)}
-            </p>
+            </Notice>
           ) : null}
           <Button
             variant="primary"

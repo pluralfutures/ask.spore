@@ -9,6 +9,7 @@ import { Sites } from "./Sites";
 import { SourceDetail } from "./SourceDetail";
 import { Tags } from "./Tags";
 import { Takedowns } from "./Takedowns";
+import { Loading } from "../../ui/States";
 
 // Content operations console (P1b-05, architecture §7.3): the source register with its
 // approval flow, takedowns, sites and tags. For internal users with a content role; the
@@ -20,7 +21,12 @@ export function ContentConsole() {
   if (me.error instanceof ApiError && me.error.status === 403) {
     return <main className="mx-auto max-w-3xl p-4 text-ui">Content roles only.</main>;
   }
-  if (!me.data) return <main className="mx-auto max-w-3xl p-4 text-ui">Loading…</main>;
+  if (!me.data)
+    return (
+      <main className="mx-auto max-w-3xl p-4 text-ui">
+        <Loading />
+      </main>
+    );
   const roles = me.data.roles;
   const link = ({ isActive }: { isActive: boolean }) =>
     isActive ? "font-strong underline" : "underline";

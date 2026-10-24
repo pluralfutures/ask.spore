@@ -5,6 +5,9 @@ import type { ContentTag } from "../../api/types";
 import { canReview, errorMessage } from "../../lib/content";
 import { Button } from "../../ui/Button";
 import { LINK } from "../../ui/link";
+import { Notice } from "../../ui/Notice";
+import { Loading } from "../../ui/States";
+import { Badge } from "../../ui/Badge";
 
 // Tag management (P1b-05): the tags of config/tags.toml and their RAGFlow datasets.
 // Tags are edited in that file (a reviewed change); the page shows the mapping and a
@@ -35,8 +38,8 @@ export function Tags({ roles }: { roles: string[] }) {
       {sync.data ? (
         <p data-testid="sync-result">{sync.data.map((r) => `${r.tag}: ${r.status}`).join(" · ")}</p>
       ) : null}
-      {errorMessage(sync.error) ? <p className="text-danger">{errorMessage(sync.error)}</p> : null}
-      {tags.data ? <TagTable tags={tags.data} /> : <p>Loading…</p>}
+      {errorMessage(sync.error) ? <Notice tone="danger">{errorMessage(sync.error)}</Notice> : null}
+      {tags.data ? <TagTable tags={tags.data} /> : <Loading />}
     </section>
   );
 }
@@ -64,7 +67,7 @@ export function TagTable({ tags }: { tags: ContentTag[] }) {
             </td>
             <td className="p-2">
               {tag.dataset_id === null ? (
-                <span className="text-warning">not synced</span>
+                <Badge tone="warning">not synced</Badge>
               ) : tag.ragflow_url ? (
                 <a
                   href={tag.ragflow_url}

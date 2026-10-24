@@ -14,6 +14,8 @@ import type { StartState } from "./NewConversation";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
 import { Textarea } from "../ui/Input";
+import { Notice } from "../ui/Notice";
+import { Loading } from "../ui/States";
 
 interface Live {
   question: string;
@@ -179,21 +181,18 @@ export function Chat() {
           </h1>
           {conversation.data ? <ConversationHeader conversation={conversation.data} /> : null}
           {noHistory ? (
-            <p data-testid="no-history" className="mt-2 text-ui text-fg-muted">
+            <Notice data-testid="no-history" className="mt-2">
               {NO_HISTORY_NOTE}
-            </p>
+            </Notice>
           ) : null}
           {start?.notice ? (
-            <p
-              role="status"
-              className="mt-2 rounded-control bg-warning-subtle px-2 py-1 text-ui text-warning"
-            >
+            <Notice tone="warning" role="status" className="mt-2">
               {start.notice}
-            </p>
+            </Notice>
           ) : null}
         </header>
         {conversation.isError && !noHistory ? (
-          <p className="text-danger">Conversation not found.</p>
+          <Notice tone="danger">Conversation not found.</Notice>
         ) : null}
         <ol className="flex flex-col gap-3">
           {past.map((turn, i) => (
@@ -241,7 +240,7 @@ export function Chat() {
                     onCite={(marker) => setSelection({ key: "live", marker })}
                   />
                 ) : live.stopped || live.error ? null : (
-                  <p className="text-fg-muted">Searching your research package…</p>
+                  <Loading>Searching your research package…</Loading>
                 )}
                 <AnswerNote
                   note={
@@ -249,7 +248,11 @@ export function Chat() {
                   }
                 />
                 <FailoverNote kind={live.done?.failover} />
-                {live.error ? <p className="mt-2 text-danger">{live.error}</p> : null}
+                {live.error ? (
+                  <Notice tone="danger" className="mt-2">
+                    {live.error}
+                  </Notice>
+                ) : null}
               </li>
             </>
           ) : null}
@@ -310,7 +313,11 @@ function PastTurn({ turn, onCite }: { turn: Live; onCite: (marker: number) => vo
           note={turn.stopped ? PARTIAL_NOTE : answerNote({ truncated: turn.done?.truncated })}
         />
         <FailoverNote kind={turn.done?.failover} />
-        {turn.error ? <p className="mt-2 text-danger">{turn.error}</p> : null}
+        {turn.error ? (
+          <Notice tone="danger" className="mt-2">
+            {turn.error}
+          </Notice>
+        ) : null}
       </li>
     </>
   );

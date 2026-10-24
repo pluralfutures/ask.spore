@@ -17,6 +17,11 @@ import { Button } from "../../ui/Button";
 import { LINK } from "../../ui/link";
 import { Field } from "../../ui/Field";
 import { Input, Select, Textarea } from "../../ui/Input";
+import { Notice } from "../../ui/Notice";
+import { Loading } from "../../ui/States";
+import { StatusBadge } from "../../ui/Badge";
+import { Card } from "../../ui/Card";
+import { EmptyState } from "../../ui/States";
 
 // One site (P1b-04, P1b-05): its settings, allow decision and last crawl, every page a
 // crawl met (blocked ones with the reason), and the reviewer's actions: approve or
@@ -28,8 +33,8 @@ export function SiteDetail({ roles }: { roles: string[] }) {
   const site = useQuery({ queryKey: ["content", "site", id], queryFn: () => contentApi.site(id) });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["content"] });
   const crawl = useMutation({ mutationFn: () => contentApi.crawl(id), onSuccess: refresh });
-  if (site.error) return <p className="text-danger">{errorMessage(site.error)}</p>;
-  if (!site.data) return <p>Loading…</p>;
+  if (site.error) return <Notice tone="danger">{errorMessage(site.error)}</Notice>;
+  if (!site.data) return <Loading />;
   const data = site.data;
   return (
     <section className="flex flex-col gap-4">
@@ -41,7 +46,7 @@ export function SiteDetail({ roles }: { roles: string[] }) {
           </Button>
           {crawl.data ? <span>Queued.</span> : null}
           {errorMessage(crawl.error) ? (
-            <span className="text-danger">{errorMessage(crawl.error)}</span>
+            <Notice tone="danger">{errorMessage(crawl.error)}</Notice>
           ) : null}
         </div>
       ) : null}
@@ -53,13 +58,12 @@ export function SiteDetail({ roles }: { roles: string[] }) {
 
 export function SiteSummary({ site }: { site: ContentSiteDetail }) {
   return (
-    <div className="flex flex-col gap-1 rounded-control bg-surface p-3">
-      <h2 className="text-heading font-strong">{site.name}</h2>
+    <Card title={site.name} className="gap-1">
       <p>
         {site.start_url} · {site.publisher} · {site.licence_basis} · {site.tags.join(", ")}
       </p>
       <p>
-        Status: <strong>{site.status}</strong> · allow decision:{" "}
+        Status: <StatusBadge kind="site" status={site.status} /> · allow decision:{" "}
         <span data-testid="allow-decision">
           {ALLOW_DECISIONS[site.allow_decision] ?? site.allow_decision}
         </span>
@@ -81,17 +85,17 @@ export function SiteSummary({ site }: { site: ContentSiteDetail }) {
       </p>
       {site.review_note ? <p>Reviewer's note: {site.review_note}</p> : null}
       {site.status === "withdrawn" ? (
-        <p data-testid="site-withdrawn" className="text-danger-strong">
+        <Notice tone="danger" data-testid="site-withdrawn">
           Withdrawn {formatDate(site.withdrawn_at)}: {site.withdrawal_reason}. Never crawled again;
           every page is withdrawn.
-        </p>
+        </Notice>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
 export function PageTable({ pages }: { pages: SitePage[] }) {
-  if (pages.length === 0) return <p className="text-fg-muted">No pages crawled yet.</p>;
+  if (pages.length === 0) return <EmptyState title="No pages crawled yet." />;
   return (
     <table className="w-full rounded-control bg-surface text-left">
       <thead>
@@ -115,7 +119,9 @@ export function PageTable({ pages }: { pages: SitePage[] }) {
                 page.url
               )}
             </td>
-            <td className="p-2">{page.state}</td>
+            <td className="p-2">
+              <StatusBadge kind="page" status={page.state} />
+            </td>
             <td className="p-2">{pageReason(page.reason, page.special_category)}</td>
             <td className="p-2">{page.published_on ? formatDate(page.published_on) : "—"}</td>
             <td className="p-2">{formatDate(page.fetched_at)}</td>
@@ -169,9 +175,8 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
     errorMessage(saveWhitelist.error) ??
     errorMessage(withdraw.error);
   return (
-    <div className="flex flex-col gap-3 rounded-control bg-surface p-3">
-      <h3 className="font-strong">Review</h3>
-      {error ? <p className="text-danger">{error}</p> : null}
+    <Card title="Review" level={3}>
+      {error ? <Notice tone="danger">{error}</Notice> : null}
       {site.status === "proposed" ? (
         <div className="flex flex-wrap items-end gap-2">
           <Field label="Note (required to reject)">
@@ -229,7 +234,7 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
           </Button>
         </div>
       ) : null}
-    </div>
+    </Card>
   );
 }
 

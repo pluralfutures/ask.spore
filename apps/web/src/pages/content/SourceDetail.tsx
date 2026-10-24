@@ -11,6 +11,11 @@ import { LINK } from "../../ui/link";
 import { Field } from "../../ui/Field";
 import { Input, Textarea } from "../../ui/Input";
 import { Checkbox, Radio } from "../../ui/Checkbox";
+import { Notice } from "../../ui/Notice";
+import { Loading } from "../../ui/States";
+import { cardClass } from "../../ui/cardClass";
+import { StatusBadge } from "../../ui/Badge";
+import { Card } from "../../ui/Card";
 
 // One source: its register metadata, history, jobs, ingestion status and errors, the
 // licence file, links to its documents in the private RAGFlow UI, and the reviewer's
@@ -21,8 +26,8 @@ export function SourceDetail({ roles }: { roles: string[] }) {
     queryKey: ["content", "source", id],
     queryFn: () => contentApi.source(id),
   });
-  if (source.error) return <p className="text-danger">{errorMessage(source.error)}</p>;
-  if (!source.data) return <p>Loading…</p>;
+  if (source.error) return <Notice tone="danger">{errorMessage(source.error)}</Notice>;
+  if (!source.data) return <Loading />;
   return (
     <section className="flex flex-col gap-4">
       <SourceSummary source={source.data} />
@@ -35,14 +40,13 @@ export function SourceDetail({ roles }: { roles: string[] }) {
 
 export function SourceSummary({ source }: { source: ContentSourceDetail }) {
   return (
-    <div className="flex flex-col gap-1 rounded-control bg-surface p-3">
-      <h2 className="text-heading font-strong">{source.title}</h2>
+    <Card title={source.title} className="gap-1">
       <p>
         {source.publisher} · {source.type.toUpperCase()} · {formatDate(source.published_on)} ·{" "}
         {source.tags.join(", ")}
       </p>
       <p>
-        Status: <strong data-testid="source-status">{source.status}</strong>
+        Status: <StatusBadge kind="source" status={source.status} data-testid="source-status" />
         {source.chunk_count !== null ? ` · ${source.chunk_count} chunks` : ""}
         {source.downloadable ? " · downloadable" : ""}
       </p>
@@ -65,9 +69,9 @@ export function SourceSummary({ source }: { source: ContentSourceDetail }) {
         <p className="text-fg-muted">No licence file on record.</p>
       )}
       {source.error ? (
-        <p data-testid="source-error" className="text-danger">
+        <Notice tone="danger" data-testid="source-error">
           Ingestion error: {source.error}
-        </p>
+        </Notice>
       ) : null}
       {source.review_note ? <p>Reviewer's note: {source.review_note}</p> : null}
       {source.withdrawal_reason ? (
@@ -77,30 +81,29 @@ export function SourceSummary({ source }: { source: ContentSourceDetail }) {
       ) : null}
       {source.supersedes ? <p>Replaces: {source.supersedes.title}</p> : null}
       {source.possible_replacements.length ? (
-        <p data-testid="possible-replacement" className="text-warning">
+        <Notice tone="warning" data-testid="possible-replacement">
           Possible replacement of{" "}
           {source.possible_replacements.map((r) => `${r.title} (${r.publisher})`).join("; ")}
-        </p>
+        </Notice>
       ) : null}
       {source.takedown ? (
-        <p data-testid="takedown" className="text-danger">
+        <Notice tone="danger" data-testid="takedown">
           Takedown {source.takedown.reference}, requested {formatDate(source.takedown.requested_on)}
           , due {formatDate(source.takedown.due_on)}
           {source.status === "withdrawn"
             ? ""
             : ` (${timerText(source.takedown.working_days_left)})`}
           {source.takedown.licence_grounds ? " · licence grounds" : ""}
-        </p>
+        </Notice>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
 export function SourceRecord({ source }: { source: ContentSourceDetail }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <div className="rounded-control bg-surface p-3">
-        <h3 className="font-strong">Documents in RAGFlow</h3>
+      <Card title="Documents in RAGFlow" level={3}>
         {source.documents.length === 0 ? <p className="text-fg-muted">None.</p> : null}
         <ul>
           {source.documents.map((d) => (
@@ -121,18 +124,17 @@ export function SourceRecord({ source }: { source: ContentSourceDetail }) {
             The RAGFlow UI is private: it opens over an SSH tunnel to the Instance (operators only).
           </p>
         ) : null}
-        <h3 className="mt-3 font-strong">Jobs</h3>
+        <h3 className="text-heading font-strong">Jobs</h3>
         <ul>
           {source.jobs.map((job) => (
             <li key={job.id}>
-              {job.type} · {job.status}
+              {job.type} · <StatusBadge kind="job" status={job.status} />
               {job.error_code ? ` · ${job.error_code}` : ""} · {formatDate(job.created_at)}
             </li>
           ))}
         </ul>
-      </div>
-      <div className="rounded-control bg-surface p-3">
-        <h3 className="font-strong">History</h3>
+      </Card>
+      <Card title="History" level={3}>
         <ol>
           {source.history.map((entry, n) => (
             <li key={n}>
@@ -140,7 +142,7 @@ export function SourceRecord({ source }: { source: ContentSourceDetail }) {
             </li>
           ))}
         </ol>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -180,9 +182,8 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
     errorMessage(withdraw.error) ??
     errorMessage(restore.error);
   return (
-    <div className="flex flex-col gap-3 rounded-control bg-surface p-3">
-      <h3 className="font-strong">Review</h3>
-      {error ? <p className="text-danger">{error}</p> : null}
+    <Card title="Review" level={3}>
+      {error ? <Notice tone="danger">{error}</Notice> : null}
       {source.status === "proposed" ? (
         <div className="flex flex-col gap-2">
           {source.possible_replacements.length ? (
@@ -250,7 +251,7 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
         </div>
       ) : null}
       {source.status !== "withdrawn" ? <TakedownForm id={source.id} /> : null}
-    </div>
+    </Card>
   );
 }
 
@@ -340,7 +341,9 @@ function TakedownForm({ id }: { id: string }) {
         Record
       </Button>
       {errorMessage(record.error) ? (
-        <p className="w-full text-danger">{errorMessage(record.error)}</p>
+        <Notice tone="danger" className="w-full">
+          {errorMessage(record.error)}
+        </Notice>
       ) : null}
     </form>
   );
@@ -358,7 +361,7 @@ function LicenceUpload({ id }: { id: string }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["content", "source", id] }),
   });
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-control bg-surface p-3">
+    <div className={cardClass("flex flex-wrap items-end gap-2")}>
       <Field label="Licence or permission letter (PDF, DOCX, TXT, EML, image)">
         <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </Field>
@@ -370,7 +373,7 @@ function LicenceUpload({ id }: { id: string }) {
         Attach
       </Button>
       {errorMessage(upload.error) ? (
-        <p className="text-danger">{errorMessage(upload.error)}</p>
+        <Notice tone="danger">{errorMessage(upload.error)}</Notice>
       ) : null}
     </div>
   );

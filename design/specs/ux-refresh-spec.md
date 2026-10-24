@@ -1,6 +1,6 @@
 # UX Refresh Build Spec
 
-Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. Open items 1 to 3 are still undecided; the items that depend on them (UX-05, UX-14 and every screen item that would show new copy) do not start until they are decided.
+Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. **Group A (UX-01 to UX-03) was built on Oct 24, 2026.** Open items 1 to 3 are still undecided; the items that depend on them (UX-05, UX-14 and every screen item that would show new copy) do not start until they are decided.
 
 Sources: [../ux/audit.md](../ux/audit.md) (the visual audit, with screenshots) and [../ux/design-direction.md](../ux/design-direction.md) (the proposed look). Mockups of the chat view, start panel and tenant admin page, each beside its current screenshot, are on a design canvas: https://claude.ai/artifact/3spU4UTTXALVNbfdaFiRJE.
 
@@ -31,7 +31,7 @@ Binding once approved. Record ideas in `backlog.md`.
 These elements implement controls from the compliance guide (AI Act Art. 50 transparency, GDPR Art. 5(1)(e) retention, the Oct 17–19, 2026 addenda on external models and fixed retention, and P1b-10 consent). The refresh may restyle them. It may not change their wording, remove them, hide them behind an interaction they do not have today, or move them to a different place in the flow. UX-03 adds a test for each line before any visual work starts.
 
 1. **Consent gate** (`ConsentGate`, P1b-10).
-   - It replaces every conversation, file, admin and console page until the active notice is accepted. The gate offers no navigation to those pages; sign-out may be shown.
+   - It replaces every conversation, file and tenant admin page until the active notice is accepted. The operator and content consoles are internal staff pages and are not gated (P1b-10, `lib/consent.ts`). The gate offers no navigation to the gated pages; sign-out may be shown.
    - It shows the notice title, the "changed since you last accepted" sentence when it applies, the "In short" summary and the "Full notice" in full, the checkbox "I have read the notice ({version}) and accept it.", and the "Accept and continue" button, which stays disabled until the box is ticked. The load-error and save-error sentences stay.
    - The full notice must remain completely readable: if it scrolls, the scroll region is keyboard-focusable (an audit finding to fix, not a change of content). Markdown headings and lists in the notice must render as headings and lists.
 2. **AI transparency notice and answer labels.**
@@ -81,7 +81,7 @@ Build in this order. Each item is one PR, small enough to review in one sitting,
 
 **UX-03 Compliance UI contract tests.**
 - One Playwright test per line of the binding list above. Each asserts the exact text, its landmark or container, and its order relative to neighbours (for example, the AI notice is the first element in `body`, and each conversation row contains "Expires").
-- Each test also covers the negative case: the gate blocks `/admin` and `/c/:id` until accepted.
+- Each test also covers the negative case: the gate blocks `/`, `/new`, `/admin`, `/c/:id` and the files page until accepted, and the consoles stay reachable.
 - These tests are the guard for every later item and are never updated in the same PR as a visual change, unless the owner approves a wording change separately.
 
 ### Group B — Tokens and global styles

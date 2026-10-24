@@ -174,7 +174,9 @@ export class ScenarioApi {
         required: !this.consented,
       });
     }
-    if (!this.consented) return json({ detail: "consent_required" }, 403);
+    // As app/consent/gate.py: the operator and content consoles are not gated (P1b-10).
+    const console = path.startsWith("/operator") || path.startsWith("/content");
+    if (!this.consented && !console) return json({ detail: "consent_required" }, 403);
     if (path === "/workspaces") return json(o.workspaces);
     if (path === "/models") return json(o.models);
     if (path === "/conversations" && method === "POST") return this.create(route);

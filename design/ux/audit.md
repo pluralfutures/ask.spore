@@ -113,7 +113,7 @@ Each finding is tagged: **T** type hierarchy, **S** spacing, **C** colour, **A**
 
 - **T (severe)** Answer Markdown headings render as body text (cross-cutting 2). Long answers are a wall of 16 px text in a black-bordered box. There is no reading measure; the column is 736 px at most, which is fine, but the line height is the body default.
 - **K** Citation markers are 12 px sky-blue chips about 16×16 px (below the 24 px minimum target size, WCAG 2.2 2.5.8). Feedback is two emoji buttons about 35×20 px with no visible text. Their `aria-label`s ("Helpful", "Not helpful") are correct.
-- **L (severe on phone)** On phone the citation panel opens *below the composer*, off-screen, so tapping a marker appears to do nothing (08c phone). On desktop the panel is a full-height column whose height grows the page, so with 14 citations the composer is pushed 2,000 px down (09). The selected citation (9) is not scrolled into view.
+- **L (severe on phone)** On phone the citation panel opens *below the composer*. With a one-answer thread that fits on the screen it is still visible (08c phone), but once the thread is longer than a screen the source opens out of view, so tapping a marker appears to do nothing (09 phone; checked by a UX-03 test). *Corrected Oct 24, 2026: the first version said it always opened off-screen.* On desktop the panel is a full-height column whose height grows the page, so with 14 citations the composer is pushed 2,000 px down (09). The selected citation (9) is not scrolled into view.
 - **C** The selected citation uses a sky-blue ring, the only use of that colour outside markers.
 - **T** In the source card the provenance line (publisher · date · page) wraps awkwardly ("p.\n12"). Long titles are bold at the same size as body text, and the "superseded"/"withdrawn" badges plus an explanatory line in 12 px amber stack above the provenance.
 - **A** The conversation header mixes a grey pill (workspace), plain text (model), an indigo pill (Reasoning on), an amber pill (General knowledge) and grey text (Expires), at three heights.
@@ -223,7 +223,7 @@ Each finding is tagged: **T** type hierarchy, **S** spacing, **C** colour, **A**
 1. **Near-black `currentColor` borders on every card, table and input** (Tailwind v4 default). It makes the whole app look like a wireframe and hides the focus ring. Fix with a border token, and the app changes character at once.
 2. **No app shell.** No persistent header, navigation, tenant or workspace context, or consistent sign-out; every page starts with "← Conversations".
 3. **Horizontal overflow on phones**: 12 states are 416–927 px wide at 390 px. Missing `w-full` on page containers, and tables without scroll or stacked layouts.
-4. **Phone citation panel opens off-screen below the composer**; on desktop the panel grows the page instead of scrolling in place. Citations are the product's core promise.
+4. **Phone citation panel opens below the composer**, out of view in any thread longer than a screen; on desktop the panel grows the page instead of scrolling in place. Citations are the product's core promise.
 5. **Answer and notice Markdown loses its structure**: headings render as body text and bullets vanish. This affects answers and the consent notice.
 6. **No type scale or defined font**: section titles, labels and table headers look identical, and the OS decides the typeface.
 7. **Five button styles and three input sizes**, with underlined links used as actions, emoji feedback buttons, borderless selects and low-contrast disabled buttons.

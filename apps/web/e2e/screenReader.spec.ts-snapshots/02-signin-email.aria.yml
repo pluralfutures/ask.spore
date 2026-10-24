@@ -1,0 +1,9 @@
+- banner:
+    - note: AI-generated, verify against cited sources.
+    - link "Skip to content":
+        - /url: "#main"
+- main:
+    - heading "SporeBot" [level=1]
+    - text: Email
+    - textbox "Email"
+    - button "Continue"

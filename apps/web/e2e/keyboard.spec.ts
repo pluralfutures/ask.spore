@@ -33,14 +33,6 @@ async function expectVisibleFocus(page: Page): Promise<void> {
   expect(width).toBeGreaterThanOrEqual(BASELINE.focusRingMinWidthPx);
 }
 
-// UX-10: the first stop on every page is "Skip to content"; Enter moves focus to <main>,
-// past the top bar.
-async function skipToContent(page: Page): Promise<void> {
-  await tabTo(page, page.getByRole("link", { name: "Skip to content" }));
-  await page.keyboard.press("Enter");
-  await expect(page.getByRole("main")).toBeFocused();
-}
-
 test("email sign-in: skip link, email, then continue", async ({ page }) => {
   await openScenario(page, scenario("02-signin-email"));
   await tabTo(page, page.getByRole("link", { name: "Skip to content" }));
@@ -60,14 +52,19 @@ test("consent: the full notice, the box, then the accept button once ticked", as
   await expect(accept).toBeEnabled();
 });
 
-test("start panel: skip link, rail, back link, question, workspace, model, reasoning", async ({
+test("start panel: top bar, rail, back link, question, workspace, model, reasoning", async ({
   page,
 }) => {
   await openScenario(page, scenario("07b-start-panel-choices"));
-  await skipToContent(page);
-  // UX-13: from 1024 px the conversation rail comes first: new, then each row and its menu.
+  await tabTo(page, page.getByRole("link", { name: "Skip to content" }));
+  // UX-13: from 1024 px the conversation rail comes after the top bar: new, then each row
+  // and its menu. (UX-24: "Skip to content" skips both; see screenReader.spec.ts.)
   const rail = page.getByRole("navigation", { name: "Conversations" });
-  await tabTo(page, rail.getByRole("link", { name: "New conversation" }));
+  const railStart = rail.getByRole("link", { name: "New conversation" });
+  for (let i = 0; i < 10 && !(await railStart.evaluate((el) => el === document.activeElement)); i++)
+    await page.keyboard.press("Tab");
+  await expect(railStart).toBeFocused();
+  await expectVisibleFocus(page);
   for (const row of await rail.getByRole("listitem").all()) {
     await tabTo(page, row.getByRole("link"));
     await tabTo(page, row.getByRole("button", { name: /^Actions for / }));

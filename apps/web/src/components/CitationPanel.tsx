@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
 import type { Citation } from "../api/types";
 import { CITATION_STATUS_NOTE, EXCERPT_REMOVED_NOTE, citationStatus } from "../lib/citations";
@@ -21,6 +21,9 @@ interface Props {
 // - On phone a bottom sheet (at most 85% of the screen) showing one source at a time,
 //   with "1 of 2", previous and next.
 // It stays a "Citations" landmark at every width; Escape or Close closes it.
+// UX-24: opening a source moves focus to the panel's heading, so a screen reader announces
+// the panel and reads on into the sources; closing it returns focus to the marker that
+// opened it.
 export function CitationPanel({ citations, selected, onClose }: Props) {
   // The source the phone sheet shows: the selected one until previous or next is used.
   const [pick, setPick] = useState({ from: selected, shown: selected });
@@ -30,6 +33,26 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
     citations.findIndex((c) => c.marker === shown),
   );
   const list = useRef<HTMLOListElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  // "View at source" is described by its source's title, so it is clear out of context.
+  const titleId = useId();
+
+  useEffect(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && !panel.current?.contains(active)) opener.current = active;
+    heading.current?.focus({ preventScroll: true });
+  }, [selected]);
+
+  useEffect(() => {
+    const inPanel = panel.current;
+    return () => {
+      const active = document.activeElement;
+      const lost = !active || active === document.body || !!inPanel?.contains(active);
+      if (lost && opener.current?.isConnected) opener.current.focus({ preventScroll: true });
+    };
+  }, []);
 
   useEffect(() => {
     list.current?.querySelector(`[data-marker="${shown}"]`)?.scrollIntoView({ block: "nearest" });
@@ -46,6 +69,7 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
 
   return (
     <aside
+      ref={panel}
       aria-label="Citations"
       onKeyDown={onKeyDown}
       className={cx(
@@ -59,7 +83,11 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
         className="mx-auto mt-2 h-1 w-9 rounded-badge bg-line-strong md:hidden"
       />
       <div className="flex items-center gap-1 border-b py-2 pr-2 pl-4 md:py-3 md:pl-5">
-        <h2 className="flex-1 text-heading font-strong">
+        <h2
+          ref={heading}
+          tabIndex={-1}
+          className="flex-1 text-heading font-strong focus:outline-none"
+        >
           Sources{" "}
           <span className="text-meta font-normal text-fg-muted md:hidden">
             {index + 1} of {citations.length}
@@ -106,7 +134,7 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
                 >
                   {c.marker}
                 </span>
-                <span className="font-emphasis">
+                <span id={`${titleId}-${c.marker}`} className="font-emphasis">
                   <span className="sr-only">[{c.marker}] </span>
                   {c.title}
                   {status ? (
@@ -141,6 +169,7 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
                   href={c.canonical_url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-describedby={`${titleId}-${c.marker}`}
                   className={`w-fit ${LINK}`}
                 >
                   View at source

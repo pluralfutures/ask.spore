@@ -14,6 +14,9 @@ import { AiNotice } from "./AiNotice";
 // top bar; then the page's one <main>. #root lays them out (index.css).
 
 export const MAIN_ID = "main";
+// UX-24: where a page has the conversation rail, "Skip to content" skips it too and lands
+// on the page itself (WithRail marks it).
+export const SKIP_TARGET = "data-skip-target";
 
 // The first stop for the keyboard: jumps past the top bar to the page.
 export function SkipLink() {
@@ -22,7 +25,10 @@ export function SkipLink() {
       href={`#${MAIN_ID}`}
       onClick={(event) => {
         event.preventDefault();
-        document.getElementById(MAIN_ID)?.focus();
+        const target =
+          document.querySelector<HTMLElement>(`[${SKIP_TARGET}]`) ??
+          document.getElementById(MAIN_ID);
+        target?.focus();
       }}
       className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-4 focus:z-30 focus:rounded-control focus:bg-surface focus:px-3 focus:py-2 focus:text-ui focus:shadow-popover"
     >

@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api/client";
+import { SKIP_TARGET } from "./AppShell";
 import { formatDate } from "../lib/format";
 import { ButtonLink } from "../ui/Button";
 import { cx } from "../ui/controlClass";
@@ -126,7 +127,13 @@ export function WithRail({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-0 w-full flex-1">
       <ConversationRail current={id} />
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <div
+        {...{ [SKIP_TARGET]: "" }}
+        tabIndex={-1}
+        className="flex min-w-0 flex-1 flex-col focus:outline-none"
+      >
+        {children}
+      </div>
     </div>
   );
 }

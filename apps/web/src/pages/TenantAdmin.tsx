@@ -344,7 +344,7 @@ function WorkspacePanel({
   modes: string[];
 }) {
   return (
-    <Card title={workspace.name} level={3} data-testid={`workspace-${workspace.slug}`}>
+    <Card title={workspace.name} level={3} group data-testid={`workspace-${workspace.slug}`}>
       <Defaults workspace={workspace} models={models} modes={modes} />
       <Instructions workspace={workspace} />
     </Card>

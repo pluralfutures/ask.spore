@@ -1,0 +1,49 @@
+- banner:
+    - note: AI-generated, verify against cited sources.
+    - link "Skip to content":
+        - /url: "#main"
+    - link "SporeBot":
+        - /url: /
+    - text: Synthetic Client
+    - navigation "Main":
+        - list:
+            - listitem:
+                - link "Conversations":
+                    - /url: /
+    - text: Synthetic Analyst
+- main:
+    - link "← Conversations":
+        - /url: /
+    - heading /What drove synthetic capacity growth in \d+\?/ [level=1]
+    - list:
+        - listitem: Synthetic Markets
+        - listitem: Synthetic EU Standard
+        - listitem: /Expires \d+ Nov \d+/
+    - list:
+        - listitem: /What drove synthetic capacity growth in \d+\?/
+        - listitem:
+            - article:
+                - paragraph:
+                    - text: /Synthetic capacity grew by \d+% in \d+/
+                    - button "Citation 1"
+                    - text: ", mainly in the synthetic north region"
+                    - button "Citation 2"
+                    - text: .
+                - button "Helpful"
+                - button "Not helpful"
+    - text: Question
+    - textbox "Question":
+        - /placeholder: Ask a question about your research package
+    - button "Ask" [disabled]
+    - complementary "Citations":
+        - heading "Sources 1 of 2" [level=2]
+        - button "Previous source" [disabled]
+        - button "Next source"
+        - button "Close"
+        - list:
+            - listitem:
+                - paragraph: /\[1\] Synthetic Outlook \d+/
+                - paragraph: /Synthetic Institute · 1 Mar \d+ · p\. 4/
+                - blockquote: "Synthetic excerpt 1: output in the synthetic region grew by 3 percent year on year, driven by synthetic demand."
+                - link "View at source":
+                    - /url: https://example.org/synthetic-outlook

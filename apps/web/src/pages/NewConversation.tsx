@@ -45,16 +45,16 @@ export function NewConversation() {
 
   if (workspaces.isPending || models.isPending) {
     return (
-      <main className="mx-auto max-w-3xl p-4">
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
         <Loading />
-      </main>
+      </div>
     );
   }
   if (!workspaces.data || !models.data) {
     return (
-      <main className="mx-auto max-w-3xl p-4">
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
         <Notice tone="danger">Could not load the options.</Notice>
-      </main>
+      </div>
     );
   }
   const choice = edited ?? initialChoice(workspaces.data, models.data);
@@ -65,7 +65,7 @@ export function NewConversation() {
   }
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
+    <div className="mx-auto w-full flex max-w-3xl flex-col gap-4 p-4 md:px-8 md:py-6">
       <Link to="/" className={`text-ui ${LINK}`}>
         ← Conversations
       </Link>
@@ -105,6 +105,6 @@ export function NewConversation() {
           </Button>
         </form>
       )}
-    </main>
+    </div>
   );
 }

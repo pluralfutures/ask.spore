@@ -57,7 +57,7 @@ export function FinishSignIn({
   }
 
   return (
-    <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
+    <div className="mx-auto w-full mt-16 flex max-w-sm flex-col gap-3 px-4">
       <h1 className="text-title font-strong">SporeBot</h1>
       {state === "no_binding" ? (
         <p className="text-ui">
@@ -82,7 +82,7 @@ export function FinishSignIn({
           Click to finish logging in
         </Button>
       )}
-    </main>
+    </div>
   );
 }
 
@@ -110,7 +110,7 @@ export function SecondFactor({
   }
 
   return (
-    <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
+    <div className="mx-auto w-full mt-16 flex max-w-sm flex-col gap-3 px-4">
       <h1 className="text-title font-strong">SporeBot</h1>
       {key ? (
         <div className="flex flex-col gap-1 text-ui">
@@ -146,6 +146,6 @@ export function SecondFactor({
       {challenge.failed && (
         <Notice tone="danger">That code was not accepted. Try the current one.</Notice>
       )}
-    </main>
+    </div>
   );
 }

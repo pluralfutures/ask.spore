@@ -12,7 +12,6 @@ import {
   type Credentials,
 } from "./api/client";
 import type { AuthMode } from "./api/types";
-import { AiNotice } from "./components/AiNotice";
 import { ConsentGate } from "./components/ConsentGate";
 import { EmailSignIn } from "./components/EmailSignIn";
 import { SignIn } from "./components/SignIn";
@@ -27,8 +26,8 @@ import { ContentConsole } from "./pages/content/ContentConsole";
 import { OperatorTenant } from "./pages/OperatorTenant";
 import { TenantAdmin } from "./pages/TenantAdmin";
 import { WorkspaceFiles } from "./pages/WorkspaceFiles";
-import { Button } from "./ui/Button";
 import { Loading } from "./ui/States";
+import { Shell, TopBar } from "./components/AppShell";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -58,25 +57,27 @@ function ssoReason(): string | null {
   return new URLSearchParams(window.location.search).get("reason");
 }
 
-function Signed({ children }: { children: React.ReactNode }) {
+// UX-10: a signed-in page: the shell with the top bar, then the page in the one <main>.
+function Signed({ onSignOut }: { onSignOut?: () => void }) {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <ConsentGate>
-          <Routes>
-            <Route path="/" element={<ConversationList />} />
-            <Route path="/new" element={<NewConversation />} />
-            <Route path="/c/:id" element={<Chat />} />
-            <Route path="/w/:id/files" element={<WorkspaceFiles />} />
-            <Route path="/admin" element={<TenantAdmin />} />
-            <Route path="/operator" element={<OperatorConsole />} />
-            <Route path="/content/*" element={<ContentConsole />} />
-            <Route path="/operator/tenants/:tenantId" element={<OperatorTenant />} />
-            <Route path="/operator/aggregates" element={<OperatorAggregates />} />
-          </Routes>
-        </ConsentGate>
+        <Shell topBar={<TopBar onSignOut={onSignOut} />}>
+          <ConsentGate>
+            <Routes>
+              <Route path="/" element={<ConversationList />} />
+              <Route path="/new" element={<NewConversation />} />
+              <Route path="/c/:id" element={<Chat />} />
+              <Route path="/w/:id/files" element={<WorkspaceFiles />} />
+              <Route path="/admin" element={<TenantAdmin />} />
+              <Route path="/operator" element={<OperatorConsole />} />
+              <Route path="/content/*" element={<ContentConsole />} />
+              <Route path="/operator/tenants/:tenantId" element={<OperatorTenant />} />
+              <Route path="/operator/aggregates" element={<OperatorAggregates />} />
+            </Routes>
+          </ConsentGate>
+        </Shell>
       </BrowserRouter>
-      {children}
     </QueryClientProvider>
   );
 }
@@ -128,37 +129,41 @@ export function App({ initialMode = null }: { initialMode?: AuthMode | null } = 
   let body: React.ReactNode;
   if (Gallery && path === GALLERY_PATH) {
     body = (
-      <Suspense fallback={null}>
-        <Gallery />
-      </Suspense>
+      <Shell>
+        <Suspense fallback={null}>
+          <Gallery />
+        </Suspense>
+      </Shell>
     );
   } else if (path === FINISH_PATH) {
-    body = <FinishSignIn onSignedIn={() => window.location.assign("/")} />;
+    body = (
+      <Shell>
+        <FinishSignIn onSignedIn={() => window.location.assign("/")} />
+      </Shell>
+    );
   } else if (mode === null || (mode === "oidc" && signedIn === null)) {
-    body = <Loading className="mx-auto mt-16" />;
+    body = (
+      <Shell>
+        <Loading className="mx-auto mt-16" />
+      </Shell>
+    );
   } else if (mode === "oidc") {
     body = signedIn ? (
-      <Signed>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mx-auto mb-4"
-          onClick={() => void signOut().then(() => setSignedIn(false))}
-        >
-          Sign out
-        </Button>
-      </Signed>
+      <Signed onSignOut={() => void signOut().then(() => setSignedIn(false))} />
     ) : (
-      <EmailSignIn ssoFailed={ssoFailed()} ssoReason={ssoReason()} />
+      <Shell>
+        <EmailSignIn ssoFailed={ssoFailed()} ssoReason={ssoReason()} />
+      </Shell>
     );
   } else {
-    body = credentials ? <Signed>{null}</Signed> : <SignIn onSignedIn={setCredentials} />;
+    body = credentials ? (
+      <Signed />
+    ) : (
+      <Shell>
+        <SignIn onSignedIn={setCredentials} />
+      </Shell>
+    );
   }
 
-  return (
-    <div className="flex min-h-screen flex-col bg-canvas text-fg">
-      <AiNotice />
-      {body}
-    </div>
-  );
+  return body;
 }

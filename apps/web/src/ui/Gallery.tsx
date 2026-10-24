@@ -48,7 +48,7 @@ export default function Gallery() {
   const [confirming, setConfirming] = useState(false);
   return (
     <MemoryRouter>
-      <main data-testid="ui-gallery" className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
+      <div data-testid="ui-gallery" className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
         <h1 className="text-title font-strong">Components</h1>
         <Section title="Button">
           <div className="overflow-x-auto">
@@ -265,7 +265,7 @@ export default function Gallery() {
             .
           </p>
         </Section>
-      </main>
+      </div>
     </MemoryRouter>
   );
 }

@@ -29,7 +29,7 @@ export function OperatorConsole() {
     return <OperatorsOnly />;
   }
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
+    <div className="mx-auto w-full flex max-w-4xl flex-col gap-6 p-4 md:px-8 md:py-6">
       <PageHeader
         title="Operator console"
         actions={
@@ -74,7 +74,7 @@ export function OperatorConsole() {
           <EmptyState title="No notices." />
         )}
       </Card>
-    </main>
+    </div>
   );
 }
 
@@ -136,7 +136,9 @@ function TerminatedTenants() {
 }
 
 export function OperatorsOnly() {
-  return <main className="mx-auto max-w-3xl p-4 text-ui">Operators only.</main>;
+  return (
+    <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">Operators only.</div>
+  );
 }
 
 function CreateTenant() {

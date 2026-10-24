@@ -171,7 +171,7 @@ export function Chat() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-      <main className="mx-auto flex w-full max-w-3xl min-w-0 flex-1 flex-col p-4">
+      <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-1 flex-col p-4 md:px-8 md:py-6">
         <header className="mb-4">
           <Link to="/" className={`text-ui ${LINK}`}>
             ← Conversations
@@ -280,7 +280,7 @@ export function Chat() {
             </Button>
           )}
         </form>
-      </main>
+      </div>
       {selection ? (
         <CitationPanel
           citations={citationsFor(selection.key)}

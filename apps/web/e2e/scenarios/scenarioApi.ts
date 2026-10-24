@@ -67,7 +67,7 @@ export const DEFAULTS: ScenarioOptions = {
   spendCapNotice: false,
   noHistory: false,
   feedbackFails: false,
-  contentRoles: ["content_editor", "content_reviewer"],
+  contentRoles: null,
   contentSources: F.CONTENT_SOURCES,
   discover: { methods: ["sign_in_link"], sso_kind: null },
   overrides: [],
@@ -125,6 +125,9 @@ export class ScenarioApi {
     return `${prefix}-0000-4000-8000-${String(this.next++).padStart(12, "0")}`;
   }
 
+  /** Set once the app posts /auth/logout (OIDC sign-out). */
+  signedOut = false;
+
   private async handle(route: Route): Promise<void> {
     const o = this.options;
     const request = route.request();
@@ -144,8 +147,14 @@ export class ScenarioApi {
     if (path === "/auth/mode") return json({ mode: o.mode });
     if (path === "/auth/discover") return json(o.discover);
     if (path === "/auth/link") return json({}, 202);
+    if (path === "/auth/logout" && method === "POST") {
+      this.signedOut = true;
+      return route.fulfill({ status: 204 });
+    }
     if (path === "/me") {
-      if (o.mode === "oidc" && !o.signedIn) return json({ detail: "unauthorized" }, 401);
+      if (o.mode === "oidc" && (!o.signedIn || this.signedOut)) {
+        return json({ detail: "unauthorized" }, 401);
+      }
       return json({
         email: "analyst@example.org",
         display_name: "Synthetic Analyst",

@@ -42,7 +42,11 @@ const MODE_LABELS: Record<string, string> = {
 // Only tenant admins see the pages; the API refuses everyone else anyway (403).
 export function AdminGate({ me, children }: { me: Me | null | undefined; children: ReactNode }) {
   if (!isTenantAdmin(me)) {
-    return <main className="mx-auto max-w-3xl p-4 text-ui">Tenant admins only.</main>;
+    return (
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">
+        Tenant admins only.
+      </div>
+    );
   }
   return <>{children}</>;
 }
@@ -52,20 +56,20 @@ export function TenantAdmin() {
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
   if (me.isPending)
     return (
-      <main className="mx-auto max-w-3xl p-4">
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
         <Loading />
-      </main>
+      </div>
     );
   return (
     <AdminGate me={me.data}>
-      <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
+      <div className="mx-auto w-full flex max-w-4xl flex-col gap-6 p-4 md:px-8 md:py-6">
         <PageHeader back={{ to: "/", label: "← Conversations" }} title="Administration" />
         <Users selfEmail={me.data?.email} />
         <Workspaces />
         <Retention />
         <SignInPolicy />
         <AuditLog />
-      </main>
+      </div>
     </AdminGate>
   );
 }

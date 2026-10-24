@@ -42,15 +42,15 @@ function ConsentPage({ onAccepted }: { onAccepted: () => void }) {
   });
   if (notice.isPending)
     return (
-      <main className="mx-auto max-w-3xl p-4">
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
         <Loading />
-      </main>
+      </div>
     );
   if (!notice.data) {
     return (
-      <main className="mx-auto max-w-3xl p-4">
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
         <Notice tone="danger">The notice could not be loaded.</Notice>
-      </main>
+      </div>
     );
   }
   return (
@@ -77,7 +77,7 @@ export function ConsentView({
   const [read, setRead] = useState(false);
   const changed = notice.accepted_version !== null && notice.accepted_version !== notice.version;
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-4 p-4 text-ui">
+    <div className="mx-auto w-full flex max-w-3xl flex-col gap-4 p-4 md:px-8 md:py-6 text-ui">
       <h1 className="text-title font-strong">{notice.title}</h1>
       {changed ? (
         <p className="text-warning">
@@ -112,6 +112,6 @@ export function ConsentView({
       {failed ? (
         <Notice tone="danger">The acceptance was not recorded. Reload and try again.</Notice>
       ) : null}
-    </main>
+    </div>
   );
 }

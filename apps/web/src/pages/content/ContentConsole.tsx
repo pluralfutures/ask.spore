@@ -29,17 +29,21 @@ export function ContentConsole() {
   const { pathname } = useLocation();
   const me = useQuery({ queryKey: ["content", "me"], queryFn: contentApi.me });
   if (me.error instanceof ApiError && me.error.status === 403) {
-    return <main className="mx-auto max-w-3xl p-4 text-ui">Content roles only.</main>;
+    return (
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">
+        Content roles only.
+      </div>
+    );
   }
   if (!me.data)
     return (
-      <main className="mx-auto max-w-3xl p-4 text-ui">
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">
         <Loading />
-      </main>
+      </div>
     );
   const roles = me.data.roles;
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 text-ui">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 md:px-8 md:py-6 text-ui">
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-title font-strong">Content console</h1>
         <span className="text-fg-muted">Your roles: {roles.join(", ")}</span>
@@ -61,6 +65,6 @@ export function ContentConsole() {
         <Route path="sites/:id" element={<SiteDetail roles={roles} />} />
         <Route path="tags" element={<Tags roles={roles} />} />
       </Routes>
-    </main>
+    </div>
   );
 }

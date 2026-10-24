@@ -20,7 +20,7 @@ export function OperatorAggregates() {
   if (totals.error instanceof ApiError && totals.error.status === 403) return <OperatorsOnly />;
   const data = totals.data;
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-ui">
+    <div className="mx-auto w-full flex max-w-4xl flex-col gap-4 p-4 md:px-8 md:py-6 text-ui">
       <PageHeader
         back={{ to: "/operator", label: "Operator console" }}
         title="Totals across tenants"
@@ -98,6 +98,6 @@ export function OperatorAggregates() {
           </Table>
         </>
       )}
-    </main>
+    </div>
   );
 }

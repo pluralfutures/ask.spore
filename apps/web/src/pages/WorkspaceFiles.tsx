@@ -39,7 +39,7 @@ export function WorkspaceFiles() {
   const name = workspaces.data?.find((w) => w.id === id)?.name;
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4 md:px-8 md:py-6">
       <PageHeader
         back={{ to: "/", label: "← Conversations" }}
         title={`Files${name ? ` in ${name}` : ""}`}
@@ -59,7 +59,7 @@ export function WorkspaceFiles() {
         />
       ) : null}
       {files.data?.sites.length ? <SiteList sites={files.data.sites} /> : null}
-    </main>
+    </div>
   );
 }
 

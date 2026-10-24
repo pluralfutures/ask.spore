@@ -74,18 +74,18 @@ export function EmailSignIn({
 
   if (step.kind === "sent") {
     return (
-      <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
+      <div className="mx-auto w-full mt-16 flex max-w-sm flex-col gap-3 px-4">
         <h1 className="text-title font-strong">SporeBot</h1>
         <p className="text-ui">
           If this address can sign in, a link is on its way. Open it in this browser within 15
           minutes.
         </p>
-      </main>
+      </div>
     );
   }
   if (step.kind === "choose") {
     return (
-      <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
+      <div className="mx-auto w-full mt-16 flex max-w-sm flex-col gap-3 px-4">
         <h1 className="text-title font-strong">SporeBot</h1>
         <Button variant="primary" onClick={() => void goToSso()}>
           {ssoButtonLabel(step.found.sso_kind)}
@@ -96,7 +96,7 @@ export function EmailSignIn({
           </Button>
         )}
         {failed && <Notice tone="danger">{failureText(limited)}</Notice>}
-      </main>
+      </div>
     );
   }
   return (

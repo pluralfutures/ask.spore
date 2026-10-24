@@ -3,7 +3,6 @@ import { Clock, MessageSquare, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { api } from "../api/client";
-import { isTenantAdmin } from "../lib/admin";
 import { formatDate } from "../lib/format";
 import { Button, ButtonLink } from "../ui/Button";
 import { LINK } from "../ui/link";
@@ -16,7 +15,6 @@ import { ConfirmDialog } from "../ui/Dialog";
 export function ConversationList() {
   const queryClient = useQueryClient();
   const conversations = useQuery({ queryKey: ["conversations"], queryFn: api.listConversations });
-  const me = useQuery({ queryKey: ["me"], queryFn: api.me });
   const workspaces = useQuery({ queryKey: ["workspaces"], queryFn: api.workspaces });
   const [deleting, setDeleting] = useState<string | null>(null);
   const remove = useMutation({
@@ -25,26 +23,14 @@ export function ConversationList() {
   });
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 p-4">
+    <div className="mx-auto w-full flex max-w-3xl flex-col gap-6 p-4 md:px-8 md:py-6">
       <PageHeader
         title="Conversations"
+        // UX-10: Administration and the operator console (P1c-08) are in the top bar.
         actions={
-          <>
-            {isTenantAdmin(me.data) ? (
-              <Link to="/admin" className={`text-ui ${LINK}`}>
-                Administration
-              </Link>
-            ) : null}
-            {/* P1c-08: operators reach their console from the chat app. */}
-            {me.data?.operator ? (
-              <Link to="/operator" className={`text-ui ${LINK}`}>
-                Operator console
-              </Link>
-            ) : null}
-            <ButtonLink to="/new" variant="primary" icon={Plus}>
-              New conversation
-            </ButtonLink>
-          </>
+          <ButtonLink to="/new" variant="primary" icon={Plus}>
+            New conversation
+          </ButtonLink>
         }
       />
       {conversations.isPending ? <Skeleton /> : null}
@@ -95,6 +81,6 @@ export function ConversationList() {
           </ul>
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }

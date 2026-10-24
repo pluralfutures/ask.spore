@@ -1,7 +1,16 @@
-import { MoreHorizontal } from "lucide-react";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { ChevronDown, MoreHorizontal } from "lucide-react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import { cx } from "./controlClass";
+import { buttonClass } from "./buttonClass";
 import { IconButton } from "./IconButton";
 
 // UX-09: the row-action menu: one "⋯" button per table row instead of stacked links.
@@ -17,7 +26,17 @@ export interface MenuItem {
   disabled?: boolean;
 }
 
-export function Menu({ label, items }: { label: string; items: MenuItem[] }) {
+// `text`: a button showing that text and a chevron (the user menu) instead of "⋯"; its
+// accessible name is then `label`.
+export function Menu({
+  label,
+  items,
+  text,
+}: {
+  label: string;
+  items: MenuItem[];
+  text?: ReactNode;
+}) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -85,16 +104,32 @@ export function Menu({ label, items }: { label: string; items: MenuItem[] }) {
   if (items.length === 0) return null;
   return (
     <>
-      <IconButton
-        ref={trigger}
-        label={label}
-        icon={MoreHorizontal}
-        size="sm"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? id : undefined}
-        onClick={() => (open ? close(false) : measure())}
-      />
+      {text ? (
+        <button
+          ref={trigger}
+          type="button"
+          aria-label={label}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={open ? id : undefined}
+          onClick={() => (open ? close(false) : measure())}
+          className={buttonClass("ghost", "sm", "max-w-48")}
+        >
+          <span className="truncate">{text}</span>
+          <ChevronDown size={16} strokeWidth={1.5} aria-hidden="true" className="shrink-0" />
+        </button>
+      ) : (
+        <IconButton
+          ref={trigger}
+          label={label}
+          icon={MoreHorizontal}
+          size="sm"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={open ? id : undefined}
+          onClick={() => (open ? close(false) : measure())}
+        />
+      )}
       {open ? (
         <div
           id={id}

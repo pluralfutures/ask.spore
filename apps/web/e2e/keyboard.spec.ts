@@ -33,8 +33,17 @@ async function expectVisibleFocus(page: Page): Promise<void> {
   expect(width).toBeGreaterThanOrEqual(BASELINE.focusRingMinWidthPx);
 }
 
-test("email sign-in: email, then continue", async ({ page }) => {
+// UX-10: the first stop on every page is "Skip to content"; Enter moves focus to <main>,
+// past the top bar.
+async function skipToContent(page: Page): Promise<void> {
+  await tabTo(page, page.getByRole("link", { name: "Skip to content" }));
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("main")).toBeFocused();
+}
+
+test("email sign-in: skip link, email, then continue", async ({ page }) => {
   await openScenario(page, scenario("02-signin-email"));
+  await tabTo(page, page.getByRole("link", { name: "Skip to content" }));
   await tabTo(page, page.getByLabel("Email"));
   await tabTo(page, page.getByRole("button", { name: "Continue" }));
 });
@@ -52,8 +61,11 @@ test("consent: the full notice, the box, then the accept button once ticked", as
   await expect(accept).toBeEnabled();
 });
 
-test("start panel: back link, workspace, model, reasoning, question", async ({ page }) => {
+test("start panel: skip link, back link, workspace, model, reasoning, question", async ({
+  page,
+}) => {
   await openScenario(page, scenario("07b-start-panel-choices"));
+  await skipToContent(page);
   await tabTo(page, page.getByRole("link", { name: "← Conversations" }));
   await tabTo(page, page.getByLabel("Workspace"));
   await tabTo(page, page.getByLabel("Model"));

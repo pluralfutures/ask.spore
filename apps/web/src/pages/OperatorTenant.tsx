@@ -73,17 +73,20 @@ function TenantPage({ tenantId }: { tenantId: string }) {
   const options = useQuery({ queryKey: ["operator", "options"], queryFn: operatorApi.options });
 
   if (tenant.error instanceof ApiError && tenant.error.status === 403) return <OperatorsOnly />;
-  if (tenant.error) return <main className="mx-auto max-w-3xl p-4 text-ui">No such tenant.</main>;
+  if (tenant.error)
+    return (
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">No such tenant.</div>
+    );
   if (!tenant.data || !options.data) {
     return (
-      <main className="mx-auto max-w-3xl p-4 text-ui">
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">
         <Loading />
-      </main>
+      </div>
     );
   }
   const current = tenant.data;
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-ui">
+    <div className="mx-auto w-full flex max-w-4xl flex-col gap-4 p-4 md:px-8 md:py-6 text-ui">
       <p className="flex gap-4">
         <Link to="/operator" className={LINK}>
           Operator console
@@ -125,7 +128,7 @@ function TenantPage({ tenantId }: { tenantId: string }) {
       {tab === "workspaces" && <Workspaces tenant={current} />}
       {tab === "users" && <Users tenant={current} />}
       {tab === "spend" && <Spend tenant={current} />}
-    </main>
+    </div>
   );
 }
 

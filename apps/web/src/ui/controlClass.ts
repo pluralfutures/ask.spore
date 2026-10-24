@@ -3,7 +3,7 @@
 // focus ring stays), a danger border when invalid, and disabled as a colour state.
 
 export const CONTROL =
-  "min-h-9 rounded-control border border-line-input bg-surface px-3 py-1.5 text-ui text-fg " +
+  "min-h-9 max-w-full rounded-control border border-line-input bg-surface px-3 py-1.5 text-ui text-fg " +
   "focus-visible:border-primary aria-invalid:border-danger " +
   "disabled:cursor-not-allowed disabled:border-line disabled:bg-neutral-muted disabled:text-fg-muted";
 

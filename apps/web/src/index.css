@@ -190,6 +190,23 @@
     accent-color: var(--color-primary);
   }
 
+  /* UX-10: the app shell (src/components/AppShell.tsx): banner, then main, full height. */
+  body {
+    background: var(--color-canvas);
+    color: var(--color-fg);
+  }
+
+  /* A fieldset is as wide as its widest content by default; let it shrink like a div. */
+  fieldset {
+    min-width: 0;
+  }
+
+  #root {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+  }
+
   ::placeholder {
     color: var(--color-fg-subtle);
   }
@@ -244,6 +261,10 @@
       clip-path: inset(50%);
       white-space: nowrap;
     }
+    .ui-table-stacked,
+    .ui-table-stacked tbody {
+      display: block;
+    }
     .ui-table-stacked tr {
       display: block;
       border-top: 1px solid var(--color-line);
@@ -254,7 +275,8 @@
     }
     .ui-table-stacked td {
       display: grid;
-      grid-template-columns: minmax(6rem, 35%) 1fr;
+      grid-template-columns: minmax(6rem, 35%) minmax(0, 1fr);
+      overflow-wrap: anywhere;
       gap: 0.75rem;
       border-top: 0;
       padding: 0.25rem 1rem;
@@ -266,7 +288,7 @@
       font-weight: var(--font-weight-strong);
     }
     .ui-table-stacked td:not([data-label]) {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
     .ui-table-stacked td:empty {
       display: none;

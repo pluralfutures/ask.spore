@@ -98,6 +98,9 @@ const CHOICES: Partial<ScenarioOptions> = {
   models: [F.MODEL_EU, F.MODEL_FAST, F.MODEL_EXT],
 };
 const ADMIN: Partial<ScenarioOptions> = { ...CHOICES, role: "tenant_admin", operator: true };
+// Content staff: the fake gives no content roles unless a scenario asks (UX-10: the top bar
+// links the content console only for them).
+const CONTENT: Partial<ScenarioOptions> = { contentRoles: ["content_editor", "content_reviewer"] };
 const FILES = `/w/${F.WS_MARKETS.id}/files`;
 const TENANT = `/operator/tenants/${F.TENANT_ID}`;
 
@@ -331,15 +334,23 @@ export const SCENARIOS: Scenario[] = [
   { name: "13d-operator-tenant-users", url: `${TENANT}?tab=users`, options: ADMIN },
   { name: "13e-operator-tenant-spend", url: `${TENANT}?tab=spend`, options: ADMIN },
   { name: "14-operator-aggregates", url: "/operator/aggregates", options: ADMIN },
-  { name: "15-content-register", url: "/content" },
-  { name: "15b-content-register-empty", url: "/content", options: { contentSources: [] } },
+  { name: "15-content-register", url: "/content", options: CONTENT },
+  {
+    name: "15b-content-register-empty",
+    url: "/content",
+    options: { ...CONTENT, contentSources: [] },
+  },
   { name: "15c-content-roles-only", url: "/content", options: { contentRoles: null } },
-  { name: "16-content-source-detail", url: `/content/sources/${F.SOURCE_DETAIL.id}` },
-  { name: "17-content-propose", url: "/content/propose" },
-  { name: "18-content-takedowns", url: "/content/takedowns" },
-  { name: "19-content-sites", url: "/content/sites" },
-  { name: "19b-content-site-detail", url: `/content/sites/${F.SITE_ID}` },
-  { name: "20-content-tags", url: "/content/tags" },
+  {
+    name: "16-content-source-detail",
+    url: `/content/sources/${F.SOURCE_DETAIL.id}`,
+    options: CONTENT,
+  },
+  { name: "17-content-propose", url: "/content/propose", options: CONTENT },
+  { name: "18-content-takedowns", url: "/content/takedowns", options: CONTENT },
+  { name: "19-content-sites", url: "/content/sites", options: CONTENT },
+  { name: "19b-content-site-detail", url: `/content/sites/${F.SITE_ID}`, options: CONTENT },
+  { name: "20-content-tags", url: "/content/tags", options: CONTENT },
   // UX-06: the development-only component gallery.
   { name: "21-ui-gallery", url: "/_ui" },
 ];

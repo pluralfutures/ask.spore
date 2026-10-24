@@ -37,12 +37,12 @@ import { Input, Select, Textarea } from "../ui/Input";
 import { Checkbox } from "../ui/Checkbox";
 import { Switch } from "../ui/Switch";
 import { Notice } from "../ui/Notice";
-import { Loading } from "../ui/States";
 import { cardClass } from "../ui/cardClass";
 import { PageHeader } from "../ui/PageHeader";
-import { StatusBadge } from "../ui/Badge";
+import { Badge, StatusBadge } from "../ui/Badge";
+import { cx } from "../ui/controlClass";
 import { Card } from "../ui/Card";
-import { EmptyState } from "../ui/States";
+import { EmptyState, Skeleton } from "../ui/States";
 import { Tabs } from "../ui/Tabs";
 import { ActionsTh, Table, Td, Th } from "../ui/Table";
 
@@ -80,7 +80,7 @@ function TenantPage({ tenantId }: { tenantId: string }) {
   if (!tenant.data || !options.data) {
     return (
       <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">
-        <Loading />
+        <Skeleton />
       </div>
     );
   }
@@ -163,9 +163,9 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
   }
 
   return (
-    <form onSubmit={submit} className={cardClass("flex flex-col gap-2")}>
-      <fieldset className="flex gap-3">
-        <legend>Answer modes</legend>
+    <form onSubmit={submit} className={cardClass("flex flex-col gap-5")}>
+      <fieldset className={FIELDSET}>
+        <legend className={LEGEND}>Answer modes</legend>
         {options.answer_modes.map((mode) => (
           <Checkbox
             key={mode}
@@ -179,8 +179,8 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
           </Checkbox>
         ))}
       </fieldset>
-      <fieldset className="flex gap-3">
-        <legend>Enabled models</legend>
+      <fieldset className={FIELDSET}>
+        <legend className={LEGEND}>Enabled models</legend>
         {options.models.map((model) => (
           <Checkbox
             key={model}
@@ -196,9 +196,10 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
           </Checkbox>
         ))}
       </fieldset>
-      <fieldset className="flex flex-wrap items-end gap-2">
-        <legend>External models (served outside the EU)</legend>
+      <fieldset className="grid grid-cols-1 items-end gap-4 sm:grid-cols-3">
+        <legend className={LEGEND}>External models (served outside the EU)</legend>
         <Checkbox
+          className="sm:col-span-3"
           checked={form.externalModelsEnabled}
           onChange={(e) => setForm({ ...form, externalModelsEnabled: e.target.checked })}
         >
@@ -225,7 +226,7 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
           />
         </Field>
         {ent.external_acceptance_reference && (
-          <p className="w-full text-fg-muted">
+          <p className="text-meta text-fg-muted sm:col-span-3">
             On file: {ent.external_acceptance_reference}, {ent.external_acceptance_date}
           </p>
         )}
@@ -241,6 +242,10 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
     </form>
   );
 }
+
+// UX-20: the operator forms' groups: a strong legend over wrapping options.
+const FIELDSET = "flex flex-wrap gap-x-5 gap-y-2";
+const LEGEND = "mb-2 text-ui font-strong";
 
 // P1b-06: how the tenant's users sign in. Sign-in links are on by default; the operator
 // switches them off once the client's SSO is live and their IT asks for it.
@@ -267,9 +272,9 @@ function LoginPolicy({ tenant }: { tenant: TenantOut }) {
         e.preventDefault();
         save.mutate();
       }}
-      className={cardClass("flex flex-wrap items-center gap-3")}
+      className={cardClass("flex flex-col items-start gap-3")}
     >
-      <h2 className="w-full font-strong">Login policy</h2>
+      <h2 className="text-heading font-strong">Login policy</h2>
       {box("sign_in_links_enabled", "Sign-in links")}
       {box("jit_provisioning_enabled", "Create users on first SSO sign-in (verified domains)")}
       {box("admin_mfa_required", "Second factor for tenant admins")}
@@ -328,8 +333,8 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
   }
 
   return (
-    <form onSubmit={submit} className={cardClass("flex flex-col gap-2")}>
-      <h2 className="font-strong">Single sign-on source</h2>
+    <form onSubmit={submit} className={cardClass("flex flex-col gap-3")}>
+      <h2 className="text-heading font-strong">Single sign-on source</h2>
       <PolicySummary policy={current} />
       <Field label="Kind" className="w-fit">
         <Select
@@ -612,25 +617,65 @@ function Spend({ tenant }: { tenant: TenantOut }) {
   });
   if (!spend.data) {
     const problem = errorText(spend.error);
-    return problem ? <Notice tone="danger">{problem}</Notice> : <Loading />;
+    return problem ? <Notice tone="danger">{problem}</Notice> : <Skeleton />;
   }
   const data = spend.data;
   const share = capShare(data.external_spent_cents, data.external_spend_cap_cents ?? null);
   return (
     <Card title={`Month to date (${data.month}, UTC)`}>
-      <p>
+      <p id="spend-line">
         External models: {data.external_models_enabled ? "enabled" : "off"} · spent{" "}
         {euros(data.external_spent_cents)}
         {data.external_spend_cap_cents === null || data.external_spend_cap_cents === undefined
           ? " · no cap"
           : ` of ${euros(data.external_spend_cap_cents)} (${share}%)`}
       </p>
-      {data.thresholds.length > 0 && (
-        <ul>
+      {/* UX-20: the cap as a meter, with the notice thresholds marked on it. */}
+      {share !== null ? (
+        <div
+          role="meter"
+          aria-labelledby="spend-line"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.min(share, 100)}
+          className="relative h-2 w-full overflow-hidden rounded-badge bg-neutral-muted"
+        >
+          <div
+            className={cx(
+              "h-full",
+              share >= 100 ? "bg-danger" : share >= 80 ? "bg-attention" : "bg-primary",
+            )}
+            style={{ width: `${Math.min(share, 100)}%` }}
+          />
           {data.thresholds.map((t) => (
-            <li key={t.percent}>
-              {t.percent}% at {euros(t.cents)}: {t.reached ? "reached" : "not reached"}
-              {t.notified_at ? `, operators notified ${formatDate(t.notified_at)}` : ""}
+            <span
+              key={t.percent}
+              aria-hidden="true"
+              className="absolute inset-y-0 w-0.5 bg-fg-secondary"
+              style={{ left: `calc(${Math.min(t.percent, 100)}% - 1px)` }}
+            />
+          ))}
+        </div>
+      ) : null}
+      {data.thresholds.length > 0 && (
+        <ul className="divide-y rounded-card border">
+          {data.thresholds.map((t) => (
+            <li
+              key={t.percent}
+              data-testid={`threshold-${t.percent}`}
+              className="flex flex-wrap items-center gap-2 px-3 py-2"
+            >
+              <span className="tabular-nums">
+                {t.percent}% at {euros(t.cents)}:
+              </span>
+              <Badge tone={t.reached ? (t.percent >= 100 ? "danger" : "warning") : "neutral"}>
+                {t.reached ? "reached" : "not reached"}
+              </Badge>
+              {t.notified_at ? (
+                <span className="text-fg-muted">
+                  operators notified {formatDate(t.notified_at)}
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>

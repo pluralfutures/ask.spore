@@ -214,17 +214,14 @@ test.describe("3. citation provenance", () => {
     await expect(panel.getByTestId("citation-2")).toHaveAttribute("aria-current", "true");
   });
 
-  // Known failures (UX audit, backlog Oct 23, 2026), fixed by UX-16; when they start to
-  // pass, Playwright reports it and the `test.fail` marks come off.
+  // Known failures of the UX audit (backlog Oct 23, 2026), fixed by UX-16.
   test("on desktop the selected source is scrolled into view", async ({ page }) => {
-    test.fail(true, "UX-16: the panel grows the page instead of scrolling to the source");
     await open(page, "09-chat-long-answer-many-citations");
     const panel = page.getByRole("complementary", { name: "Citations" });
     await expect(panel.getByTestId("citation-9")).toBeInViewport({ timeout: 2_000 });
   });
 
   test("on a phone the opened source is in view in a long conversation", async ({ page }) => {
-    test.fail(true, "UX-16: the panel opens below the thread and composer, off-screen");
     await page.setViewportSize(VIEWPORTS.phone);
     await open(page, "09-chat-long-answer-many-citations");
     const panel = page.getByRole("complementary", { name: "Citations" });

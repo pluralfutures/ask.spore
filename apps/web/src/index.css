@@ -148,6 +148,7 @@
 
   /* Lines: hairlines around surfaces; form controls get the stronger input line (3.3:1) */
   --color-line: #e2e5ea;
+  --color-line-strong: #c9ced6;
   --color-line-input: #868e9b;
 
   /* Type: Lato has 400 and 700 only, so both emphasis steps are 700 */

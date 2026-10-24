@@ -174,7 +174,7 @@ export function Chat() {
   const persisted = live?.done ? messages.some((m) => m.id === live.done?.message_id) : false;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+    <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <div className="mx-auto flex w-full max-w-[47.5rem] min-w-0 flex-1 flex-col px-4 pt-4 md:px-8 md:pt-6">
         <header className="mb-6 flex flex-col gap-2 border-b pb-4">
           <Link to="/" className={`w-fit text-ui ${LINK}`}>

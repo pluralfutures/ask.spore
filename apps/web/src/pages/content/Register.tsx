@@ -10,11 +10,10 @@ import { LINK } from "../../ui/link";
 import { Field } from "../../ui/Field";
 import { Input, Select } from "../../ui/Input";
 import { Notice } from "../../ui/Notice";
-import { Loading } from "../../ui/States";
 import { cardClass } from "../../ui/cardClass";
 import { SearchX } from "lucide-react";
 import { Badge, StatusBadge } from "../../ui/Badge";
-import { EmptyState } from "../../ui/States";
+import { EmptyState, Skeleton } from "../../ui/States";
 import { Table, Td, Th } from "../../ui/Table";
 
 // The source register with filters by status, tag, type and publisher (P1b-05).
@@ -29,7 +28,8 @@ export function Register() {
     setFilters({ ...filters, [key]: value || undefined });
   return (
     <section className="flex flex-col gap-3">
-      <div className={cardClass("flex flex-wrap items-end gap-3")}>
+      {/* UX-21: the filter bar on the form components, one row from 768 px. */}
+      <div role="search" className={cardClass("grid grid-cols-2 items-end gap-3 md:grid-cols-4")}>
         <FilterSelect
           label="Status"
           value={filters.status}
@@ -58,7 +58,7 @@ export function Register() {
       {errorMessage(sources.error) ? (
         <Notice tone="danger">{errorMessage(sources.error)}</Notice>
       ) : null}
-      {sources.data ? <SourceTable sources={sources.data} /> : <Loading />}
+      {sources.data ? <SourceTable sources={sources.data} /> : <Skeleton />}
     </section>
   );
 }

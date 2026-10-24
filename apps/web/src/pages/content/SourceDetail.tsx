@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 
 import { contentApi } from "../../api/client";
@@ -12,7 +12,7 @@ import { Field } from "../../ui/Field";
 import { Input, Textarea } from "../../ui/Input";
 import { Checkbox, Radio } from "../../ui/Checkbox";
 import { Notice } from "../../ui/Notice";
-import { Loading } from "../../ui/States";
+import { Skeleton } from "../../ui/States";
 import { cardClass } from "../../ui/cardClass";
 import { StatusBadge } from "../../ui/Badge";
 import { Card } from "../../ui/Card";
@@ -27,7 +27,7 @@ export function SourceDetail({ roles }: { roles: string[] }) {
     queryFn: () => contentApi.source(id),
   });
   if (source.error) return <Notice tone="danger">{errorMessage(source.error)}</Notice>;
-  if (!source.data) return <Loading />;
+  if (!source.data) return <Skeleton />;
   return (
     <section className="flex flex-col gap-4">
       <SourceSummary source={source.data} />
@@ -40,46 +40,53 @@ export function SourceDetail({ roles }: { roles: string[] }) {
 
 export function SourceSummary({ source }: { source: ContentSourceDetail }) {
   return (
-    <Card title={source.title} className="gap-1">
-      <p>
-        {source.publisher} · {source.type.toUpperCase()} · {formatDate(source.published_on)} ·{" "}
-        {source.tags.join(", ")}
-      </p>
-      <p>
-        Status: <StatusBadge kind="source" status={source.status} data-testid="source-status" />
-        {source.chunk_count !== null ? ` · ${source.chunk_count} chunks` : ""}
-        {source.downloadable ? " · downloadable" : ""}
-      </p>
-      <p>Licence basis: {source.licence_basis}</p>
-      {source.canonical_url ? (
-        <p>
-          Canonical link:{" "}
-          <a href={source.canonical_url} target="_blank" rel="noopener noreferrer" className={LINK}>
-            {source.canonical_url}
-          </a>
-        </p>
-      ) : null}
-      {source.licence_file ? (
-        <p>
-          <a href={contentApi.licenceUrl(source.id)} className={LINK}>
-            Licence or permission letter
-          </a>
-        </p>
-      ) : (
-        <p className="text-fg-muted">No licence file on record.</p>
-      )}
+    <Card title={source.title}>
+      {/* UX-21: the source's facts as a definition list. */}
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-[max-content_minmax(0,1fr)]">
+        <Fact label="Publisher">{source.publisher}</Fact>
+        <Fact label="Type">{source.type.toUpperCase()}</Fact>
+        <Fact label="Published">{formatDate(source.published_on)}</Fact>
+        <Fact label="Tags">{source.tags.join(", ")}</Fact>
+        <Fact label="Status">
+          <StatusBadge kind="source" status={source.status} data-testid="source-status" />
+          {source.chunk_count !== null ? ` · ${source.chunk_count} chunks` : ""}
+          {source.downloadable ? " · downloadable" : ""}
+        </Fact>
+        <Fact label="Licence basis">{source.licence_basis}</Fact>
+        {source.canonical_url ? (
+          <Fact label="Canonical link">
+            <a
+              href={source.canonical_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`[overflow-wrap:anywhere] ${LINK}`}
+            >
+              {source.canonical_url}
+            </a>
+          </Fact>
+        ) : null}
+        <Fact label="Licence file">
+          {source.licence_file ? (
+            <a href={contentApi.licenceUrl(source.id)} className={LINK}>
+              Licence or permission letter
+            </a>
+          ) : (
+            <span className="text-fg-muted">No licence file on record.</span>
+          )}
+        </Fact>
+        {source.review_note ? <Fact label="Reviewer's note">{source.review_note}</Fact> : null}
+        {source.withdrawal_reason ? (
+          <Fact label="Withdrawn">
+            {formatDate(source.withdrawn_at)}: {source.withdrawal_reason}
+          </Fact>
+        ) : null}
+        {source.supersedes ? <Fact label="Replaces">{source.supersedes.title}</Fact> : null}
+      </dl>
       {source.error ? (
         <Notice tone="danger" data-testid="source-error">
           Ingestion error: {source.error}
         </Notice>
       ) : null}
-      {source.review_note ? <p>Reviewer's note: {source.review_note}</p> : null}
-      {source.withdrawal_reason ? (
-        <p>
-          Withdrawn {formatDate(source.withdrawn_at)}: {source.withdrawal_reason}
-        </p>
-      ) : null}
-      {source.supersedes ? <p>Replaces: {source.supersedes.title}</p> : null}
       {source.possible_replacements.length ? (
         <Notice tone="warning" data-testid="possible-replacement">
           Possible replacement of{" "}
@@ -97,6 +104,15 @@ export function SourceSummary({ source }: { source: ContentSourceDetail }) {
         </Notice>
       ) : null}
     </Card>
+  );
+}
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="text-fg-muted">{label}</dt>
+      <dd className="mb-1 sm:mb-0">{children}</dd>
+    </>
   );
 }
 

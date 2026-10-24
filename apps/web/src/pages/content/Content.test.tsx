@@ -126,6 +126,16 @@ describe("source detail", () => {
     expect(html).toContain("licence grounds");
   });
 
+  // UX-21: the facts are a definition list.
+  it("lists the source's facts as terms and values", () => {
+    const html = render(<SourceSummary source={detail({ licence_file: false })} />);
+    expect(html).toContain("<dl");
+    for (const term of ["Publisher", "Type", "Published", "Tags", "Status", "Licence basis"]) {
+      expect(html).toContain(`>${term}</dt>`);
+    }
+    expect(html).toMatch(/>Licence file<\/dt><dd[^>]*><span[^>]*>No licence file on record\.</);
+  });
+
   it("names possible replacements and offers replace or keep both", () => {
     const candidates = [
       {

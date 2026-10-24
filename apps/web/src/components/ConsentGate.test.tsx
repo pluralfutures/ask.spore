@@ -39,4 +39,26 @@ describe("ConsentView (P1b-10)", () => {
     );
     expect(html).not.toContain("<script>");
   });
+
+  // UX-12: the notice's structure, under the page's h1 and the "Full notice" h2.
+  it("renders the notice's headings below the page's and keeps its lists", () => {
+    const html = renderToString(
+      <ConsentView
+        notice={notice({ text: "# One\n\n## Two\n\n### Three\n\n#### Four\n\n- item" })}
+        onAccept={() => {}}
+      />,
+    );
+    expect(html.match(/<h1/g)).toHaveLength(1);
+    expect(html).toMatch(/<h3[^>]*>One<\/h3>/);
+    expect(html).toMatch(/<h3[^>]*>Two<\/h3>/);
+    expect(html).toMatch(/<h3[^>]*>Three<\/h3>/);
+    expect(html).toMatch(/<h4[^>]*>Four<\/h4>/);
+    expect(html).toContain("<li>item</li>");
+    expect(html).toContain("list-disc");
+  });
+
+  it("gives the full notice a tab stop", () => {
+    const html = renderToString(<ConsentView notice={notice()} onAccept={() => {}} />);
+    expect(html).toMatch(/<section aria-labelledby="consent-full" tabindex="0"/);
+  });
 });

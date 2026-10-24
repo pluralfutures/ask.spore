@@ -51,8 +51,7 @@ test("email sign-in: skip link, email, then continue", async ({ page }) => {
 test("consent: the full notice, the box, then the accept button once ticked", async ({ page }) => {
   await openScenario(page, scenario("05-consent-first"));
   const accept = page.getByRole("button", { name: "Accept and continue" });
-  // Chromium makes a scrolling box focusable by itself; Safari does not, hence the axe
-  // baseline entry (scrollable-region-focusable) until the box gets its own tab stop.
+  // UX-12: the box has its own tab stop (Chromium would add one anyway; Safari would not).
   await tabTo(page, page.getByRole("region", { name: "Full notice" }));
   await tabTo(page, page.getByRole("checkbox"));
   await expect(accept).toBeDisabled();

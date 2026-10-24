@@ -85,6 +85,9 @@ const CONSENT_TEXT =
   "Synthetic paragraph describing processing, retention, sub-processors and rights. ".repeat(10) +
   "\n\n## 2. Your data\n\n" +
   "Synthetic paragraph on personal data and retention. ".repeat(12) +
+  "\n\n### Kept for you\n\n" +
+  "- Synthetic list item on conversations.\n" +
+  "- Synthetic list item on audit records.\n" +
   "\n\n## 3. Your rights\n\n" +
   "Synthetic paragraph on rights and contacts. ".repeat(10);
 

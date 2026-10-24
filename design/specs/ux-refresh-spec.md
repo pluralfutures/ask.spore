@@ -1,6 +1,6 @@
 # UX Refresh Build Spec
 
-Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. **Group A (UX-01 to UX-03), UX-04 and UX-05 were built on Oct 24, 2026.** Open item 1 (the direction) was decided on Oct 24; items 2 and 3 are still open, and the items that depend on them (UX-14 and every screen item that would show new copy) do not start until they are decided.
+Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. **Group A (UX-01 to UX-03), UX-04 and UX-05 were built on Oct 24, 2026.** All four open items were decided on Oct 24, 2026, so UX-14 and the screen items that show the new mockup labels are unblocked.
 
 Sources: [../ux/audit.md](../ux/audit.md) (the visual audit, with screenshots) and [../ux/design-direction.md](../ux/design-direction.md) (the proposed look). Mockups of the chat view, start panel and tenant admin page, each beside its current screenshot, are on a design canvas: https://claude.ai/artifact/3spU4UTTXALVNbfdaFiRJE.
 
@@ -131,7 +131,7 @@ Each screen item applies the components, the layout from design-direction.md and
 - **UX-11 Sign-in pages:** email, SSO choice, link sent, token sign-in, finish and second factor. They get a centred card, an `h1` and a `main`.
 - **UX-12 Consent gate:** structured Markdown, a keyboard-scrollable notice, and the accept row kept in view on phone. Binding list item 1 applies in full.
 - **UX-13 Conversation list and rail:** the list becomes the chat's left rail on desktop and the home page on phone. Delete moves into a row menu with a dialog. The empty, loading and error states are added.
-- **UX-14 Start panel** (mockup 2): the question comes first and is labelled, then the settings card. The model is shown read-only when only one is enabled; today it is hidden. That is a visibility change and needs the owner's approval. The external-model note becomes a warning notice.
+- **UX-14 Start panel** (mockup 2): the question comes first and is labelled, then the settings card. The model is shown read-only when only one is enabled; today it is hidden. That visibility change was approved on Oct 24, 2026 (open item 3). The external-model note becomes a warning notice.
 - **UX-15 Chat thread and answer block** (mockup 1): reading typography for answers, answer-quality notes inside the answer block, feedback in the answer footer, a sticky composer, and the conversation header as badges plus the retention indicator.
 - **UX-16 Citation panel** (mockup 1): a self-scrolling column on desktop with the selected source scrolled into view; a drawer on tablet; a bottom sheet on phone. Markers are at least 24 px targets.
 - **UX-17 Workspace files:** a table component with a stacked mode on phone; websites as a second table; an empty state.
@@ -151,9 +151,9 @@ Each screen item applies the components, the layout from design-direction.md and
 
 ## Open items for the owner
 
-Items 1 and 4 were decided on Oct 24, 2026; items 2 and 3 are open.
+All four items were decided on Oct 24, 2026.
 
 1. ~~Approve or adjust the direction: the slate-blue accent, Lato, and the left-rail chat layout.~~ Approved Oct 24, 2026 (the owner's "Proceed" in reply to this question), and built in UX-05. The AI notice keeps its amber treatment until UX-10 moves it into the app shell as the neutral info strip, since restyling it changes a component.
-2. Copy shown in the mockups that is not in the app today: the "Settings" legend, "Question" as a visible label, "Recent" in the rail, "1 of 2" with previous and next in the phone source sheet, and the section sub-nav. Approve each, or the existing wording is used.
-3. UX-14: show the model read-only when a tenant has a single enabled model (today it is hidden).
+2. ~~Copy shown in the mockups that is not in the app today: the "Settings" legend, "Question" as a visible label, "Recent" in the rail, "1 of 2" with previous and next in the phone source sheet, and the section sub-nav.~~ All approved by the owner on Oct 24, 2026; the screen items use this wording.
+3. ~~UX-14: show the model read-only when a tenant has a single enabled model (today it is hidden).~~ Approved by the owner on Oct 24, 2026; UX-14 shows it.
 4. ~~Which phase the refresh belongs to.~~ Decided Oct 24, 2026: the refresh is its own phase and starts now, with Group A.

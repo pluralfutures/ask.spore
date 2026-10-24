@@ -104,6 +104,24 @@ const CONTENT: Partial<ScenarioOptions> = { contentRoles: ["content_editor", "co
 const FILES = `/w/${F.WS_MARKETS.id}/files`;
 const TENANT = `/operator/tenants/${F.TENANT_ID}`;
 
+// P1b-08: a tenant admin's link answers with a second-factor challenge (synthetic key).
+const mfa = (stage: "setup" | "validate") => ({
+  path: "^/auth/link/complete$",
+  method: "POST",
+  status: 200,
+  json: {
+    status: "mfa_required",
+    stage,
+    failed: false,
+    setup_uri: stage === "setup" ? "otpauth://totp/SporeBot:admin?secret=JBSWY3DPEHPK3PXP" : null,
+  },
+});
+
+async function finishSignIn(page: Page) {
+  await page.getByRole("button", { name: "Click to finish logging in" }).click();
+  await page.getByRole("button", { name: "Confirm" }).waitFor();
+}
+
 export const SCENARIOS: Scenario[] = [
   { name: "01-signin-token", url: "/", options: { signedIn: false } },
   { name: "02-signin-email", url: "/", options: { mode: "oidc", signedIn: false } },
@@ -140,6 +158,18 @@ export const SCENARIOS: Scenario[] = [
     name: "03-finish-sign-in",
     url: "/auth/finish#token=synthetic-token-abcdefghijklmnop",
     options: { mode: "oidc", signedIn: false },
+  },
+  {
+    name: "03b-second-factor-setup",
+    url: "/auth/finish#token=synthetic-token-abcdefghijklmnop",
+    options: { mode: "oidc", signedIn: false, overrides: [mfa("setup")] },
+    act: finishSignIn,
+  },
+  {
+    name: "03c-second-factor-code",
+    url: "/auth/finish#token=synthetic-token-abcdefghijklmnop",
+    options: { mode: "oidc", signedIn: false, overrides: [mfa("validate")] },
+    act: finishSignIn,
   },
   {
     name: "04-app-loading",

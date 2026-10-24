@@ -2,11 +2,13 @@ import { useState, type FormEvent } from "react";
 
 import { answerMfa, completeSignIn, type SignInResult } from "../api/client";
 import type { MfaRequiredOut } from "../api/types";
+import { AuthCard } from "../components/AuthCard";
 import { QrCode } from "../components/QrCode";
 import { setupKey, validCode } from "../lib/mfa";
 import { tokenFromFragment } from "../lib/fragment";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
+import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
 import { Notice } from "../ui/Notice";
 
@@ -57,8 +59,7 @@ export function FinishSignIn({
   }
 
   return (
-    <div className="mx-auto w-full mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-title font-strong">SporeBot</h1>
+    <AuthCard>
       {state === "no_binding" ? (
         <p className="text-ui">
           Open this link in the same browser window where you asked for it. A link works only there,
@@ -78,11 +79,11 @@ export function FinishSignIn({
           .
         </p>
       ) : (
-        <Button variant="primary" onClick={finish} disabled={state === "working"}>
+        <Button variant="primary" size="lg" onClick={finish} disabled={state === "working"}>
           Click to finish logging in
         </Button>
       )}
-    </div>
+    </AuthCard>
   );
 }
 
@@ -110,10 +111,9 @@ export function SecondFactor({
   }
 
   return (
-    <div className="mx-auto w-full mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-title font-strong">SporeBot</h1>
+    <AuthCard>
       {key ? (
-        <div className="flex flex-col gap-1 text-ui">
+        <div className="flex flex-col gap-3 text-ui">
           <p>
             Administrators confirm each sign-in with an authenticator app. Scan this code with your
             app, or add the key below to it (time-based, 6 digits), then enter the code it shows.
@@ -121,7 +121,9 @@ export function SecondFactor({
           {challenge.setup_uri && (
             <QrCode text={challenge.setup_uri} label="QR code for your authenticator app" />
           )}
-          <code className="rounded-control bg-surface px-2 py-1 font-mono">{key}</code>
+          <code className="w-fit rounded-control border bg-surface-subtle px-2 py-1 font-mono">
+            {key}
+          </code>
           {challenge.setup_uri && (
             <a href={challenge.setup_uri} className={LINK}>
               Open in an authenticator app on this device
@@ -131,21 +133,22 @@ export function SecondFactor({
       ) : (
         <p className="text-ui">Enter the code from your authenticator app.</p>
       )}
-      <form onSubmit={submit} className="flex flex-col gap-2">
-        <Input
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          aria-label="Code"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-        />
-        <Button variant="primary" type="submit" disabled={working || !validCode(code)}>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <Field label="Code">
+          <Input
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+        </Field>
+        <Button variant="primary" size="lg" type="submit" disabled={working || !validCode(code)}>
           Confirm
         </Button>
       </form>
       {challenge.failed && (
         <Notice tone="danger">That code was not accepted. Try the current one.</Notice>
       )}
-    </div>
+    </AuthCard>
   );
 }

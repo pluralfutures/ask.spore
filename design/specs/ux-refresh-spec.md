@@ -1,6 +1,6 @@
 # UX Refresh Build Spec
 
-Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. **Group A (UX-01 to UX-03), UX-04 to UX-10 (Groups B and C) were built on Oct 24, 2026.** All four open items were decided on Oct 24, 2026, so UX-14 and the screen items that show the new mockup labels are unblocked.
+Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. **Group A (UX-01 to UX-03), UX-04 to UX-10 (Groups B and C) and UX-11 were built on Oct 24, 2026.** All four open items were decided on Oct 24, 2026, so UX-14 and the screen items that show the new mockup labels are unblocked.
 
 Sources: [../ux/audit.md](../ux/audit.md) (the visual audit, with screenshots) and [../ux/design-direction.md](../ux/design-direction.md) (the proposed look). Mockups of the chat view, start panel and tenant admin page, each beside its current screenshot, are on a design canvas: https://claude.ai/artifact/3spU4UTTXALVNbfdaFiRJE.
 
@@ -128,7 +128,7 @@ Each component lives in `apps/web/src/ui/`, is shown on a development-only galle
 
 Each screen item applies the components, the layout from design-direction.md and the mockup where one exists, and clears that screen's entries from the UX-02 allow-lists.
 
-- **UX-11 Sign-in pages:** email, SSO choice, link sent, token sign-in, finish and second factor. They get a centred card, an `h1` and a `main`.
+- **UX-11 Sign-in pages:** email, SSO choice, link sent, token sign-in, finish and second factor. They get a centred card, an `h1` and a `main`. Built Oct 24, 2026: one `AuthCard` (`components/AuthCard.tsx`) with "SporeBot" as the `h1` in `text-display`; the second-factor code field shows its existing name "Code" as a visible label; the link-sent state gets a mail icon. The two second-factor states joined the scenarios (03b, 03c). No wording changed.
 - **UX-12 Consent gate:** structured Markdown, a keyboard-scrollable notice, and the accept row kept in view on phone. Binding list item 1 applies in full.
 - **UX-13 Conversation list and rail:** the list becomes the chat's left rail on desktop and the home page on phone. Delete moves into a row menu with a dialog. The empty, loading and error states are added.
 - **UX-14 Start panel** (mockup 2): the question comes first and is labelled, then the settings card. The model is shown read-only when only one is enabled; today it is hidden. That visibility change was approved on Oct 24, 2026 (open item 3). The external-model note becomes a warning notice.

@@ -1,8 +1,10 @@
+import { MailCheck } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { ApiError, discoverMethods, requestSignInLink, startSso } from "../api/client";
 import type { DiscoverOut } from "../api/types";
 import { ssoButtonLabel } from "../lib/sso";
+import { AuthCard } from "./AuthCard";
 import { failureText, ssoRefusalText } from "./emailSignInText";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
@@ -74,20 +76,21 @@ export function EmailSignIn({
 
   if (step.kind === "sent") {
     return (
-      <div className="mx-auto w-full mt-16 flex max-w-sm flex-col gap-3 px-4">
-        <h1 className="text-title font-strong">SporeBot</h1>
-        <p className="text-ui">
-          If this address can sign in, a link is on its way. Open it in this browser within 15
-          minutes.
-        </p>
-      </div>
+      <AuthCard>
+        <div className="flex items-start gap-3">
+          <MailCheck aria-hidden size={24} strokeWidth={1.5} className="shrink-0 text-primary" />
+          <p className="text-ui">
+            If this address can sign in, a link is on its way. Open it in this browser within 15
+            minutes.
+          </p>
+        </div>
+      </AuthCard>
     );
   }
   if (step.kind === "choose") {
     return (
-      <div className="mx-auto w-full mt-16 flex max-w-sm flex-col gap-3 px-4">
-        <h1 className="text-title font-strong">SporeBot</h1>
-        <Button variant="primary" onClick={() => void goToSso()}>
+      <AuthCard>
+        <Button variant="primary" size="lg" onClick={() => void goToSso()}>
           {ssoButtonLabel(step.found.sso_kind)}
         </Button>
         {step.found.methods.includes("sign_in_link") && (
@@ -96,30 +99,31 @@ export function EmailSignIn({
           </Button>
         )}
         {failed && <Notice tone="danger">{failureText(limited)}</Notice>}
-      </div>
+      </AuthCard>
     );
   }
   return (
-    <form onSubmit={submit} className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-title font-strong">SporeBot</h1>
-      <Field label="Email">
-        <Input
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </Field>
-      <Button variant="primary" type="submit">
-        Continue
-      </Button>
-      {ssoFailed && !failed && (
-        <Notice tone="danger" role="alert">
-          {ssoRefusalText(ssoReason)}
-        </Notice>
-      )}
-      {failed && <Notice tone="danger">{failureText(limited)}</Notice>}
-    </form>
+    <AuthCard>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <Field label="Email">
+          <Input
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </Field>
+        <Button variant="primary" size="lg" type="submit">
+          Continue
+        </Button>
+        {ssoFailed && !failed && (
+          <Notice tone="danger" role="alert">
+            {ssoRefusalText(ssoReason)}
+          </Notice>
+        )}
+        {failed && <Notice tone="danger">{failureText(limited)}</Notice>}
+      </form>
+    </AuthCard>
   );
 }

@@ -8,9 +8,8 @@ import { downloadRefusal, fileAction, typeLabel } from "../lib/files";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
 import { Notice } from "../ui/Notice";
-import { EmptyState, Loading } from "../ui/States";
-import { FileText } from "lucide-react";
-import { Card } from "../ui/Card";
+import { EmptyState, Skeleton } from "../ui/States";
+import { Download, ExternalLink, FileText } from "lucide-react";
 import { PageHeader } from "../ui/PageHeader";
 import { ActionsTh, Table, Td, Th } from "../ui/Table";
 
@@ -44,7 +43,7 @@ export function WorkspaceFiles() {
         back={{ to: "/", label: "← Conversations" }}
         title={`Files${name ? ` in ${name}` : ""}`}
       />
-      {files.isPending ? <Loading /> : null}
+      {files.isPending ? <Skeleton /> : null}
       {files.isError ? <Notice tone="danger">Could not load the files.</Notice> : null}
       {download.error ? (
         <Notice tone="danger" role="alert">
@@ -90,7 +89,8 @@ export function FileTable({
           return (
             <tr key={file.id} data-testid={`file-${file.id}`}>
               <Td label="Title">
-                {file.title} <span className="text-fg-subtle">({typeLabel(file.type)})</span>
+                <span className="font-emphasis">{file.title}</span>{" "}
+                <span className="text-meta text-fg-subtle">({typeLabel(file.type)})</span>
               </Td>
               <Td label="Publisher">{file.publisher}</Td>
               <Td label="Published">{formatDate(file.published_on)}</Td>
@@ -98,16 +98,23 @@ export function FileTable({
               <Td>
                 {action.kind === "download" ? (
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
+                    icon={Download}
                     disabled={busy}
                     onClick={() => onDownload(file.id)}
                   >
                     Download
                   </Button>
                 ) : action.kind === "link" ? (
-                  <a href={action.href} target="_blank" rel="noreferrer" className={LINK}>
+                  <a
+                    href={action.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`inline-flex items-center gap-1 whitespace-nowrap ${LINK}`}
+                  >
                     View at source
+                    <ExternalLink size={14} strokeWidth={1.5} aria-hidden="true" />
                   </a>
                 ) : null}
               </Td>
@@ -119,17 +126,37 @@ export function FileTable({
   );
 }
 
+// UX-17: the crawled websites as a second table.
 function SiteList({ sites }: { sites: WorkspaceSite[] }) {
   return (
-    <Card title="Websites" className="text-ui">
-      <ul className="divide-y">
-        {sites.map((site) => (
-          <li key={site.site} className="py-2 first:pt-0 last:pb-0">
-            {site.site} · {site.publisher} · {site.page_count}{" "}
-            {site.page_count === 1 ? "page" : "pages"} · updated {formatDate(site.last_ingested_on)}
-          </li>
-        ))}
-      </ul>
-    </Card>
+    <section aria-labelledby="websites" className="flex flex-col gap-3">
+      <h2 id="websites" className="text-heading font-strong">
+        Websites
+      </h2>
+      <Table>
+        <thead>
+          <tr>
+            <Th>Site</Th>
+            <Th>Publisher</Th>
+            <Th numeric>Pages</Th>
+            <Th>Updated</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {sites.map((site) => (
+            <tr key={site.site} data-testid={`site-${site.site}`}>
+              <Td label="Site">
+                <span className="font-emphasis">{site.site}</span>
+              </Td>
+              <Td label="Publisher">{site.publisher}</Td>
+              <Td label="Pages" numeric>
+                {site.page_count} {site.page_count === 1 ? "page" : "pages"}
+              </Td>
+              <Td label="Updated">{formatDate(site.last_ingested_on)}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </section>
   );
 }

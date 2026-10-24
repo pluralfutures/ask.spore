@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import type { ButtonHTMLAttributes } from "react";
+import { forwardRef, type ButtonHTMLAttributes } from "react";
 
 // UX-06: a square button with only an icon. The label is required: it is the accessible
 // name and the hover tooltip.
@@ -28,17 +28,13 @@ export interface IconButtonProps extends Omit<
   size?: keyof typeof SIZE;
 }
 
-export function IconButton({
-  label,
-  icon: Icon,
-  variant = "ghost",
-  size = "md",
-  className = "",
-  type = "button",
-  ...rest
-}: IconButtonProps) {
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+  { label, icon: Icon, variant = "ghost", size = "md", className = "", type = "button", ...rest },
+  ref,
+) {
   return (
     <button
+      ref={ref}
       type={type}
       aria-label={label}
       title={label}
@@ -48,4 +44,4 @@ export function IconButton({
       <Icon size={size === "sm" ? 16 : 20} strokeWidth={1.5} aria-hidden="true" />
     </button>
   );
-}
+});

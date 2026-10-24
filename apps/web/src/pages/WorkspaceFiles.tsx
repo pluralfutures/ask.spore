@@ -12,6 +12,7 @@ import { EmptyState, Loading } from "../ui/States";
 import { FileText } from "lucide-react";
 import { Card } from "../ui/Card";
 import { PageHeader } from "../ui/PageHeader";
+import { ActionsTh, Table, Td, Th } from "../ui/Table";
 
 function save(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);
@@ -72,54 +73,49 @@ export function FileTable({
   onDownload: (sourceId: string) => void;
 }) {
   if (files.length === 0) return <EmptyState title="No files in this workspace." icon={FileText} />;
-  // UX-06: the 44 px Download button made this table wider than a phone, so it scrolls
-  // sideways in its own box (the page is w-full for that, ahead of UX-10) until UX-09
-  // gives tables a stacked mode.
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full rounded-control bg-surface text-left text-ui">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Publisher</th>
-            <th>Published</th>
-            <th>Added</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {files.map((file) => {
-            const action = fileAction(file);
-            return (
-              <tr key={file.id} data-testid={`file-${file.id}`} className="border-t">
-                <td>
-                  {file.title} <span className="text-fg-subtle">({typeLabel(file.type)})</span>
-                </td>
-                <td>{file.publisher}</td>
-                <td>{formatDate(file.published_on)}</td>
-                <td>{formatDate(file.ingested_on)}</td>
-                <td>
-                  {action.kind === "download" ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => onDownload(file.id)}
-                    >
-                      Download
-                    </Button>
-                  ) : action.kind === "link" ? (
-                    <a href={action.href} target="_blank" rel="noreferrer" className={LINK}>
-                      View at source
-                    </a>
-                  ) : null}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <Table>
+      <thead>
+        <tr>
+          <Th>Title</Th>
+          <Th>Publisher</Th>
+          <Th>Published</Th>
+          <Th>Added</Th>
+          <ActionsTh />
+        </tr>
+      </thead>
+      <tbody>
+        {files.map((file) => {
+          const action = fileAction(file);
+          return (
+            <tr key={file.id} data-testid={`file-${file.id}`}>
+              <Td label="Title">
+                {file.title} <span className="text-fg-subtle">({typeLabel(file.type)})</span>
+              </Td>
+              <Td label="Publisher">{file.publisher}</Td>
+              <Td label="Published">{formatDate(file.published_on)}</Td>
+              <Td label="Added">{formatDate(file.ingested_on)}</Td>
+              <Td>
+                {action.kind === "download" ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => onDownload(file.id)}
+                  >
+                    Download
+                  </Button>
+                ) : action.kind === "link" ? (
+                  <a href={action.href} target="_blank" rel="noreferrer" className={LINK}>
+                    View at source
+                  </a>
+                ) : null}
+              </Td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </Table>
   );
 }
 

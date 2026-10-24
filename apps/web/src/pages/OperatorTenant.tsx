@@ -43,6 +43,8 @@ import { PageHeader } from "../ui/PageHeader";
 import { StatusBadge } from "../ui/Badge";
 import { Card } from "../ui/Card";
 import { EmptyState } from "../ui/States";
+import { Tabs } from "../ui/Tabs";
+import { ActionsTh, Table, Td, Th } from "../ui/Table";
 
 const TAB_LABELS: Record<TenantTab, string> = {
   entitlements: "Entitlements",
@@ -62,7 +64,7 @@ export function OperatorTenant() {
 }
 
 function TenantPage({ tenantId }: { tenantId: string }) {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const tab = tabFrom(params.get("tab"));
   const tenant = useQuery({
     queryKey: ["operator", "tenant", tenantId],
@@ -105,19 +107,14 @@ function TenantPage({ tenantId }: { tenantId: string }) {
           </>
         }
       />
-      <nav className="flex gap-3 border-b" aria-label="Tenant settings">
-        {TENANT_TABS.map((name) => (
-          <button
-            key={name}
-            type="button"
-            aria-current={name === tab ? "page" : undefined}
-            onClick={() => setParams({ tab: name })}
-            className={name === tab ? "border-b-2 border-primary font-strong" : ""}
-          >
-            {TAB_LABELS[name]}
-          </button>
-        ))}
-      </nav>
+      <Tabs
+        label="Tenant settings"
+        tabs={TENANT_TABS.map((name) => ({
+          label: TAB_LABELS[name],
+          to: `?tab=${name}`,
+          current: name === tab,
+        }))}
+      />
       {tab === "entitlements" && <Entitlements tenant={current} options={options.data} />}
       {tab === "login" && (
         <>
@@ -519,28 +516,30 @@ function Users({ tenant }: { tenant: TenantOut }) {
 
   return (
     <div className={cardClass("flex flex-col gap-3")}>
-      <table className="text-left">
+      <Table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Last sign-in</th>
-            <th />
+            <Th>Name</Th>
+            <Th>Email</Th>
+            <Th>Role</Th>
+            <Th>Status</Th>
+            <Th>Last sign-in</Th>
+            <ActionsTh />
           </tr>
         </thead>
         <tbody>
           {users.data?.map((user) => (
             <tr key={user.id}>
-              <td>{user.display_name}</td>
-              <td>{user.email}</td>
-              <td>{user.role}</td>
-              <td>
+              <Td label="Name">{user.display_name}</Td>
+              <Td label="Email" className="break-all">
+                {user.email}
+              </Td>
+              <Td label="Role">{user.role}</Td>
+              <Td label="Status">
                 <StatusBadge kind="user" status={user.status} />
-              </td>
-              <td>{lastLogin(user)}</td>
-              <td>
+              </Td>
+              <Td label="Last sign-in">{lastLogin(user)}</Td>
+              <Td className="text-right">
                 <UserActions
                   user={user}
                   canResend={user.status === "invited"}
@@ -559,11 +558,11 @@ function Users({ tenant }: { tenant: TenantOut }) {
                   }}
                   busy={resend.isPending || remove.isPending}
                 />
-              </td>
+              </Td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
       {failed && <Notice tone="danger">{failed}</Notice>}
       {done && !failed && <p role="status">{done}</p>}
       <form
@@ -636,29 +635,35 @@ function Spend({ tenant }: { tenant: TenantOut }) {
       {data.models.length === 0 ? (
         <EmptyState title="No usage this month." />
       ) : (
-        <table className="text-left">
+        <Table>
           <thead>
             <tr>
-              <th>Model</th>
-              <th>Tokens in</th>
-              <th>Tokens out</th>
-              <th>Cost</th>
+              <Th>Model</Th>
+              <Th numeric>Tokens in</Th>
+              <Th numeric>Tokens out</Th>
+              <Th numeric>Cost</Th>
             </tr>
           </thead>
           <tbody>
             {data.models.map((m) => (
               <tr key={m.model}>
-                <td>
+                <Td label="Model">
                   {m.display_name}
                   {m.external ? <span className="text-fg-subtle"> (outside the EU)</span> : null}
-                </td>
-                <td>{count(m.tokens_in)}</td>
-                <td>{count(m.tokens_out)}</td>
-                <td>{euros(m.cost_cents)}</td>
+                </Td>
+                <Td label="Tokens in" numeric>
+                  {count(m.tokens_in)}
+                </Td>
+                <Td label="Tokens out" numeric>
+                  {count(m.tokens_out)}
+                </Td>
+                <Td label="Cost" numeric>
+                  {euros(m.cost_cents)}
+                </Td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       )}
     </Card>
   );

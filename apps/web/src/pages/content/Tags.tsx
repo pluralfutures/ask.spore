@@ -8,6 +8,7 @@ import { LINK } from "../../ui/link";
 import { Notice } from "../../ui/Notice";
 import { Loading } from "../../ui/States";
 import { Badge } from "../../ui/Badge";
+import { Table, Td, Th } from "../../ui/Table";
 
 // Tag management (P1b-05): the tags of config/tags.toml and their RAGFlow datasets.
 // Tags are edited in that file (a reviewed change); the page shows the mapping and a
@@ -46,26 +47,26 @@ export function Tags({ roles }: { roles: string[] }) {
 
 export function TagTable({ tags }: { tags: ContentTag[] }) {
   return (
-    <table className="w-full rounded-control bg-surface text-left">
+    <Table>
       <thead>
-        <tr className="border-b">
-          <th className="p-2">Tag</th>
-          <th className="p-2">Chunking</th>
-          <th className="p-2">Dataset</th>
-          <th className="p-2">Ingested sources</th>
+        <tr>
+          <Th>Tag</Th>
+          <Th>Chunking</Th>
+          <Th>Dataset</Th>
+          <Th numeric>Ingested sources</Th>
         </tr>
       </thead>
       <tbody>
         {tags.map((tag) => (
-          <tr key={tag.tag} className="border-b">
-            <td className="p-2">{tag.tag}</td>
-            <td className="p-2">
+          <tr key={tag.tag}>
+            <Td label="Tag">{tag.tag}</Td>
+            <Td label="Chunking">
               {tag.chunk_method}
               {Object.entries(tag.chunk_method_by_type).map(
                 ([type, method]) => ` · ${type}: ${method}`,
               )}
-            </td>
-            <td className="p-2">
+            </Td>
+            <Td label="Dataset">
               {tag.dataset_id === null ? (
                 <Badge tone="warning">not synced</Badge>
               ) : tag.ragflow_url ? (
@@ -80,11 +81,13 @@ export function TagTable({ tags }: { tags: ContentTag[] }) {
               ) : (
                 tag.dataset_id
               )}
-            </td>
-            <td className="p-2">{tag.sources}</td>
+            </Td>
+            <Td label="Ingested sources" numeric>
+              {tag.sources}
+            </Td>
           </tr>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 }

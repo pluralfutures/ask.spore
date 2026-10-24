@@ -23,6 +23,7 @@ import { cardClass } from "../../ui/cardClass";
 import { Globe } from "lucide-react";
 import { StatusBadge } from "../../ui/Badge";
 import { EmptyState } from "../../ui/States";
+import { Table, Td, Th } from "../../ui/Table";
 
 // Sites (P1b-04, P1b-05): registered websites, their crawl state, and the editor's form
 // to register one for a reviewer to approve.
@@ -42,43 +43,49 @@ export function Sites({ roles }: { roles: string[] }) {
 export function SiteTable({ sites }: { sites: ContentSite[] }) {
   if (sites.length === 0) return <EmptyState title="No sites registered." icon={Globe} />;
   return (
-    <table className="w-full rounded-control bg-surface text-left">
+    <Table>
       <thead>
-        <tr className="border-b">
-          <th className="p-2">Site</th>
-          <th className="p-2">Status</th>
-          <th className="p-2">Allow decision</th>
-          <th className="p-2">Schedule</th>
-          <th className="p-2">Last crawl</th>
-          <th className="p-2">Pages</th>
-          <th className="p-2">Blocked</th>
+        <tr>
+          <Th>Site</Th>
+          <Th>Status</Th>
+          <Th>Allow decision</Th>
+          <Th>Schedule</Th>
+          <Th>Last crawl</Th>
+          <Th numeric>Pages</Th>
+          <Th numeric>Blocked</Th>
         </tr>
       </thead>
       <tbody>
         {sites.map((site) => (
-          <tr key={site.id} className="border-b">
-            <td className="p-2">
+          <tr key={site.id}>
+            <Td label="Site">
               <Link to={`/content/sites/${site.id}`} className={LINK}>
                 {site.name}
               </Link>{" "}
               <span className="text-fg-subtle">{site.host}</span>
-            </td>
-            <td className="p-2">
+            </Td>
+            <Td label="Status">
               <StatusBadge kind="site" status={site.status} />
-            </td>
-            <td className="p-2">{ALLOW_DECISIONS[site.allow_decision] ?? site.allow_decision}</td>
-            <td className="p-2">{site.schedule}</td>
-            <td className="p-2">
+            </Td>
+            <Td label="Allow decision">
+              {ALLOW_DECISIONS[site.allow_decision] ?? site.allow_decision}
+            </Td>
+            <Td label="Schedule">{site.schedule}</Td>
+            <Td label="Last crawl">
               {site.last_crawl_at
                 ? `${formatDate(site.last_crawl_at)} · ${site.last_crawl_status}`
                 : "never"}
-            </td>
-            <td className="p-2">{site.page_count}</td>
-            <td className="p-2">{site.blocked_count}</td>
+            </Td>
+            <Td label="Pages" numeric>
+              {site.page_count}
+            </Td>
+            <Td label="Blocked" numeric>
+              {site.blocked_count}
+            </Td>
           </tr>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 }
 

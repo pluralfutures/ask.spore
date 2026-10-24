@@ -10,12 +10,15 @@ import { LINK } from "../ui/link";
 import { Notice } from "../ui/Notice";
 import { EmptyState, Skeleton } from "../ui/States";
 import { PageHeader } from "../ui/PageHeader";
+import { useState } from "react";
+import { ConfirmDialog } from "../ui/Dialog";
 
 export function ConversationList() {
   const queryClient = useQueryClient();
   const conversations = useQuery({ queryKey: ["conversations"], queryFn: api.listConversations });
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
   const workspaces = useQuery({ queryKey: ["workspaces"], queryFn: api.workspaces });
+  const [deleting, setDeleting] = useState<string | null>(null);
   const remove = useMutation({
     mutationFn: api.deleteConversation,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["conversations"] }),
@@ -60,19 +63,24 @@ export function ConversationList() {
                   Expires {formatDate(c.expires_at)}
                 </p>
               </Link>
-              <Button
-                variant="ghost-danger"
-                size="sm"
-                onClick={() => {
-                  if (window.confirm("Delete this conversation permanently?")) remove.mutate(c.id);
-                }}
-              >
+              <Button variant="ghost-danger" size="sm" onClick={() => setDeleting(c.id)}>
                 Delete
               </Button>
             </li>
           ))}
         </ul>
       ) : null}
+      {/* UX-09: the confirmation is a dialog with the words of the former browser prompt. */}
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Delete this conversation permanently?"
+        confirmLabel="Delete"
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => {
+          if (deleting) remove.mutate(deleting);
+          setDeleting(null);
+        }}
+      />
       {workspaces.data?.length ? (
         <section className="text-ui">
           <h2 className="mb-1 font-strong">Files behind each workspace</h2>

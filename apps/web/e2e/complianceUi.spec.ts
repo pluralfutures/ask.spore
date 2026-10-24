@@ -256,15 +256,13 @@ test.describe("4. history and retention indicators", () => {
     const deleted = page.waitForRequest(
       (r) => r.method() === "DELETE" && r.url().includes("/api/v1/conversations/"),
     );
-    let asked = "";
-    page.removeAllListeners("dialog");
-    page.on("dialog", (dialog) => {
-      asked = dialog.message();
-      void dialog.accept();
-    });
+    // UX-09: the confirmation is an in-page dialog with the same question (it was the
+    // browser's own prompt).
     await page.getByRole("button", { name: "Delete" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Delete this conversation permanently?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Delete" }).click();
     await deleted;
-    expect(asked).toBe("Delete this conversation permanently?");
   });
 
   test("the conversation header shows when it expires", async ({ page }) => {

@@ -78,20 +78,30 @@ test("an admin resends an invitation, removes a user, and sees a taken address",
   const invited = page.getByTestId("user-invited@example.org");
   const member = page.getByTestId("user-member@example.org");
   const self = page.getByTestId("user-analyst@example.org");
-  await expect(member.getByRole("button", { name: "Resend invitation" })).toHaveCount(0);
-  await expect(self.getByRole("button", { name: "Remove" })).toHaveCount(0);
-  await invited.getByRole("button", { name: "Resend invitation" }).click();
+  // UX-09: the actions are in each row's menu; the admin's own row has none to offer.
+  const act = async (row: typeof member, item: string) => {
+    await row.getByRole("button", { name: /^Actions for / }).click();
+    await row.getByRole("menuitem", { name: item, exact: true }).click();
+  };
+  await member.getByRole("button", { name: "Actions for member@example.org" }).click();
+  await expect(member.getByRole("menuitem", { name: "Resend invitation" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(self.getByRole("button", { name: /^Actions for / })).toHaveCount(0);
+  await act(invited, "Resend invitation");
   await expect(page.getByRole("status")).toHaveText(
     "Invitation sent again to invited@example.org.",
   );
   expect(api.resent).toEqual(["55555555-5555-4555-8555-555555555556"]);
 
   // Removal asks first; cancelling sends nothing.
-  await member.getByRole("button", { name: "Remove" }).click();
-  await member.getByRole("button", { name: "Cancel" }).click();
+  const confirm = page.getByRole("dialog", {
+    name: "Remove member@example.org and delete their conversations?",
+  });
+  await act(member, "Remove");
+  await confirm.getByRole("button", { name: "Cancel" }).click();
   expect(api.adminCalls.filter((c) => c.method === "DELETE")).toEqual([]);
-  await member.getByRole("button", { name: "Remove" }).click();
-  await member.getByRole("button", { name: "Remove member@example.org" }).click();
+  await act(member, "Remove");
+  await confirm.getByRole("button", { name: "Remove member@example.org" }).click();
   await expect(page.getByRole("status")).toHaveText(
     "member@example.org was removed with their conversations.",
   );
@@ -103,12 +113,12 @@ test("an admin resends an invitation, removes a user, and sees a taken address",
   // The 409 email_taken reads as a sentence, not a status code.
   await page.getByLabel("Email", { exact: true }).fill("invited@example.org");
   await page.getByLabel("Name", { exact: true }).fill("Synthetic Again");
-  await page.getByRole("button", { name: "Invite" }).click();
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
   await expect(page.getByText("That address already has an account.")).toBeVisible();
   // Release F4: the invite's refusal replaces the removal's status, and the next
   // resend replaces the refusal (both stood together on the Instance).
   await expect(page.getByText("was removed with their conversations.")).toHaveCount(0);
-  await invited.getByRole("button", { name: "Resend invitation" }).click();
+  await act(invited, "Resend invitation");
   await expect(page.getByRole("status")).toHaveText(
     "Invitation sent again to invited@example.org.",
   );

@@ -15,6 +15,7 @@ import { cardClass } from "../../ui/cardClass";
 import { SearchX } from "lucide-react";
 import { Badge, StatusBadge } from "../../ui/Badge";
 import { EmptyState } from "../../ui/States";
+import { Table, Td, Th } from "../../ui/Table";
 
 // The source register with filters by status, tag, type and publisher (P1b-05).
 export function Register() {
@@ -90,21 +91,21 @@ function FilterSelect({
 export function SourceTable({ sources }: { sources: ContentSource[] }) {
   if (sources.length === 0) return <EmptyState title="No sources match." icon={SearchX} />;
   return (
-    <table className="w-full rounded-control bg-surface text-left">
+    <Table>
       <thead>
-        <tr className="border-b">
-          <th className="p-2">Title</th>
-          <th className="p-2">Publisher</th>
-          <th className="p-2">Type</th>
-          <th className="p-2">Tags</th>
-          <th className="p-2">Status</th>
-          <th className="p-2">Updated</th>
+        <tr>
+          <Th>Title</Th>
+          <Th>Publisher</Th>
+          <Th>Type</Th>
+          <Th>Tags</Th>
+          <Th>Status</Th>
+          <Th>Updated</Th>
         </tr>
       </thead>
       <tbody>
         {sources.map((source) => (
-          <tr key={source.id} className="border-b align-top">
-            <td className="p-2">
+          <tr key={source.id}>
+            <Td label="Title">
               <Link to={`/content/sources/${source.id}`} className={LINK}>
                 {source.title}
               </Link>
@@ -116,20 +117,22 @@ export function SourceTable({ sources }: { sources: ContentSource[] }) {
               {source.site_id ? (
                 <span className="ml-2 text-meta text-fg-subtle">web page</span>
               ) : null}
-            </td>
-            <td className="p-2">{source.publisher}</td>
-            <td className="p-2 uppercase">{source.type}</td>
-            <td className="p-2">{source.tags.join(", ")}</td>
-            <td className="p-2">
+            </Td>
+            <Td label="Publisher">{source.publisher}</Td>
+            <Td label="Type" className="uppercase">
+              {source.type}
+            </Td>
+            <Td label="Tags">{source.tags.join(", ")}</Td>
+            <Td label="Status">
               <StatusBadge kind="source" status={source.status} />
               {source.takedown_due_on && source.status !== "withdrawn" ? (
                 <span className="ml-1 text-danger">· takedown</span>
               ) : null}
-            </td>
-            <td className="p-2">{formatDate(source.updated_at)}</td>
+            </Td>
+            <Td label="Updated">{formatDate(source.updated_at)}</Td>
           </tr>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 }

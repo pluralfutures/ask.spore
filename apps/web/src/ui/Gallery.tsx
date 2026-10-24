@@ -1,4 +1,5 @@
 import { Download, Plus, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-react";
+import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 
 import { Button, ButtonLink } from "./Button";
@@ -6,14 +7,19 @@ import type { ButtonSize, ButtonVariant } from "./buttonClass";
 import { Badge, StatusBadge } from "./Badge";
 import { Card } from "./Card";
 import { Checkbox, Radio } from "./Checkbox";
+import { ConfirmDialog } from "./Dialog";
+import { Disclosure } from "./Disclosure";
 import { Field } from "./Field";
 import { IconButton } from "./IconButton";
 import { Input, Select, Textarea } from "./Input";
 import { LINK } from "./link";
+import { Menu } from "./Menu";
 import { Notice } from "./Notice";
 import { PageHeader } from "./PageHeader";
 import { EmptyState, Loading, Skeleton } from "./States";
 import { Switch } from "./Switch";
+import { ActionsTh, Table, Td, Th } from "./Table";
+import { Tabs } from "./Tabs";
 
 // UX-06: the development-only component gallery at /_ui (App.tsx loads it only when
 // import.meta.env.DEV). The visual suite captures it, so a component change shows up in
@@ -39,6 +45,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function Gallery() {
+  const [confirming, setConfirming] = useState(false);
   return (
     <MemoryRouter>
       <main data-testid="ui-gallery" className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
@@ -188,6 +195,65 @@ export default function Gallery() {
             <Loading />
             <Skeleton rows={2} />
             <EmptyState title="Nothing here yet." action={<Button size="sm">Add one</Button>} />
+          </div>
+        </Section>
+        <Section title="Table, tabs, menu, disclosure and dialog">
+          <div className="flex flex-col gap-4">
+            <Tabs
+              label="Gallery sections"
+              tabs={[
+                { label: "Entitlements", to: "/_ui", current: true },
+                { label: "Login policy", to: "/_ui?tab=login", current: false },
+                { label: "Users", to: "/_ui?tab=users", current: false },
+              ]}
+            />
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Name</Th>
+                  <Th>Status</Th>
+                  <Th numeric>Tokens</Th>
+                  <ActionsTh />
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <Td label="Name">Synthetic analyst</Td>
+                  <Td label="Status">
+                    <StatusBadge kind="user" status="active" />
+                  </Td>
+                  <Td label="Tokens" numeric>
+                    12,400
+                  </Td>
+                  <Td className="text-right">
+                    <Menu
+                      label="Actions for Synthetic analyst"
+                      items={[
+                        { label: "Deactivate", onSelect: () => undefined },
+                        { label: "Remove", onSelect: () => setConfirming(true), danger: true },
+                      ]}
+                    />
+                  </Td>
+                </tr>
+              </tbody>
+            </Table>
+            <Disclosure summary="Version history (2)">
+              <p className="text-ui">Version 2 · 19 Oct 2026</p>
+            </Disclosure>
+            <Button
+              variant="secondary-danger"
+              className="w-fit"
+              onClick={() => setConfirming(true)}
+            >
+              Open a confirmation
+            </Button>
+            <ConfirmDialog
+              open={confirming}
+              title="Remove this synthetic user?"
+              confirmLabel="Remove"
+              onCancel={() => setConfirming(false)}
+              onConfirm={() => setConfirming(false)}
+            />
           </div>
         </Section>
         <Section title="Link">

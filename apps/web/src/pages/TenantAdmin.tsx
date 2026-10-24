@@ -26,6 +26,8 @@ import { Loading } from "../ui/States";
 import { Card } from "../ui/Card";
 import { PageHeader } from "../ui/PageHeader";
 import { StatusBadge } from "../ui/Badge";
+import { ActionsTh, Table, Td, Th } from "../ui/Table";
+import { Disclosure } from "../ui/Disclosure";
 
 function refusal(error: unknown): string | null {
   if (error === null || error === undefined) return null;
@@ -113,15 +115,15 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
           {done}
         </Notice>
       ) : null}
-      <table className="w-full text-left">
+      <Table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Last login</th>
-            <th />
+            <Th>Name</Th>
+            <Th>Email</Th>
+            <Th>Role</Th>
+            <Th>Status</Th>
+            <Th>Last login</Th>
+            <ActionsTh />
           </tr>
         </thead>
         <tbody>
@@ -147,7 +149,7 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
             />
           ))}
         </tbody>
-      </table>
+      </Table>
     </Card>
   );
 }
@@ -170,9 +172,11 @@ function UserRow({
   const actions = userActions(user, selfEmail);
   return (
     <tr data-testid={`user-${user.email}`}>
-      <td>{user.display_name}</td>
-      <td>{user.email}</td>
-      <td>
+      <Td label="Name">{user.display_name}</Td>
+      <Td label="Email" className="break-all">
+        {user.email}
+      </Td>
+      <Td label="Role">
         {actions.canChangeRole ? (
           <Select
             aria-label={`Role of ${user.email}`}
@@ -187,23 +191,21 @@ function UserRow({
         ) : (
           "User"
         )}
-      </td>
-      <td>
+      </Td>
+      <Td label="Status">
         <StatusBadge kind="user" status={user.status} />
-      </td>
-      <td>{lastLogin(user)}</td>
-      <td>
-        {actions.canDeactivate ? (
-          <Button variant="ghost" size="sm" onClick={() => onChange({ status: "deactivated" })}>
-            Deactivate
-          </Button>
-        ) : null}
-        {actions.canReactivate ? (
-          <Button variant="ghost" size="sm" onClick={() => onChange({ status: "active" })}>
-            Reactivate
-          </Button>
-        ) : null}
+      </Td>
+      <Td label="Last login">{lastLogin(user)}</Td>
+      <Td className="text-right">
         <UserActions
+          before={[
+            ...(actions.canDeactivate
+              ? [{ label: "Deactivate", onSelect: () => onChange({ status: "deactivated" }) }]
+              : []),
+            ...(actions.canReactivate
+              ? [{ label: "Reactivate", onSelect: () => onChange({ status: "active" }) }]
+              : []),
+          ]}
           user={user}
           canResend={actions.canResend}
           canRemove={actions.canRemove}
@@ -211,7 +213,7 @@ function UserRow({
           onRemove={onRemove}
           busy={busy}
         />
-      </td>
+      </Td>
     </tr>
   );
 }
@@ -456,8 +458,7 @@ export function VersionHistory({
 }) {
   if (versions.length === 0) return <p className="text-fg-muted">No versions saved yet.</p>;
   return (
-    <details>
-      <summary>Version history ({versions.length})</summary>
+    <Disclosure summary={`Version history (${versions.length})`}>
       <ol className="flex flex-col gap-2">
         {versions.map((v) => (
           <li key={v.version} data-testid={`version-${v.version}`}>
@@ -468,7 +469,7 @@ export function VersionHistory({
           </li>
         ))}
       </ol>
-    </details>
+    </Disclosure>
   );
 }
 

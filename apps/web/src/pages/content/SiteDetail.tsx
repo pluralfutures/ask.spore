@@ -22,6 +22,7 @@ import { Loading } from "../../ui/States";
 import { StatusBadge } from "../../ui/Badge";
 import { Card } from "../../ui/Card";
 import { EmptyState } from "../../ui/States";
+import { Table, Td, Th } from "../../ui/Table";
 
 // One site (P1b-04, P1b-05): its settings, allow decision and last crawl, every page a
 // crawl met (blocked ones with the reason), and the reviewer's actions: approve or
@@ -97,20 +98,20 @@ export function SiteSummary({ site }: { site: ContentSiteDetail }) {
 export function PageTable({ pages }: { pages: SitePage[] }) {
   if (pages.length === 0) return <EmptyState title="No pages crawled yet." />;
   return (
-    <table className="w-full rounded-control bg-surface text-left">
+    <Table>
       <thead>
-        <tr className="border-b">
-          <th className="p-2">Page</th>
-          <th className="p-2">State</th>
-          <th className="p-2">Why</th>
-          <th className="p-2">Published</th>
-          <th className="p-2">Fetched</th>
+        <tr>
+          <Th>Page</Th>
+          <Th>State</Th>
+          <Th>Why</Th>
+          <Th>Published</Th>
+          <Th>Fetched</Th>
         </tr>
       </thead>
       <tbody>
         {pages.map((page) => (
-          <tr key={page.url} className="border-b">
-            <td className="p-2 break-all">
+          <tr key={page.url}>
+            <Td label="Page" className="break-all">
               {page.source_id ? (
                 <Link to={`/content/sources/${page.source_id}`} className={LINK}>
                   {page.url}
@@ -118,17 +119,17 @@ export function PageTable({ pages }: { pages: SitePage[] }) {
               ) : (
                 page.url
               )}
-            </td>
-            <td className="p-2">
+            </Td>
+            <Td label="State">
               <StatusBadge kind="page" status={page.state} />
-            </td>
-            <td className="p-2">{pageReason(page.reason, page.special_category)}</td>
-            <td className="p-2">{page.published_on ? formatDate(page.published_on) : "—"}</td>
-            <td className="p-2">{formatDate(page.fetched_at)}</td>
+            </Td>
+            <Td label="Why">{pageReason(page.reason, page.special_category)}</Td>
+            <Td label="Published">{page.published_on ? formatDate(page.published_on) : "—"}</Td>
+            <Td label="Fetched">{formatDate(page.fetched_at)}</Td>
           </tr>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 }
 

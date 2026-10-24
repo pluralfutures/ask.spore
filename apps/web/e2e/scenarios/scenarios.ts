@@ -317,8 +317,9 @@ export const SCENARIOS: Scenario[] = [
     url: "/admin",
     options: { role: "tenant_admin" },
     act: async (page) => {
-      await page.getByRole("button", { name: "Remove", exact: true }).nth(1).click();
-      await page.getByRole("group", { name: "Confirm removal" }).waitFor();
+      await page.getByRole("button", { name: "Actions for invited@example.org" }).click();
+      await page.getByRole("menuitem", { name: "Remove" }).click();
+      await page.getByRole("dialog").waitFor();
     },
   },
   { name: "11d-tenant-admin-not-admin", url: "/admin" },

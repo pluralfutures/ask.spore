@@ -200,3 +200,76 @@
     outline-offset: 2px;
   }
 }
+
+/*
+ * Tables (UX-09, src/ui/Table.tsx). Under 640 px a stacked table drops its header row
+ * (kept for screen readers) and shows each cell with its column's name (data-label).
+ */
+@layer components {
+  .ui-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-ui);
+    line-height: var(--text-ui--line-height);
+    text-align: left;
+  }
+  .ui-table th {
+    background: var(--color-surface-subtle);
+    color: var(--color-fg-muted);
+    font-size: var(--text-meta);
+    line-height: var(--text-meta--line-height);
+    font-weight: var(--font-weight-strong);
+    padding: 0.5rem 1rem;
+    white-space: nowrap;
+  }
+  .ui-table td {
+    border-top: 1px solid var(--color-line);
+    padding: 0.75rem 1rem;
+    vertical-align: top;
+  }
+  .ui-table tbody tr:hover {
+    background: var(--color-surface-subtle);
+  }
+  .ui-table [data-numeric] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (width < 40rem) {
+    .ui-table-stacked thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .ui-table-stacked tr {
+      display: block;
+      border-top: 1px solid var(--color-line);
+      padding: 0.5rem 0;
+    }
+    .ui-table-stacked tbody tr:first-child {
+      border-top: 0;
+    }
+    .ui-table-stacked td {
+      display: grid;
+      grid-template-columns: minmax(6rem, 35%) 1fr;
+      gap: 0.75rem;
+      border-top: 0;
+      padding: 0.25rem 1rem;
+      text-align: left;
+    }
+    .ui-table-stacked td[data-label]::before {
+      content: attr(data-label);
+      color: var(--color-fg-muted);
+      font-weight: var(--font-weight-strong);
+    }
+    .ui-table-stacked td:not([data-label]) {
+      grid-template-columns: 1fr;
+    }
+    .ui-table-stacked td:empty {
+      display: none;
+    }
+  }
+}

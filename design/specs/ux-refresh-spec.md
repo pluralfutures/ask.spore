@@ -149,6 +149,10 @@ Each screen item applies the components, the layout from design-direction.md and
 - Have someone outside the build do a manual pass with a screen reader (NVDA or VoiceOver) on sign-in, consent, start, chat with citations and tenant admin, and record it in a findings note.
 - Update `design/ux/audit.md` with after-screenshots.
 
+Progress, Oct 24, 2026 (owner decisions):
+- `page-has-heading-one` on 04 (the app's first load) is **accepted by the owner**. Reason: a transient state before the app knows which page to show; it announces "Loading…" as a status, and every page it resolves to has an `h1`. It stays in `e2e/baselines/ux-baseline.json` as the one remaining entry.
+- `page-has-heading-one` on 05c (the consent notice failed to load) is **fixed**, as the owner asked, the same way as the UX-23 access-denied pages: "The notice could not be loaded." is now the page's `h1` in the same empty state (`PageError`, `ui/States.tsx`), with an alert icon, announced as an alert. Same wording and place (binding list item 1). Its baseline entry is removed. A "Try again" action stays in the backlog: it would be new copy.
+
 ## Open items for the owner
 
 All four items were decided on Oct 24, 2026.

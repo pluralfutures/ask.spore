@@ -1,4 +1,4 @@
-import { Inbox, LoaderCircle, Lock, type LucideIcon } from "lucide-react";
+import { CircleAlert, Inbox, LoaderCircle, Lock, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cx } from "./controlClass";
@@ -86,16 +86,48 @@ export function EmptyState({
   );
 }
 
-// UX-23: a page the user's role does not open: the page's h1 is the sentence the page
-// already uses ("Tenant admins only."), in an empty state with a lock.
-export function AccessDenied({ children }: { children: ReactNode }) {
+// UX-23: a page that shows only one sentence it already uses: the sentence is the page's
+// h1, in an empty state with an icon.
+function PageMessage({
+  icon: Icon,
+  iconClass,
+  role,
+  children,
+}: {
+  icon: LucideIcon;
+  iconClass: string;
+  role?: "alert";
+  children: ReactNode;
+}) {
   return (
     <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
-      <div className="flex flex-col items-center gap-2 rounded-card border border-dashed bg-surface px-4 py-10 text-center">
-        <Lock size={24} strokeWidth={1.5} aria-hidden="true" className="text-fg-subtle" />
+      <div
+        role={role}
+        className="flex flex-col items-center gap-2 rounded-card border border-dashed bg-surface px-4 py-10 text-center"
+      >
+        <Icon size={24} strokeWidth={1.5} aria-hidden="true" className={iconClass} />
         <h1 className="text-heading font-strong">{children}</h1>
       </div>
     </div>
+  );
+}
+
+// A page the user's role does not open ("Tenant admins only."), with a lock.
+export function AccessDenied({ children }: { children: ReactNode }) {
+  return (
+    <PageMessage icon={Lock} iconClass="text-fg-subtle">
+      {children}
+    </PageMessage>
+  );
+}
+
+// UX-24: a page whose content failed to load ("The notice could not be loaded."), with an
+// alert icon, announced when it appears.
+export function PageError({ children }: { children: ReactNode }) {
+  return (
+    <PageMessage icon={CircleAlert} iconClass="text-danger" role="alert">
+      {children}
+    </PageMessage>
   );
 }
 

@@ -9,7 +9,7 @@ import { mustAccept } from "../lib/consent";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
 import { Notice } from "../ui/Notice";
-import { Skeleton } from "../ui/States";
+import { PageError, Skeleton } from "../ui/States";
 import { cardClass } from "../ui/cardClass";
 
 // The first-login consent gate (P1b-10): until the active use and privacy notice is
@@ -46,13 +46,7 @@ function ConsentPage({ onAccepted }: { onAccepted: () => void }) {
         <Skeleton />
       </div>
     );
-  if (!notice.data) {
-    return (
-      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
-        <Notice tone="danger">The notice could not be loaded.</Notice>
-      </div>
-    );
-  }
+  if (!notice.data) return <PageError>The notice could not be loaded.</PageError>;
   return (
     <ConsentView
       notice={notice.data}

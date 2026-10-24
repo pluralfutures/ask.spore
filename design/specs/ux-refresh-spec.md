@@ -1,6 +1,6 @@
-# UX Refresh Build Spec (draft)
+# UX Refresh Build Spec
 
-Oct 23, 2026 · Status: **draft for owner review, not approved, not scheduled.** Nothing here is built until the owner approves it and assigns it to a phase. Until then the binding phase spec is whichever phase is current, and this document is an input to it.
+Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. Open items 1 to 3 are still undecided; the items that depend on them (UX-05, UX-14 and every screen item that would show new copy) do not start until they are decided.
 
 Sources: [../ux/audit.md](../ux/audit.md) (the visual audit, with screenshots) and [../ux/design-direction.md](../ux/design-direction.md) (the proposed look). Mockups of the chat view, start panel and tenant admin page, each beside its current screenshot, are on a design canvas: https://claude.ai/artifact/3spU4UTTXALVNbfdaFiRJE.
 
@@ -69,7 +69,7 @@ Build in this order. Each item is one PR, small enough to review in one sitting,
 
 **UX-01 Visual-regression suite.**
 - Turn the audit's throwaway script into `apps/web/e2e/visual/`: the stateful `FakeApi` extended with the audit's stress fixtures (a long structured answer with 14 citations, long titles, publishers and emails, superseded and withdrawn citations, empty lists, loading and error responses), and the same scenario list.
-- Use `toHaveScreenshot` at 1440×900 and 390×844, full page, animations off, after `document.fonts.ready`. It runs on the preinstalled Chromium in CI; snapshots are committed.
+- Use `toHaveScreenshot` at 1440×900 and 390×844, full page, animations off, after `document.fonts.ready`. Snapshots are committed and are generated on Linux Chromium. The suite has its own config (`pnpm test:visual`) and stays out of CI until UX-05: today the app renders in the machine's system font, so pixels differ between machines. With bundled Lato, UX-05 adds a CI job that runs the suite in the pinned Playwright image and regenerates the snapshots there.
 - Synthetic data only (CLAUDE.md).
 - Tests: the suite passes against today's app. A deliberately changed colour fails it.
 
@@ -151,7 +151,9 @@ Each screen item applies the components, the layout from design-direction.md and
 
 ## Open items for the owner
 
+Item 4 was decided on Oct 24, 2026; items 1 to 3 are open.
+
 1. Approve or adjust the direction: the slate-blue accent, Lato, and the left-rail chat layout.
 2. Copy shown in the mockups that is not in the app today: the "Settings" legend, "Question" as a visible label, "Recent" in the rail, "1 of 2" with previous and next in the phone source sheet, and the section sub-nav. Approve each, or the existing wording is used.
 3. UX-14: show the model read-only when a tenant has a single enabled model (today it is hidden).
-4. Which phase the refresh belongs to. It does not depend on Phase 2 work, and Group A could start on its own.
+4. ~~Which phase the refresh belongs to.~~ Decided Oct 24, 2026: the refresh is its own phase and starts now, with Group A.

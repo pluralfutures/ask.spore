@@ -20,5 +20,5 @@ exec docker run --rm --init --ipc=host --network host $EXTRA_CA \
   -e CI= -e HTTPS_PROXY -e HTTP_PROXY -e NO_PROXY -e https_proxy -e http_proxy -e no_proxy \
   -v "$ROOT:/work" -v /work/apps/web/node_modules \
   -w /work/apps/web "$IMAGE" \
-  sh -c 'corepack enable >/dev/null && pnpm install --frozen-lockfile --reporter=silent \
+  sh -c 'corepack enable >/dev/null && pnpm install --frozen-lockfile --reporter=silent --store-dir /tmp/pnpm-store \
     && pnpm exec playwright test --config playwright.visual.config.ts "$@"' sh "$@"

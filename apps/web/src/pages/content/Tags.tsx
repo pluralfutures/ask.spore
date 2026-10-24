@@ -6,7 +6,7 @@ import { canReview, errorMessage } from "../../lib/content";
 import { Button } from "../../ui/Button";
 import { LINK } from "../../ui/link";
 import { Notice } from "../../ui/Notice";
-import { Loading } from "../../ui/States";
+import { Skeleton } from "../../ui/States";
 import { Badge } from "../../ui/Badge";
 import { Table, Td, Th } from "../../ui/Table";
 
@@ -40,7 +40,7 @@ export function Tags({ roles }: { roles: string[] }) {
         <p data-testid="sync-result">{sync.data.map((r) => `${r.tag}: ${r.status}`).join(" · ")}</p>
       ) : null}
       {errorMessage(sync.error) ? <Notice tone="danger">{errorMessage(sync.error)}</Notice> : null}
-      {tags.data ? <TagTable tags={tags.data} /> : <Loading />}
+      {tags.data ? <TagTable tags={tags.data} /> : <Skeleton />}
     </section>
   );
 }

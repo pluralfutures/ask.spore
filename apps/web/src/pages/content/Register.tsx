@@ -126,7 +126,9 @@ export function SourceTable({ sources }: { sources: ContentSource[] }) {
             <Td label="Status">
               <StatusBadge kind="source" status={source.status} />
               {source.takedown_due_on && source.status !== "withdrawn" ? (
-                <span className="ml-1 text-danger">· takedown</span>
+                <Badge tone="danger" className="ml-1">
+                  takedown
+                </Badge>
               ) : null}
             </Td>
             <Td label="Updated">{formatDate(source.updated_at)}</Td>

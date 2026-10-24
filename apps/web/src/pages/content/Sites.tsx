@@ -13,16 +13,15 @@ import {
 } from "../../lib/content";
 import { formatDate } from "../../lib/format";
 import { Button } from "../../ui/Button";
+import { EmptyState, Skeleton } from "../../ui/States";
 import { LINK } from "../../ui/link";
 import { Field } from "../../ui/Field";
 import { Input, Select, Textarea } from "../../ui/Input";
 import { Checkbox } from "../../ui/Checkbox";
 import { Notice } from "../../ui/Notice";
-import { Loading } from "../../ui/States";
 import { cardClass } from "../../ui/cardClass";
 import { Globe } from "lucide-react";
 import { StatusBadge } from "../../ui/Badge";
-import { EmptyState } from "../../ui/States";
 import { Table, Td, Th } from "../../ui/Table";
 
 // Sites (P1b-04, P1b-05): registered websites, their crawl state, and the editor's form
@@ -34,7 +33,7 @@ export function Sites({ roles }: { roles: string[] }) {
       {errorMessage(sites.error) ? (
         <Notice tone="danger">{errorMessage(sites.error)}</Notice>
       ) : null}
-      {sites.data ? <SiteTable sites={sites.data} /> : <Loading />}
+      {sites.data ? <SiteTable sites={sites.data} /> : <Skeleton />}
       {canEdit(roles) ? <RegisterSite /> : null}
     </section>
   );
@@ -129,14 +128,14 @@ function RegisterSite() {
     />
   );
   return (
-    <form onSubmit={submit} className={cardClass("flex max-w-2xl flex-col gap-2")}>
-      <h2 className="font-strong">Register a site</h2>
+    <form onSubmit={submit} className={cardClass("flex max-w-2xl flex-col gap-4")}>
+      <h2 className="text-heading font-strong">Register a site</h2>
       <Field label="Start URL">{input("start_url")}</Field>
       <Field label="Name">{input("name")}</Field>
       <Field label="Publisher">{input("publisher")}</Field>
       <Field label="Licence basis">{input("licence_basis")}</Field>
-      <fieldset className="flex flex-wrap gap-3">
-        <legend>Tags</legend>
+      <fieldset className="flex flex-wrap gap-x-4 gap-y-2">
+        <legend className="mb-2 text-ui font-strong">Tags</legend>
         {tags.data?.map((t) => (
           <Checkbox
             key={t.tag}

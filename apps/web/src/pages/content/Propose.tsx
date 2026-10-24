@@ -47,8 +47,8 @@ export function Propose({ roles }: { roles: string[] }) {
   const set = (key: keyof ProposalFields) => (value: string | boolean | string[]) =>
     setFields({ ...fields, [key]: value });
   return (
-    <form onSubmit={submit} className={cardClass("flex max-w-2xl flex-col gap-2")}>
-      <h2 className="font-strong">Propose a source</h2>
+    <form onSubmit={submit} className={cardClass("flex max-w-2xl flex-col gap-4")}>
+      <h2 className="text-heading font-strong">Propose a source</h2>
       <Field label="File (PDF, DOCX, PPTX, HTML, Markdown)">
         <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </Field>
@@ -83,8 +83,8 @@ export function Propose({ roles }: { roles: string[] }) {
           <option key={basis} value={basis} />
         ))}
       </datalist>
-      <fieldset className="flex flex-wrap gap-3">
-        <legend>Tags</legend>
+      <fieldset className="flex flex-wrap gap-x-4 gap-y-2">
+        <legend className="mb-2 text-ui font-strong">Tags</legend>
         {tags.data?.map((t) => (
           <Checkbox
             key={t.tag}

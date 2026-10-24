@@ -281,6 +281,17 @@ describe("takedown queue", () => {
     expect(render(<TakedownTable items={[item(-1)]} />)).toContain("text-danger");
     expect(render(<TakedownTable items={[]} />)).toContain("No open takedown requests");
   });
+
+  // UX-22: the urgency is the badge's colour; its words are the timer's.
+  it("shows the timer as a badge coloured by urgency", () => {
+    const badge = (days: number) =>
+      render(<TakedownTable items={[item(days)]} />).match(
+        new RegExp(`<span class="([^"]*)" data-testid="timer-${ID}"`),
+      )?.[1];
+    expect(badge(-1)).toContain("bg-danger-subtle");
+    expect(badge(1)).toContain("bg-warning-muted");
+    expect(badge(5)).toContain("bg-neutral-muted");
+  });
 });
 
 describe("sites", () => {

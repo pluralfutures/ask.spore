@@ -14,14 +14,13 @@ import {
 } from "../../lib/content";
 import { formatDate } from "../../lib/format";
 import { Button } from "../../ui/Button";
+import { EmptyState, Skeleton } from "../../ui/States";
 import { LINK } from "../../ui/link";
 import { Field } from "../../ui/Field";
 import { Input, Select, Textarea } from "../../ui/Input";
 import { Notice } from "../../ui/Notice";
-import { Loading } from "../../ui/States";
 import { StatusBadge } from "../../ui/Badge";
 import { Card } from "../../ui/Card";
-import { EmptyState } from "../../ui/States";
 import { Table, Td, Th } from "../../ui/Table";
 
 // One site (P1b-04, P1b-05): its settings, allow decision and last crawl, every page a
@@ -35,7 +34,7 @@ export function SiteDetail({ roles }: { roles: string[] }) {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["content"] });
   const crawl = useMutation({ mutationFn: () => contentApi.crawl(id), onSuccess: refresh });
   if (site.error) return <Notice tone="danger">{errorMessage(site.error)}</Notice>;
-  if (!site.data) return <Loading />;
+  if (!site.data) return <Skeleton />;
   const data = site.data;
   return (
     <section className="flex flex-col gap-4">

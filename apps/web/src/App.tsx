@@ -27,7 +27,7 @@ import { ContentConsole } from "./pages/content/ContentConsole";
 import { OperatorTenant } from "./pages/OperatorTenant";
 import { TenantAdmin } from "./pages/TenantAdmin";
 import { WorkspaceFiles } from "./pages/WorkspaceFiles";
-import { Loading } from "./ui/States";
+import { PageSkeleton } from "./ui/States";
 import { Shell, TopBar } from "./components/AppShell";
 
 const queryClient = new QueryClient({
@@ -159,7 +159,7 @@ export function App({ initialMode = null }: { initialMode?: AuthMode | null } = 
   } else if (mode === null || (mode === "oidc" && signedIn === null)) {
     body = (
       <Shell>
-        <Loading className="mx-auto mt-16" />
+        <PageSkeleton />
       </Shell>
     );
   } else if (mode === "oidc") {

@@ -9,7 +9,7 @@ import { Sites } from "./Sites";
 import { SourceDetail } from "./SourceDetail";
 import { Tags } from "./Tags";
 import { Takedowns } from "./Takedowns";
-import { Loading } from "../../ui/States";
+import { AccessDenied, PageSkeleton } from "../../ui/States";
 import { Tabs } from "../../ui/Tabs";
 
 // Content operations console (P1b-05, architecture §7.3): the source register with its
@@ -29,18 +29,9 @@ export function ContentConsole() {
   const { pathname } = useLocation();
   const me = useQuery({ queryKey: ["content", "me"], queryFn: contentApi.me });
   if (me.error instanceof ApiError && me.error.status === 403) {
-    return (
-      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">
-        Content roles only.
-      </div>
-    );
+    return <AccessDenied>Content roles only.</AccessDenied>;
   }
-  if (!me.data)
-    return (
-      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">
-        <Loading />
-      </div>
-    );
+  if (!me.data) return <PageSkeleton />;
   const roles = me.data.roles;
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 md:px-8 md:py-6 text-ui">

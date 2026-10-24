@@ -75,7 +75,9 @@ function TenantPage({ tenantId }: { tenantId: string }) {
   if (tenant.error instanceof ApiError && tenant.error.status === 403) return <OperatorsOnly />;
   if (tenant.error)
     return (
-      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">No such tenant.</div>
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
+        <Notice tone="danger">No such tenant.</Notice>
+      </div>
     );
   if (!tenant.data || !options.data) {
     return (

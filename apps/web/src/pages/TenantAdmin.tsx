@@ -22,7 +22,7 @@ import { Field } from "../ui/Field";
 import { Input, Select, Textarea } from "../ui/Input";
 import { Switch } from "../ui/Switch";
 import { Notice } from "../ui/Notice";
-import { Loading } from "../ui/States";
+import { AccessDenied, PageSkeleton } from "../ui/States";
 import { Card } from "../ui/Card";
 import { PageHeader } from "../ui/PageHeader";
 import { StatusBadge } from "../ui/Badge";
@@ -42,11 +42,7 @@ const MODE_LABELS: Record<string, string> = {
 // Only tenant admins see the pages; the API refuses everyone else anyway (403).
 export function AdminGate({ me, children }: { me: Me | null | undefined; children: ReactNode }) {
   if (!isTenantAdmin(me)) {
-    return (
-      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">
-        Tenant admins only.
-      </div>
-    );
+    return <AccessDenied>Tenant admins only.</AccessDenied>;
   }
   return <>{children}</>;
 }
@@ -54,12 +50,7 @@ export function AdminGate({ me, children }: { me: Me | null | undefined; childre
 // Tenant admin pages (P1a-13): users, workspaces (instructions and defaults), retention.
 export function TenantAdmin() {
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
-  if (me.isPending)
-    return (
-      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
-        <Loading />
-      </div>
-    );
+  if (me.isPending) return <PageSkeleton />;
   return (
     <AdminGate me={me.data}>
       <div className="mx-auto flex w-full max-w-[70rem] flex-col gap-6 p-4 md:px-8 md:py-6">

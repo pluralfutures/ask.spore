@@ -15,7 +15,7 @@ import { cardClass } from "../ui/cardClass";
 import { PageHeader } from "../ui/PageHeader";
 import { StatusBadge } from "../ui/Badge";
 import { Table, Td, Th } from "../ui/Table";
-import { EmptyState } from "../ui/States";
+import { AccessDenied, EmptyState } from "../ui/States";
 
 // Operator console (P1a-03), one tenant per page (P1b-12): this page picks the tenant and
 // creates new ones; each tenant's settings are on its own page (OperatorTenant), so a
@@ -195,9 +195,7 @@ function TerminatedTenants() {
 }
 
 export function OperatorsOnly() {
-  return (
-    <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">Operators only.</div>
-  );
+  return <AccessDenied>Operators only.</AccessDenied>;
 }
 
 function CreateTenant() {

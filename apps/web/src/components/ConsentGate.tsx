@@ -9,7 +9,7 @@ import { mustAccept } from "../lib/consent";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
 import { Notice } from "../ui/Notice";
-import { Loading } from "../ui/States";
+import { Skeleton } from "../ui/States";
 import { cardClass } from "../ui/cardClass";
 
 // The first-login consent gate (P1b-10): until the active use and privacy notice is
@@ -43,7 +43,7 @@ function ConsentPage({ onAccepted }: { onAccepted: () => void }) {
   if (notice.isPending)
     return (
       <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
-        <Loading />
+        <Skeleton />
       </div>
     );
   if (!notice.data) {

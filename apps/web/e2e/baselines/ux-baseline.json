@@ -2,10 +2,7 @@
   "_note": "UX-02 baseline (design/specs/ux-refresh-spec.md). Known accessibility and layout failures of today's app, recorded Oct 24, 2026. Later items only remove entries; a new violation, a new overflow or a lower focus ring fails the suite, and so does an entry that no longer occurs (remove it).",
   "axe": {
     "04-app-loading": ["page-has-heading-one"],
-    "05c-consent-error": ["page-has-heading-one"],
-    "11d-tenant-admin-not-admin": ["page-has-heading-one"],
-    "12b-operator-only": ["page-has-heading-one"],
-    "15c-content-roles-only": ["page-has-heading-one"]
+    "05c-consent-error": ["page-has-heading-one"]
   },
   "overflowAt390": {},
   "focusRingMinWidthPx": 2

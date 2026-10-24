@@ -1,4 +1,4 @@
-import { Inbox, LoaderCircle, type LucideIcon } from "lucide-react";
+import { Inbox, LoaderCircle, Lock, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cx } from "./controlClass";
@@ -82,6 +82,28 @@ export function EmptyState({
       <p className="text-fg-secondary">{title}</p>
       {children ? <p className="text-fg-muted">{children}</p> : null}
       {action}
+    </div>
+  );
+}
+
+// UX-23: a page the user's role does not open: the page's h1 is the sentence the page
+// already uses ("Tenant admins only."), in an empty state with a lock.
+export function AccessDenied({ children }: { children: ReactNode }) {
+  return (
+    <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
+      <div className="flex flex-col items-center gap-2 rounded-card border border-dashed bg-surface px-4 py-10 text-center">
+        <Lock size={24} strokeWidth={1.5} aria-hidden="true" className="text-fg-subtle" />
+        <h1 className="text-heading font-strong">{children}</h1>
+      </div>
+    </div>
+  );
+}
+
+// A whole page that is still loading: the page's container around a skeleton.
+export function PageSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
+      <Skeleton />
     </div>
   );
 }

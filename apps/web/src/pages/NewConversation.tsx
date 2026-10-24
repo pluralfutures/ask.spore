@@ -12,8 +12,7 @@ import { LINK } from "../ui/link";
 import { Field } from "../ui/Field";
 import { Textarea } from "../ui/Input";
 import { Notice } from "../ui/Notice";
-import { Loading } from "../ui/States";
-import { EmptyState } from "../ui/States";
+import { EmptyState, Skeleton } from "../ui/States";
 
 // What the chat page needs from the start: the first question, the spend-cap notice, and,
 // for a tenant that keeps no history (P1b-14), the conversation itself, which no read
@@ -47,7 +46,7 @@ export function NewConversation() {
   if (workspaces.isPending || models.isPending) {
     return (
       <StartPage>
-        <Loading />
+        <Skeleton />
       </StartPage>
     );
   }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { ApiError, api } from "../api/client";
@@ -9,6 +9,7 @@ import { keepsNoHistory } from "../lib/noHistory";
 import { createBody, initialChoice, refusalText, type StartChoice } from "../lib/startPanel";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
+import { Field } from "../ui/Field";
 import { Textarea } from "../ui/Input";
 import { Notice } from "../ui/Notice";
 import { Loading } from "../ui/States";
@@ -45,16 +46,16 @@ export function NewConversation() {
 
   if (workspaces.isPending || models.isPending) {
     return (
-      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
+      <StartPage>
         <Loading />
-      </div>
+      </StartPage>
     );
   }
   if (!workspaces.data || !models.data) {
     return (
-      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
+      <StartPage>
         <Notice tone="danger">Could not load the options.</Notice>
-      </div>
+      </StartPage>
     );
   }
   const choice = edited ?? initialChoice(workspaces.data, models.data);
@@ -65,30 +66,27 @@ export function NewConversation() {
   }
 
   return (
-    <div className="mx-auto w-full flex max-w-3xl flex-col gap-4 p-4 md:px-8 md:py-6">
-      <Link to="/" className={`text-ui ${LINK}`}>
-        ← Conversations
-      </Link>
+    <StartPage>
       {workspaces.data.length === 0 ? (
         <EmptyState title="No workspace has been set up for your organisation yet." />
       ) : (
-        <form onSubmit={submit} className="flex flex-col gap-3">
+        <form onSubmit={submit} className="flex flex-col gap-6">
+          {/* UX-14 (mockup 2): the question first, with a visible label, then the settings. */}
+          <Field label="Question">
+            <Textarea
+              id="first-question"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              maxLength={4000}
+              rows={5}
+              placeholder="Ask a question about this workspace's sources"
+            />
+          </Field>
           <StartPanel
             workspaces={workspaces.data}
             models={models.data}
             choice={choice}
             onChange={setEdited}
-          />
-          <label htmlFor="first-question" className="sr-only">
-            Question
-          </label>
-          <Textarea
-            id="first-question"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            maxLength={4000}
-            rows={3}
-            placeholder="Ask a question about this workspace's sources"
           />
           {create.error ? (
             <Notice tone="danger" role="alert">
@@ -105,6 +103,20 @@ export function NewConversation() {
           </Button>
         </form>
       )}
+    </StartPage>
+  );
+}
+
+// Every state of the start page (loading, error, no workspace, the form) has the back link
+// and the page's h1, the former legend of the panel.
+function StartPage({ children }: { children: ReactNode }) {
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 md:px-8 md:py-6">
+      <Link to="/" className={`w-fit text-ui ${LINK}`}>
+        ← Conversations
+      </Link>
+      <h1 className="text-title font-strong">New conversation</h1>
+      {children}
     </div>
   );
 }

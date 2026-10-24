@@ -3,14 +3,6 @@
   "axe": {
     "04-app-loading": ["page-has-heading-one"],
     "05c-consent-error": ["page-has-heading-one"],
-    "07-start-panel-single": ["page-has-heading-one"],
-    "07b-start-panel-choices": ["page-has-heading-one"],
-    "07c-start-panel-external": ["page-has-heading-one"],
-    "07d-start-panel-no-reasoning": ["page-has-heading-one"],
-    "07e-start-panel-loading": ["page-has-heading-one"],
-    "07f-start-panel-error": ["page-has-heading-one"],
-    "07g-start-panel-no-workspace": ["page-has-heading-one"],
-    "07h-start-panel-refused": ["page-has-heading-one"],
     "11d-tenant-admin-not-admin": ["page-has-heading-one"],
     "12b-operator-only": ["page-has-heading-one"],
     "15c-content-roles-only": ["page-has-heading-one"]

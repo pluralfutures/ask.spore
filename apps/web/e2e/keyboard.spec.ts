@@ -60,7 +60,7 @@ test("consent: the full notice, the box, then the accept button once ticked", as
   await expect(accept).toBeEnabled();
 });
 
-test("start panel: skip link, back link, workspace, model, reasoning, question", async ({
+test("start panel: skip link, rail, back link, question, workspace, model, reasoning", async ({
   page,
 }) => {
   await openScenario(page, scenario("07b-start-panel-choices"));
@@ -73,10 +73,11 @@ test("start panel: skip link, back link, workspace, model, reasoning, question",
     await tabTo(page, row.getByRole("button", { name: /^Actions for / }));
   }
   await tabTo(page, page.getByRole("link", { name: "← Conversations" }));
+  // UX-14: the question comes first, then the settings.
+  await tabTo(page, page.getByLabel("Question"));
   await tabTo(page, page.getByLabel("Workspace"));
   await tabTo(page, page.getByLabel("Model"));
   await tabTo(page, page.getByRole("switch", { name: "Reasoning" }));
-  await tabTo(page, page.getByLabel("Question"));
 });
 
 test("citations open from a marker and close from the panel", async ({ page }) => {

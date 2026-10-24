@@ -100,10 +100,17 @@ describe("StartPanel", () => {
     expect(html).toContain("Beta team");
   });
 
-  it("hides the model chooser when one model is enabled", () => {
+  // UX-14 (owner decision, Oct 24, 2026): a single model is shown read-only, not hidden.
+  it("shows a single enabled model read-only, without a chooser", () => {
     const html = render([ALPHA, BETA], [EU]);
     expect(html.match(/<select/g)).toHaveLength(1);
-    expect(html).not.toContain("Model");
+    expect(html).toMatch(/data-testid="model-readonly">Model: <!-- -->EU-FAST</);
+  });
+
+  it("names the settings card and keeps the locked-settings line", () => {
+    const html = render([ALPHA, BETA], [EU]);
+    expect(html).toContain(">Settings</legend>");
+    expect(html).toContain("These settings cannot be changed once the conversation has started.");
   });
 
   it("marks external models as served outside the EU in plain words", () => {

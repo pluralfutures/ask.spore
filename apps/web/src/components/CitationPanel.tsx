@@ -6,7 +6,7 @@ import { CITATION_STATUS_NOTE, EXCERPT_REMOVED_NOTE, citationStatus } from "../l
 import { formatDate, pageLabel } from "../lib/format";
 import { cx } from "../ui/controlClass";
 import { IconButton } from "../ui/IconButton";
-import { LINK } from "../ui/link";
+import { NewTabLink } from "../ui/NewTabLink";
 
 interface Props {
   citations: Citation[];
@@ -165,15 +165,9 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
                 </p>
               )}
               {c.canonical_url ? (
-                <a
-                  href={c.canonical_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-describedby={`${titleId}-${c.marker}`}
-                  className={`w-fit ${LINK}`}
-                >
+                <NewTabLink href={c.canonical_url} aria-describedby={`${titleId}-${c.marker}`}>
                   View at source
-                </a>
+                </NewTabLink>
               ) : null}
             </li>
           );

@@ -28,7 +28,7 @@ No visual change: the visual suite passed unchanged.
 
 ## 3. Not fixed, needing copy (backlog)
 
-- "View at source" opens a new tab without saying so. Saying it ("opens in a new tab") is new copy.
+- ~~"View at source" opens a new tab without saying so.~~ Approved by the owner on Oct 24, 2026 and built: both "View at source" links (citation panel, files page) use `NewTabLink` (`ui/NewTabLink.tsx`), which shows the external-link icon and adds "(opens in a new tab)" for screen readers. Other links that open a new tab (links inside answers, the content console) do not say so yet.
 - Every sign-in step has the same `h1`, "SporeBot". Step headings ("Sign in", "Check your email", "Confirm it's you") would help, but they are new copy.
 
 ## 4. Human confirmation (about 30 minutes)

@@ -180,6 +180,19 @@ test.describe("names in context", () => {
     await expect(group.getByRole("button", { name: "Save defaults" })).toHaveCount(1);
   });
 
+  test("View at source says it opens a new tab, on the chat and the files page", async ({
+    page,
+  }) => {
+    await openScenario(page, scenario("08c-chat-answer-citation-open"));
+    const cited = page.getByRole("link", { name: "View at source" }).first();
+    await expect(cited).toHaveAccessibleName("View at source (opens in a new tab)");
+    await expect(cited).toHaveAttribute("target", "_blank");
+    await openScenario(page, scenario("10-files"));
+    const file = page.getByRole("link", { name: "View at source" }).first();
+    await expect(file).toHaveAccessibleName("View at source (opens in a new tab)");
+    await expect(file).toHaveAttribute("target", "_blank");
+  });
+
   test("View at source is described by its source's title", async ({ page }) => {
     await openScenario(page, scenario("08c-chat-answer-citation-open"));
     const links = page.getByRole("link", { name: "View at source" });

@@ -6,10 +6,10 @@ import type { WorkspaceFile, WorkspaceSite } from "../api/types";
 import { formatDate } from "../lib/format";
 import { downloadRefusal, fileAction, typeLabel } from "../lib/files";
 import { Button } from "../ui/Button";
-import { LINK } from "../ui/link";
+import { NewTabLink } from "../ui/NewTabLink";
 import { Notice } from "../ui/Notice";
 import { EmptyState, Skeleton } from "../ui/States";
-import { Download, ExternalLink, FileText } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import { PageHeader } from "../ui/PageHeader";
 import { ActionsTh, Table, Td, Th } from "../ui/Table";
 
@@ -107,15 +107,9 @@ export function FileTable({
                     Download
                   </Button>
                 ) : action.kind === "link" ? (
-                  <a
-                    href={action.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={`inline-flex items-center gap-1 whitespace-nowrap ${LINK}`}
-                  >
+                  <NewTabLink href={action.href} className="whitespace-nowrap">
                     View at source
-                    <ExternalLink size={14} strokeWidth={1.5} aria-hidden="true" />
-                  </a>
+                  </NewTabLink>
                 ) : null}
               </Td>
             </tr>

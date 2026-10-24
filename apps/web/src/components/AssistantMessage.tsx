@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import type { Citation } from "../api/types";
 import { AnswerMarkdown } from "./AnswerMarkdown";
 import { Feedback } from "./Feedback";
@@ -10,10 +12,13 @@ interface Props {
   abstained: boolean;
   messageId: string | null; // null while streaming
   onCite: (marker: number) => void;
+  // UX-15: the answer-quality notes (partial, truncated, failover) sit inside the block,
+  // under the text they qualify, above the feedback footer.
+  notes?: ReactNode;
 }
 
 export function AssistantMessage(props: Props) {
-  const { text, citations, unsupported, abstained, messageId, onCite } = props;
+  const { text, citations, unsupported, abstained, messageId, onCite, notes } = props;
   if (abstained) {
     return (
       <div
@@ -22,20 +27,30 @@ export function AssistantMessage(props: Props) {
       >
         <p className="font-emphasis">Nothing relevant found</p>
         <p className="text-ui">{text}</p>
-        {messageId ? <Feedback messageId={messageId} /> : null}
+        {notes}
+        {messageId ? <AnswerFooter messageId={messageId} /> : null}
       </div>
     );
   }
   const markers = new Set(citations.map((c) => c.marker));
   return (
-    <div className="rounded-card border bg-surface p-4">
+    <article className="flex flex-col gap-3 rounded-card border bg-surface p-4 md:px-6 md:py-5">
       {unsupported ? (
-        <Badge tone="danger" data-testid="unsupported" className="mb-2">
+        <Badge tone="danger" data-testid="unsupported" className="w-fit">
           Unsupported answer: no citations to your sources
         </Badge>
       ) : null}
       <AnswerMarkdown text={text} markers={markers} onCite={onCite} />
-      {messageId ? <Feedback messageId={messageId} /> : null}
-    </div>
+      {notes}
+      {messageId ? <AnswerFooter messageId={messageId} /> : null}
+    </article>
+  );
+}
+
+function AnswerFooter({ messageId }: { messageId: string }) {
+  return (
+    <footer className="mt-1 border-t pt-3">
+      <Feedback messageId={messageId} />
+    </footer>
   );
 }

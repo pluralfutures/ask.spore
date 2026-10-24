@@ -21,7 +21,7 @@ export function Feedback({ messageId }: { messageId: string }) {
   }
 
   return (
-    <div className="mt-2 flex items-center gap-2 text-ui">
+    <div className="flex flex-wrap items-center gap-2 text-ui">
       {(["up", "down"] as const).map((value) => (
         // UX-06: outline thumbs with the names as visible text; on phone the name is
         // visually hidden and stays the accessible name.

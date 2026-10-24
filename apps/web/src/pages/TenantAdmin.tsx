@@ -15,7 +15,7 @@ import {
 } from "../lib/admin";
 import { UserActions } from "../components/UserActions";
 import { formatDate } from "../lib/format";
-import { policySummary } from "../lib/sso";
+import { POLICY_ROWS, policySummary } from "../lib/sso";
 import { modelLabel } from "../lib/startPanel";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
@@ -62,15 +62,57 @@ export function TenantAdmin() {
     );
   return (
     <AdminGate me={me.data}>
-      <div className="mx-auto w-full flex max-w-4xl flex-col gap-6 p-4 md:px-8 md:py-6">
+      <div className="mx-auto flex w-full max-w-[70rem] flex-col gap-6 p-4 md:px-8 md:py-6">
         <PageHeader back={{ to: "/", label: "← Conversations" }} title="Administration" />
-        <Users selfEmail={me.data?.email} />
-        <Workspaces />
-        <Retention />
-        <SignInPolicy />
-        <AuditLog />
+        {/* UX-18 (mockup 3): a section sub-nav beside the cards from 1024 px, above them
+            on smaller screens. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[12rem_minmax(0,1fr)]">
+          <SectionNav />
+          <div className="flex min-w-0 flex-col gap-6">
+            <Users selfEmail={me.data?.email} />
+            <Workspaces />
+            <Retention />
+            <SignInPolicy />
+            <AuditLog />
+          </div>
+        </div>
       </div>
     </AdminGate>
+  );
+}
+
+// The page's sections, in page order, with the headings they link to.
+const SECTIONS = [
+  ["users", "Users"],
+  ["workspaces", "Workspaces"],
+  ["retention", "Chat history retention"],
+  ["sign-in", "Sign-in"],
+  ["audit", "Audit log"],
+] as const;
+const SECTION_CARD = "scroll-mt-4 text-ui";
+
+function SectionNav() {
+  const [current, setCurrent] = useState(() => {
+    const hash = typeof window === "undefined" ? "" : window.location.hash.slice(1);
+    return SECTIONS.some(([id]) => id === hash) ? hash : "users";
+  });
+  return (
+    <nav aria-label="Administration sections" className="lg:sticky lg:top-4 lg:self-start">
+      <ul className="flex w-0 min-w-full gap-1 overflow-x-auto lg:w-auto lg:flex-col">
+        {SECTIONS.map(([id, label]) => (
+          <li key={id} className="shrink-0">
+            <a
+              href={`#${id}`}
+              aria-current={current === id ? "true" : undefined}
+              onClick={() => setCurrent(id)}
+              className="flex min-h-9 items-center rounded-control px-3 text-ui whitespace-nowrap text-fg-secondary hover:bg-surface-subtle aria-[current=true]:bg-info-subtle aria-[current=true]:font-strong aria-[current=true]:text-info max-sm:min-h-11"
+            >
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 
@@ -100,7 +142,7 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
   const failed = refusal(change.error) ?? refusal(resend.error) ?? refusal(remove.error);
 
   return (
-    <Card title="Users" className="text-ui">
+    <Card id="users" title="Users" className={SECTION_CARD}>
       {/* Release F4: each action shows its own outcome only. An invite clears the list's
           last status; a resend or removal remounts the form, clearing its last refusal. */}
       <Invite
@@ -176,8 +218,10 @@ function UserRow({
   const actions = userActions(user, selfEmail);
   return (
     <tr data-testid={`user-${user.email}`}>
-      <Td label="Name">{user.display_name}</Td>
-      <Td label="Email" className="break-all">
+      <Td label="Name" className="[overflow-wrap:anywhere] sm:min-w-32">
+        {user.display_name}
+      </Td>
+      <Td label="Email" className="[overflow-wrap:anywhere] sm:min-w-48">
         {user.email}
       </Td>
       <Td label="Role">
@@ -199,7 +243,9 @@ function UserRow({
       <Td label="Status">
         <StatusBadge kind="user" status={user.status} />
       </Td>
-      <Td label="Last login">{lastLogin(user)}</Td>
+      <Td label="Last login" className="sm:min-w-32">
+        {lastLogin(user)}
+      </Td>
       <Td className="text-right">
         <UserActions
           before={[
@@ -281,7 +327,7 @@ function Workspaces() {
   const models = useQuery({ queryKey: ["models"], queryFn: api.models });
   const settings = useQuery({ queryKey: ["admin", "settings"], queryFn: adminApi.settings });
   return (
-    <section className="flex flex-col gap-3 text-ui">
+    <section id="workspaces" className={`flex flex-col gap-3 ${SECTION_CARD}`}>
       <h2 className="text-heading font-strong">Workspaces</h2>
       {workspaces.data && models.data && settings.data
         ? workspaces.data.map((w) => (
@@ -482,7 +528,7 @@ export function VersionHistory({
 function SignInPolicy() {
   const policy = useQuery({ queryKey: ["admin", "login-policy"], queryFn: adminApi.loginPolicy });
   return (
-    <Card title="Sign-in" className="text-ui">
+    <Card id="sign-in" title="Sign-in" className={SECTION_CARD}>
       {policy.data ? <PolicySummary policy={policy.data} /> : null}
       <p className="text-fg-muted">To change single sign-on, contact the platform operator.</p>
     </Card>
@@ -491,11 +537,17 @@ function SignInPolicy() {
 
 export function PolicySummary({ policy }: { policy: LoginPolicyOut }) {
   return (
-    <dl className="grid grid-cols-[max-content_1fr] gap-x-3">
-      {policySummary(policy).map(([label, value]) => (
+    // UX-18: the SSO source's own settings (after the fixed rows) are configuration keys
+    // and values, shown in monospace.
+    <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1">
+      {policySummary(policy).map(([label, value], i) => (
         <Fragment key={label}>
-          <dt className="text-fg-muted">{label}</dt>
-          <dd className="break-all">{value}</dd>
+          <dt className={i < POLICY_ROWS ? "text-fg-muted" : "font-mono text-meta text-fg-muted"}>
+            {label}
+          </dt>
+          <dd className={i < POLICY_ROWS ? "break-all" : "font-mono text-meta break-all"}>
+            {value}
+          </dd>
         </Fragment>
       ))}
     </dl>
@@ -528,7 +580,7 @@ function Retention() {
   }
 
   return (
-    <Card title="Chat history retention" className="text-ui">
+    <Card id="retention" title="Chat history retention" className={SECTION_CARD}>
       <p className="text-fg-muted">
         Conversations are deleted after this many days, at most {MAX_RETENTION_DAYS}. Shortening it
         also removes existing conversations older than the new limit. 0 keeps no history: each
@@ -574,7 +626,7 @@ function AuditLog() {
     },
   });
   return (
-    <Card title="Audit log" className="text-ui">
+    <Card id="audit" title="Audit log" className={SECTION_CARD}>
       <p className="text-fg-muted">
         Sign-in, administration, operator and notice-acceptance events of the last 90 days, as CSV.
       </p>

@@ -99,6 +99,9 @@ const KIND_NAMES: Record<string, string> = {
 };
 
 // Label and value pairs, non-secret fields only (the API never returns a secret).
+// The fixed rows of the summary; the SSO source's configuration and endpoints follow.
+export const POLICY_ROWS = 4;
+
 export function policySummary(policy: LoginPolicyOut): [string, string][] {
   const rows: [string, string][] = [
     ["Single sign-on", KIND_NAMES[policy.sso_source_kind] ?? policy.sso_source_kind],

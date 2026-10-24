@@ -20,7 +20,7 @@ export function Sites({ roles }: { roles: string[] }) {
   return (
     <section className="flex flex-col gap-4">
       {errorMessage(sites.error) ? (
-        <p className="text-red-700">{errorMessage(sites.error)}</p>
+        <p className="text-danger">{errorMessage(sites.error)}</p>
       ) : null}
       {sites.data ? <SiteTable sites={sites.data} /> : <p>Loading…</p>}
       {canEdit(roles) ? <RegisterSite /> : null}
@@ -29,9 +29,9 @@ export function Sites({ roles }: { roles: string[] }) {
 }
 
 export function SiteTable({ sites }: { sites: ContentSite[] }) {
-  if (sites.length === 0) return <p className="text-slate-600">No sites registered.</p>;
+  if (sites.length === 0) return <p className="text-fg-muted">No sites registered.</p>;
   return (
-    <table className="w-full rounded bg-white text-left">
+    <table className="w-full rounded-control bg-surface text-left">
       <thead>
         <tr className="border-b">
           <th className="p-2">Site</th>
@@ -50,7 +50,7 @@ export function SiteTable({ sites }: { sites: ContentSite[] }) {
               <Link to={`/content/sites/${site.id}`} className="underline">
                 {site.name}
               </Link>{" "}
-              <span className="text-slate-500">{site.host}</span>
+              <span className="text-fg-subtle">{site.host}</span>
             </td>
             <td className="p-2">{site.status}</td>
             <td className="p-2">{ALLOW_DECISIONS[site.allow_decision] ?? site.allow_decision}</td>
@@ -110,8 +110,11 @@ function RegisterSite() {
     />
   );
   return (
-    <form onSubmit={submit} className="flex max-w-2xl flex-col gap-2 rounded bg-white p-3">
-      <h2 className="font-semibold">Register a site</h2>
+    <form
+      onSubmit={submit}
+      className="flex max-w-2xl flex-col gap-2 rounded-control bg-surface p-3"
+    >
+      <h2 className="font-strong">Register a site</h2>
       <label className="flex flex-col">Start URL{input("start_url")}</label>
       <label className="flex flex-col">Name{input("name")}</label>
       <label className="flex flex-col">Publisher{input("publisher")}</label>
@@ -172,12 +175,12 @@ function RegisterSite() {
       <button
         type="submit"
         disabled={create.isPending}
-        className="w-fit rounded bg-slate-900 px-3 py-1 text-white"
+        className="w-fit rounded-control bg-primary px-3 py-1 text-on-primary"
       >
         Register
       </button>
       {errorMessage(create.error) ? (
-        <p className="text-red-700">{errorMessage(create.error)}</p>
+        <p className="text-danger">{errorMessage(create.error)}</p>
       ) : null}
       {create.data ? <p>Registered: it waits for a reviewer.</p> : null}
     </form>

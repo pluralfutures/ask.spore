@@ -16,8 +16,8 @@ export function SignIn({ onSignedIn }: { onSignedIn: (credentials: Credentials) 
 
   return (
     <form onSubmit={submit} className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-xl font-semibold">SporeBot</h1>
-      <label className="flex flex-col gap-1 text-sm">
+      <h1 className="text-title font-strong">SporeBot</h1>
+      <label className="flex flex-col gap-1 text-ui">
         Email
         <input
           type="email"
@@ -25,10 +25,10 @@ export function SignIn({ onSignedIn }: { onSignedIn: (credentials: Credentials) 
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded border px-2 py-1"
+          className="rounded-control border px-2 py-1"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1 text-ui">
         Access token
         <input
           type="password"
@@ -36,10 +36,10 @@ export function SignIn({ onSignedIn }: { onSignedIn: (credentials: Credentials) 
           autoComplete="off"
           value={token}
           onChange={(e) => setToken(e.target.value)}
-          className="rounded border px-2 py-1"
+          className="rounded-control border px-2 py-1"
         />
       </label>
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-white">
+      <button type="submit" className="rounded-control bg-primary px-3 py-1.5 text-on-primary">
         Sign in
       </button>
     </form>

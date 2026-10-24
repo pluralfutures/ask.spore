@@ -32,7 +32,7 @@ const MODE_LABELS: Record<string, string> = {
 // Only tenant admins see the pages; the API refuses everyone else anyway (403).
 export function AdminGate({ me, children }: { me: Me | null | undefined; children: ReactNode }) {
   if (!isTenantAdmin(me)) {
-    return <main className="mx-auto max-w-3xl p-4 text-sm">Tenant admins only.</main>;
+    return <main className="mx-auto max-w-3xl p-4 text-ui">Tenant admins only.</main>;
   }
   return <>{children}</>;
 }
@@ -44,10 +44,10 @@ export function TenantAdmin() {
   return (
     <AdminGate me={me.data}>
       <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
-        <Link to="/" className="text-sm underline">
+        <Link to="/" className="text-ui underline">
           ← Conversations
         </Link>
-        <h1 className="text-xl font-semibold">Administration</h1>
+        <h1 className="text-title font-strong">Administration</h1>
         <Users selfEmail={me.data?.email} />
         <Workspaces />
         <Retention />
@@ -84,8 +84,8 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
   const failed = refusal(change.error) ?? refusal(resend.error) ?? refusal(remove.error);
 
   return (
-    <section className="flex flex-col gap-2 rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">Users</h2>
+    <section className="flex flex-col gap-2 rounded-control bg-surface p-3 text-ui">
+      <h2 className="font-strong">Users</h2>
       {/* Release F4: each action shows its own outcome only. An invite clears the list's
           last status; a resend or removal remounts the form, clearing its last refusal. */}
       <Invite
@@ -98,9 +98,9 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
           change.reset();
         }}
       />
-      {failed ? <p className="text-red-700">{failed}</p> : null}
+      {failed ? <p className="text-danger">{failed}</p> : null}
       {done && !failed ? (
-        <p role="status" className="text-slate-700">
+        <p role="status" className="text-fg-secondary">
           {done}
         </p>
       ) : null}
@@ -239,7 +239,7 @@ function Invite({ onInvited, onStart }: { onInvited: () => void; onStart: () => 
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded border px-2"
+          className="rounded-control border px-2"
         />
       </label>
       <label className="flex flex-col">
@@ -247,7 +247,7 @@ function Invite({ onInvited, onStart }: { onInvited: () => void; onStart: () => 
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded border px-2"
+          className="rounded-control border px-2"
         />
       </label>
       <label className="flex flex-col">
@@ -260,18 +260,16 @@ function Invite({ onInvited, onStart }: { onInvited: () => void; onStart: () => 
       <button
         type="submit"
         disabled={invite.isPending || !email.trim() || !name.trim()}
-        className="rounded bg-slate-900 px-3 py-1 text-white disabled:opacity-50"
+        className="rounded-control bg-primary px-3 py-1 text-on-primary disabled:opacity-50"
       >
         Invite
       </button>
       {invite.isSuccess ? (
-        <p className="w-full text-slate-600">
+        <p className="w-full text-fg-muted">
           Invited. They sign in by requesting a link on the sign-in page.
         </p>
       ) : null}
-      {refusal(invite.error) ? (
-        <p className="w-full text-red-700">{refusal(invite.error)}</p>
-      ) : null}
+      {refusal(invite.error) ? <p className="w-full text-danger">{refusal(invite.error)}</p> : null}
     </form>
   );
 }
@@ -281,8 +279,8 @@ function Workspaces() {
   const models = useQuery({ queryKey: ["models"], queryFn: api.models });
   const settings = useQuery({ queryKey: ["admin", "settings"], queryFn: adminApi.settings });
   return (
-    <section className="flex flex-col gap-3 text-sm">
-      <h2 className="font-semibold">Workspaces</h2>
+    <section className="flex flex-col gap-3 text-ui">
+      <h2 className="font-strong">Workspaces</h2>
       {workspaces.data && models.data && settings.data
         ? workspaces.data.map((w) => (
             <WorkspacePanel
@@ -308,10 +306,10 @@ function WorkspacePanel({
 }) {
   return (
     <div
-      className="flex flex-col gap-3 rounded bg-white p-3"
+      className="flex flex-col gap-3 rounded-control bg-surface p-3"
       data-testid={`workspace-${workspace.slug}`}
     >
-      <h3 className="font-semibold">{workspace.name}</h3>
+      <h3 className="font-strong">{workspace.name}</h3>
       <Defaults workspace={workspace} models={models} modes={modes} />
       <Instructions workspace={workspace} />
     </div>
@@ -389,12 +387,12 @@ function Defaults({
       <button
         type="submit"
         disabled={save.isPending}
-        className="rounded bg-slate-900 px-3 py-1 text-white"
+        className="rounded-control bg-primary px-3 py-1 text-on-primary"
       >
         Save defaults
       </button>
-      {save.isSuccess ? <span className="text-slate-600">Saved.</span> : null}
-      {refusal(save.error) ? <p className="w-full text-red-700">{refusal(save.error)}</p> : null}
+      {save.isSuccess ? <span className="text-fg-muted">Saved.</span> : null}
+      {refusal(save.error) ? <p className="w-full text-danger">{refusal(save.error)}</p> : null}
     </form>
   );
 }
@@ -422,10 +420,10 @@ function Instructions({ workspace }: { workspace: Workspace }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={`instructions-${workspace.id}`} className="font-medium">
+      <label htmlFor={`instructions-${workspace.id}`} className="font-emphasis">
         Additional instructions
       </label>
-      <p className="text-slate-600">
+      <p className="text-fg-muted">
         Added to the assistant&apos;s instructions for this workspace. They cannot change how it
         cites sources or when it declines to answer.
       </p>
@@ -438,27 +436,27 @@ function Instructions({ workspace }: { workspace: Workspace }) {
         }}
         maxLength={MAX_INSTRUCTIONS_CHARS}
         rows={4}
-        className="rounded border px-2 py-1"
+        className="rounded-control border px-2 py-1"
       />
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => save.mutate(text)}
           disabled={save.isPending || draft === null}
-          className="rounded bg-slate-900 px-3 py-1 text-white disabled:opacity-50"
+          className="rounded-control bg-primary px-3 py-1 text-on-primary disabled:opacity-50"
         >
           Save as new version
         </button>
-        <span className="text-slate-600">
+        <span className="text-fg-muted">
           {text.length} / {MAX_INSTRUCTIONS_CHARS}
         </span>
         {savedVersion !== null && !save.isPending ? (
-          <span role="status" className="text-slate-600">
+          <span role="status" className="text-fg-muted">
             Saved as version {savedVersion}.
           </span>
         ) : null}
       </div>
-      {refusal(save.error) ? <p className="text-red-700">{refusal(save.error)}</p> : null}
+      {refusal(save.error) ? <p className="text-danger">{refusal(save.error)}</p> : null}
       <VersionHistory versions={history.data ?? []} />
     </div>
   );
@@ -470,17 +468,17 @@ export function VersionHistory({
 }: {
   versions: { version: number; text: string; created_at: string }[];
 }) {
-  if (versions.length === 0) return <p className="text-slate-600">No versions saved yet.</p>;
+  if (versions.length === 0) return <p className="text-fg-muted">No versions saved yet.</p>;
   return (
     <details>
       <summary>Version history ({versions.length})</summary>
       <ol className="flex flex-col gap-2">
         {versions.map((v) => (
           <li key={v.version} data-testid={`version-${v.version}`}>
-            <p className="font-medium">
+            <p className="font-emphasis">
               Version {v.version} · {formatDate(v.created_at)}
             </p>
-            <pre className="whitespace-pre-wrap text-slate-700">{v.text || "(empty)"}</pre>
+            <pre className="whitespace-pre-wrap text-fg-secondary">{v.text || "(empty)"}</pre>
           </li>
         ))}
       </ol>
@@ -493,10 +491,10 @@ export function VersionHistory({
 function SignInPolicy() {
   const policy = useQuery({ queryKey: ["admin", "login-policy"], queryFn: adminApi.loginPolicy });
   return (
-    <section className="flex flex-col gap-2 rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">Sign-in</h2>
+    <section className="flex flex-col gap-2 rounded-control bg-surface p-3 text-ui">
+      <h2 className="font-strong">Sign-in</h2>
       {policy.data ? <PolicySummary policy={policy.data} /> : null}
-      <p className="text-slate-600">To change single sign-on, contact the platform operator.</p>
+      <p className="text-fg-muted">To change single sign-on, contact the platform operator.</p>
     </section>
   );
 }
@@ -506,7 +504,7 @@ export function PolicySummary({ policy }: { policy: LoginPolicyOut }) {
     <dl className="grid grid-cols-[max-content_1fr] gap-x-3">
       {policySummary(policy).map(([label, value]) => (
         <Fragment key={label}>
-          <dt className="text-slate-600">{label}</dt>
+          <dt className="text-fg-muted">{label}</dt>
           <dd className="break-all">{value}</dd>
         </Fragment>
       ))}
@@ -540,15 +538,15 @@ function Retention() {
   }
 
   return (
-    <section className="rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">Chat history retention</h2>
-      <p className="text-slate-600">
+    <section className="rounded-control bg-surface p-3 text-ui">
+      <h2 className="font-strong">Chat history retention</h2>
+      <p className="text-fg-muted">
         Conversations are deleted after this many days, at most {MAX_RETENTION_DAYS}. Shortening it
         also removes existing conversations older than the new limit. 0 keeps no history: each
         conversation is deleted as soon as its answer ends.
       </p>
       {settings.data ? (
-        <p className="text-slate-600" data-testid="retention-summary">
+        <p className="text-fg-muted" data-testid="retention-summary">
           {retentionSummary(settings.data.retention_days)}
         </p>
       ) : null}
@@ -561,19 +559,19 @@ function Retention() {
             max={MAX_RETENTION_DAYS}
             value={current}
             onChange={(e) => setValue(e.target.value)}
-            className="w-20 rounded border px-2"
+            className="w-20 rounded-control border px-2"
           />
         </label>
         <button
           type="submit"
           disabled={save.isPending}
-          className="rounded bg-slate-900 px-3 py-1 text-white"
+          className="rounded-control bg-primary px-3 py-1 text-on-primary"
         >
           Save retention
         </button>
       </form>
-      {error ? <p className="text-red-700">{error}</p> : null}
-      {refusal(save.error) ? <p className="text-red-700">{refusal(save.error)}</p> : null}
+      {error ? <p className="text-danger">{error}</p> : null}
+      {refusal(save.error) ? <p className="text-danger">{refusal(save.error)}</p> : null}
     </section>
   );
 }
@@ -592,20 +590,20 @@ function AuditLog() {
     },
   });
   return (
-    <section className="rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">Audit log</h2>
-      <p className="text-slate-600">
+    <section className="rounded-control bg-surface p-3 text-ui">
+      <h2 className="font-strong">Audit log</h2>
+      <p className="text-fg-muted">
         Sign-in, administration, operator and notice-acceptance events of the last 90 days, as CSV.
       </p>
       <button
         type="button"
         disabled={download.isPending}
         onClick={() => download.mutate()}
-        className="mt-2 rounded bg-slate-900 px-3 py-1 text-white"
+        className="mt-2 rounded-control bg-primary px-3 py-1 text-on-primary"
       >
         Download audit log
       </button>
-      {refusal(download.error) ? <p className="text-red-700">{refusal(download.error)}</p> : null}
+      {refusal(download.error) ? <p className="text-danger">{refusal(download.error)}</p> : null}
     </section>
   );
 }

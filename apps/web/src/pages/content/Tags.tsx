@@ -16,7 +16,7 @@ export function Tags({ roles }: { roles: string[] }) {
   });
   return (
     <section className="flex flex-col gap-3">
-      <p className="text-slate-600">
+      <p className="text-fg-muted">
         Tags live in config/tags.toml; change them there. A sync creates the dataset of a new tag in
         RAGFlow.
       </p>
@@ -25,7 +25,7 @@ export function Tags({ roles }: { roles: string[] }) {
           type="button"
           onClick={() => sync.mutate()}
           disabled={sync.isPending}
-          className="w-fit rounded border px-3 py-1"
+          className="w-fit rounded-control border px-3 py-1"
         >
           Sync datasets
         </button>
@@ -33,7 +33,7 @@ export function Tags({ roles }: { roles: string[] }) {
       {sync.data ? (
         <p data-testid="sync-result">{sync.data.map((r) => `${r.tag}: ${r.status}`).join(" · ")}</p>
       ) : null}
-      {errorMessage(sync.error) ? <p className="text-red-700">{errorMessage(sync.error)}</p> : null}
+      {errorMessage(sync.error) ? <p className="text-danger">{errorMessage(sync.error)}</p> : null}
       {tags.data ? <TagTable tags={tags.data} /> : <p>Loading…</p>}
     </section>
   );
@@ -41,7 +41,7 @@ export function Tags({ roles }: { roles: string[] }) {
 
 export function TagTable({ tags }: { tags: ContentTag[] }) {
   return (
-    <table className="w-full rounded bg-white text-left">
+    <table className="w-full rounded-control bg-surface text-left">
       <thead>
         <tr className="border-b">
           <th className="p-2">Tag</th>
@@ -62,7 +62,7 @@ export function TagTable({ tags }: { tags: ContentTag[] }) {
             </td>
             <td className="p-2">
               {tag.dataset_id === null ? (
-                <span className="text-amber-900">not synced</span>
+                <span className="text-warning">not synced</span>
               ) : tag.ragflow_url ? (
                 <a
                   href={tag.ragflow_url}

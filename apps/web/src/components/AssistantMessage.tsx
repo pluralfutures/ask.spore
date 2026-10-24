@@ -15,20 +15,23 @@ export function AssistantMessage(props: Props) {
   const { text, citations, unsupported, abstained, messageId, onCite } = props;
   if (abstained) {
     return (
-      <div data-testid="nothing-found" className="rounded border border-dashed p-3 text-slate-600">
-        <p className="font-medium">Nothing relevant found</p>
-        <p className="text-sm">{text}</p>
+      <div
+        data-testid="nothing-found"
+        className="rounded-control border border-dashed p-3 text-fg-muted"
+      >
+        <p className="font-emphasis">Nothing relevant found</p>
+        <p className="text-ui">{text}</p>
         {messageId ? <Feedback messageId={messageId} /> : null}
       </div>
     );
   }
   const markers = new Set(citations.map((c) => c.marker));
   return (
-    <div className="rounded border bg-white p-3">
+    <div className="rounded-control border bg-surface p-3">
       {unsupported ? (
         <p
           data-testid="unsupported"
-          className="mb-2 inline-block rounded bg-red-100 px-2 text-xs font-medium text-red-800"
+          className="mb-2 inline-block rounded-control bg-danger-subtle px-2 text-meta font-emphasis text-danger-strong"
         >
           Unsupported answer: no citations to your sources
         </p>

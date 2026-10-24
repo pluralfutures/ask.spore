@@ -58,13 +58,13 @@ function TenantPage({ tenantId }: { tenantId: string }) {
   const options = useQuery({ queryKey: ["operator", "options"], queryFn: operatorApi.options });
 
   if (tenant.error instanceof ApiError && tenant.error.status === 403) return <OperatorsOnly />;
-  if (tenant.error) return <main className="mx-auto max-w-3xl p-4 text-sm">No such tenant.</main>;
+  if (tenant.error) return <main className="mx-auto max-w-3xl p-4 text-ui">No such tenant.</main>;
   if (!tenant.data || !options.data) {
-    return <main className="mx-auto max-w-3xl p-4 text-sm">Loading…</main>;
+    return <main className="mx-auto max-w-3xl p-4 text-ui">Loading…</main>;
   }
   const current = tenant.data;
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-sm">
+    <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-ui">
       <p className="flex gap-4">
         <Link to="/operator" className="underline">
           Operator console
@@ -74,10 +74,10 @@ function TenantPage({ tenantId }: { tenantId: string }) {
         </Link>
       </p>
       <header>
-        <h1 className="text-xl font-semibold">
-          {current.display_name} <span className="text-slate-500">({current.slug})</span>
+        <h1 className="text-title font-strong">
+          {current.display_name} <span className="text-fg-subtle">({current.slug})</span>
         </h1>
-        <p className="text-slate-600">
+        <p className="text-fg-muted">
           {current.status} · admins: {current.admins} · domains:{" "}
           {current.verified_domains.join(", ") || "none"}
         </p>
@@ -89,7 +89,7 @@ function TenantPage({ tenantId }: { tenantId: string }) {
             type="button"
             aria-current={name === tab ? "page" : undefined}
             onClick={() => setParams({ tab: name })}
-            className={name === tab ? "border-b-2 border-slate-900 font-semibold" : ""}
+            className={name === tab ? "border-b-2 border-primary font-strong" : ""}
           >
             {TAB_LABELS[name]}
           </button>
@@ -140,7 +140,7 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2 rounded bg-white p-3">
+    <form onSubmit={submit} className="flex flex-col gap-2 rounded-control bg-surface p-3">
       <fieldset className="flex gap-3">
         <legend>Answer modes</legend>
         {options.answer_modes.map((mode) => (
@@ -212,16 +212,19 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
           />
         </label>
         {ent.external_acceptance_reference && (
-          <p className="w-full text-slate-600">
+          <p className="w-full text-fg-muted">
             On file: {ent.external_acceptance_reference}, {ent.external_acceptance_date}
           </p>
         )}
       </fieldset>
-      <button type="submit" className="self-start rounded bg-slate-900 px-3 py-1 text-white">
+      <button
+        type="submit"
+        className="self-start rounded-control bg-primary px-3 py-1 text-on-primary"
+      >
         Save entitlements for {tenant.display_name}
       </button>
       {problem ? (
-        <p className="text-red-700">{problem}</p>
+        <p className="text-danger">{problem}</p>
       ) : (
         <SaveStatus isSuccess={save.isSuccess} error={save.error} />
       )}
@@ -259,13 +262,13 @@ function LoginPolicy({ tenant }: { tenant: TenantOut }) {
         e.preventDefault();
         save.mutate();
       }}
-      className="flex flex-wrap items-center gap-3 rounded bg-white p-3"
+      className="flex flex-wrap items-center gap-3 rounded-control bg-surface p-3"
     >
-      <h2 className="w-full font-semibold">Login policy</h2>
+      <h2 className="w-full font-strong">Login policy</h2>
       {box("sign_in_links_enabled", "Sign-in links")}
       {box("jit_provisioning_enabled", "Create users on first SSO sign-in (verified domains)")}
       {box("admin_mfa_required", "Second factor for tenant admins")}
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+      <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
         Save login policy
       </button>
       <SaveStatus isSuccess={save.isSuccess} error={save.error} />
@@ -322,8 +325,8 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2 rounded bg-white p-3">
-      <h2 className="font-semibold">Single sign-on source</h2>
+    <form onSubmit={submit} className="flex flex-col gap-2 rounded-control bg-surface p-3">
+      <h2 className="font-strong">Single sign-on source</h2>
       <PolicySummary policy={current} />
       <label className="flex gap-2">
         Kind
@@ -353,12 +356,12 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
             value={form.metadataXml}
             onChange={(e) => setForm({ ...form, metadataXml: e.target.value })}
             rows={4}
-            className="border px-1 font-mono text-xs"
+            className="border px-1 font-mono text-meta"
           />
         </label>
       )}
       <div className="flex gap-2">
-        <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+        <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
           Save SSO source
         </button>
         {current.sso_source_kind !== "none" && (
@@ -368,7 +371,7 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
         )}
       </div>
       {problem ? (
-        <p className="text-red-700">{problem}</p>
+        <p className="text-danger">{problem}</p>
       ) : (
         <SaveStatus {...latestSourceAction(save, remove)} />
       )}
@@ -402,7 +405,7 @@ function Workspaces({ tenant }: { tenant: TenantOut }) {
   });
 
   return (
-    <div className="flex flex-col gap-2 rounded bg-white p-3">
+    <div className="flex flex-col gap-2 rounded-control bg-surface p-3">
       {workspaces.data?.map((workspace) => (
         <WorkspaceTags
           key={workspace.id}
@@ -436,7 +439,7 @@ function Workspaces({ tenant }: { tenant: TenantOut }) {
             className="border px-1"
           />
         </label>
-        <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+        <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
           Add workspace
         </button>
         <SaveStatus
@@ -475,7 +478,7 @@ function WorkspaceTags({
       className="flex flex-wrap items-center gap-3"
     >
       <span>
-        {workspace.name} <span className="text-slate-500">({workspace.slug})</span>
+        {workspace.name} <span className="text-fg-subtle">({workspace.slug})</span>
       </span>
       {tags.map(({ tag, shared }) => (
         <label key={tag}>
@@ -485,10 +488,10 @@ function WorkspaceTags({
             onChange={(e) => setSelected(toggle(selected, tag, e.target.checked))}
           />{" "}
           {tag}
-          {shared ? <span className="text-slate-500"> (shared)</span> : null}
+          {shared ? <span className="text-fg-subtle"> (shared)</span> : null}
         </label>
       ))}
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+      <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
         Save tags
       </button>
       <SaveStatus isSuccess={save.isSuccess} error={save.error} />
@@ -528,7 +531,7 @@ function Users({ tenant }: { tenant: TenantOut }) {
   const failed = errorText(resend.error) ?? errorText(remove.error);
 
   return (
-    <div className="flex flex-col gap-3 rounded bg-white p-3">
+    <div className="flex flex-col gap-3 rounded-control bg-surface p-3">
       <table className="text-left">
         <thead>
           <tr>
@@ -572,7 +575,7 @@ function Users({ tenant }: { tenant: TenantOut }) {
           ))}
         </tbody>
       </table>
-      {failed && <p className="text-red-700">{failed}</p>}
+      {failed && <p className="text-danger">{failed}</p>}
       {done && !failed && <p role="status">{done}</p>}
       <form
         onSubmit={(e) => {
@@ -604,7 +607,7 @@ function Users({ tenant }: { tenant: TenantOut }) {
             className="border px-1"
           />
         </label>
-        <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+        <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
           Invite
         </button>
         {invite.isSuccess && (
@@ -612,9 +615,7 @@ function Users({ tenant }: { tenant: TenantOut }) {
             Invited. An invitation email is on its way; they sign in from their own browser.
           </p>
         )}
-        {errorText(invite.error) && (
-          <p className="w-full text-red-700">{errorText(invite.error)}</p>
-        )}
+        {errorText(invite.error) && <p className="w-full text-danger">{errorText(invite.error)}</p>}
       </form>
     </div>
   );
@@ -631,8 +632,8 @@ function Spend({ tenant }: { tenant: TenantOut }) {
   const data = spend.data;
   const share = capShare(data.external_spent_cents, data.external_spend_cap_cents ?? null);
   return (
-    <div className="flex flex-col gap-3 rounded bg-white p-3">
-      <h2 className="font-semibold">Month to date ({data.month}, UTC)</h2>
+    <div className="flex flex-col gap-3 rounded-control bg-surface p-3">
+      <h2 className="font-strong">Month to date ({data.month}, UTC)</h2>
       <p>
         External models: {data.external_models_enabled ? "enabled" : "off"} · spent{" "}
         {euros(data.external_spent_cents)}
@@ -651,7 +652,7 @@ function Spend({ tenant }: { tenant: TenantOut }) {
         </ul>
       )}
       {data.models.length === 0 ? (
-        <p className="text-slate-600">No usage this month.</p>
+        <p className="text-fg-muted">No usage this month.</p>
       ) : (
         <table className="text-left">
           <thead>
@@ -667,7 +668,7 @@ function Spend({ tenant }: { tenant: TenantOut }) {
               <tr key={m.model}>
                 <td>
                   {m.display_name}
-                  {m.external ? <span className="text-slate-500"> (outside the EU)</span> : null}
+                  {m.external ? <span className="text-fg-subtle"> (outside the EU)</span> : null}
                 </td>
                 <td>{count(m.tokens_in)}</td>
                 <td>{count(m.tokens_out)}</td>

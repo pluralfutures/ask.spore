@@ -168,26 +168,29 @@ export function Chat() {
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <main className="mx-auto flex w-full max-w-3xl min-w-0 flex-1 flex-col p-4">
         <header className="mb-4">
-          <Link to="/" className="text-sm underline">
+          <Link to="/" className="text-ui underline">
             ← Conversations
           </Link>
-          <h1 className="text-lg font-semibold">
+          <h1 className="text-heading font-strong">
             {conversation.data?.title ?? "New conversation"}
           </h1>
           {conversation.data ? <ConversationHeader conversation={conversation.data} /> : null}
           {noHistory ? (
-            <p data-testid="no-history" className="mt-2 text-sm text-slate-600">
+            <p data-testid="no-history" className="mt-2 text-ui text-fg-muted">
               {NO_HISTORY_NOTE}
             </p>
           ) : null}
           {start?.notice ? (
-            <p role="status" className="mt-2 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">
+            <p
+              role="status"
+              className="mt-2 rounded-control bg-warning-subtle px-2 py-1 text-ui text-warning"
+            >
               {start.notice}
             </p>
           ) : null}
         </header>
         {conversation.isError && !noHistory ? (
-          <p className="text-red-700">Conversation not found.</p>
+          <p className="text-danger">Conversation not found.</p>
         ) : null}
         <ol className="flex flex-col gap-3">
           {past.map((turn, i) => (
@@ -199,7 +202,7 @@ export function Chat() {
           ))}
           {messages.map((m) =>
             m.role === "user" ? (
-              <li key={m.id} className="self-end rounded bg-slate-200 px-3 py-2">
+              <li key={m.id} className="self-end rounded-control bg-neutral-muted px-3 py-2">
                 {m.content}
               </li>
             ) : (
@@ -221,7 +224,9 @@ export function Chat() {
           )}
           {live && !persisted ? (
             <>
-              <li className="self-end rounded bg-slate-200 px-3 py-2">{live.question}</li>
+              <li className="self-end rounded-control bg-neutral-muted px-3 py-2">
+                {live.question}
+              </li>
               <li aria-live="polite">
                 {live.text || live.done ? (
                   <AssistantMessage
@@ -233,7 +238,7 @@ export function Chat() {
                     onCite={(marker) => setSelection({ key: "live", marker })}
                   />
                 ) : live.stopped || live.error ? null : (
-                  <p className="text-slate-600">Searching your research package…</p>
+                  <p className="text-fg-muted">Searching your research package…</p>
                 )}
                 <AnswerNote
                   note={
@@ -241,7 +246,7 @@ export function Chat() {
                   }
                 />
                 <FailoverNote kind={live.done?.failover} />
-                {live.error ? <p className="mt-2 text-red-700">{live.error}</p> : null}
+                {live.error ? <p className="mt-2 text-danger">{live.error}</p> : null}
               </li>
             </>
           ) : null}
@@ -257,13 +262,13 @@ export function Chat() {
             maxLength={4000}
             rows={2}
             placeholder="Ask a question about your research package"
-            className="flex-1 rounded border px-2 py-1"
+            className="flex-1 rounded-control border px-2 py-1"
           />
           {busy ? (
             <button
               type="button"
               onClick={stop}
-              className="rounded border border-slate-900 px-3 py-1.5 text-slate-900"
+              className="rounded-control border border-primary px-3 py-1.5 text-primary"
             >
               Stop
             </button>
@@ -271,7 +276,7 @@ export function Chat() {
             <button
               type="submit"
               disabled={!question.trim()}
-              className="rounded bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50"
+              className="rounded-control bg-primary px-3 py-1.5 text-on-primary disabled:opacity-50"
             >
               Ask
             </button>
@@ -294,7 +299,7 @@ export function Chat() {
 function PastTurn({ turn, onCite }: { turn: Live; onCite: (marker: number) => void }) {
   return (
     <>
-      <li className="self-end rounded bg-slate-200 px-3 py-2">{turn.question}</li>
+      <li className="self-end rounded-control bg-neutral-muted px-3 py-2">{turn.question}</li>
       <li>
         {turn.text || turn.done ? (
           <AssistantMessage
@@ -310,7 +315,7 @@ function PastTurn({ turn, onCite }: { turn: Live; onCite: (marker: number) => vo
           note={turn.stopped ? PARTIAL_NOTE : answerNote({ truncated: turn.done?.truncated })}
         />
         <FailoverNote kind={turn.done?.failover} />
-        {turn.error ? <p className="mt-2 text-red-700">{turn.error}</p> : null}
+        {turn.error ? <p className="mt-2 text-danger">{turn.error}</p> : null}
       </li>
     </>
   );
@@ -318,7 +323,7 @@ function PastTurn({ turn, onCite }: { turn: Live; onCite: (marker: number) => vo
 
 function AnswerNote({ note }: { note: string | null }) {
   return note ? (
-    <p data-testid="answer-note" className="mt-1 text-sm text-amber-900">
+    <p data-testid="answer-note" className="mt-1 text-ui text-warning">
       {note}
     </p>
   ) : null;
@@ -327,7 +332,7 @@ function AnswerNote({ note }: { note: string | null }) {
 function FailoverNote({ kind }: { kind: "eu" | "external" | null | undefined }) {
   const note = failoverNote(kind);
   return note ? (
-    <p data-testid="failover" className="mt-1 text-sm text-slate-600">
+    <p data-testid="failover" className="mt-1 text-ui text-fg-muted">
       {note}
     </p>
   ) : null;

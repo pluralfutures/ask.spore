@@ -12,11 +12,11 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
   return (
     <aside
       aria-label="Citations"
-      className="w-full shrink-0 overflow-y-auto border-l bg-slate-50 p-4 md:w-96"
+      className="w-full shrink-0 overflow-y-auto border-l bg-surface-subtle p-4 md:w-96"
     >
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-semibold">Sources</h2>
-        <button type="button" onClick={onClose} className="text-sm underline">
+        <h2 className="font-strong">Sources</h2>
+        <button type="button" onClick={onClose} className="text-ui underline">
           Close
         </button>
       </div>
@@ -29,33 +29,35 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
               key={c.marker}
               data-testid={`citation-${c.marker}`}
               aria-current={c.marker === selected ? "true" : undefined}
-              className={`rounded border bg-white p-3 text-sm ${
-                c.marker === selected ? "border-sky-500 ring-1 ring-sky-500" : ""
+              className={`rounded-control border bg-surface p-3 text-ui ${
+                c.marker === selected ? "border-selected ring-1 ring-selected" : ""
               }`}
             >
-              <p className="font-medium">
+              <p className="font-emphasis">
                 [{c.marker}] {c.title}
                 {status ? (
                   <span
                     data-testid={`citation-status-${c.marker}`}
                     title={CITATION_STATUS_NOTE[status]}
-                    className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-900"
+                    className="ml-2 rounded-control bg-warning-muted px-1.5 py-0.5 text-meta font-normal text-warning"
                   >
                     {status}
                   </span>
                 ) : null}
               </p>
               {status ? (
-                <p className="text-xs text-amber-900">{CITATION_STATUS_NOTE[status]}</p>
+                <p className="text-meta text-warning">{CITATION_STATUS_NOTE[status]}</p>
               ) : null}
-              <p className="text-slate-600">
+              <p className="text-fg-muted">
                 {c.publisher} · {formatDate(c.published_on)}
                 {page ? ` · ${page}` : ""}
               </p>
               {c.excerpt ? (
-                <blockquote className="mt-2 border-l-2 pl-2 text-slate-700">{c.excerpt}</blockquote>
+                <blockquote className="mt-2 border-l-2 pl-2 text-fg-secondary">
+                  {c.excerpt}
+                </blockquote>
               ) : (
-                <p data-testid={`citation-no-excerpt-${c.marker}`} className="mt-2 text-slate-500">
+                <p data-testid={`citation-no-excerpt-${c.marker}`} className="mt-2 text-fg-subtle">
                   {EXCERPT_REMOVED_NOTE}
                 </p>
               )}
@@ -64,7 +66,7 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
                   href={c.canonical_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-block text-sky-700 underline"
+                  className="mt-2 inline-block text-link underline"
                 >
                   View at source
                 </a>

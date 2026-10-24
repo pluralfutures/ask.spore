@@ -21,21 +21,21 @@ export function OperatorConsole() {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Operator console</h1>
+        <h1 className="text-title font-strong">Operator console</h1>
         {/* P1c-08: every operator is also a user of the internal tenant. */}
-        <Link to="/" className="text-sm underline">
+        <Link to="/" className="text-ui underline">
           Chat app
         </Link>
       </div>
-      <section className="rounded bg-white p-3 text-sm">
-        <h2 className="mb-2 font-semibold">Tenants</h2>
+      <section className="rounded-control bg-surface p-3 text-ui">
+        <h2 className="mb-2 font-strong">Tenants</h2>
         <ul className="flex flex-col gap-1">
           {tenants.data?.map((tenant) => (
             <li key={tenant.id}>
               <Link to={`/operator/tenants/${tenant.id}`} className="underline">
                 {tenant.display_name}
               </Link>{" "}
-              <span className="text-slate-500">
+              <span className="text-fg-subtle">
                 ({tenant.slug}) · {tenant.status} · admins: {tenant.admins}
               </span>
             </li>
@@ -51,9 +51,9 @@ export function OperatorConsole() {
       <CreateTenant />
       <Sources />
       <section>
-        <h2 className="mb-2 font-semibold">Notices</h2>
+        <h2 className="mb-2 font-strong">Notices</h2>
         {notices.data?.length ? (
-          <ul className="text-sm">
+          <ul className="text-ui">
             {notices.data.map((n) => (
               <li key={n.id}>
                 {formatDate(n.created_at)} · {n.tenant_slug} · {n.kind}
@@ -61,7 +61,7 @@ export function OperatorConsole() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-slate-600">No notices.</p>
+          <p className="text-ui text-fg-muted">No notices.</p>
         )}
       </section>
     </main>
@@ -80,10 +80,10 @@ function Sources() {
   });
   const files = sources.data?.filter((s) => ["pdf", "docx", "pptx"].includes(s.type)) ?? [];
   return (
-    <section className="rounded bg-white p-3 text-sm">
-      <h2 className="mb-2 font-semibold">Downloadable files</h2>
+    <section className="rounded-control bg-surface p-3 text-ui">
+      <h2 className="mb-2 font-strong">Downloadable files</h2>
       <SaveStatus isSuccess={toggle.isSuccess} error={toggle.error} />
-      {files.length === 0 ? <p className="text-slate-600">No files in the register.</p> : null}
+      {files.length === 0 ? <p className="text-fg-muted">No files in the register.</p> : null}
       <ul className="flex flex-col gap-1">
         {files.map((source) => (
           <li key={source.id}>
@@ -96,7 +96,7 @@ function Sources() {
               />
               {source.title} · {source.publisher} · {source.licence_basis} ·{" "}
               {source.tags.join(", ")}
-              {source.stored ? null : <span className="text-slate-600">(no stored copy)</span>}
+              {source.stored ? null : <span className="text-fg-muted">(no stored copy)</span>}
             </label>
           </li>
         ))}
@@ -114,12 +114,12 @@ function TerminatedTenants() {
   });
   if (!terminated.data?.length) return null;
   return (
-    <section className="rounded bg-white p-3 text-sm">
-      <h2 className="mb-2 font-semibold">Terminated tenants</h2>
+    <section className="rounded-control bg-surface p-3 text-ui">
+      <h2 className="mb-2 font-strong">Terminated tenants</h2>
       <ul className="flex flex-col gap-1">
         {terminated.data.map((t) => (
           <li key={t.id} data-testid={`terminated-${t.slug}`}>
-            {t.display_name} <span className="text-slate-500">({t.slug})</span> · {t.status} ·
+            {t.display_name} <span className="text-fg-subtle">({t.slug})</span> · {t.status} ·
             purged {t.purged_at ? formatDate(t.purged_at) : "date not recorded"} · certificate{" "}
             {t.certificate ?? "not recorded"}
           </li>
@@ -130,7 +130,7 @@ function TerminatedTenants() {
 }
 
 export function OperatorsOnly() {
-  return <main className="mx-auto max-w-3xl p-4 text-sm">Operators only.</main>;
+  return <main className="mx-auto max-w-3xl p-4 text-ui">Operators only.</main>;
 }
 
 function CreateTenant() {
@@ -156,8 +156,11 @@ function CreateTenant() {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-wrap items-end gap-2 rounded bg-white p-3 text-sm">
-      <h2 className="w-full font-semibold">New tenant</h2>
+    <form
+      onSubmit={submit}
+      className="flex flex-wrap items-end gap-2 rounded-control bg-surface p-3 text-ui"
+    >
+      <h2 className="w-full font-strong">New tenant</h2>
       <label className="flex flex-col">
         Slug
         <input
@@ -184,7 +187,7 @@ function CreateTenant() {
           className="border px-1"
         />
       </label>
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+      <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
         Create
       </button>
       <SaveStatus isSuccess={create.isSuccess} error={create.error} savedText="Tenant created." />

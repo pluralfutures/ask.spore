@@ -1,6 +1,6 @@
 # UX Refresh Build Spec
 
-Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. **Group A (UX-01 to UX-03) was built on Oct 24, 2026.** Open items 1 to 3 are still undecided; the items that depend on them (UX-05, UX-14 and every screen item that would show new copy) do not start until they are decided.
+Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. **Group A (UX-01 to UX-03) and UX-04 were built on Oct 24, 2026.** Open items 1 to 3 are still undecided; the items that depend on them (UX-05, UX-14 and every screen item that would show new copy) do not start until they are decided.
 
 Sources: [../ux/audit.md](../ux/audit.md) (the visual audit, with screenshots) and [../ux/design-direction.md](../ux/design-direction.md) (the proposed look). Mockups of the chat view, start panel and tenant admin page, each beside its current screenshot, are on a design canvas: https://claude.ai/artifact/3spU4UTTXALVNbfdaFiRJE.
 

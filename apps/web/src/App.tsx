@@ -122,14 +122,14 @@ export function App({ initialMode = null }: { initialMode?: AuthMode | null } = 
   if (path === FINISH_PATH) {
     body = <FinishSignIn onSignedIn={() => window.location.assign("/")} />;
   } else if (mode === null || (mode === "oidc" && signedIn === null)) {
-    body = <p className="mx-auto mt-16 text-sm">Loading…</p>;
+    body = <p className="mx-auto mt-16 text-ui">Loading…</p>;
   } else if (mode === "oidc") {
     body = signedIn ? (
       <Signed>
         <button
           type="button"
           onClick={() => void signOut().then(() => setSignedIn(false))}
-          className="mx-auto mb-4 text-sm underline"
+          className="mx-auto mb-4 text-ui underline"
         >
           Sign out
         </button>
@@ -142,7 +142,7 @@ export function App({ initialMode = null }: { initialMode?: AuthMode | null } = 
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100 text-slate-900">
+    <div className="flex min-h-screen flex-col bg-canvas text-fg">
       <AiNotice />
       {body}
     </div>

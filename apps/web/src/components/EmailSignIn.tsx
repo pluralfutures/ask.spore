@@ -71,8 +71,8 @@ export function EmailSignIn({
   if (step.kind === "sent") {
     return (
       <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-        <h1 className="text-xl font-semibold">SporeBot</h1>
-        <p className="text-sm">
+        <h1 className="text-title font-strong">SporeBot</h1>
+        <p className="text-ui">
           If this address can sign in, a link is on its way. Open it in this browser within 15
           minutes.
         </p>
@@ -82,27 +82,27 @@ export function EmailSignIn({
   if (step.kind === "choose") {
     return (
       <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-        <h1 className="text-xl font-semibold">SporeBot</h1>
+        <h1 className="text-title font-strong">SporeBot</h1>
         <button
           type="button"
           onClick={() => void goToSso()}
-          className="rounded bg-slate-900 px-3 py-1.5 text-white"
+          className="rounded-control bg-primary px-3 py-1.5 text-on-primary"
         >
           {ssoButtonLabel(step.found.sso_kind)}
         </button>
         {step.found.methods.includes("sign_in_link") && (
-          <button type="button" onClick={() => void sendLink()} className="text-sm underline">
+          <button type="button" onClick={() => void sendLink()} className="text-ui underline">
             Email me a sign-in link instead
           </button>
         )}
-        {failed && <p className="text-sm text-red-700">{failureText(limited)}</p>}
+        {failed && <p className="text-ui text-danger">{failureText(limited)}</p>}
       </main>
     );
   }
   return (
     <form onSubmit={submit} className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-xl font-semibold">SporeBot</h1>
-      <label className="flex flex-col gap-1 text-sm">
+      <h1 className="text-title font-strong">SporeBot</h1>
+      <label className="flex flex-col gap-1 text-ui">
         Email
         <input
           type="email"
@@ -110,18 +110,18 @@ export function EmailSignIn({
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded border px-2 py-1"
+          className="rounded-control border px-2 py-1"
         />
       </label>
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-white">
+      <button type="submit" className="rounded-control bg-primary px-3 py-1.5 text-on-primary">
         Continue
       </button>
       {ssoFailed && !failed && (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-ui text-danger">
           {ssoRefusalText(ssoReason)}
         </p>
       )}
-      {failed && <p className="text-sm text-red-700">{failureText(limited)}</p>}
+      {failed && <p className="text-ui text-danger">{failureText(limited)}</p>}
     </form>
   );
 }

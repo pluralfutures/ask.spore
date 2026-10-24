@@ -23,7 +23,7 @@ export function AnswerMarkdown({ text, markers, onCite }: Props) {
                   type="button"
                   onClick={() => onCite(marker)}
                   aria-label={`Citation ${marker}`}
-                  className="mx-0.5 rounded bg-sky-100 px-1 text-xs font-medium text-sky-800 hover:bg-sky-200"
+                  className="mx-0.5 rounded-control bg-cite-bg px-1 text-meta font-emphasis text-cite hover:bg-cite-bg-hover"
                 >
                   {marker}
                 </button>

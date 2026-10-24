@@ -38,7 +38,7 @@ function ConsentPage({ onAccepted }: { onAccepted: () => void }) {
   if (notice.isPending) return <main className="mx-auto max-w-3xl p-4">Loading…</main>;
   if (!notice.data) {
     return (
-      <main className="mx-auto max-w-3xl p-4 text-red-700">The notice could not be loaded.</main>
+      <main className="mx-auto max-w-3xl p-4 text-danger">The notice could not be loaded.</main>
     );
   }
   return (
@@ -65,18 +65,18 @@ export function ConsentView({
   const [read, setRead] = useState(false);
   const changed = notice.accepted_version !== null && notice.accepted_version !== notice.version;
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-4 p-4 text-sm">
-      <h1 className="text-xl font-semibold">{notice.title}</h1>
+    <main className="mx-auto flex max-w-3xl flex-col gap-4 p-4 text-ui">
+      <h1 className="text-title font-strong">{notice.title}</h1>
       {changed ? (
-        <p className="text-amber-900">
+        <p className="text-warning">
           The notice has changed since you last accepted it. Please read and accept the new version
           to continue.
         </p>
       ) : (
         <p>Please read and accept the notice before your first conversation.</p>
       )}
-      <section aria-labelledby="consent-summary" className="rounded bg-white p-3">
-        <h2 id="consent-summary" className="font-semibold">
+      <section aria-labelledby="consent-summary" className="rounded-control bg-surface p-3">
+        <h2 id="consent-summary" className="font-strong">
           In short
         </h2>
         <div className="space-y-2">
@@ -85,9 +85,9 @@ export function ConsentView({
       </section>
       <section
         aria-labelledby="consent-full"
-        className="max-h-[50vh] overflow-y-auto rounded bg-white p-3"
+        className="max-h-[50vh] overflow-y-auto rounded-control bg-surface p-3"
       >
-        <h2 id="consent-full" className="font-semibold">
+        <h2 id="consent-full" className="font-strong">
           Full notice
         </h2>
         <div className="space-y-2">
@@ -102,12 +102,12 @@ export function ConsentView({
         type="button"
         disabled={!read || pending}
         onClick={onAccept}
-        className="w-fit rounded bg-slate-900 px-3 py-1 text-white disabled:opacity-50"
+        className="w-fit rounded-control bg-primary px-3 py-1 text-on-primary disabled:opacity-50"
       >
         Accept and continue
       </button>
       {failed ? (
-        <p className="text-red-700">The acceptance was not recorded. Reload and try again.</p>
+        <p className="text-danger">The acceptance was not recorded. Reload and try again.</p>
       ) : null}
     </main>
   );

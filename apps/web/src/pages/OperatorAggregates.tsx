@@ -17,13 +17,13 @@ export function OperatorAggregates() {
   if (totals.error instanceof ApiError && totals.error.status === 403) return <OperatorsOnly />;
   const data = totals.data;
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-sm">
+    <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-ui">
       <p>
         <Link to="/operator" className="underline">
           Operator console
         </Link>
       </p>
-      <h1 className="text-xl font-semibold">Totals across tenants</h1>
+      <h1 className="text-title font-strong">Totals across tenants</h1>
       {!data ? (
         <p>{errorText(totals.error) ?? "Loading…"}</p>
       ) : (
@@ -32,7 +32,7 @@ export function OperatorAggregates() {
             {data.month} (UTC) · {data.tenants_with_usage} of {data.tenants} tenants used a model
             this month.
           </p>
-          <table className="rounded bg-white text-left">
+          <table className="rounded-control bg-surface text-left">
             <thead>
               <tr>
                 <th>Provider</th>
@@ -52,7 +52,7 @@ export function OperatorAggregates() {
               ))}
             </tbody>
           </table>
-          <table className="rounded bg-white text-left">
+          <table className="rounded-control bg-surface text-left">
             <thead>
               <tr>
                 <th>Model</th>
@@ -67,7 +67,7 @@ export function OperatorAggregates() {
                 <tr key={m.model}>
                   <td>
                     {m.display_name}
-                    {m.external ? <span className="text-slate-500"> (outside the EU)</span> : null}
+                    {m.external ? <span className="text-fg-subtle"> (outside the EU)</span> : null}
                   </td>
                   <td>{m.tenants}</td>
                   <td>{count(m.tokens_in)}</td>

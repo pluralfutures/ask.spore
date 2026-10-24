@@ -41,7 +41,7 @@ export function NewConversation() {
     return <main className="mx-auto max-w-3xl p-4">Loading…</main>;
   }
   if (!workspaces.data || !models.data) {
-    return <main className="mx-auto max-w-3xl p-4 text-red-700">Could not load the options.</main>;
+    return <main className="mx-auto max-w-3xl p-4 text-danger">Could not load the options.</main>;
   }
   const choice = edited ?? initialChoice(workspaces.data, models.data);
 
@@ -52,7 +52,7 @@ export function NewConversation() {
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <Link to="/" className="text-sm underline">
+      <Link to="/" className="text-ui underline">
         ← Conversations
       </Link>
       {workspaces.data.length === 0 ? (
@@ -75,17 +75,17 @@ export function NewConversation() {
             maxLength={4000}
             rows={3}
             placeholder="Ask a question about this workspace's sources"
-            className="rounded border px-2 py-1"
+            className="rounded-control border px-2 py-1"
           />
           {create.error ? (
-            <p role="alert" className="text-red-700">
+            <p role="alert" className="text-danger">
               {refusalText(create.error instanceof ApiError ? create.error.code : null)}
             </p>
           ) : null}
           <button
             type="submit"
             disabled={create.isPending || !question.trim() || !choice.model}
-            className="self-end rounded bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50"
+            className="self-end rounded-control bg-primary px-3 py-1.5 text-on-primary disabled:opacity-50"
           >
             Start
           </button>

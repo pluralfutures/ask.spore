@@ -40,8 +40,11 @@ export function Propose({ roles }: { roles: string[] }) {
   const set = (key: keyof ProposalFields) => (value: string | boolean | string[]) =>
     setFields({ ...fields, [key]: value });
   return (
-    <form onSubmit={submit} className="flex max-w-2xl flex-col gap-2 rounded bg-white p-3">
-      <h2 className="font-semibold">Propose a source</h2>
+    <form
+      onSubmit={submit}
+      className="flex max-w-2xl flex-col gap-2 rounded-control bg-surface p-3"
+    >
+      <h2 className="font-strong">Propose a source</h2>
       <label className="flex flex-col">
         File (PDF, DOCX, PPTX, HTML, Markdown)
         <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
@@ -135,13 +138,13 @@ export function Propose({ roles }: { roles: string[] }) {
       <button
         type="submit"
         disabled={propose.isPending}
-        className="w-fit rounded bg-slate-900 px-3 py-1 text-white"
+        className="w-fit rounded-control bg-primary px-3 py-1 text-on-primary"
       >
         Propose
       </button>
-      {problem ? <p className="text-red-700">{problem}</p> : null}
+      {problem ? <p className="text-danger">{problem}</p> : null}
       {errorMessage(propose.error) ? (
-        <p className="text-red-700">{errorMessage(propose.error)}</p>
+        <p className="text-danger">{errorMessage(propose.error)}</p>
       ) : null}
       {propose.data ? <ProposeResult result={propose.data} /> : null}
     </form>
@@ -158,7 +161,7 @@ const OUTCOMES: Record<ProposeOut["outcome"], string> = {
 
 export function ProposeResult({ result }: { result: ProposeOut }) {
   return (
-    <div data-testid="propose-result" className="rounded bg-slate-50 p-2">
+    <div data-testid="propose-result" className="rounded-control bg-surface-subtle p-2">
       <p>
         {OUTCOMES[result.outcome]}{" "}
         <Link to={`/content/sources/${result.source_id}`} className="underline">
@@ -172,7 +175,7 @@ export function ProposeResult({ result }: { result: ProposeOut }) {
         </p>
       ) : null}
       {result.possible_replacements.length ? (
-        <p className="text-amber-900">
+        <p className="text-warning">
           Possible replacement of{" "}
           {result.possible_replacements.map((r) => `${r.title} (${r.publisher})`).join("; ")}: the
           reviewer chooses replace or keep both.

@@ -18,16 +18,16 @@ import { Takedowns } from "./Takedowns";
 export function ContentConsole() {
   const me = useQuery({ queryKey: ["content", "me"], queryFn: contentApi.me });
   if (me.error instanceof ApiError && me.error.status === 403) {
-    return <main className="mx-auto max-w-3xl p-4 text-sm">Content roles only.</main>;
+    return <main className="mx-auto max-w-3xl p-4 text-ui">Content roles only.</main>;
   }
-  if (!me.data) return <main className="mx-auto max-w-3xl p-4 text-sm">Loading…</main>;
+  if (!me.data) return <main className="mx-auto max-w-3xl p-4 text-ui">Loading…</main>;
   const roles = me.data.roles;
   const link = ({ isActive }: { isActive: boolean }) =>
-    isActive ? "font-semibold underline" : "underline";
+    isActive ? "font-strong underline" : "underline";
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 text-sm">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 text-ui">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-xl font-semibold">Content console</h1>
+        <h1 className="text-title font-strong">Content console</h1>
         <nav className="flex gap-3">
           <NavLink end to="/content" className={link}>
             Register
@@ -45,7 +45,7 @@ export function ContentConsole() {
             Tags
           </NavLink>
         </nav>
-        <span className="text-slate-600">Your roles: {roles.join(", ")}</span>
+        <span className="text-fg-muted">Your roles: {roles.join(", ")}</span>
       </header>
       <Routes>
         <Route index element={<Register />} />

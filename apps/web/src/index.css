@@ -1,1 +1,72 @@
 @import "tailwindcss";
+
+/*
+ * Theme tokens (UX-04, design/specs/ux-refresh-spec.md). Components use these semantic
+ * names, never raw palette classes. Every value here is what the app rendered before the
+ * tokens existed, so this file changes no pixel; UX-05 changes the values to the approved
+ * direction (design/ux/design-direction.md) in this one place.
+ */
+@theme {
+  /* Surfaces */
+  --color-canvas: var(--color-slate-100);
+  --color-surface: var(--color-white);
+  --color-surface-subtle: var(--color-slate-50);
+  --color-neutral-muted: var(--color-slate-200);
+
+  /* Text */
+  --color-fg: var(--color-slate-900);
+  --color-fg-secondary: var(--color-slate-700);
+  --color-fg-muted: var(--color-slate-600);
+  --color-fg-subtle: var(--color-slate-500);
+
+  /* Actions and links */
+  --color-primary: var(--color-slate-900);
+  --color-on-primary: var(--color-white);
+  --color-link: var(--color-sky-700);
+  --color-selected: var(--color-sky-500);
+
+  /* Citation markers */
+  --color-cite: var(--color-sky-800);
+  --color-cite-bg: var(--color-sky-100);
+  --color-cite-bg-hover: var(--color-sky-200);
+
+  /* Status: colour is for state only */
+  --color-danger: var(--color-red-700);
+  --color-danger-strong: var(--color-red-800);
+  --color-danger-subtle: var(--color-red-100);
+  --color-on-danger: var(--color-white);
+  --color-warning: var(--color-amber-900);
+  --color-attention: var(--color-amber-800);
+  --color-warning-subtle: var(--color-amber-50);
+  --color-warning-muted: var(--color-amber-100);
+  --color-warning-line: var(--color-amber-300);
+  --color-success: var(--color-green-800);
+  --color-info: var(--color-indigo-800);
+  --color-info-subtle: var(--color-indigo-100);
+
+  /* Lines: a bare `border` takes this colour (today currentColor, Tailwind v4's default) */
+  --color-line: currentColor;
+
+  /* Type */
+  --text-meta: var(--text-xs);
+  --text-meta--line-height: var(--text-xs--line-height);
+  --text-ui: var(--text-sm);
+  --text-ui--line-height: var(--text-sm--line-height);
+  --text-heading: var(--text-lg);
+  --text-heading--line-height: var(--text-lg--line-height);
+  --text-title: var(--text-xl);
+  --text-title--line-height: var(--text-xl--line-height);
+  --font-weight-emphasis: var(--font-weight-medium);
+  --font-weight-strong: var(--font-weight-semibold);
+
+  /* Shape */
+  --radius-control: 0.25rem;
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-line);
+  }
+}

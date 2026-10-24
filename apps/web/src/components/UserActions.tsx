@@ -28,7 +28,7 @@ export function UserActions({
         <button
           type="button"
           disabled={busy}
-          className="rounded bg-red-700 px-2 text-white disabled:opacity-50"
+          className="rounded-control bg-danger px-2 text-on-danger disabled:opacity-50"
           onClick={() => {
             setConfirming(false);
             onRemove();

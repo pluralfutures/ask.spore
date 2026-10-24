@@ -18,40 +18,40 @@ export function ConversationList() {
   return (
     <main className="mx-auto max-w-3xl p-4">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Conversations</h1>
+        <h1 className="text-title font-strong">Conversations</h1>
         {isTenantAdmin(me.data) ? (
-          <Link to="/admin" className="text-sm underline">
+          <Link to="/admin" className="text-ui underline">
             Administration
           </Link>
         ) : null}
         {/* P1c-08: operators reach their console from the chat app. */}
         {me.data?.operator ? (
-          <Link to="/operator" className="text-sm underline">
+          <Link to="/operator" className="text-ui underline">
             Operator console
           </Link>
         ) : null}
-        <Link to="/new" className="rounded bg-slate-900 px-3 py-1.5 text-white">
+        <Link to="/new" className="rounded-control bg-primary px-3 py-1.5 text-on-primary">
           New conversation
         </Link>
       </div>
       {conversations.isPending ? <p>Loading…</p> : null}
-      {conversations.isError ? <p className="text-red-700">Could not load conversations.</p> : null}
+      {conversations.isError ? <p className="text-danger">Could not load conversations.</p> : null}
       {conversations.data?.length === 0 ? (
-        <p className="text-slate-600">No conversations yet.</p>
+        <p className="text-fg-muted">No conversations yet.</p>
       ) : null}
-      <ul className="divide-y rounded border bg-white">
+      <ul className="divide-y rounded-control border bg-surface">
         {conversations.data?.map((c) => (
           <li key={c.id} className="flex items-center justify-between gap-4 p-3">
             <Link to={`/c/${c.id}`} className="min-w-0 flex-1">
-              <p className="truncate font-medium">{c.title ?? "Untitled conversation"}</p>
-              <p className="text-sm text-slate-600">Expires {formatDate(c.expires_at)}</p>
+              <p className="truncate font-emphasis">{c.title ?? "Untitled conversation"}</p>
+              <p className="text-ui text-fg-muted">Expires {formatDate(c.expires_at)}</p>
             </Link>
             <button
               type="button"
               onClick={() => {
                 if (window.confirm("Delete this conversation permanently?")) remove.mutate(c.id);
               }}
-              className="text-sm text-red-700 underline"
+              className="text-ui text-danger underline"
             >
               Delete
             </button>
@@ -59,8 +59,8 @@ export function ConversationList() {
         ))}
       </ul>
       {workspaces.data?.length ? (
-        <section className="mt-6 text-sm">
-          <h2 className="mb-1 font-semibold">Files behind each workspace</h2>
+        <section className="mt-6 text-ui">
+          <h2 className="mb-1 font-strong">Files behind each workspace</h2>
           <ul className="flex flex-wrap gap-3">
             {workspaces.data.map((w) => (
               <li key={w.id}>

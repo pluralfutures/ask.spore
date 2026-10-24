@@ -11,16 +11,16 @@ import { formatDate } from "../../lib/format";
 // reviewer step on the source's page.
 export function Takedowns() {
   const queue = useQuery({ queryKey: ["content", "takedowns"], queryFn: contentApi.takedowns });
-  if (queue.error) return <p className="text-red-700">{errorMessage(queue.error)}</p>;
+  if (queue.error) return <p className="text-danger">{errorMessage(queue.error)}</p>;
   return queue.data ? <TakedownTable items={queue.data} /> : <p>Loading…</p>;
 }
 
-const TONE = { overdue: "text-red-700 font-semibold", due: "text-amber-800", ok: "" };
+const TONE = { overdue: "text-danger font-strong", due: "text-attention", ok: "" };
 
 export function TakedownTable({ items }: { items: Takedown[] }) {
-  if (items.length === 0) return <p className="text-slate-600">No open takedown requests.</p>;
+  if (items.length === 0) return <p className="text-fg-muted">No open takedown requests.</p>;
   return (
-    <table className="w-full rounded bg-white text-left">
+    <table className="w-full rounded-control bg-surface text-left">
       <thead>
         <tr className="border-b">
           <th className="p-2">Source</th>
@@ -39,7 +39,7 @@ export function TakedownTable({ items }: { items: Takedown[] }) {
                 {item.title}
               </Link>
               {item.licence_grounds ? (
-                <span className="ml-1 text-xs">(licence grounds)</span>
+                <span className="ml-1 text-meta">(licence grounds)</span>
               ) : null}
             </td>
             <td className="p-2">{item.reference}</td>

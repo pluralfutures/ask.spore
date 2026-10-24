@@ -24,7 +24,7 @@ export function SiteDetail({ roles }: { roles: string[] }) {
   const site = useQuery({ queryKey: ["content", "site", id], queryFn: () => contentApi.site(id) });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["content"] });
   const crawl = useMutation({ mutationFn: () => contentApi.crawl(id), onSuccess: refresh });
-  if (site.error) return <p className="text-red-700">{errorMessage(site.error)}</p>;
+  if (site.error) return <p className="text-danger">{errorMessage(site.error)}</p>;
   if (!site.data) return <p>Loading…</p>;
   const data = site.data;
   return (
@@ -36,13 +36,13 @@ export function SiteDetail({ roles }: { roles: string[] }) {
             type="button"
             onClick={() => crawl.mutate()}
             disabled={crawl.isPending}
-            className="rounded border px-3 py-1"
+            className="rounded-control border px-3 py-1"
           >
             Crawl now
           </button>
           {crawl.data ? <span>Queued.</span> : null}
           {errorMessage(crawl.error) ? (
-            <span className="text-red-700">{errorMessage(crawl.error)}</span>
+            <span className="text-danger">{errorMessage(crawl.error)}</span>
           ) : null}
         </div>
       ) : null}
@@ -54,8 +54,8 @@ export function SiteDetail({ roles }: { roles: string[] }) {
 
 export function SiteSummary({ site }: { site: ContentSiteDetail }) {
   return (
-    <div className="flex flex-col gap-1 rounded bg-white p-3">
-      <h2 className="text-lg font-semibold">{site.name}</h2>
+    <div className="flex flex-col gap-1 rounded-control bg-surface p-3">
+      <h2 className="text-heading font-strong">{site.name}</h2>
       <p>
         {site.start_url} · {site.publisher} · {site.licence_basis} · {site.tags.join(", ")}
       </p>
@@ -82,7 +82,7 @@ export function SiteSummary({ site }: { site: ContentSiteDetail }) {
       </p>
       {site.review_note ? <p>Reviewer's note: {site.review_note}</p> : null}
       {site.status === "withdrawn" ? (
-        <p data-testid="site-withdrawn" className="text-red-800">
+        <p data-testid="site-withdrawn" className="text-danger-strong">
           Withdrawn {formatDate(site.withdrawn_at)}: {site.withdrawal_reason}. Never crawled again;
           every page is withdrawn.
         </p>
@@ -92,9 +92,9 @@ export function SiteSummary({ site }: { site: ContentSiteDetail }) {
 }
 
 export function PageTable({ pages }: { pages: SitePage[] }) {
-  if (pages.length === 0) return <p className="text-slate-600">No pages crawled yet.</p>;
+  if (pages.length === 0) return <p className="text-fg-muted">No pages crawled yet.</p>;
   return (
-    <table className="w-full rounded bg-white text-left">
+    <table className="w-full rounded-control bg-surface text-left">
       <thead>
         <tr className="border-b">
           <th className="p-2">Page</th>
@@ -170,9 +170,9 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
     errorMessage(saveWhitelist.error) ??
     errorMessage(withdraw.error);
   return (
-    <div className="flex flex-col gap-3 rounded bg-white p-3">
-      <h3 className="font-semibold">Review</h3>
-      {error ? <p className="text-red-700">{error}</p> : null}
+    <div className="flex flex-col gap-3 rounded-control bg-surface p-3">
+      <h3 className="font-strong">Review</h3>
+      {error ? <p className="text-danger">{error}</p> : null}
       {site.status === "proposed" ? (
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col">
@@ -182,7 +182,7 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
           <button
             type="button"
             onClick={() => approve.mutate()}
-            className="rounded bg-slate-900 px-3 py-1 text-white"
+            className="rounded-control bg-primary px-3 py-1 text-on-primary"
           >
             Approve and crawl
           </button>
@@ -190,7 +190,7 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
             type="button"
             onClick={() => reject.mutate()}
             disabled={!note.trim()}
-            className="rounded border px-3 py-1 disabled:opacity-50"
+            className="rounded-control border px-3 py-1 disabled:opacity-50"
           >
             Reject
           </button>
@@ -247,7 +247,7 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
           <button
             type="button"
             onClick={() => save.mutate()}
-            className="w-fit rounded border px-3 py-1"
+            className="w-fit rounded-control border px-3 py-1"
           >
             Save settings
           </button>
@@ -263,7 +263,7 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
           <button
             type="button"
             onClick={() => saveWhitelist.mutate()}
-            className="w-fit self-end rounded border px-3 py-1"
+            className="w-fit self-end rounded-control border px-3 py-1"
           >
             Save whitelist
           </button>
@@ -295,11 +295,11 @@ export function WithdrawSite({
         type="button"
         onClick={onWithdraw}
         disabled={pending || !reason.trim()}
-        className="rounded border border-red-700 px-3 py-1 text-red-700 disabled:opacity-50"
+        className="rounded-control border border-danger px-3 py-1 text-danger disabled:opacity-50"
       >
         Withdraw site
       </button>
-      <span className="text-slate-600">
+      <span className="text-fg-muted">
         Every page leaves every dataset, and the site is never crawled again.
       </span>
     </div>

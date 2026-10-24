@@ -54,14 +54,14 @@ export function FinishSignIn({
 
   return (
     <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-xl font-semibold">SporeBot</h1>
+      <h1 className="text-title font-strong">SporeBot</h1>
       {state === "no_binding" ? (
-        <p className="text-sm">
+        <p className="text-ui">
           Open this link in the same browser window where you asked for it. A link works only there,
           once, for 15 minutes. <a href="/">Ask for a new link</a> from the browser you want to use.
         </p>
       ) : token === null || state === "failed" ? (
-        <p className="text-sm">
+        <p className="text-ui">
           This sign-in link cannot be used. Links work once, in the browser where you asked for
           them, for 15 minutes. <a href="/">Ask for a new link</a>.
         </p>
@@ -70,7 +70,7 @@ export function FinishSignIn({
           type="button"
           onClick={finish}
           disabled={state === "working"}
-          className="rounded bg-slate-900 px-3 py-1.5 text-white"
+          className="rounded-control bg-primary px-3 py-1.5 text-on-primary"
         >
           Click to finish logging in
         </button>
@@ -104,9 +104,9 @@ export function SecondFactor({
 
   return (
     <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-xl font-semibold">SporeBot</h1>
+      <h1 className="text-title font-strong">SporeBot</h1>
       {key ? (
-        <div className="flex flex-col gap-1 text-sm">
+        <div className="flex flex-col gap-1 text-ui">
           <p>
             Administrators confirm each sign-in with an authenticator app. Scan this code with your
             app, or add the key below to it (time-based, 6 digits), then enter the code it shows.
@@ -114,7 +114,7 @@ export function SecondFactor({
           {challenge.setup_uri && (
             <QrCode text={challenge.setup_uri} label="QR code for your authenticator app" />
           )}
-          <code className="rounded bg-white px-2 py-1 font-mono">{key}</code>
+          <code className="rounded-control bg-surface px-2 py-1 font-mono">{key}</code>
           {challenge.setup_uri && (
             <a href={challenge.setup_uri} className="underline">
               Open in an authenticator app on this device
@@ -122,7 +122,7 @@ export function SecondFactor({
           )}
         </div>
       ) : (
-        <p className="text-sm">Enter the code from your authenticator app.</p>
+        <p className="text-ui">Enter the code from your authenticator app.</p>
       )}
       <form onSubmit={submit} className="flex flex-col gap-2">
         <input
@@ -131,18 +131,18 @@ export function SecondFactor({
           aria-label="Code"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          className="rounded border px-2 py-1"
+          className="rounded-control border px-2 py-1"
         />
         <button
           type="submit"
           disabled={working || !validCode(code)}
-          className="rounded bg-slate-900 px-3 py-1.5 text-white"
+          className="rounded-control bg-primary px-3 py-1.5 text-on-primary"
         >
           Confirm
         </button>
       </form>
       {challenge.failed && (
-        <p className="text-sm text-red-700">That code was not accepted. Try the current one.</p>
+        <p className="text-ui text-danger">That code was not accepted. Try the current one.</p>
       )}
     </main>
   );

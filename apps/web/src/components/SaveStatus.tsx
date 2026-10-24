@@ -12,10 +12,10 @@ export function SaveStatus({
   savedText?: string;
 }) {
   const problem = errorText(error);
-  if (problem) return <p className="w-full text-red-700">{problem}</p>;
+  if (problem) return <p className="w-full text-danger">{problem}</p>;
   if (isSuccess) {
     return (
-      <p role="status" className="w-full text-green-800">
+      <p role="status" className="w-full text-success">
         {savedText}
       </p>
     );

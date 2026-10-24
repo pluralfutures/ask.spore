@@ -19,7 +19,7 @@ export function Register() {
     setFilters({ ...filters, [key]: value || undefined });
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-3 rounded bg-white p-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-control bg-surface p-3">
         <Select
           label="Status"
           value={filters.status}
@@ -43,7 +43,7 @@ export function Register() {
         </label>
       </div>
       {errorMessage(sources.error) ? (
-        <p className="text-red-700">{errorMessage(sources.error)}</p>
+        <p className="text-danger">{errorMessage(sources.error)}</p>
       ) : null}
       {sources.data ? <SourceTable sources={sources.data} /> : <p>Loading…</p>}
     </section>
@@ -77,9 +77,9 @@ function Select({
 }
 
 export function SourceTable({ sources }: { sources: ContentSource[] }) {
-  if (sources.length === 0) return <p className="text-slate-600">No sources match.</p>;
+  if (sources.length === 0) return <p className="text-fg-muted">No sources match.</p>;
   return (
-    <table className="w-full rounded bg-white text-left">
+    <table className="w-full rounded-control bg-surface text-left">
       <thead>
         <tr className="border-b">
           <th className="p-2">Title</th>
@@ -100,13 +100,13 @@ export function SourceTable({ sources }: { sources: ContentSource[] }) {
               {source.possible_replacement ? (
                 <span
                   data-testid={`replacement-${source.id}`}
-                  className="ml-2 rounded bg-amber-100 px-1 text-xs text-amber-900"
+                  className="ml-2 rounded-control bg-warning-muted px-1 text-meta text-warning"
                 >
                   possible replacement
                 </span>
               ) : null}
               {source.site_id ? (
-                <span className="ml-2 text-xs text-slate-500">web page</span>
+                <span className="ml-2 text-meta text-fg-subtle">web page</span>
               ) : null}
             </td>
             <td className="p-2">{source.publisher}</td>
@@ -115,7 +115,7 @@ export function SourceTable({ sources }: { sources: ContentSource[] }) {
             <td className="p-2">
               {source.status}
               {source.takedown_due_on && source.status !== "withdrawn" ? (
-                <span className="ml-1 text-red-700">· takedown</span>
+                <span className="ml-1 text-danger">· takedown</span>
               ) : null}
             </td>
             <td className="p-2">{formatDate(source.updated_at)}</td>

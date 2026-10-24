@@ -16,7 +16,7 @@ export function SourceDetail({ roles }: { roles: string[] }) {
     queryKey: ["content", "source", id],
     queryFn: () => contentApi.source(id),
   });
-  if (source.error) return <p className="text-red-700">{errorMessage(source.error)}</p>;
+  if (source.error) return <p className="text-danger">{errorMessage(source.error)}</p>;
   if (!source.data) return <p>Loading…</p>;
   return (
     <section className="flex flex-col gap-4">
@@ -30,8 +30,8 @@ export function SourceDetail({ roles }: { roles: string[] }) {
 
 export function SourceSummary({ source }: { source: ContentSourceDetail }) {
   return (
-    <div className="flex flex-col gap-1 rounded bg-white p-3">
-      <h2 className="text-lg font-semibold">{source.title}</h2>
+    <div className="flex flex-col gap-1 rounded-control bg-surface p-3">
+      <h2 className="text-heading font-strong">{source.title}</h2>
       <p>
         {source.publisher} · {source.type.toUpperCase()} · {formatDate(source.published_on)} ·{" "}
         {source.tags.join(", ")}
@@ -62,10 +62,10 @@ export function SourceSummary({ source }: { source: ContentSourceDetail }) {
           </a>
         </p>
       ) : (
-        <p className="text-slate-600">No licence file on record.</p>
+        <p className="text-fg-muted">No licence file on record.</p>
       )}
       {source.error ? (
-        <p data-testid="source-error" className="text-red-700">
+        <p data-testid="source-error" className="text-danger">
           Ingestion error: {source.error}
         </p>
       ) : null}
@@ -77,13 +77,13 @@ export function SourceSummary({ source }: { source: ContentSourceDetail }) {
       ) : null}
       {source.supersedes ? <p>Replaces: {source.supersedes.title}</p> : null}
       {source.possible_replacements.length ? (
-        <p data-testid="possible-replacement" className="text-amber-900">
+        <p data-testid="possible-replacement" className="text-warning">
           Possible replacement of{" "}
           {source.possible_replacements.map((r) => `${r.title} (${r.publisher})`).join("; ")}
         </p>
       ) : null}
       {source.takedown ? (
-        <p data-testid="takedown" className="text-red-700">
+        <p data-testid="takedown" className="text-danger">
           Takedown {source.takedown.reference}, requested {formatDate(source.takedown.requested_on)}
           , due {formatDate(source.takedown.due_on)}
           {source.status === "withdrawn"
@@ -99,9 +99,9 @@ export function SourceSummary({ source }: { source: ContentSourceDetail }) {
 export function SourceRecord({ source }: { source: ContentSourceDetail }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <div className="rounded bg-white p-3">
-        <h3 className="font-semibold">Documents in RAGFlow</h3>
-        {source.documents.length === 0 ? <p className="text-slate-600">None.</p> : null}
+      <div className="rounded-control bg-surface p-3">
+        <h3 className="font-strong">Documents in RAGFlow</h3>
+        {source.documents.length === 0 ? <p className="text-fg-muted">None.</p> : null}
         <ul>
           {source.documents.map((d) => (
             <li key={d.dataset_id}>
@@ -122,11 +122,11 @@ export function SourceRecord({ source }: { source: ContentSourceDetail }) {
           ))}
         </ul>
         {source.documents.some((d) => d.ragflow_url) ? (
-          <p className="text-xs text-slate-600">
+          <p className="text-meta text-fg-muted">
             The RAGFlow UI is private: it opens over an SSH tunnel to the Instance (operators only).
           </p>
         ) : null}
-        <h3 className="mt-3 font-semibold">Jobs</h3>
+        <h3 className="mt-3 font-strong">Jobs</h3>
         <ul>
           {source.jobs.map((job) => (
             <li key={job.id}>
@@ -136,8 +136,8 @@ export function SourceRecord({ source }: { source: ContentSourceDetail }) {
           ))}
         </ul>
       </div>
-      <div className="rounded bg-white p-3">
-        <h3 className="font-semibold">History</h3>
+      <div className="rounded-control bg-surface p-3">
+        <h3 className="font-strong">History</h3>
         <ol>
           {source.history.map((entry, n) => (
             <li key={n}>
@@ -185,9 +185,9 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
     errorMessage(withdraw.error) ??
     errorMessage(restore.error);
   return (
-    <div className="flex flex-col gap-3 rounded bg-white p-3">
-      <h3 className="font-semibold">Review</h3>
-      {error ? <p className="text-red-700">{error}</p> : null}
+    <div className="flex flex-col gap-3 rounded-control bg-surface p-3">
+      <h3 className="font-strong">Review</h3>
+      {error ? <p className="text-danger">{error}</p> : null}
       {source.status === "proposed" ? (
         <div className="flex flex-col gap-2">
           {source.possible_replacements.length ? (
@@ -210,7 +210,7 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
               type="button"
               onClick={() => approve.mutate()}
               disabled={approve.isPending || (source.possible_replacements.length > 0 && !choice)}
-              className="rounded bg-slate-900 px-3 py-1 text-white disabled:opacity-50"
+              className="rounded-control bg-primary px-3 py-1 text-on-primary disabled:opacity-50"
             >
               Approve
             </button>
@@ -218,7 +218,7 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
               type="button"
               onClick={() => reject.mutate()}
               disabled={reject.isPending || !note.trim()}
-              className="rounded border px-3 py-1 disabled:opacity-50"
+              className="rounded-control border px-3 py-1 disabled:opacity-50"
             >
               Reject
             </button>
@@ -229,7 +229,7 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
         <button
           type="button"
           onClick={() => retry.mutate()}
-          className="w-fit rounded border px-3 py-1"
+          className="w-fit rounded-control border px-3 py-1"
         >
           Retry ingestion
         </button>
@@ -248,7 +248,7 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
             type="button"
             onClick={() => withdraw.mutate()}
             disabled={withdraw.isPending || !reason.trim()}
-            className="rounded border border-red-700 px-3 py-1 text-red-700 disabled:opacity-50"
+            className="rounded-control border border-danger px-3 py-1 text-danger disabled:opacity-50"
           >
             Withdraw everywhere
           </button>
@@ -260,11 +260,11 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
             type="button"
             onClick={() => restore.mutate()}
             disabled={restore.isPending || restore.isSuccess}
-            className="w-fit rounded border px-3 py-1 disabled:opacity-50"
+            className="w-fit rounded-control border px-3 py-1 disabled:opacity-50"
           >
             Restore page
           </button>
-          <span className="text-slate-600">
+          <span className="text-fg-muted">
             {restore.isSuccess
               ? "Restored: the next crawl of the site takes it again."
               : "The next crawl of its site takes the page again as a new version."}
@@ -288,7 +288,7 @@ export function ReplacementChoice({
 }) {
   return (
     <fieldset className="flex flex-col gap-1">
-      <legend className="text-amber-900">
+      <legend className="text-warning">
         Possible replacement: this file is at the canonical link of an ingested source.
       </legend>
       {candidates.map((c) => (
@@ -339,7 +339,7 @@ function TakedownForm({ id }: { id: string }) {
   }
   return (
     <form onSubmit={submit} className="flex flex-wrap items-end gap-2 border-t pt-2">
-      <span className="w-full font-semibold">Record a takedown request</span>
+      <span className="w-full font-strong">Record a takedown request</span>
       <label className="flex flex-col">
         Reference
         <input
@@ -372,11 +372,15 @@ function TakedownForm({ id }: { id: string }) {
         />{" "}
         On licence grounds
       </label>
-      <button type="submit" disabled={record.isPending} className="rounded border px-3 py-1">
+      <button
+        type="submit"
+        disabled={record.isPending}
+        className="rounded-control border px-3 py-1"
+      >
         Record
       </button>
       {errorMessage(record.error) ? (
-        <p className="w-full text-red-700">{errorMessage(record.error)}</p>
+        <p className="w-full text-danger">{errorMessage(record.error)}</p>
       ) : null}
     </form>
   );
@@ -394,7 +398,7 @@ function LicenceUpload({ id }: { id: string }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["content", "source", id] }),
   });
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded bg-white p-3">
+    <div className="flex flex-wrap items-end gap-2 rounded-control bg-surface p-3">
       <label className="flex flex-col">
         Licence or permission letter (PDF, DOCX, TXT, EML, image)
         <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
@@ -403,12 +407,12 @@ function LicenceUpload({ id }: { id: string }) {
         type="button"
         onClick={() => upload.mutate()}
         disabled={!file || upload.isPending}
-        className="rounded border px-3 py-1 disabled:opacity-50"
+        className="rounded-control border px-3 py-1 disabled:opacity-50"
       >
         Attach
       </button>
       {errorMessage(upload.error) ? (
-        <p className="text-red-700">{errorMessage(upload.error)}</p>
+        <p className="text-danger">{errorMessage(upload.error)}</p>
       ) : null}
     </div>
   );

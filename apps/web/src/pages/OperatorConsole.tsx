@@ -14,6 +14,7 @@ import { Card } from "../ui/Card";
 import { cardClass } from "../ui/cardClass";
 import { PageHeader } from "../ui/PageHeader";
 import { StatusBadge } from "../ui/Badge";
+import { Table, Td, Th } from "../ui/Table";
 import { EmptyState } from "../ui/States";
 
 // Operator console (P1a-03), one tenant per page (P1b-12): this page picks the tenant and
@@ -39,37 +40,72 @@ export function OperatorConsole() {
           </Link>
         }
       />
-      <Card title="Tenants" className="text-ui">
-        <ul className="flex flex-col gap-1">
-          {tenants.data?.map((tenant) => (
-            <li key={tenant.id}>
-              <Link to={`/operator/tenants/${tenant.id}`} className={LINK}>
-                {tenant.display_name}
-              </Link>{" "}
-              <span className="text-fg-subtle">({tenant.slug})</span>{" "}
-              <StatusBadge kind="tenant" status={tenant.status} />{" "}
-              <span className="text-fg-subtle">admins: {tenant.admins}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-2">
+      {/* UX-19: tenants, downloadable files and notices are tables. */}
+      <Card
+        title="Tenants"
+        className="text-ui"
+        actions={
           <Link to="/operator/aggregates" className={LINK}>
             Totals across tenants
           </Link>
-        </p>
+        }
+      >
+        <Table>
+          <thead>
+            <tr>
+              <Th>Tenant</Th>
+              <Th>Slug</Th>
+              <Th>Status</Th>
+              <Th numeric>Admins</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {tenants.data?.map((tenant) => (
+              <tr key={tenant.id}>
+                <Td label="Tenant">
+                  <Link to={`/operator/tenants/${tenant.id}`} className={LINK}>
+                    {tenant.display_name}
+                  </Link>
+                </Td>
+                <Td label="Slug" className="font-mono text-meta">
+                  {tenant.slug}
+                </Td>
+                <Td label="Status">
+                  <StatusBadge kind="tenant" status={tenant.status} />
+                </Td>
+                <Td label="Admins" numeric>
+                  {tenant.admins}
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
       </Card>
       <TerminatedTenants />
       <CreateTenant />
       <Sources />
-      <Card title="Notices">
+      <Card title="Notices" className="text-ui">
         {notices.data?.length ? (
-          <ul className="text-ui">
-            {notices.data.map((n) => (
-              <li key={n.id}>
-                {formatDate(n.created_at)} · {n.tenant_slug} · {n.kind}
-              </li>
-            ))}
-          </ul>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Date</Th>
+                <Th>Tenant</Th>
+                <Th>Kind</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {notices.data.map((n) => (
+                <tr key={n.id}>
+                  <Td label="Date">{formatDate(n.created_at)}</Td>
+                  <Td label="Tenant" className="font-mono text-meta">
+                    {n.tenant_slug}
+                  </Td>
+                  <Td label="Kind">{n.kind}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
         ) : (
           <EmptyState title="No notices." />
         )}
@@ -92,22 +128,45 @@ function Sources() {
   return (
     <Card title="Downloadable files" className="text-ui">
       <SaveStatus isSuccess={toggle.isSuccess} error={toggle.error} />
-      {files.length === 0 ? <EmptyState title="No files in the register." /> : null}
-      <ul className="flex flex-col gap-1">
-        {files.map((source) => (
-          <li key={source.id}>
-            <Checkbox
-              checked={source.downloadable}
-              disabled={!source.stored || toggle.isPending}
-              onChange={(e) => toggle.mutate({ id: source.id, downloadable: e.target.checked })}
-            >
-              {source.title} · {source.publisher} · {source.licence_basis} ·{" "}
-              {source.tags.join(", ")}
-              {source.stored ? null : <span className="text-fg-muted">(no stored copy)</span>}
-            </Checkbox>
-          </li>
-        ))}
-      </ul>
+      {files.length === 0 ? (
+        <EmptyState title="No files in the register." />
+      ) : (
+        <Table>
+          <thead>
+            <tr>
+              <Th>Downloadable</Th>
+              <Th>Title</Th>
+              <Th>Publisher</Th>
+              <Th>Licence basis</Th>
+              <Th>Tags</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {files.map((source) => (
+              <tr key={source.id} data-testid={`source-${source.id}`}>
+                <Td label="Downloadable">
+                  <Checkbox
+                    checked={source.downloadable}
+                    disabled={!source.stored || toggle.isPending}
+                    onChange={(e) =>
+                      toggle.mutate({ id: source.id, downloadable: e.target.checked })
+                    }
+                  >
+                    <span className="sr-only">{source.title}</span>
+                  </Checkbox>
+                </Td>
+                <Td label="Title">
+                  <span className="font-emphasis">{source.title}</span>
+                  {source.stored ? null : <span className="text-fg-muted"> (no stored copy)</span>}
+                </Td>
+                <Td label="Publisher">{source.publisher}</Td>
+                <Td label="Licence basis">{source.licence_basis}</Td>
+                <Td label="Tags">{source.tags.join(", ")}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
     </Card>
   );
 }

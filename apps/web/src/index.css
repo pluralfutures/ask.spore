@@ -290,7 +290,12 @@
     .ui-table-stacked td[data-label]::before {
       content: attr(data-label);
       color: var(--color-fg-muted);
+      font-family: var(--font-sans);
+      font-size: var(--text-ui);
       font-weight: var(--font-weight-strong);
+    }
+    .ui-table-stacked td[data-numeric] {
+      text-align: left;
     }
     .ui-table-stacked td:not([data-label]) {
       grid-template-columns: minmax(0, 1fr);

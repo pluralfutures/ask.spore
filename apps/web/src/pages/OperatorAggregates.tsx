@@ -5,7 +5,7 @@ import { errorText } from "../lib/operator";
 import { count, euros } from "../lib/spend";
 import { OperatorsOnly } from "./OperatorConsole";
 import { Notice } from "../ui/Notice";
-import { Loading } from "../ui/States";
+import { Skeleton } from "../ui/States";
 import { PageHeader } from "../ui/PageHeader";
 import { Table, Td, Th } from "../ui/Table";
 
@@ -29,7 +29,7 @@ export function OperatorAggregates() {
         errorText(totals.error) ? (
           <Notice tone="danger">{errorText(totals.error)}</Notice>
         ) : (
-          <Loading />
+          <Skeleton />
         )
       ) : (
         <>

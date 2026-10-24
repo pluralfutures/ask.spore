@@ -266,7 +266,7 @@ describe("takedown queue", () => {
 
   it("shows the SLA timer per request", () => {
     expect(render(<TakedownTable items={[item(4)]} />)).toMatch(
-      new RegExp(`data-testid="timer-${ID}"[^>]*>4 working days left<`),
+      new RegExp(`data-testid="timer-${ID}"[^>]*>(?:<div[^>]*>)?4 working days left<`),
     );
     expect(render(<TakedownTable items={[item(-1)]} />)).toContain("text-danger");
     expect(render(<TakedownTable items={[]} />)).toContain("No open takedown requests");

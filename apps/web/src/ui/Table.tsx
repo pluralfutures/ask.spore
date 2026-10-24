@@ -39,10 +39,17 @@ export function ActionsTh() {
   );
 }
 
+// In the stacked mode a labelled cell is a two-column grid (label, value), so its content
+// is wrapped in one element: several nodes stay together in the value column.
 export function Td({
   label,
   numeric,
+  children,
   ...rest
 }: TdHTMLAttributes<HTMLTableCellElement> & { label?: string; numeric?: boolean }) {
-  return <td data-label={label} data-numeric={numeric || undefined} {...rest} />;
+  return (
+    <td data-label={label} data-numeric={numeric || undefined} {...rest}>
+      {label === undefined ? children : <div className="min-w-0">{children}</div>}
+    </td>
+  );
 }

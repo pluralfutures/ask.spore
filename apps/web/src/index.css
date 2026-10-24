@@ -1,66 +1,162 @@
 @import "tailwindcss";
 
 /*
+ * Lato (SIL Open Font License 1.1, ./assets/fonts/lato/OFL.txt), served from our own origin:
+ * the production CSP allows fonts from 'self' only, and no request goes to a font CDN.
+ * Latin and Latin Extended subsets, 400 and 700, upright and italic.
+ */
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-ext-400-normal.woff2") format("woff2");
+  unicode-range:
+    U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-ext-400-italic.woff2") format("woff2");
+  unicode-range:
+    U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-ext-700-normal.woff2") format("woff2");
+  unicode-range:
+    U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-ext-700-italic.woff2") format("woff2");
+  unicode-range:
+    U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-400-normal.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-400-italic.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-700-normal.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-700-italic.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/*
  * Theme tokens (UX-04, design/specs/ux-refresh-spec.md). Components use these semantic
- * names, never raw palette classes. Every value here is what the app rendered before the
- * tokens existed, so this file changes no pixel; UX-05 changes the values to the approved
- * direction (design/ux/design-direction.md) in this one place.
+ * names, never raw palette classes (src/theme.test.ts). Values from UX-05: the approved
+ * direction in design/ux/design-direction.md. Contrast on white is noted where it matters.
  */
 @theme {
+  --font-sans:
+    "Lato", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+
   /* Surfaces */
-  --color-canvas: var(--color-slate-100);
-  --color-surface: var(--color-white);
-  --color-surface-subtle: var(--color-slate-50);
-  --color-neutral-muted: var(--color-slate-200);
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f6f7f9;
+  --color-neutral-muted: #eef0f3;
 
   /* Text */
-  --color-fg: var(--color-slate-900);
-  --color-fg-secondary: var(--color-slate-700);
-  --color-fg-muted: var(--color-slate-600);
-  --color-fg-subtle: var(--color-slate-500);
+  --color-fg: #171b22; /* 17.3:1 */
+  --color-fg-secondary: #3b4250; /* 10.1:1 */
+  --color-fg-muted: #5d6573; /* 5.9:1, 5.5:1 on canvas */
+  --color-fg-subtle: #646c79; /* 5.3:1, 4.9:1 on canvas */
 
-  /* Actions and links */
-  --color-primary: var(--color-slate-900);
-  --color-on-primary: var(--color-white);
-  --color-link: var(--color-sky-700);
-  --color-selected: var(--color-sky-500);
+  /* Actions and links: the one accent */
+  --color-primary: #2e5bba; /* 6.3:1; white on it 6.3:1 */
+  --color-on-primary: #ffffff;
+  --color-link: #2e5bba;
+  --color-selected: #2e5bba;
 
   /* Citation markers */
-  --color-cite: var(--color-sky-800);
-  --color-cite-bg: var(--color-sky-100);
-  --color-cite-bg-hover: var(--color-sky-200);
+  --color-cite: #244a9a; /* 7.4:1 on cite-bg */
+  --color-cite-bg: #edf2fc;
+  --color-cite-bg-hover: #dce6f9;
 
   /* Status: colour is for state only */
-  --color-danger: var(--color-red-700);
-  --color-danger-strong: var(--color-red-800);
-  --color-danger-subtle: var(--color-red-100);
-  --color-on-danger: var(--color-white);
-  --color-warning: var(--color-amber-900);
-  --color-attention: var(--color-amber-800);
-  --color-warning-subtle: var(--color-amber-50);
-  --color-warning-muted: var(--color-amber-100);
-  --color-warning-line: var(--color-amber-300);
-  --color-success: var(--color-green-800);
-  --color-info: var(--color-indigo-800);
-  --color-info-subtle: var(--color-indigo-100);
+  --color-danger: #b42318; /* 6.6:1; white on it 6.6:1 */
+  --color-danger-strong: #a3271c;
+  --color-danger-subtle: #fdf0ee;
+  --color-on-danger: #ffffff;
+  --color-warning: #7a4b00; /* 6.8:1 on warning-subtle */
+  --color-attention: #8a5a00; /* 5.9:1 */
+  --color-warning-subtle: #fdf5e3;
+  --color-warning-muted: #fbebc7;
+  --color-warning-line: #f0ddb0;
+  --color-success: #17663f;
+  --color-info: #244a9a;
+  --color-info-subtle: #edf2fc;
 
-  /* Lines: a bare `border` takes this colour (today currentColor, Tailwind v4's default) */
-  --color-line: currentColor;
+  /* Lines: hairlines around surfaces; form controls get the stronger input line (3.3:1) */
+  --color-line: #e2e5ea;
+  --color-line-input: #868e9b;
 
-  /* Type */
-  --text-meta: var(--text-xs);
-  --text-meta--line-height: var(--text-xs--line-height);
-  --text-ui: var(--text-sm);
-  --text-ui--line-height: var(--text-sm--line-height);
-  --text-heading: var(--text-lg);
-  --text-heading--line-height: var(--text-lg--line-height);
-  --text-title: var(--text-xl);
-  --text-title--line-height: var(--text-xl--line-height);
-  --font-weight-emphasis: var(--font-weight-medium);
-  --font-weight-strong: var(--font-weight-semibold);
+  /* Type: Lato has 400 and 700 only, so both emphasis steps are 700 */
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.125rem;
+  --text-ui: 0.875rem;
+  --text-ui--line-height: 1.25rem;
+  --text-heading: 1.0625rem;
+  --text-heading--line-height: 1.5rem;
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.75rem;
+  --font-weight-emphasis: 700;
+  --font-weight-strong: 700;
 
   /* Shape */
-  --radius-control: 0.25rem;
+  --radius-control: 0.375rem;
 }
 
 @layer base {
@@ -68,5 +164,25 @@
   ::before,
   ::after {
     border-color: var(--color-line);
+  }
+
+  input,
+  select,
+  textarea {
+    border-color: var(--color-line-input);
+  }
+
+  :root {
+    accent-color: var(--color-primary);
+  }
+
+  ::placeholder {
+    color: var(--color-fg-subtle);
+  }
+
+  /* One visible focus ring everywhere (WCAG 2.4.7), drawn outside the element. */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 }

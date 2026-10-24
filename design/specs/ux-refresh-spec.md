@@ -1,6 +1,6 @@
 # UX Refresh Build Spec
 
-Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. **Group A (UX-01 to UX-03) and UX-04 were built on Oct 24, 2026.** Open items 1 to 3 are still undecided; the items that depend on them (UX-05, UX-14 and every screen item that would show new copy) do not start until they are decided.
+Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. **Group A (UX-01 to UX-03), UX-04 and UX-05 were built on Oct 24, 2026.** Open item 1 (the direction) was decided on Oct 24; items 2 and 3 are still open, and the items that depend on them (UX-14 and every screen item that would show new copy) do not start until they are decided.
 
 Sources: [../ux/audit.md](../ux/audit.md) (the visual audit, with screenshots) and [../ux/design-direction.md](../ux/design-direction.md) (the proposed look). Mockups of the chat view, start panel and tenant admin page, each beside its current screenshot, are on a design canvas: https://claude.ai/artifact/3spU4UTTXALVNbfdaFiRJE.
 
@@ -151,9 +151,9 @@ Each screen item applies the components, the layout from design-direction.md and
 
 ## Open items for the owner
 
-Item 4 was decided on Oct 24, 2026; items 1 to 3 are open.
+Items 1 and 4 were decided on Oct 24, 2026; items 2 and 3 are open.
 
-1. Approve or adjust the direction: the slate-blue accent, Lato, and the left-rail chat layout.
+1. ~~Approve or adjust the direction: the slate-blue accent, Lato, and the left-rail chat layout.~~ Approved Oct 24, 2026 (the owner's "Proceed" in reply to this question), and built in UX-05. The AI notice keeps its amber treatment until UX-10 moves it into the app shell as the neutral info strip, since restyling it changes a component.
 2. Copy shown in the mockups that is not in the app today: the "Settings" legend, "Question" as a visible label, "Recent" in the rail, "1 of 2" with previous and next in the phone source sheet, and the section sub-nav. Approve each, or the existing wording is used.
 3. UX-14: show the model read-only when a tenant has a single enabled model (today it is hidden).
 4. ~~Which phase the refresh belongs to.~~ Decided Oct 24, 2026: the refresh is its own phase and starts now, with Group A.

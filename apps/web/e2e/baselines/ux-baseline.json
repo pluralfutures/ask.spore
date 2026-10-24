@@ -44,11 +44,11 @@
     "11d-tenant-admin-not-admin": ["page-has-heading-one", "region"],
     "12-operator-console": ["region"],
     "12b-operator-only": ["page-has-heading-one", "region"],
-    "13-operator-tenant-entitlements": ["color-contrast", "region"],
-    "13b-operator-tenant-login": ["color-contrast", "region"],
-    "13c-operator-tenant-workspaces": ["color-contrast", "region"],
-    "13d-operator-tenant-users": ["color-contrast", "empty-table-header", "region"],
-    "13e-operator-tenant-spend": ["color-contrast", "region"],
+    "13-operator-tenant-entitlements": ["region"],
+    "13b-operator-tenant-login": ["region"],
+    "13c-operator-tenant-workspaces": ["region"],
+    "13d-operator-tenant-users": ["empty-table-header", "region"],
+    "13e-operator-tenant-spend": ["region"],
     "14-operator-aggregates": ["region"],
     "15-content-register": ["region"],
     "15b-content-register-empty": ["region"],
@@ -65,7 +65,6 @@
     "06b-conversations-admin-operator": 768,
     "07b-start-panel-choices": 470,
     "07c-start-panel-external": 470,
-    "10-files": 416,
     "11-tenant-admin": 860,
     "11b-tenant-admin-history-open": 860,
     "11c-tenant-admin-remove-confirm": 927,
@@ -74,5 +73,5 @@
     "18-content-takedowns": 483,
     "19-content-sites": 627
   },
-  "focusRingMinWidthPx": 1
+  "focusRingMinWidthPx": 2
 }

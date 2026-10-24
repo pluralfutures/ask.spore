@@ -13,7 +13,9 @@ for (const scenario of SCENARIOS) {
 }
 
 // The negative case: a one-colour change is caught, so a passing run means "no change".
-test("a changed background colour fails the comparison", async ({ page }) => {
+test("a changed background colour fails the comparison", async ({ page }, testInfo) => {
+  // When updating snapshots the comparison cannot fail, and would save the altered page.
+  test.skip(testInfo.config.updateSnapshots !== "missing", "not while updating snapshots");
   const scenario = SCENARIOS.find((s) => s.name === "06-conversations")!;
   await openScenario(page, scenario);
   await page.addStyleTag({ content: "main { background: #ffffff !important; }" });

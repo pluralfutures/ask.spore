@@ -1,9 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // UX-01 visual-regression suite (design/specs/ux-refresh-spec.md): every audit scenario at
-// 1440 and 390 px against the scenario fake. Snapshots are generated on Linux Chromium and
-// committed; the suite stays out of CI until UX-05 bundles the font (system fonts differ
-// between machines). Run with `pnpm test:visual`; update with `pnpm test:visual --update-snapshots`.
+// 1440 and 390 px against the scenario fake. Since UX-05 the snapshots are generated in the
+// pinned Playwright image (e2e/visual/run-in-image.sh), which CI also uses, so they do not
+// depend on the machine. Run with `pnpm test:visual`; update with
+// `pnpm test:visual --update-snapshots`.
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
 const chrome = devices["Desktop Chrome"];
 

@@ -119,7 +119,10 @@ test("shows the spend-cap fallback notice from the create route", async ({ page 
   await page.getByLabel("Question").fill("How did synthetic capacity change?");
   await page.getByRole("button", { name: "Start" }).click();
 
-  await expect(page.getByRole("status")).toHaveText(spendCapNotice("Synthetic EU Fast"));
+  // "Searching your research package…" is a status region too while the answer starts.
+  await expect(
+    page.getByRole("status").filter({ hasText: spendCapNotice("Synthetic EU Fast") }),
+  ).toBeVisible();
   await expect(page.getByTestId("model-name")).toHaveText("Synthetic EU Fast");
   await expect(page.getByText("Synthetic capacity grew by 12% in 2025")).toBeVisible();
 });

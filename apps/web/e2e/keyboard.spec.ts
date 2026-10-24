@@ -65,6 +65,13 @@ test("start panel: skip link, back link, workspace, model, reasoning, question",
 }) => {
   await openScenario(page, scenario("07b-start-panel-choices"));
   await skipToContent(page);
+  // UX-13: from 1024 px the conversation rail comes first: new, then each row and its menu.
+  const rail = page.getByRole("navigation", { name: "Conversations" });
+  await tabTo(page, rail.getByRole("link", { name: "New conversation" }));
+  for (const row of await rail.getByRole("listitem").all()) {
+    await tabTo(page, row.getByRole("link"));
+    await tabTo(page, row.getByRole("button", { name: /^Actions for / }));
+  }
   await tabTo(page, page.getByRole("link", { name: "← Conversations" }));
   await tabTo(page, page.getByLabel("Workspace"));
   await tabTo(page, page.getByLabel("Model"));

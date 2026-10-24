@@ -18,6 +18,7 @@ import { SignIn } from "./components/SignIn";
 import { Chat } from "./pages/Chat";
 import { ConversationList } from "./pages/ConversationList";
 import { renewalDelay } from "./lib/session";
+import { WithRail } from "./components/Conversations";
 import { FinishSignIn } from "./pages/FinishSignIn";
 import { NewConversation } from "./pages/NewConversation";
 import { OperatorAggregates } from "./pages/OperatorAggregates";
@@ -66,8 +67,22 @@ function Signed({ onSignOut }: { onSignOut?: () => void }) {
           <ConsentGate>
             <Routes>
               <Route path="/" element={<ConversationList />} />
-              <Route path="/new" element={<NewConversation />} />
-              <Route path="/c/:id" element={<Chat />} />
+              <Route
+                path="/new"
+                element={
+                  <WithRail>
+                    <NewConversation />
+                  </WithRail>
+                }
+              />
+              <Route
+                path="/c/:id"
+                element={
+                  <WithRail>
+                    <Chat />
+                  </WithRail>
+                }
+              />
               <Route path="/w/:id/files" element={<WorkspaceFiles />} />
               <Route path="/admin" element={<TenantAdmin />} />
               <Route path="/operator" element={<OperatorConsole />} />

@@ -238,7 +238,7 @@ test.describe("4. history and retention indicators", () => {
     const rows = page
       .getByRole("main")
       .getByRole("listitem")
-      .filter({ has: page.getByRole("button", { name: "Delete" }) });
+      .filter({ has: page.getByRole("button", { name: /^Actions for / }) });
     await expect(rows).toHaveCount(5);
     for (const [i, date] of [
       "18 Nov 2026",
@@ -257,8 +257,12 @@ test.describe("4. history and retention indicators", () => {
       (r) => r.method() === "DELETE" && r.url().includes("/api/v1/conversations/"),
     );
     // UX-09: the confirmation is an in-page dialog with the same question (it was the
-    // browser's own prompt).
-    await page.getByRole("button", { name: "Delete" }).first().click();
+    // browser's own prompt). UX-13: "Delete" is in the row's menu.
+    await page
+      .getByRole("button", { name: /^Actions for / })
+      .first()
+      .click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
     const dialog = page.getByRole("dialog", { name: "Delete this conversation permanently?" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Delete" }).click();

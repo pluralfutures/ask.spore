@@ -18,8 +18,10 @@ test.describe("at 1440 px", () => {
 
   test("a dialog keeps focus inside, closes on Escape, and returns focus", async ({ page }) => {
     await openScenario(page, scenario("06-conversations"));
-    const trigger = page.getByRole("button", { name: "Delete" }).nth(1);
+    // UX-13: Delete is in each conversation's row menu.
+    const trigger = page.getByRole("button", { name: /^Actions for / }).nth(1);
     await trigger.click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
     const dialog = page.getByRole("dialog", { name: "Delete this conversation permanently?" });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();

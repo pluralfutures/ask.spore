@@ -12,5 +12,11 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["vite.config.ts", "eslint.config.js", "playwright.config.ts", "e2e"]
+  "include": [
+    "vite.config.ts",
+    "eslint.config.js",
+    "playwright.config.ts",
+    "playwright.visual.config.ts",
+    "e2e"
+  ]
 }

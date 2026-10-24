@@ -7,6 +7,8 @@ const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
 
 export default defineConfig({
   testDir: "e2e",
+  // The UX-01 visual suite has its own config (playwright.visual.config.ts).
+  testIgnore: "visual/**",
   forbidOnly: !!process.env.CI,
   reporter: "list",
   use: {

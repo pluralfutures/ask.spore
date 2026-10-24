@@ -16,7 +16,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "gen:api": "openapi-typescript ../api/openapi.json -o src/api/schema.d.ts && prettier --write src/api/schema.d.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:visual": "playwright test --config playwright.visual.config.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "5.104.1",

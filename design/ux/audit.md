@@ -62,7 +62,7 @@ Each finding is tagged: **T** type hierarchy, **S** spacing, **C** colour, **A**
 | ![Consent changed](screenshots/05b-consent-changed-desktop.png) | ![Consent, phone](screenshots/05-consent-first-phone.png) |
 
 - **T** Markdown headings in the full notice ("1. What this service is") render as body text, for the same reason as in answers, so a long legal notice has no visible structure. The "In short" bullet list renders without bullets (preflight removes `list-style`).
-- **X (serious)** The full notice is a `max-h-[50vh] overflow-y-auto` box with no focusable content, so keyboard users cannot scroll it (axe `scrollable-region-focusable`). This matters for a consent the user must read.
+- **X (serious per axe)** The full notice is a `max-h-[50vh] overflow-y-auto` box with no tab stop of its own (axe `scrollable-region-focusable`). Chromium and Firefox make such a box keyboard-focusable themselves, so it can be scrolled with the keyboard there (confirmed by the UX-02 keyboard test, Oct 24); Safari does not, and the box has no accessible focus treatment. This matters for a consent the user must read. *Corrected Oct 24, 2026: the first version said keyboard users could not scroll it at all.*
 - **L** The checkbox and "Accept and continue" sit below a scroll box. On a 900 px screen they are just visible; on phone they are far below the fold, with no sense of how much is left to read.
 - **K** The accept button is `px-3 py-1` (about 28 px tall), smaller than the start and ask buttons. When disabled it is grey with low contrast.
 - **C** "The notice has changed…" (05b) is amber text with no container, styled like the AI notice above it.
@@ -229,4 +229,4 @@ Each finding is tagged: **T** type hierarchy, **S** spacing, **C** colour, **A**
 7. **Five button styles and three input sizes**, with underlined links used as actions, emoji feedback buttons, borderless selects and low-contrast disabled buttons.
 8. **Unpadded, unaligned tables** (files, users, register, spend): wrapping dates, stacked row actions, and raw status codes instead of badges.
 9. **Colour without a system**: amber means six different things, red means error, delete and "unsupported", there is no accent colour, and links and buttons look alike.
-10. **Bare loading, empty, error and access-denied states**: one-line text at top-left with no heading, landmark, retry or next step. Related: weak focus visibility, and the consent notice cannot be scrolled from the keyboard.
+10. **Bare loading, empty, error and access-denied states**: one-line text at top-left with no heading, landmark, retry or next step. Related: weak focus visibility, and the consent notice has no tab stop of its own (Safari users cannot scroll it from the keyboard).

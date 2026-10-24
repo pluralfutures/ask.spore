@@ -25,7 +25,7 @@ Fixes the technology choices left open in the Platform Architecture & Functional
 | Reverse proxy | Caddy | Pin image tag | Automatic TLS, minimal config |
 | Containers | Docker Compose, one file per environment under `infra/` | Compose v2 | Matches RAGFlow's own distribution |
 | Observability | Structured JSON logs to stdout; Prometheus metrics endpoint; Grafana + Loki in `infra/monitoring` (Phase 1+) | n/a | Stays on the VPS |
-| Testing | `pytest` + `pytest-asyncio` + `httpx` test client; `vitest` + Playwright for web | n/a | Standard |
+| Testing | `pytest` + `pytest-asyncio` + `httpx` test client; `vitest` + Playwright for web; `@axe-core/playwright` for the web accessibility baseline (UX-02, Oct 24, 2026) | axe 4.13.0, dev only | Standard; axe is the common WCAG rule engine and never ships to users |
 | Lint and format | `ruff` (lint + format), `mypy --strict` on `app/`, `eslint` + `prettier` | n/a | Custom ruff rules enforce the logging and cache controls |
 | CI | GitHub Actions: lint, typecheck, unit tests, integration tests against Compose services, eval gate | n/a | Branch protection on `main` |
 | Secrets | `.env` files locally (git-ignored); Scaleway Secret Manager in staging/production, injected as environment variables at deploy | n/a | Per the architecture document |

@@ -5,10 +5,11 @@ import { describe, expect, it } from "vitest";
 const RAW =
   /(?<![\w-])((?:bg|text|border|ring|divide|outline)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}|(?:bg|text|border)-(?:white|black)|text-(?:xs|sm|base|lg|xl|[2-9]xl)|font-(?:thin|light|medium|semibold|bold|extrabold|black)|rounded(?:-(?:xs|sm|md|lg|xl|2xl|3xl|full))?)(?![\w-])/g;
 
-// Every component's source, as text (Vite's raw import; tests are excluded). Vitest's module
-// cache keeps this list until the cache is cleared, so a brand-new file is checked on a
-// fresh run (as in CI); edits to existing files are checked every run.
-const SOURCES = import.meta.glob<string>(["./**/*.tsx", "!./**/*.test.tsx"], {
+// Every component's source and the ui/ class modules, as text (Vite's raw import; tests
+// are excluded). Vitest's module cache keeps this list until the cache is cleared, so a
+// brand-new file is checked on a fresh run (as in CI); edits to existing files are
+// checked every run.
+const SOURCES = import.meta.glob<string>(["./**/*.tsx", "./ui/*.ts", "!./**/*.test.tsx"], {
   query: "?raw",
   import: "default",
   eager: true,

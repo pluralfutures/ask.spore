@@ -12,6 +12,8 @@ import {
   proposalForm,
   type ProposalFields,
 } from "../../lib/content";
+import { Button } from "../../ui/Button";
+import { LINK } from "../../ui/link";
 
 // The propose form (P1b-05): a file upload or a URL, with the manifest's metadata and
 // tags. The licence basis is always required; a licence or permission letter is optional,
@@ -135,13 +137,9 @@ export function Propose({ roles }: { roles: string[] }) {
         Licence or permission letter (optional)
         <input type="file" onChange={(e) => setLicence(e.target.files?.[0] ?? null)} />
       </label>
-      <button
-        type="submit"
-        disabled={propose.isPending}
-        className="w-fit rounded-control bg-primary px-3 py-1 text-on-primary"
-      >
+      <Button variant="primary" className="w-fit" type="submit" disabled={propose.isPending}>
         Propose
-      </button>
+      </Button>
       {problem ? <p className="text-danger">{problem}</p> : null}
       {errorMessage(propose.error) ? (
         <p className="text-danger">{errorMessage(propose.error)}</p>
@@ -164,7 +162,7 @@ export function ProposeResult({ result }: { result: ProposeOut }) {
     <div data-testid="propose-result" className="rounded-control bg-surface-subtle p-2">
       <p>
         {OUTCOMES[result.outcome]}{" "}
-        <Link to={`/content/sources/${result.source_id}`} className="underline">
+        <Link to={`/content/sources/${result.source_id}`} className={LINK}>
           Open the source
         </Link>
       </p>

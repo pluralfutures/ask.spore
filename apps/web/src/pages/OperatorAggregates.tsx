@@ -5,6 +5,7 @@ import { ApiError, operatorApi } from "../api/client";
 import { errorText } from "../lib/operator";
 import { count, euros } from "../lib/spend";
 import { OperatorsOnly } from "./OperatorConsole";
+import { LINK } from "../ui/link";
 
 // Cross-tenant totals for the month (P1b-12, architecture §7.4): tokens and cost per
 // model and per provider, and how many tenants used each. No tenant is named here and
@@ -19,7 +20,7 @@ export function OperatorAggregates() {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-ui">
       <p>
-        <Link to="/operator" className="underline">
+        <Link to="/operator" className={LINK}>
           Operator console
         </Link>
       </p>

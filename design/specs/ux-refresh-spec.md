@@ -1,6 +1,6 @@
 # UX Refresh Build Spec
 
-Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. **Group A (UX-01 to UX-03), UX-04 and UX-05 were built on Oct 24, 2026.** All four open items were decided on Oct 24, 2026, so UX-14 and the screen items that show the new mockup labels are unblocked.
+Oct 23, 2026 · Status: **approved by the owner on Oct 24, 2026 as its own phase** (decision 4 below), starting with Group A. **Group A (UX-01 to UX-03), UX-04, UX-05 and UX-06 were built on Oct 24, 2026.** All four open items were decided on Oct 24, 2026, so UX-14 and the screen items that show the new mockup labels are unblocked.
 
 Sources: [../ux/audit.md](../ux/audit.md) (the visual audit, with screenshots) and [../ux/design-direction.md](../ux/design-direction.md) (the proposed look). Mockups of the chat view, start panel and tenant admin page, each beside its current screenshot, are on a design canvas: https://claude.ai/artifact/3spU4UTTXALVNbfdaFiRJE.
 
@@ -56,7 +56,7 @@ These elements implement controls from the compliance guide (AI Act Art. 50 tran
 The refresh stays inside the stack decision (React, TypeScript, Vite, Tailwind CSS v4, Playwright, vitest). Three small additions need a line in `design/Stack Decision.md` in the item that introduces them. The PR description must say why.
 
 - **Lato, self-hosted** (UX-05): either `@fontsource/lato` (bundled by Vite into `/assets`) or vendored `woff2` files with the OFL licence text. Never a Google Fonts URL. The production CSP is `font-src 'self'` (`infra/caddy/Caddyfile`), which already allows this and blocks Google.
-- **Icons** (UX-06): one bundled outline set (for example `lucide-react`, MIT), tree-shaken, no runtime fetch.
+- **Icons** (UX-06): one bundled outline set, `lucide-react` 1.53.0 (ISC; Lucide icons are ISC, not MIT), tree-shaken, no runtime fetch.
 - **axe-core** (UX-02): `@axe-core/playwright` as a dev dependency.
 
 Answer and notice Markdown styling is our own CSS (a `.prose-answer` layer in `index.css`), not the Tailwind typography plugin, so the rules stay few and reviewable.

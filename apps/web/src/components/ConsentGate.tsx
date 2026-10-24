@@ -6,6 +6,7 @@ import { useLocation } from "react-router-dom";
 import { api, setConsentRequiredHandler } from "../api/client";
 import type { ConsentNotice } from "../api/types";
 import { mustAccept } from "../lib/consent";
+import { Button } from "../ui/Button";
 
 // The first-login consent gate (P1b-10): until the active use and privacy notice is
 // accepted, the app shows the notice instead of any conversation, file or admin page.
@@ -98,14 +99,9 @@ export function ConsentView({
         <input type="checkbox" checked={read} onChange={(e) => setRead(e.target.checked)} />I have
         read the notice ({notice.version}) and accept it.
       </label>
-      <button
-        type="button"
-        disabled={!read || pending}
-        onClick={onAccept}
-        className="w-fit rounded-control bg-primary px-3 py-1 text-on-primary disabled:opacity-50"
-      >
+      <Button variant="primary" className="w-fit" disabled={!read || pending} onClick={onAccept}>
         Accept and continue
-      </button>
+      </Button>
       {failed ? (
         <p className="text-danger">The acceptance was not recorded. Reload and try again.</p>
       ) : null}

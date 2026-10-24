@@ -5,6 +5,8 @@ import type { MfaRequiredOut } from "../api/types";
 import { QrCode } from "../components/QrCode";
 import { setupKey, validCode } from "../lib/mfa";
 import { tokenFromFragment } from "../lib/fragment";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
 
 // Landing page of the emailed sign-in link (P1a-02). Opening it submits nothing: only the
 // button's POST sends the token, from this browser (the API checks it is the one that
@@ -58,22 +60,25 @@ export function FinishSignIn({
       {state === "no_binding" ? (
         <p className="text-ui">
           Open this link in the same browser window where you asked for it. A link works only there,
-          once, for 15 minutes. <a href="/">Ask for a new link</a> from the browser you want to use.
+          once, for 15 minutes.{" "}
+          <a href="/" className={LINK}>
+            Ask for a new link
+          </a>{" "}
+          from the browser you want to use.
         </p>
       ) : token === null || state === "failed" ? (
         <p className="text-ui">
           This sign-in link cannot be used. Links work once, in the browser where you asked for
-          them, for 15 minutes. <a href="/">Ask for a new link</a>.
+          them, for 15 minutes.{" "}
+          <a href="/" className={LINK}>
+            Ask for a new link
+          </a>
+          .
         </p>
       ) : (
-        <button
-          type="button"
-          onClick={finish}
-          disabled={state === "working"}
-          className="rounded-control bg-primary px-3 py-1.5 text-on-primary"
-        >
+        <Button variant="primary" onClick={finish} disabled={state === "working"}>
           Click to finish logging in
-        </button>
+        </Button>
       )}
     </main>
   );
@@ -116,7 +121,7 @@ export function SecondFactor({
           )}
           <code className="rounded-control bg-surface px-2 py-1 font-mono">{key}</code>
           {challenge.setup_uri && (
-            <a href={challenge.setup_uri} className="underline">
+            <a href={challenge.setup_uri} className={LINK}>
               Open in an authenticator app on this device
             </a>
           )}
@@ -133,13 +138,9 @@ export function SecondFactor({
           onChange={(e) => setCode(e.target.value)}
           className="rounded-control border px-2 py-1"
         />
-        <button
-          type="submit"
-          disabled={working || !validCode(code)}
-          className="rounded-control bg-primary px-3 py-1.5 text-on-primary"
-        >
+        <Button variant="primary" type="submit" disabled={working || !validCode(code)}>
           Confirm
-        </button>
+        </Button>
       </form>
       {challenge.failed && (
         <p className="text-ui text-danger">That code was not accepted. Try the current one.</p>

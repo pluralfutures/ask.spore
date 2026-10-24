@@ -7,6 +7,8 @@ import type { ConversationCreated } from "../api/types";
 import { StartPanel } from "../components/StartPanel";
 import { keepsNoHistory } from "../lib/noHistory";
 import { createBody, initialChoice, refusalText, type StartChoice } from "../lib/startPanel";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
 
 // What the chat page needs from the start: the first question, the spend-cap notice, and,
 // for a tenant that keeps no history (P1b-14), the conversation itself, which no read
@@ -52,7 +54,7 @@ export function NewConversation() {
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <Link to="/" className="text-ui underline">
+      <Link to="/" className={`text-ui ${LINK}`}>
         ← Conversations
       </Link>
       {workspaces.data.length === 0 ? (
@@ -82,13 +84,14 @@ export function NewConversation() {
               {refusalText(create.error instanceof ApiError ? create.error.code : null)}
             </p>
           ) : null}
-          <button
+          <Button
+            variant="primary"
+            className="self-end"
             type="submit"
             disabled={create.isPending || !question.trim() || !choice.model}
-            className="self-end rounded-control bg-primary px-3 py-1.5 text-on-primary disabled:opacity-50"
           >
             Start
-          </button>
+          </Button>
         </form>
       )}
     </main>

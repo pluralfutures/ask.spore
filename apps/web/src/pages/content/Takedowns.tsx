@@ -5,6 +5,7 @@ import { contentApi } from "../../api/client";
 import type { Takedown } from "../../api/types";
 import { errorMessage, timerText, timerTone } from "../../lib/content";
 import { formatDate } from "../../lib/format";
+import { LINK } from "../../ui/link";
 
 // The takedown queue with its SLA timer (P1b-03, P1b-05): 10 working days from the
 // request, the same day for a licence breach we find ourselves. Withdrawal is a separate
@@ -35,7 +36,7 @@ export function TakedownTable({ items }: { items: Takedown[] }) {
         {items.map((item) => (
           <tr key={item.source_id} className="border-b">
             <td className="p-2">
-              <Link to={`/content/sources/${item.source_id}`} className="underline">
+              <Link to={`/content/sources/${item.source_id}`} className={LINK}>
                 {item.title}
               </Link>
               {item.licence_grounds ? (

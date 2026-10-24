@@ -5,6 +5,8 @@ import { ApiError, api } from "../api/client";
 import type { WorkspaceFile, WorkspaceSite } from "../api/types";
 import { formatDate } from "../lib/format";
 import { downloadRefusal, fileAction, typeLabel } from "../lib/files";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
 
 function save(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);
@@ -31,8 +33,8 @@ export function WorkspaceFiles() {
   const name = workspaces.data?.find((w) => w.id === id)?.name;
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4">
-      <Link to="/" className="text-ui underline">
+    <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4">
+      <Link to="/" className={`text-ui ${LINK}`}>
         ← Conversations
       </Link>
       <h1 className="text-title font-strong">Files{name ? ` in ${name}` : ""}</h1>
@@ -65,49 +67,54 @@ export function FileTable({
   onDownload: (sourceId: string) => void;
 }) {
   if (files.length === 0) return <p className="text-fg-muted">No files in this workspace.</p>;
+  // UX-06: the 44 px Download button made this table wider than a phone, so it scrolls
+  // sideways in its own box (the page is w-full for that, ahead of UX-10) until UX-09
+  // gives tables a stacked mode.
   return (
-    <table className="w-full rounded-control bg-surface text-left text-ui">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Publisher</th>
-          <th>Published</th>
-          <th>Added</th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        {files.map((file) => {
-          const action = fileAction(file);
-          return (
-            <tr key={file.id} data-testid={`file-${file.id}`} className="border-t">
-              <td>
-                {file.title} <span className="text-fg-subtle">({typeLabel(file.type)})</span>
-              </td>
-              <td>{file.publisher}</td>
-              <td>{formatDate(file.published_on)}</td>
-              <td>{formatDate(file.ingested_on)}</td>
-              <td>
-                {action.kind === "download" ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => onDownload(file.id)}
-                    className="underline"
-                  >
-                    Download
-                  </button>
-                ) : action.kind === "link" ? (
-                  <a href={action.href} target="_blank" rel="noreferrer" className="underline">
-                    View at source
-                  </a>
-                ) : null}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div className="overflow-x-auto">
+      <table className="w-full rounded-control bg-surface text-left text-ui">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Publisher</th>
+            <th>Published</th>
+            <th>Added</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {files.map((file) => {
+            const action = fileAction(file);
+            return (
+              <tr key={file.id} data-testid={`file-${file.id}`} className="border-t">
+                <td>
+                  {file.title} <span className="text-fg-subtle">({typeLabel(file.type)})</span>
+                </td>
+                <td>{file.publisher}</td>
+                <td>{formatDate(file.published_on)}</td>
+                <td>{formatDate(file.ingested_on)}</td>
+                <td>
+                  {action.kind === "download" ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => onDownload(file.id)}
+                    >
+                      Download
+                    </Button>
+                  ) : action.kind === "link" ? (
+                    <a href={action.href} target="_blank" rel="noreferrer" className={LINK}>
+                      View at source
+                    </a>
+                  ) : null}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

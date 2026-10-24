@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { api } from "../api/client";
 import { isTenantAdmin } from "../lib/admin";
 import { formatDate } from "../lib/format";
+import { Button, ButtonLink } from "../ui/Button";
+import { LINK } from "../ui/link";
 
 export function ConversationList() {
   const queryClient = useQueryClient();
@@ -20,19 +23,19 @@ export function ConversationList() {
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-title font-strong">Conversations</h1>
         {isTenantAdmin(me.data) ? (
-          <Link to="/admin" className="text-ui underline">
+          <Link to="/admin" className={`text-ui ${LINK}`}>
             Administration
           </Link>
         ) : null}
         {/* P1c-08: operators reach their console from the chat app. */}
         {me.data?.operator ? (
-          <Link to="/operator" className="text-ui underline">
+          <Link to="/operator" className={`text-ui ${LINK}`}>
             Operator console
           </Link>
         ) : null}
-        <Link to="/new" className="rounded-control bg-primary px-3 py-1.5 text-on-primary">
+        <ButtonLink to="/new" variant="primary" icon={Plus}>
           New conversation
-        </Link>
+        </ButtonLink>
       </div>
       {conversations.isPending ? <p>Loading…</p> : null}
       {conversations.isError ? <p className="text-danger">Could not load conversations.</p> : null}
@@ -46,15 +49,15 @@ export function ConversationList() {
               <p className="truncate font-emphasis">{c.title ?? "Untitled conversation"}</p>
               <p className="text-ui text-fg-muted">Expires {formatDate(c.expires_at)}</p>
             </Link>
-            <button
-              type="button"
+            <Button
+              variant="ghost-danger"
+              size="sm"
               onClick={() => {
                 if (window.confirm("Delete this conversation permanently?")) remove.mutate(c.id);
               }}
-              className="text-ui text-danger underline"
             >
               Delete
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
@@ -64,7 +67,7 @@ export function ConversationList() {
           <ul className="flex flex-wrap gap-3">
             {workspaces.data.map((w) => (
               <li key={w.id}>
-                <Link to={`/w/${w.id}/files`} className="underline">
+                <Link to={`/w/${w.id}/files`} className={LINK}>
                   {w.name}
                 </Link>
               </li>

@@ -1,6 +1,7 @@
 import Markdown from "react-markdown";
 
 import { linkMarkers, markerFromHref } from "../lib/citations";
+import { LINK } from "../ui/link";
 
 interface Props {
   text: string;
@@ -30,7 +31,7 @@ export function AnswerMarkdown({ text, markers, onCite }: Props) {
               );
             }
             return (
-              <a href={href} target="_blank" rel="noopener noreferrer" className="underline">
+              <a href={href} target="_blank" rel="noopener noreferrer" className={LINK}>
                 {children}
               </a>
             );

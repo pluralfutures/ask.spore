@@ -4,6 +4,7 @@ import { ApiError, discoverMethods, requestSignInLink, startSso } from "../api/c
 import type { DiscoverOut } from "../api/types";
 import { ssoButtonLabel } from "../lib/sso";
 import { failureText, ssoRefusalText } from "./emailSignInText";
+import { Button } from "../ui/Button";
 
 type Step = { kind: "email" } | { kind: "choose"; found: DiscoverOut } | { kind: "sent" };
 
@@ -83,17 +84,13 @@ export function EmailSignIn({
     return (
       <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
         <h1 className="text-title font-strong">SporeBot</h1>
-        <button
-          type="button"
-          onClick={() => void goToSso()}
-          className="rounded-control bg-primary px-3 py-1.5 text-on-primary"
-        >
+        <Button variant="primary" onClick={() => void goToSso()}>
           {ssoButtonLabel(step.found.sso_kind)}
-        </button>
+        </Button>
         {step.found.methods.includes("sign_in_link") && (
-          <button type="button" onClick={() => void sendLink()} className="text-ui underline">
+          <Button variant="ghost" onClick={() => void sendLink()}>
             Email me a sign-in link instead
-          </button>
+          </Button>
         )}
         {failed && <p className="text-ui text-danger">{failureText(limited)}</p>}
       </main>
@@ -113,9 +110,9 @@ export function EmailSignIn({
           className="rounded-control border px-2 py-1"
         />
       </label>
-      <button type="submit" className="rounded-control bg-primary px-3 py-1.5 text-on-primary">
+      <Button variant="primary" type="submit">
         Continue
-      </button>
+      </Button>
       {ssoFailed && !failed && (
         <p role="alert" className="text-ui text-danger">
           {ssoRefusalText(ssoReason)}

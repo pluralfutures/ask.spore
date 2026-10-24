@@ -58,7 +58,8 @@
     "18-content-takedowns": ["region"],
     "19-content-sites": ["region"],
     "19b-content-site-detail": ["region"],
-    "20-content-tags": ["region"]
+    "20-content-tags": ["region"],
+    "21-ui-gallery": ["region"]
   },
   "overflowAt390": {
     "06-conversations": 768,

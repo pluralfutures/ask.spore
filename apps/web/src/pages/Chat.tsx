@@ -11,6 +11,8 @@ import { NO_HISTORY_NOTE, sameChoice } from "../lib/noHistory";
 import { CitationPanel } from "../components/CitationPanel";
 import { ConversationHeader } from "../components/ConversationHeader";
 import type { StartState } from "./NewConversation";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
 
 interface Live {
   question: string;
@@ -168,7 +170,7 @@ export function Chat() {
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <main className="mx-auto flex w-full max-w-3xl min-w-0 flex-1 flex-col p-4">
         <header className="mb-4">
-          <Link to="/" className="text-ui underline">
+          <Link to="/" className={`text-ui ${LINK}`}>
             ← Conversations
           </Link>
           <h1 className="text-heading font-strong">
@@ -265,21 +267,13 @@ export function Chat() {
             className="flex-1 rounded-control border px-2 py-1"
           />
           {busy ? (
-            <button
-              type="button"
-              onClick={stop}
-              className="rounded-control border border-primary px-3 py-1.5 text-primary"
-            >
+            <Button variant="secondary" onClick={stop}>
               Stop
-            </button>
+            </Button>
           ) : (
-            <button
-              type="submit"
-              disabled={!question.trim()}
-              className="rounded-control bg-primary px-3 py-1.5 text-on-primary disabled:opacity-50"
-            >
+            <Button variant="primary" type="submit" disabled={!question.trim()}>
               Ask
-            </button>
+            </Button>
           )}
         </form>
       </main>

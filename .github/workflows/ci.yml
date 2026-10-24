@@ -113,6 +113,8 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - name: The component gallery is left out of the production build (UX-06)
+        run: pnpm build && ! grep -rqF ui-gallery dist
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
 

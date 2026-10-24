@@ -121,7 +121,7 @@ Each component is built once in `apps/web/src/ui/` and used everywhere. Behaviou
 | **Feedback** | Two buttons with thumb up/down outline icons and their existing names ("Helpful", "Not helpful") as visible text on desktop, icon plus `aria-label` on phone; pressed state uses accent. |
 | **RetentionIndicator** | Clock icon + today's text ("Expires 18 Nov 2026", or the no-history note) in the conversation header and list rows. Same words, now with an icon and a consistent place. |
 
-Icons: one outline icon set at 16/20 px, 1.5 px stroke (for example Lucide, MIT, bundled, not fetched). Every icon-only control has an `aria-label`.
+Icons: one outline icon set at 16/20 px, 1.5 px stroke (for example Lucide, ISC, bundled, not fetched). Every icon-only control has an `aria-label`.
 
 ## What stays exactly as it is
 

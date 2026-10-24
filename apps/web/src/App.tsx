@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import {
@@ -27,10 +27,16 @@ import { ContentConsole } from "./pages/content/ContentConsole";
 import { OperatorTenant } from "./pages/OperatorTenant";
 import { TenantAdmin } from "./pages/TenantAdmin";
 import { WorkspaceFiles } from "./pages/WorkspaceFiles";
+import { Button } from "./ui/Button";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
+
+// UX-06: the development-only component gallery. `import.meta.env.DEV` is false in a
+// production build, so neither the route nor the gallery's code is included there.
+const Gallery = import.meta.env.DEV ? lazy(() => import("./ui/Gallery")) : null;
+export const GALLERY_PATH = "/_ui";
 
 // The emailed link's landing page (P1a-02); the token is in the fragment.
 export const FINISH_PATH = "/auth/finish";
@@ -119,20 +125,27 @@ export function App({ initialMode = null }: { initialMode?: AuthMode | null } = 
   }, []);
 
   let body: React.ReactNode;
-  if (path === FINISH_PATH) {
+  if (Gallery && path === GALLERY_PATH) {
+    body = (
+      <Suspense fallback={null}>
+        <Gallery />
+      </Suspense>
+    );
+  } else if (path === FINISH_PATH) {
     body = <FinishSignIn onSignedIn={() => window.location.assign("/")} />;
   } else if (mode === null || (mode === "oidc" && signedIn === null)) {
     body = <p className="mx-auto mt-16 text-ui">Loading…</p>;
   } else if (mode === "oidc") {
     body = signedIn ? (
       <Signed>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mx-auto mb-4"
           onClick={() => void signOut().then(() => setSignedIn(false))}
-          className="mx-auto mb-4 text-ui underline"
         >
           Sign out
-        </button>
+        </Button>
       </Signed>
     ) : (
       <EmailSignIn ssoFailed={ssoFailed()} ssoReason={ssoReason()} />

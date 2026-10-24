@@ -6,6 +6,7 @@ import { contentApi, type SourceFilters } from "../../api/client";
 import type { ContentSource } from "../../api/types";
 import { SOURCE_STATUSES, SOURCE_TYPES, errorMessage } from "../../lib/content";
 import { formatDate } from "../../lib/format";
+import { LINK } from "../../ui/link";
 
 // The source register with filters by status, tag, type and publisher (P1b-05).
 export function Register() {
@@ -94,7 +95,7 @@ export function SourceTable({ sources }: { sources: ContentSource[] }) {
         {sources.map((source) => (
           <tr key={source.id} className="border-b align-top">
             <td className="p-2">
-              <Link to={`/content/sources/${source.id}`} className="underline">
+              <Link to={`/content/sources/${source.id}`} className={LINK}>
                 {source.title}
               </Link>
               {source.possible_replacement ? (

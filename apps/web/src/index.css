@@ -116,6 +116,7 @@
 
   /* Actions and links: the one accent */
   --color-primary: #2e5bba; /* 6.3:1; white on it 6.3:1 */
+  --color-primary-hover: #244a9a; /* white on it 8.3:1 */
   --color-on-primary: #ffffff;
   --color-link: #2e5bba;
   --color-selected: #2e5bba;

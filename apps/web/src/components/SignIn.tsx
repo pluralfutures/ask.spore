@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 
 import { saveCredentials, type Credentials } from "../api/client";
+import { Button } from "../ui/Button";
 
 // PHASE 0 ONLY: shared token + seeded email (P0-06). Replaced by Authentik in Phase 1.
 export function SignIn({ onSignedIn }: { onSignedIn: (credentials: Credentials) => void }) {
@@ -39,9 +40,9 @@ export function SignIn({ onSignedIn }: { onSignedIn: (credentials: Credentials) 
           className="rounded-control border px-2 py-1"
         />
       </label>
-      <button type="submit" className="rounded-control bg-primary px-3 py-1.5 text-on-primary">
+      <Button variant="primary" type="submit">
         Sign in
-      </button>
+      </Button>
     </form>
   );
 }

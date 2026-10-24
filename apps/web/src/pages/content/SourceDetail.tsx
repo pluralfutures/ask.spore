@@ -6,6 +6,8 @@ import { contentApi } from "../../api/client";
 import type { ContentSourceDetail, SourceRef } from "../../api/types";
 import { canEdit, canReview, errorMessage, historyLine, timerText } from "../../lib/content";
 import { formatDate } from "../../lib/format";
+import { Button } from "../../ui/Button";
+import { LINK } from "../../ui/link";
 
 // One source: its register metadata, history, jobs, ingestion status and errors, the
 // licence file, links to its documents in the private RAGFlow UI, and the reviewer's
@@ -45,19 +47,14 @@ export function SourceSummary({ source }: { source: ContentSourceDetail }) {
       {source.canonical_url ? (
         <p>
           Canonical link:{" "}
-          <a
-            href={source.canonical_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
+          <a href={source.canonical_url} target="_blank" rel="noopener noreferrer" className={LINK}>
             {source.canonical_url}
           </a>
         </p>
       ) : null}
       {source.licence_file ? (
         <p>
-          <a href={contentApi.licenceUrl(source.id)} className="underline">
+          <a href={contentApi.licenceUrl(source.id)} className={LINK}>
             Licence or permission letter
           </a>
         </p>
@@ -107,12 +104,7 @@ export function SourceRecord({ source }: { source: ContentSourceDetail }) {
             <li key={d.dataset_id}>
               {d.tag}:{" "}
               {d.ragflow_url ? (
-                <a
-                  href={d.ragflow_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
+                <a href={d.ragflow_url} target="_blank" rel="noopener noreferrer" className={LINK}>
                   chunks in the RAGFlow UI
                 </a>
               ) : (
@@ -206,33 +198,27 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
             />
           </label>
           <div className="flex gap-2">
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={() => approve.mutate()}
               disabled={approve.isPending || (source.possible_replacements.length > 0 && !choice)}
-              className="rounded-control bg-primary px-3 py-1 text-on-primary disabled:opacity-50"
             >
               Approve
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => reject.mutate()}
               disabled={reject.isPending || !note.trim()}
-              className="rounded-control border px-3 py-1 disabled:opacity-50"
             >
               Reject
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
       {source.status === "failed" ? (
-        <button
-          type="button"
-          onClick={() => retry.mutate()}
-          className="w-fit rounded-control border px-3 py-1"
-        >
+        <Button variant="secondary" className="w-fit" onClick={() => retry.mutate()}>
           Retry ingestion
-        </button>
+        </Button>
       ) : null}
       {source.status === "ingested" || source.status === "failed" ? (
         <div className="flex flex-wrap items-end gap-2">
@@ -244,26 +230,25 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
               className="border px-1"
             />
           </label>
-          <button
-            type="button"
+          <Button
+            variant="secondary-danger"
             onClick={() => withdraw.mutate()}
             disabled={withdraw.isPending || !reason.trim()}
-            className="rounded-control border border-danger px-3 py-1 text-danger disabled:opacity-50"
           >
             Withdraw everywhere
-          </button>
+          </Button>
         </div>
       ) : null}
       {source.status === "withdrawn" && source.site_id ? (
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            className="w-fit"
             onClick={() => restore.mutate()}
             disabled={restore.isPending || restore.isSuccess}
-            className="w-fit rounded-control border px-3 py-1 disabled:opacity-50"
           >
             Restore page
-          </button>
+          </Button>
           <span className="text-fg-muted">
             {restore.isSuccess
               ? "Restored: the next crawl of the site takes it again."
@@ -372,13 +357,9 @@ function TakedownForm({ id }: { id: string }) {
         />{" "}
         On licence grounds
       </label>
-      <button
-        type="submit"
-        disabled={record.isPending}
-        className="rounded-control border px-3 py-1"
-      >
+      <Button variant="secondary" type="submit" disabled={record.isPending}>
         Record
-      </button>
+      </Button>
       {errorMessage(record.error) ? (
         <p className="w-full text-danger">{errorMessage(record.error)}</p>
       ) : null}
@@ -403,14 +384,13 @@ function LicenceUpload({ id }: { id: string }) {
         Licence or permission letter (PDF, DOCX, TXT, EML, image)
         <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         onClick={() => upload.mutate()}
         disabled={!file || upload.isPending}
-        className="rounded-control border px-3 py-1 disabled:opacity-50"
       >
         Attach
-      </button>
+      </Button>
       {errorMessage(upload.error) ? (
         <p className="text-danger">{errorMessage(upload.error)}</p>
       ) : null}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { AdminUser } from "../api/types";
+import { Button } from "../ui/Button";
 
 // P1c-07: "Resend invitation" for a user still invited, and "Remove" with a confirmation
 // in place (the user's account data and history are deleted; the audit trail stays).
@@ -25,34 +26,34 @@ export function UserActions({
     return (
       <span className="flex flex-wrap items-center gap-2" role="group" aria-label="Confirm removal">
         <span>Remove {user.email} and delete their conversations?</span>
-        <button
-          type="button"
+        <Button
+          variant="danger"
+          size="sm"
           disabled={busy}
-          className="rounded-control bg-danger px-2 text-on-danger disabled:opacity-50"
           onClick={() => {
             setConfirming(false);
             onRemove();
           }}
         >
           Remove {user.email}
-        </button>
-        <button type="button" className="underline" onClick={() => setConfirming(false)}>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
           Cancel
-        </button>
+        </Button>
       </span>
     );
   }
   return (
     <span className="flex flex-wrap gap-2">
       {canResend ? (
-        <button type="button" disabled={busy} className="underline" onClick={onResend}>
+        <Button variant="ghost" size="sm" disabled={busy} onClick={onResend}>
           Resend invitation
-        </button>
+        </Button>
       ) : null}
       {canRemove ? (
-        <button type="button" className="underline" onClick={() => setConfirming(true)}>
+        <Button variant="ghost-danger" size="sm" onClick={() => setConfirming(true)}>
           Remove
-        </button>
+        </Button>
       ) : null}
     </span>
   );

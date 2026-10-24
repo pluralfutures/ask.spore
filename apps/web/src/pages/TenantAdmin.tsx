@@ -18,6 +18,8 @@ import { UserActions } from "../components/UserActions";
 import { formatDate } from "../lib/format";
 import { policySummary } from "../lib/sso";
 import { modelLabel } from "../lib/startPanel";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
 
 function refusal(error: unknown): string | null {
   if (error === null || error === undefined) return null;
@@ -44,7 +46,7 @@ export function TenantAdmin() {
   return (
     <AdminGate me={me.data}>
       <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
-        <Link to="/" className="text-ui underline">
+        <Link to="/" className={`text-ui ${LINK}`}>
           ← Conversations
         </Link>
         <h1 className="text-title font-strong">Administration</h1>
@@ -183,22 +185,14 @@ function UserRow({
       <td>{lastLogin(user)}</td>
       <td>
         {actions.canDeactivate ? (
-          <button
-            type="button"
-            className="underline"
-            onClick={() => onChange({ status: "deactivated" })}
-          >
+          <Button variant="ghost" size="sm" onClick={() => onChange({ status: "deactivated" })}>
             Deactivate
-          </button>
+          </Button>
         ) : null}
         {actions.canReactivate ? (
-          <button
-            type="button"
-            className="underline"
-            onClick={() => onChange({ status: "active" })}
-          >
+          <Button variant="ghost" size="sm" onClick={() => onChange({ status: "active" })}>
             Reactivate
-          </button>
+          </Button>
         ) : null}
         <UserActions
           user={user}
@@ -257,13 +251,13 @@ function Invite({ onInvited, onStart }: { onInvited: () => void; onStart: () => 
           <option value="tenant_admin">Admin</option>
         </select>
       </label>
-      <button
+      <Button
+        variant="primary"
         type="submit"
         disabled={invite.isPending || !email.trim() || !name.trim()}
-        className="rounded-control bg-primary px-3 py-1 text-on-primary disabled:opacity-50"
       >
         Invite
-      </button>
+      </Button>
       {invite.isSuccess ? (
         <p className="w-full text-fg-muted">
           Invited. They sign in by requesting a link on the sign-in page.
@@ -384,13 +378,9 @@ function Defaults({
         />
         Reasoning by default
       </label>
-      <button
-        type="submit"
-        disabled={save.isPending}
-        className="rounded-control bg-primary px-3 py-1 text-on-primary"
-      >
+      <Button variant="primary" type="submit" disabled={save.isPending}>
         Save defaults
-      </button>
+      </Button>
       {save.isSuccess ? <span className="text-fg-muted">Saved.</span> : null}
       {refusal(save.error) ? <p className="w-full text-danger">{refusal(save.error)}</p> : null}
     </form>
@@ -439,14 +429,13 @@ function Instructions({ workspace }: { workspace: Workspace }) {
         className="rounded-control border px-2 py-1"
       />
       <div className="flex items-center gap-2">
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={() => save.mutate(text)}
           disabled={save.isPending || draft === null}
-          className="rounded-control bg-primary px-3 py-1 text-on-primary disabled:opacity-50"
         >
           Save as new version
-        </button>
+        </Button>
         <span className="text-fg-muted">
           {text.length} / {MAX_INSTRUCTIONS_CHARS}
         </span>
@@ -562,13 +551,9 @@ function Retention() {
             className="w-20 rounded-control border px-2"
           />
         </label>
-        <button
-          type="submit"
-          disabled={save.isPending}
-          className="rounded-control bg-primary px-3 py-1 text-on-primary"
-        >
+        <Button variant="primary" type="submit" disabled={save.isPending}>
           Save retention
-        </button>
+        </Button>
       </form>
       {error ? <p className="text-danger">{error}</p> : null}
       {refusal(save.error) ? <p className="text-danger">{refusal(save.error)}</p> : null}
@@ -595,14 +580,14 @@ function AuditLog() {
       <p className="text-fg-muted">
         Sign-in, administration, operator and notice-acceptance events of the last 90 days, as CSV.
       </p>
-      <button
-        type="button"
+      <Button
+        variant="primary"
+        className="mt-2"
         disabled={download.isPending}
         onClick={() => download.mutate()}
-        className="mt-2 rounded-control bg-primary px-3 py-1 text-on-primary"
       >
         Download audit log
-      </button>
+      </Button>
       {refusal(download.error) ? <p className="text-danger">{refusal(download.error)}</p> : null}
     </section>
   );

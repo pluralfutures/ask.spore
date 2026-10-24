@@ -1,6 +1,10 @@
+import { X } from "lucide-react";
+
 import type { Citation } from "../api/types";
 import { CITATION_STATUS_NOTE, EXCERPT_REMOVED_NOTE, citationStatus } from "../lib/citations";
 import { formatDate, pageLabel } from "../lib/format";
+import { IconButton } from "../ui/IconButton";
+import { LINK } from "../ui/link";
 
 interface Props {
   citations: Citation[];
@@ -16,9 +20,7 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
     >
       <div className="mb-3 flex items-center justify-between">
         <h2 className="font-strong">Sources</h2>
-        <button type="button" onClick={onClose} className="text-ui underline">
-          Close
-        </button>
+        <IconButton label="Close" icon={X} size="sm" onClick={onClose} />
       </div>
       <ol className="space-y-3">
         {citations.map((c) => {
@@ -66,7 +68,7 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
                   href={c.canonical_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-block text-link underline"
+                  className={`mt-2 inline-block ${LINK}`}
                 >
                   View at source
                 </a>

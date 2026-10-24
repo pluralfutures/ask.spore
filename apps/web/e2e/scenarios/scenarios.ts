@@ -339,4 +339,6 @@ export const SCENARIOS: Scenario[] = [
   { name: "19-content-sites", url: "/content/sites" },
   { name: "19b-content-site-detail", url: `/content/sites/${F.SITE_ID}` },
   { name: "20-content-tags", url: "/content/tags" },
+  // UX-06: the development-only component gallery.
+  { name: "21-ui-gallery", url: "/_ui" },
 ];

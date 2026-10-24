@@ -13,6 +13,8 @@ import {
   parsePatterns,
 } from "../../lib/content";
 import { formatDate } from "../../lib/format";
+import { Button } from "../../ui/Button";
+import { LINK } from "../../ui/link";
 
 // One site (P1b-04, P1b-05): its settings, allow decision and last crawl, every page a
 // crawl met (blocked ones with the reason), and the reviewer's actions: approve or
@@ -32,14 +34,9 @@ export function SiteDetail({ roles }: { roles: string[] }) {
       <SiteSummary site={data} />
       {data.status === "approved" ? (
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => crawl.mutate()}
-            disabled={crawl.isPending}
-            className="rounded-control border px-3 py-1"
-          >
+          <Button variant="secondary" onClick={() => crawl.mutate()} disabled={crawl.isPending}>
             Crawl now
-          </button>
+          </Button>
           {crawl.data ? <span>Queued.</span> : null}
           {errorMessage(crawl.error) ? (
             <span className="text-danger">{errorMessage(crawl.error)}</span>
@@ -109,7 +106,7 @@ export function PageTable({ pages }: { pages: SitePage[] }) {
           <tr key={page.url} className="border-b">
             <td className="p-2 break-all">
               {page.source_id ? (
-                <Link to={`/content/sources/${page.source_id}`} className="underline">
+                <Link to={`/content/sources/${page.source_id}`} className={LINK}>
                   {page.url}
                 </Link>
               ) : (
@@ -179,21 +176,12 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
             Note (required to reject)
             <input value={note} onChange={(e) => setNote(e.target.value)} className="border px-1" />
           </label>
-          <button
-            type="button"
-            onClick={() => approve.mutate()}
-            className="rounded-control bg-primary px-3 py-1 text-on-primary"
-          >
+          <Button variant="primary" onClick={() => approve.mutate()}>
             Approve and crawl
-          </button>
-          <button
-            type="button"
-            onClick={() => reject.mutate()}
-            disabled={!note.trim()}
-            className="rounded-control border px-3 py-1 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="secondary" onClick={() => reject.mutate()} disabled={!note.trim()}>
             Reject
-          </button>
+          </Button>
         </div>
       ) : null}
       {site.status === "approved" ? (
@@ -244,13 +232,9 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
               className="border px-1"
             />
           </label>
-          <button
-            type="button"
-            onClick={() => save.mutate()}
-            className="w-fit rounded-control border px-3 py-1"
-          >
+          <Button variant="secondary" className="w-fit" onClick={() => save.mutate()}>
             Save settings
-          </button>
+          </Button>
           <span />
           <label className="flex flex-col">
             Special-category whitelist (paths, one per line, e.g. /health/*)
@@ -260,13 +244,13 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
               className="border p-1"
             />
           </label>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            className="w-fit self-end"
             onClick={() => saveWhitelist.mutate()}
-            className="w-fit self-end rounded-control border px-3 py-1"
           >
             Save whitelist
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>
@@ -291,14 +275,9 @@ export function WithdrawSite({
         Reason for withdrawing the site
         <input value={reason} onChange={(e) => onReason(e.target.value)} className="border px-1" />
       </label>
-      <button
-        type="button"
-        onClick={onWithdraw}
-        disabled={pending || !reason.trim()}
-        className="rounded-control border border-danger px-3 py-1 text-danger disabled:opacity-50"
-      >
+      <Button variant="secondary-danger" onClick={onWithdraw} disabled={pending || !reason.trim()}>
         Withdraw site
-      </button>
+      </Button>
       <span className="text-fg-muted">
         Every page leaves every dataset, and the site is never crawled again.
       </span>

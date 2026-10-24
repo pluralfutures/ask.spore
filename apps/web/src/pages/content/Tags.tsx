@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { contentApi } from "../../api/client";
 import type { ContentTag } from "../../api/types";
 import { canReview, errorMessage } from "../../lib/content";
+import { Button } from "../../ui/Button";
+import { LINK } from "../../ui/link";
 
 // Tag management (P1b-05): the tags of config/tags.toml and their RAGFlow datasets.
 // Tags are edited in that file (a reviewed change); the page shows the mapping and a
@@ -21,14 +23,14 @@ export function Tags({ roles }: { roles: string[] }) {
         RAGFlow.
       </p>
       {canReview(roles) ? (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          className="w-fit"
           onClick={() => sync.mutate()}
           disabled={sync.isPending}
-          className="w-fit rounded-control border px-3 py-1"
         >
           Sync datasets
-        </button>
+        </Button>
       ) : null}
       {sync.data ? (
         <p data-testid="sync-result">{sync.data.map((r) => `${r.tag}: ${r.status}`).join(" · ")}</p>
@@ -68,7 +70,7 @@ export function TagTable({ tags }: { tags: ContentTag[] }) {
                   href={tag.ragflow_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline"
+                  className={LINK}
                 >
                   {tag.dataset_id}
                 </a>

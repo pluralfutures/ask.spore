@@ -5,6 +5,8 @@ import { Link } from "react-router-dom";
 import { ApiError, operatorApi } from "../api/client";
 import { SaveStatus } from "../components/SaveStatus";
 import { formatDate } from "../lib/format";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
 
 // Operator console (P1a-03), one tenant per page (P1b-12): this page picks the tenant and
 // creates new ones; each tenant's settings are on its own page (OperatorTenant), so a
@@ -23,7 +25,7 @@ export function OperatorConsole() {
       <div className="flex items-center justify-between">
         <h1 className="text-title font-strong">Operator console</h1>
         {/* P1c-08: every operator is also a user of the internal tenant. */}
-        <Link to="/" className="text-ui underline">
+        <Link to="/" className={`text-ui ${LINK}`}>
           Chat app
         </Link>
       </div>
@@ -32,7 +34,7 @@ export function OperatorConsole() {
         <ul className="flex flex-col gap-1">
           {tenants.data?.map((tenant) => (
             <li key={tenant.id}>
-              <Link to={`/operator/tenants/${tenant.id}`} className="underline">
+              <Link to={`/operator/tenants/${tenant.id}`} className={LINK}>
                 {tenant.display_name}
               </Link>{" "}
               <span className="text-fg-subtle">
@@ -42,7 +44,7 @@ export function OperatorConsole() {
           ))}
         </ul>
         <p className="mt-2">
-          <Link to="/operator/aggregates" className="underline">
+          <Link to="/operator/aggregates" className={LINK}>
             Totals across tenants
           </Link>
         </p>
@@ -187,9 +189,9 @@ function CreateTenant() {
           className="border px-1"
         />
       </label>
-      <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
+      <Button variant="primary" type="submit">
         Create
-      </button>
+      </Button>
       <SaveStatus isSuccess={create.isSuccess} error={create.error} savedText="Tenant created." />
     </form>
   );

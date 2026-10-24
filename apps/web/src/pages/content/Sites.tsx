@@ -12,6 +12,8 @@ import {
   parsePatterns,
 } from "../../lib/content";
 import { formatDate } from "../../lib/format";
+import { Button } from "../../ui/Button";
+import { LINK } from "../../ui/link";
 
 // Sites (P1b-04, P1b-05): registered websites, their crawl state, and the editor's form
 // to register one for a reviewer to approve.
@@ -47,7 +49,7 @@ export function SiteTable({ sites }: { sites: ContentSite[] }) {
         {sites.map((site) => (
           <tr key={site.id} className="border-b">
             <td className="p-2">
-              <Link to={`/content/sites/${site.id}`} className="underline">
+              <Link to={`/content/sites/${site.id}`} className={LINK}>
                 {site.name}
               </Link>{" "}
               <span className="text-fg-subtle">{site.host}</span>
@@ -172,13 +174,9 @@ function RegisterSite() {
         </select>
       </label>
       <label className="flex flex-col">Page budget{input("max_pages")}</label>
-      <button
-        type="submit"
-        disabled={create.isPending}
-        className="w-fit rounded-control bg-primary px-3 py-1 text-on-primary"
-      >
+      <Button variant="primary" className="w-fit" type="submit" disabled={create.isPending}>
         Register
-      </button>
+      </Button>
       {errorMessage(create.error) ? (
         <p className="text-danger">{errorMessage(create.error)}</p>
       ) : null}

@@ -30,6 +30,8 @@ import {
 } from "../lib/sso";
 import { OperatorsOnly } from "./OperatorConsole";
 import { PolicySummary } from "./TenantAdmin";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
 
 const TAB_LABELS: Record<TenantTab, string> = {
   entitlements: "Entitlements",
@@ -66,10 +68,10 @@ function TenantPage({ tenantId }: { tenantId: string }) {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-ui">
       <p className="flex gap-4">
-        <Link to="/operator" className="underline">
+        <Link to="/operator" className={LINK}>
           Operator console
         </Link>
-        <Link to="/" className="underline">
+        <Link to="/" className={LINK}>
           Chat app
         </Link>
       </p>
@@ -217,12 +219,9 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
           </p>
         )}
       </fieldset>
-      <button
-        type="submit"
-        className="self-start rounded-control bg-primary px-3 py-1 text-on-primary"
-      >
+      <Button variant="primary" className="self-start" type="submit">
         Save entitlements for {tenant.display_name}
-      </button>
+      </Button>
       {problem ? (
         <p className="text-danger">{problem}</p>
       ) : (
@@ -268,9 +267,9 @@ function LoginPolicy({ tenant }: { tenant: TenantOut }) {
       {box("sign_in_links_enabled", "Sign-in links")}
       {box("jit_provisioning_enabled", "Create users on first SSO sign-in (verified domains)")}
       {box("admin_mfa_required", "Second factor for tenant admins")}
-      <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
+      <Button variant="primary" type="submit">
         Save login policy
-      </button>
+      </Button>
       <SaveStatus isSuccess={save.isSuccess} error={save.error} />
     </form>
   );
@@ -361,13 +360,13 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
         </label>
       )}
       <div className="flex gap-2">
-        <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
+        <Button variant="primary" type="submit">
           Save SSO source
-        </button>
+        </Button>
         {current.sso_source_kind !== "none" && (
-          <button type="button" onClick={() => remove.mutate()} className="underline">
+          <Button variant="ghost-danger" onClick={() => remove.mutate()}>
             Remove SSO source
-          </button>
+          </Button>
         )}
       </div>
       {problem ? (
@@ -439,9 +438,9 @@ function Workspaces({ tenant }: { tenant: TenantOut }) {
             className="border px-1"
           />
         </label>
-        <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
+        <Button variant="primary" type="submit">
           Add workspace
-        </button>
+        </Button>
         <SaveStatus
           isSuccess={create.isSuccess}
           error={create.error}
@@ -491,9 +490,9 @@ function WorkspaceTags({
           {shared ? <span className="text-fg-subtle"> (shared)</span> : null}
         </label>
       ))}
-      <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
+      <Button variant="primary" type="submit">
         Save tags
-      </button>
+      </Button>
       <SaveStatus isSuccess={save.isSuccess} error={save.error} />
     </form>
   );
@@ -607,9 +606,9 @@ function Users({ tenant }: { tenant: TenantOut }) {
             className="border px-1"
           />
         </label>
-        <button type="submit" className="rounded-control bg-primary px-3 py-1 text-on-primary">
+        <Button variant="primary" type="submit">
           Invite
-        </button>
+        </Button>
         {invite.isSuccess && (
           <p className="w-full">
             Invited. An invitation email is on its way; they sign in from their own browser.

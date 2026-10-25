@@ -1,7 +1,8 @@
 # Phase 2A Build Spec — Document Pause, Tenant Assurance, Promises Kept
 
-Oct 25, 2026 · Status: **Group A approved** (owner go-ahead of Oct 25, 2026: D1 to D4 taken; D5 withdrawn;
-D6 and D7 still proposed; Groups B to F await approval) · Target duration: 3–4 weeks · Starts after the UX refresh closed (UX-24, Oct 25, 2026)
+Oct 25, 2026 · Status: **Groups A to E approved for build** (owner go-ahead of Oct 25, 2026: D1 to D4 taken;
+D5 withdrawn; D6 and D7 proposed, the builders record a recommendation for the owner; Group F
+runs after integration) · Target duration: 3–4 weeks · Starts after the UX refresh closed (UX-24, Oct 25, 2026)
 
 Source decisions: the owner's selection of Oct 25, 2026 from `Phase 2 spec - ideas only.md`
 (items 1, 2.4, 2.5, 2.8, 4.1, 4.2 and the logging follow-up of the Phase 1c independent
@@ -295,8 +296,9 @@ review signed as in Phase 1c §5.2.
   file list (`infra/drills/keycloak/compose.yml`), and the credentials check's
   case-insensitive comparison with a minimum length. Not in the phase unless added here.
 
-## Session plan (proposed, as in Phase 1c decision 4)
+## Session plan (owner, Oct 25, 2026)
 
-Three parallel build sessions: Group A (after P2A-00's half-day probe, which the orchestrating
-session runs first); Groups B and C; Groups D and E. Then integration by the orchestrating
-session, then the release session (Group F).
+Three parallel build sessions, each on its own branch off `claude/inspiring-wozniak-e48a12`:
+Group A (`claude/p2a-group-a`, started by the owner on the Instance's session); Groups B and C
+(`claude/p2a-group-bc`); Groups D and E (`claude/p2a-group-de`). Then integration by the
+orchestrating session on the spec branch, then the release session (Group F).

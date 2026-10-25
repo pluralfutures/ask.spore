@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [registered address], [DPO or privacy contact name], [privacy contact email], [security contact email], [takedown contact email], [incident lead phone], [counsel name and contact], [Client], [Client incident contact], [supervisory authority], [document store], [date] |
+| Placeholders | [DPO or privacy contact name], [privacy contact email], [security contact email], [takedown contact email], [incident lead phone], [counsel name and contact], [Client], [Client incident contact], [supervisory authority], [document store], [date] |
 | To finalise, the owner must | (1) name the incident lead and deputy and fill in the contacts; (2) confirm the DPA notification window (clause 9.1, [48] hours) with counsel; (3) identify our lead [supervisory authority] and its notification form; (4) collect each client's incident contact at onboarding (`onboarding-pack.md`); (5) run the first tabletop and record it; (6) have counsel review the templates in §7. |
 
 This runbook implements `policy-incident-response.md`.
@@ -108,7 +108,7 @@ Kept at [document store]/incidents/log. One row per incident:
 
 | Field | Entry |
 | --- | --- |
-| Controller | Estefania Simon-Sasyk y Otro CB, [registered address]; contact [DPO or privacy contact name], [privacy contact email] |
+| Controller | Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain; contact [DPO or privacy contact name], [privacy contact email] |
 | Nature of the breach | Confidentiality / integrity / availability; [description] |
 | Data subjects | Categories (for example people named in corpus sources; our operators) and approximate number |
 | Records | Categories and approximate number |

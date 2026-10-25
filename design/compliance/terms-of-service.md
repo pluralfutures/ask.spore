@@ -8,12 +8,12 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: §6A (client-supplied documents: warranty, indemnity, downloads, withdrawal), with changes to §1.1, §1.2, §3.1, §6.1, §11, §13.3, §13.4 and Annex A.8, for customers that supply their own documents (P1b-19 step 1). For the test client, which supplies nothing, keep §1.2 option (a) and delete §6A and A.8. Placeholders added: [5] (working days), [secure transfer method], [max file size], [max files per batch], [indemnity cap] |
-| Placeholders | [registered address], [Client], [Client legal name], [date], [price], [currency], [term], [notice period], [liability cap], [Member State], [courts], [privacy contact email], [security contact email], [support email], [support hours], [response time], [payment days], [seats], [workspace name], [tag], [spend cap], [acceptance reference] |
+| Placeholders | [Client], [Client legal name], [date], [price], [currency], [term], [notice period], [liability cap], [Member State], [courts], [privacy contact email], [security contact email], [support email], [support hours], [response time], [payment days], [seats], [workspace name], [tag], [spend cap], [acceptance reference] |
 | To finalise, the owner must | (1) fill in the placeholders, in particular prices, liability cap, governing law and support terms; (2) decide the open points in "Notes for the owner"; (3) have counsel review, especially §8 (output disclaimer), §11 (liability) and §13 (termination); (4) attach the signed DPA (`client-dpa-draft.md`) and the order form (Annex A); (5) check every statement in Annex A against what is enabled in the operator console at signature. |
 
 ---
 
-These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, [registered address] ("**Provider**", "**we**"), and the customer named in the order form ("**Customer**"). The Agreement consists of these terms, the order form (Annex A) and the Data Processing Agreement ("**DPA**"). If they conflict: the DPA wins on data protection, then the order form, then these terms.
+These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain ("**Provider**", "**we**"), and the customer named in the order form ("**Customer**"). The Agreement consists of these terms, the order form (Annex A) and the Data Processing Agreement ("**DPA**"). If they conflict: the DPA wins on data protection, then the order form, then these terms.
 
 ## 1. The service
 
@@ -156,7 +156,7 @@ The Provider may suspend a user or the Customer, with notice where practical, if
 
 | | |
 | --- | --- |
-| Customer | [Client legal name], [registered address], company number [ ] |
+| Customer | [Client legal name], [Client address], company number [ ] |
 | Provider | Estefania Simon-Sasyk y Otro CB |
 | Start date / term | [date] / [term] |
 | Administrator(s) | [name, email] |

@@ -14,7 +14,7 @@
 This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement / Order Form] dated [date] (the "**Agreement**") between:
 
 - **[Client legal name]**, [legal form], registered at [address], company number [ ] ("**[Client]**" or the "**Controller**"); and
-- **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, registered at [address] ("**Provider**" or the "**Processor**").
+- **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, registered at Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain ("**Provider**" or the "**Processor**").
 
 ## 1. Definitions and scope
 

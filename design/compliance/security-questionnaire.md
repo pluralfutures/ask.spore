@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15): scope line and rows 4.2, 4.3, 14.1, 14.5, 15.1, 16.3 and new section 17. Use section 17 only for a client that supplies documents, and only once P1b-19 step 2 is built; until then answer "No" to 17.1. Placeholders added: [secure transfer method], [5] (working days) |
-| Placeholders | [Client], [security contact email], [privacy contact email], [support email], [number of staff], [DPO or privacy contact name], [insurance cover], [address], [name], [30] and [48] (DPA notice periods), [date] |
+| Placeholders | [Client], [security contact email], [privacy contact email], [support email], [number of staff], [DPO or privacy contact name], [insurance cover], [name], [30] and [48] (DPA notice periods), [date] |
 | To finalise, the owner must | (1) fill in the placeholders; (2) re-check every "Partial" and "No" row against the build on the day the questionnaire is sent, and update the ones that Phase 1b items have closed (each names its spec item); (3) confirm row 6.3 (encryption at rest of the Instance volumes) with Scaleway and replace "[confirm]"; (4) answer the HR rows (section 3) yourself; they are about the company, not the system; (5) keep this file as the master and copy answers into a client's own questionnaire format, never the other way round; (6) have counsel check the privacy rows (section 14) against the signed DPA. |
 
 How to read the answers: **Yes** means built and verified, with the evidence named. **Partial** means part of the control is in place; the detail says which part. **No** means not in place; where it is planned, the spec item is named. **N/A** means it does not apply to this service. Status is as of Oct 21, 2026, after the Phase 1a release (findings §10 to §12).
@@ -21,7 +21,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 
 | # | Question | Answer | Detail and evidence |
 | --- | --- | --- | --- |
-| 1.1 | Legal entity and address | — | Estefania Simon-Sasyk y Otro CB, [address] |
+| 1.1 | Legal entity and address | — | Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain |
 | 1.2 | Number of staff with access to production | — | [number of staff]. Today one person (the owner) holds the operator and content roles |
 | 1.3 | SOC 2 report available? | No | Target: SOC 2 Type II, Security and Confidentiality criteria. Observation window not yet started. Until then we provide this questionnaire, the DPA annexes and the policy set |
 | 1.4 | ISO 27001 certified? | No | Not pursued (decision Oct 17, 2026) |

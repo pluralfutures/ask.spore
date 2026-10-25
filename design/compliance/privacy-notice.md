@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted. Oct 25, 2026, **DRAFT** (P2A-10): support access described in §2 and in the audit row, as built in P2A-08 (owner note 8) |
-| Placeholders | [registered address], [DPO or privacy contact name], [privacy contact email], [security contact email], [takedown contact email], [website address], [supervisory authority], [Member State], [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
+| Placeholders | [DPO or privacy contact name], [privacy contact email], [security contact email], [takedown contact email], [website address], [supervisory authority], [Member State], [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
 | To finalise, the owner must | (1) fill in the entity, contacts and supervisory authority; (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) confirm the website and contact-form processing in §3 matches what the public website actually does (analytics, cookies); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records (the wording goes in `config/consent/<version>.md`, the version in `[consent] version` of `config/models.toml`; P1b-10, findings E1-5). |
 
 Plain text below the line is the notice.
@@ -17,7 +17,7 @@ Plain text below the line is the notice.
 
 ## About this notice
 
-SporeBot is a research assistant. It answers questions from a curated library of published reports, public websites and our own analysis, and, for some customers, documents the customer supplied for its own use, and shows the sources for every answer. It is run by **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, [registered address] ("**we**").
+SporeBot is a research assistant. It answers questions from a curated library of published reports, public websites and our own analysis, and, for some customers, documents the customer supplied for its own use, and shows the sources for every answer. It is run by **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain ("**we**").
 
 This notice explains what personal data we handle and why. It has two parts:
 
@@ -142,7 +142,7 @@ What happens to these documents: their text is split into passages and indexed, 
 
 ## Contact
 
-Estefania Simon-Sasyk y Otro CB, [registered address]
+Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain
 
 - Privacy: [privacy contact email]
 - Removal of content or personal data from our library: [takedown contact email]

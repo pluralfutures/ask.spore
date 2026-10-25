@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [DPO or privacy contact name], [takedown contact email], [date] |
+| Placeholders | [takedown contact email], [date] |
 | To finalise, the owner must | (1) confirm the purpose description in §1; (2) confirm the safeguards marked "from Phase 1b" are acceptable as planned, or hold ingestion of new crawled sites until they ship; (3) have counsel review the balancing test and the Art. 14(5)(b) reasoning; (4) sign §7 and set the review date. |
 
 ---
@@ -86,7 +86,7 @@ With the safeguards in §5, our legitimate interest in indexing published source
 | | Name | Date |
 | --- | --- | --- |
 | Owner | [ ] | [ ] |
-| DPO or privacy contact | [DPO or privacy contact name] | [ ] |
+| DPO or privacy contact | privacyanddata@myceliumgastronomy.com | [ ] |
 | Counsel reviewed | [ ] | [ ] |
 
 ## 8. Review

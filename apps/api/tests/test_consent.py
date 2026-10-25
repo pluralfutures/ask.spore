@@ -440,10 +440,10 @@ def test_the_repository_notice_v1_is_released() -> None:
     assert not notice.is_placeholder
     assert PLACEHOLDER_MARKER not in notice.summary and PLACEHOLDER_MARKER not in notice.text
     assert "Estefania Simon-Sasyk y Otro CB" in notice.text
-    assert "daniel@myceliumgastronomy.com" in notice.summary
+    assert "privacyanddata@myceliumgastronomy.com" in notice.summary
     assert "### Part A" in notice.text and "### Part B" in notice.text
     # A released version is never edited: a change is a new version file.
-    assert CONSENT_VERSION == "v1"
+    assert CONSENT_VERSION == "v2"
 
 
 @pytest.mark.parametrize(

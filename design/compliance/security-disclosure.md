@@ -85,6 +85,6 @@ hosting and model providers, whose own policies apply.
 - Content in our library: to ask for the removal of content or personal data, write to
   security@myceliumgastronomy.com (the security mailbox until a separate takedown address exists).
 
-Mycelium Gastronomy Network (trade name) for Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea 11, 20014 Donostia-San Sebastián, Guipúzcoa, Spain
+Mycelium Gastronomy Network (trade name) for Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain
 
 Last updated: 26 October 2026

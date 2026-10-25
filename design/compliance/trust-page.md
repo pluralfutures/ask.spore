@@ -71,6 +71,6 @@ The companies that process your data on our behalf are listed at [link to sub-pr
 - Security reports: security@myceliumgastronomy.com
 - Removal of content or personal data from our library (publishers and individuals): privacyanddata@myceliumgastronomy.com
 
-Mycelium Gastronomy Network (trade name) for Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea 11, 20014 Donostia-San Sebastián, Guipúzcoa, Spain
+Mycelium Gastronomy Network (trade name) for Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain
 
 Last updated: 26 October 2026

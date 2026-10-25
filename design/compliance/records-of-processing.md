@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1): C1 scope note, C9 (client declarations), and the Part 2 template row for clients that supply documents. Placeholders added: [limitation period]. Oct 25, 2026, **DRAFT** (P2A-10): time-boxed support access (P2A-08) in C4 and the Part 2 sheet |
-| Placeholders | [DPO or privacy contact name], [takedown contact email], [Client], [Client legal name], [Client address], [date], [SCC module], [document store], [representative, if any] |
+| Placeholders | [takedown contact email], [Client], [Client legal name], [Client address], [date], [SCC module], [document store], [representative, if any] |
 | To finalise, the owner must | (1) fill in the entity, contact and DPO placeholders; (2) decide whether a DPO is required (see open-questions.md) or name a privacy contact; (3) confirm the reasoning on the usage ledger in Part 1, row C5; (4) confirm the retention periods marked [confirm]; (5) add one Part 2 sheet per client at signature, starting with [Client]; (6) have counsel review; (7) review every six months and on every change to `sub-processors.md`. |
 
 ---
@@ -29,7 +29,7 @@ Where a measure is not built yet, the row says so and names the spec item.
 | | |
 | --- | --- |
 | Controller | Estefania Simon-Sasyk y Otro CB, comunidad de bienes trading as Mycelium Gastronomy Network, NIF E19824093, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain |
-| Privacy contact / DPO | [DPO or privacy contact name], privacyanddata@myceliumgastronomy.com |
+| Privacy contact / DPO | privacyanddata@myceliumgastronomy.com |
 | Takedown and data-subject requests about the corpus | [takedown contact email] |
 | Representative in the EU (Art. 27) | [representative, if any] — not needed if the entity is established in the EU |
 
@@ -179,7 +179,7 @@ One sheet per client. The first is [Client].
 | Field | Entry |
 | --- | --- |
 | Controller | [Client legal name], [Client address]; privacy contact [ ] |
-| Processor | Estefania Simon-Sasyk y Otro CB; [DPO or privacy contact name], privacyanddata@myceliumgastronomy.com |
+| Processor | Estefania Simon-Sasyk y Otro CB; privacyanddata@myceliumgastronomy.com |
 | Contract | Client DPA (`client-dpa-draft.md`), dated [date]; part of the agreement in `terms-of-service.md` |
 | Categories of processing | (1) Authenticating users with emailed sign-in links (SSO from Phase 1b, P1b-07); (2) storing questions, answers, citations and feedback for the retention period; (3) sending prompts to language models to answer; (4) serving the workspace file list and licence-gated downloads; (5) recording the audit trail of [Client]'s users and administrators; (6) applying administrators' settings (users, retention, workspace defaults, additional instructions); (7) time-boxed support access (P2A-08): on a grant by one of [Client]'s administrators, for 15 minutes to 4 hours, our operator reads the granted settings or one of that administrator's own conversations, read only; each grant and read is an audit event shown to [Client]'s administrators |
 | Data subjects | [Client]'s employees and contractors invited as users; [Client]'s administrators |

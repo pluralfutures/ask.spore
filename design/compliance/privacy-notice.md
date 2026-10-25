@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted. Oct 25, 2026, **DRAFT** (P2A-10): support access described in §2 and in the audit row, as built in P2A-08 (owner note 8) |
-| Placeholders | [DPO or privacy contact name], [security contact email], [takedown contact email], [website address], [supervisory authority], [Member State], [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
+| Placeholders | [security contact email], [takedown contact email], [website address], [supervisory authority], [Member State], [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
 | To finalise, the owner must | (1) fill in the entity, contacts and supervisory authority; (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) confirm the website and contact-form processing in §3 matches what the public website actually does (analytics, cookies); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records (the wording goes in `config/consent/<version>.md`, the version in `[consent] version` of `config/models.toml`; P1b-10, findings E1-5). |
 
 Plain text below the line is the notice.
@@ -24,7 +24,7 @@ This notice explains what personal data we handle and why. It has two parts:
 - **Part A** is for people who use SporeBot through their employer, and for people who contact us.
 - **Part B** is for people who are named or quoted in the public sources in our library (GDPR Article 14), and explains who is responsible for documents our customers supply (§13).
 
-Privacy contact: [DPO or privacy contact name], privacyanddata@myceliumgastronomy.com.
+Privacy contact: privacyanddata@myceliumgastronomy.com.
 
 Version [version], last updated [date].
 

@@ -47,6 +47,11 @@ import type {
   TenantCreateIn,
   TenantOut,
   TenantSettings,
+  OperatorSupportGrant,
+  SupportConversation,
+  SupportGrant,
+  SupportGrantIn,
+  SupportSettings,
   UsageOut,
   TenantSpend,
   TerminatedTenant,
@@ -353,6 +358,11 @@ export const adminApi = {
   },
   // P2A-05: questions, active users, cited sources and (with external models) cost.
   usage: () => json<UsageOut>("GET", "/admin/usage"),
+  // P2A-08: grant the operators a time-boxed read, list the grants, revoke one.
+  supportGrants: () => json<SupportGrant[]>("GET", "/admin/support-grants"),
+  grantSupport: (body: SupportGrantIn) => json<SupportGrant>("POST", "/admin/support-grants", body),
+  revokeSupport: (grantId: string) =>
+    json<SupportGrant>("POST", `/admin/support-grants/${grantId}/revoke`),
 };
 
 // Operator console (P1a-03). The API answers 403 to anyone who is not an operator.
@@ -370,6 +380,19 @@ export const operatorApi = {
   tenantSpend: (tenantId: string) =>
     json<TenantSpend>("GET", `/operator/tenants/${tenantId}/spend`),
   aggregates: () => json<Aggregates>("GET", "/operator/aggregates"),
+  // P2A-08: the tenant's open support grants, and the reads they allow (404 otherwise).
+  supportGrants: (tenantId: string) =>
+    json<OperatorSupportGrant[]>("GET", `/operator/tenants/${tenantId}/support-grants`),
+  supportSettings: (tenantId: string, grantId: string) =>
+    json<SupportSettings>(
+      "GET",
+      `/operator/tenants/${tenantId}/support-grants/${grantId}/settings`,
+    ),
+  supportConversation: (tenantId: string, grantId: string, conversationId: string) =>
+    json<SupportConversation>(
+      "GET",
+      `/operator/tenants/${tenantId}/support-grants/${grantId}/conversations/${conversationId}`,
+    ),
   createTenant: (body: TenantCreateIn) => json<TenantOut>("POST", "/operator/tenants", body),
   inviteAdmin: (tenantId: string, body: AdminInviteIn) =>
     json<{ user_id: string; status: "invited" }>(

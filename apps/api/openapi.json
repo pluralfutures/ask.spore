@@ -2700,6 +2700,60 @@
         "title": "OperatorSourceOut",
         "type": "object"
       },
+      "OperatorSupportGrantOut": {
+        "description": "An open grant on the operator's tenant page: what it covers and until when.",
+        "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "settings",
+              "conversation"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "conversation_id",
+          "note",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "OperatorSupportGrantOut",
+        "type": "object"
+      },
       "OperatorTagOut": {
         "description": "A tag a tenant's workspaces may use (P1b-12): its own, or shared by all tenants.",
         "properties": {
@@ -3672,6 +3726,448 @@
           "redirect_url"
         ],
         "title": "SsoStartOut",
+        "type": "object"
+      },
+      "SupportCitationOut": {
+        "properties": {
+          "canonical_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Url"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "marker": {
+            "title": "Marker",
+            "type": "integer"
+          },
+          "page_or_slide": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Or Slide"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "superseded": {
+            "title": "Superseded",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "withdrawn": {
+            "title": "Withdrawn",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "marker",
+          "title",
+          "publisher",
+          "published_on",
+          "page_or_slide",
+          "type",
+          "canonical_url",
+          "excerpt",
+          "superseded",
+          "withdrawn"
+        ],
+        "title": "SupportCitationOut",
+        "type": "object"
+      },
+      "SupportConversationOut": {
+        "description": "One granted conversation as its user sees it; no user identifier.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "grant_id": {
+            "format": "uuid",
+            "title": "Grant Id",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/SupportMessageOut"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "workspace_name": {
+            "title": "Workspace Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant_id",
+          "expires_at",
+          "title",
+          "workspace_name",
+          "mode",
+          "model",
+          "created_at",
+          "messages"
+        ],
+        "title": "SupportConversationOut",
+        "type": "object"
+      },
+      "SupportGrantIn": {
+        "additionalProperties": false,
+        "description": "A tenant admin's grant: the settings, or one of their own conversations.",
+        "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "duration_minutes": {
+            "default": 60,
+            "maximum": 240.0,
+            "minimum": 15.0,
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "settings",
+              "conversation"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "note"
+        ],
+        "title": "SupportGrantIn",
+        "type": "object"
+      },
+      "SupportGrantOut": {
+        "description": "A grant as its tenant admin sees it, with the operator's reads through it.",
+        "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "conversation_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Title"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_minutes": {
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_viewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Viewed At"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "scope": {
+            "enum": [
+              "settings",
+              "conversation"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "open",
+              "used",
+              "expired",
+              "revoked"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "views": {
+            "title": "Views",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "conversation_id",
+          "conversation_title",
+          "duration_minutes",
+          "note",
+          "created_at",
+          "expires_at",
+          "revoked_at",
+          "state",
+          "views",
+          "last_viewed_at"
+        ],
+        "title": "SupportGrantOut",
+        "type": "object"
+      },
+      "SupportMessageOut": {
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/SupportCitationOut"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "unsupported": {
+            "title": "Unsupported",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "role",
+          "content",
+          "created_at",
+          "unsupported",
+          "truncated",
+          "partial",
+          "citations"
+        ],
+        "title": "SupportMessageOut",
+        "type": "object"
+      },
+      "SupportSettingsOut": {
+        "description": "The tenant's settings a tenant admin sets, read through a ``settings`` grant.",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "grant_id": {
+            "format": "uuid",
+            "title": "Grant Id",
+            "type": "string"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "workspaces": {
+            "items": {
+              "$ref": "#/components/schemas/SupportWorkspaceOut"
+            },
+            "title": "Workspaces",
+            "type": "array"
+          }
+        },
+        "required": [
+          "grant_id",
+          "expires_at",
+          "retention_days",
+          "workspaces"
+        ],
+        "title": "SupportSettingsOut",
+        "type": "object"
+      },
+      "SupportWorkspaceOut": {
+        "properties": {
+          "default_mode": {
+            "title": "Default Mode",
+            "type": "string"
+          },
+          "default_model": {
+            "title": "Default Model",
+            "type": "string"
+          },
+          "default_reasoning": {
+            "title": "Default Reasoning",
+            "type": "boolean"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions"
+          },
+          "instructions_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions Version"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "slug",
+          "default_mode",
+          "default_model",
+          "default_reasoning",
+          "instructions_version",
+          "instructions"
+        ],
+        "title": "SupportWorkspaceOut",
         "type": "object"
       },
       "TagOut": {
@@ -4857,6 +5353,107 @@
           }
         },
         "summary": "Set Retention Days"
+      }
+    },
+    "/api/v1/admin/support-grants": {
+      "get": {
+        "description": "The tenant's support grants, newest first: state, and how often the operator read.",
+        "operationId": "get_support_grants_api_v1_admin_support_grants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SupportGrantOut"
+                  },
+                  "title": "Response Get Support Grants Api V1 Admin Support Grants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Support Grants"
+      },
+      "post": {
+        "description": "Let the operators read the settings, or one of the admin's own conversations, for\n15 minutes to 4 hours (default 1 hour). Audited; the note is never logged.",
+        "operationId": "grant_support_api_v1_admin_support_grants_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportGrantIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportGrantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grant Support"
+      }
+    },
+    "/api/v1/admin/support-grants/{grant_id}/revoke": {
+      "post": {
+        "description": "End an open grant now: the operator's next read through it is refused.",
+        "operationId": "revoke_support_api_v1_admin_support_grants__grant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportGrantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Support"
       }
     },
     "/api/v1/admin/usage": {
@@ -7360,6 +7957,161 @@
           }
         },
         "summary": "Tenant Spend"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/support-grants": {
+      "get": {
+        "description": "The tenant's open grants: what each covers and until when.",
+        "operationId": "list_open_support_grants_api_v1_operator_tenants__tenant_id__support_grants_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OperatorSupportGrantOut"
+                  },
+                  "title": "Response List Open Support Grants Api V1 Operator Tenants  Tenant Id  Support Grants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Open Support Grants"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/support-grants/{grant_id}/conversations/{conversation_id}": {
+      "get": {
+        "operationId": "read_support_conversation_api_v1_operator_tenants__tenant_id__support_grants__grant_id__conversations__conversation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportConversationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Support Conversation"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/support-grants/{grant_id}/settings": {
+      "get": {
+        "operationId": "read_support_settings_api_v1_operator_tenants__tenant_id__support_grants__grant_id__settings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Support Settings"
       }
     },
     "/api/v1/operator/tenants/{tenant_id}/tags": {

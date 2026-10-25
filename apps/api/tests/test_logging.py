@@ -47,6 +47,7 @@ def test_allow_list_matches_spec() -> None:
         "site_id",
         "template",
         "consent_version",
+        "grant_id",
         "table",
         "certificate",
         "reasoning_tokens",

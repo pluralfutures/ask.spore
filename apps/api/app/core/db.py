@@ -17,7 +17,10 @@ assume but does not inherit:
   every tenant's history and lists tenants for the answer-cache purge;
 - ``askspore_retention`` (revision 0040): the retention purge job, which lists tenants
   and then deletes expired rows tenant by tenant, with ``app.tenant_id`` set
-  (``tenant_role_session``), so RLS scopes every deletion.
+  (``tenant_role_session``), so RLS scopes every deletion;
+- ``askspore_support`` (revision 0065): the operator's reads through a tenant admin's
+  support grant (``app.support.access``), scoped to the grant's tenant, with
+  restrictive policies that show only what an open grant covers.
 """
 
 from __future__ import annotations
@@ -42,6 +45,7 @@ OPERATOR_ROLE = "askspore_operator"
 CONTENT_ROLE = "askspore_content"
 RETENTION_ROLE = "askspore_retention"
 USER_REMOVAL_ROLE = "askspore_user_removal"
+SUPPORT_ROLE = "askspore_support"
 TENANT_SETTING = "app.tenant_id"
 
 NAMING_CONVENTION = {
@@ -54,7 +58,9 @@ NAMING_CONVENTION = {
 
 
 # Roles the API may switch to inside one transaction; never built from input.
-_SET_ROLES = frozenset({AUTH_ROLE, OPERATOR_ROLE, CONTENT_ROLE, RETENTION_ROLE, USER_REMOVAL_ROLE})
+_SET_ROLES = frozenset(
+    {AUTH_ROLE, OPERATOR_ROLE, CONTENT_ROLE, RETENTION_ROLE, USER_REMOVAL_ROLE, SUPPORT_ROLE}
+)
 
 
 class Base(DeclarativeBase):

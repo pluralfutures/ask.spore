@@ -22,6 +22,9 @@ and nothing here takes a tenant ID from the request.
 - Usage (P2A-05): questions per day by mode, active users per day, the most cited
   sources and, with external models, month-to-date cost per model; counts only
   (``app.usage.dashboard``).
+- Support access (P2A-08, ``app.support.access``): grant the operators a time-boxed read
+  of the tenant's settings or one of the admin's own conversations, list the grants
+  with their state and the operator's reads, revoke one at once.
 - Audit log (architecture §7.2, P1b-10, P2A-07): a CSV download of the tenant's events
   named in the explicit allow-list ``app.audit.events.EXPORTED_EVENTS`` (sign-in, admin,
   consent, download, operator actions on the tenant's users, support access), metadata
@@ -55,6 +58,8 @@ from app.api.schemas import (
     InvitationResentOut,
     LoginPolicyOut,
     RetentionIn,
+    SupportGrantIn,
+    SupportGrantOut,
     TenantSettingsOut,
     UsageOut,
     UserChangeIn,
@@ -75,6 +80,13 @@ from app.core.db import APP_ROLE, AUTH_ROLE, role_session
 from app.core.logging import log
 from app.llm.catalogue import ModelChoice
 from app.mail.queue import enqueue_invitation
+from app.support.access import (
+    GrantRefused,
+    SupportNotFound,
+    create_grant,
+    list_grants,
+    revoke_grant,
+)
 from app.tenancy.context import RequestContext
 from app.tenancy.entitlements import ModelRefused, check_choice
 from app.tenancy.login_policy import TenantLoginPolicy
@@ -420,6 +432,68 @@ async def _settings_out(session: AsyncSession, tenant_id: UUID) -> TenantSetting
         max_retention_days=MAX_RETENTION_DAYS,
         answer_modes=list(entitlements.answer_modes) if entitlements else ["corpus_only"],
     )
+
+
+# --- support access (P2A-08) ------------------------------------------------------------
+
+
+def _grant_refused(exc: GrantRefused) -> HTTPException:
+    return _unprocessable(exc.code)
+
+
+@router.get("/support-grants", response_model=list[SupportGrantOut])
+async def get_support_grants(
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> list[SupportGrantOut]:
+    """The tenant's support grants, newest first: state, and how often the operator read."""
+    return await list_grants(session, admin.tenant_id)
+
+
+def _one(grants: list[SupportGrantOut], grant_id: UUID) -> SupportGrantOut:
+    for grant in grants:
+        if grant.id == grant_id:
+            return grant
+    raise NOT_FOUND
+
+
+@router.post("/support-grants", status_code=status.HTTP_201_CREATED, response_model=SupportGrantOut)
+async def grant_support(
+    body: SupportGrantIn,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> SupportGrantOut:
+    """Let the operators read the settings, or one of the admin's own conversations, for
+    15 minutes to 4 hours (default 1 hour). Audited; the note is never logged."""
+    try:
+        grant = await create_grant(
+            session, tenant_id=admin.tenant_id, admin_user_id=admin.user_id, body=body
+        )
+    except GrantRefused as exc:
+        raise _grant_refused(exc) from None
+    out = _one(await list_grants(session, admin.tenant_id), grant.id)
+    await session.commit()
+    return out
+
+
+@router.post("/support-grants/{grant_id}/revoke", response_model=SupportGrantOut)
+async def revoke_support(
+    grant_id: UUID,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> SupportGrantOut:
+    """End an open grant now: the operator's next read through it is refused."""
+    try:
+        grant = await revoke_grant(
+            session, tenant_id=admin.tenant_id, admin_user_id=admin.user_id, grant_id=grant_id
+        )
+    except SupportNotFound:
+        raise NOT_FOUND from None
+    except GrantRefused as exc:
+        raise _grant_refused(exc) from None
+    out = _one(await list_grants(session, admin.tenant_id), grant.id)
+    await session.commit()
+    return out
 
 
 # --- usage (P2A-05) -----------------------------------------------------------------------

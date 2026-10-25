@@ -55,12 +55,15 @@ from app.api.schemas import (
     OperatorMeOut,
     OperatorOptionsOut,
     OperatorSourceOut,
+    OperatorSupportGrantOut,
     OperatorTagOut,
     OperatorWorkspaceOut,
     ProviderTotalOut,
     SourceDownloadableIn,
     SpendThresholdOut,
     SsoSourceIn,
+    SupportConversationOut,
+    SupportSettingsOut,
     TenantCreateIn,
     TenantOut,
     TenantSpendOut,
@@ -92,6 +95,13 @@ from app.llm import catalogue
 from app.mail.queue import enqueue_invitation
 from app.operator.deps import OperatorContext, operator_session, require_operator
 from app.operator.models import OperatorNotice
+from app.support.access import (
+    SupportNotFound,
+    open_grants,
+    refused,
+    view_conversation,
+    view_settings,
+)
 from app.tenancy.entitlements import available_answer_modes, available_models, default_model
 from app.tenancy.login_policy import TenantLoginPolicy
 from app.tenancy.models import INTERNAL_TENANT_ID, Tenant, TenantEntitlements, User
@@ -1115,3 +1125,59 @@ async def set_source_downloadable(
         log("operator.source_downloadable_changed", source_id=str(source_id), status="changed")
     (out,) = [s for s in await list_sources(session) if s.id == source_id]
     return out
+
+
+# --- support access (P2A-08) -------------------------------------------------------------
+
+
+@router.get("/tenants/{tenant_id}/support-grants", response_model=list[OperatorSupportGrantOut])
+async def list_open_support_grants(
+    tenant_id: UUID, request: Request
+) -> list[OperatorSupportGrantOut]:
+    """The tenant's open grants: what each covers and until when."""
+    return await open_grants(request.app.state.db_factory, tenant_id)
+
+
+@router.get(
+    "/tenants/{tenant_id}/support-grants/{grant_id}/settings", response_model=SupportSettingsOut
+)
+async def read_support_settings(
+    tenant_id: UUID,
+    grant_id: UUID,
+    request: Request,
+    operator: OperatorContext = Depends(require_operator),
+) -> SupportSettingsOut:
+    try:
+        return await view_settings(
+            request.app.state.db_factory,
+            tenant_id=tenant_id,
+            grant_id=grant_id,
+            operator_id=operator.user_id,
+        )
+    except SupportNotFound:
+        refused(tenant_id)
+        raise NOT_FOUND from None
+
+
+@router.get(
+    "/tenants/{tenant_id}/support-grants/{grant_id}/conversations/{conversation_id}",
+    response_model=SupportConversationOut,
+)
+async def read_support_conversation(
+    tenant_id: UUID,
+    grant_id: UUID,
+    conversation_id: UUID,
+    request: Request,
+    operator: OperatorContext = Depends(require_operator),
+) -> SupportConversationOut:
+    try:
+        return await view_conversation(
+            request.app.state.db_factory,
+            tenant_id=tenant_id,
+            grant_id=grant_id,
+            conversation_id=conversation_id,
+            operator_id=operator.user_id,
+        )
+    except SupportNotFound:
+        refused(tenant_id)
+        raise NOT_FOUND from None

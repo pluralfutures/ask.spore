@@ -38,6 +38,12 @@ export type WorkspacePrompt = Schemas["WorkspacePromptOut"];
 export type TenantSettings = Schemas["TenantSettingsOut"];
 // P2A-05: the tenant admin's usage section (counts only).
 export type UsageOut = Schemas["UsageOut"];
+// P2A-08: time-boxed support access.
+export type SupportGrant = Schemas["SupportGrantOut"];
+export type SupportGrantIn = Schemas["SupportGrantIn"];
+export type OperatorSupportGrant = Schemas["OperatorSupportGrantOut"];
+export type SupportConversation = Schemas["SupportConversationOut"];
+export type SupportSettings = Schemas["SupportSettingsOut"];
 // Login policy and tenant discovery (P1b-06).
 export type DiscoverOut = Schemas["DiscoverOut"];
 export type LoginPolicyIn = Schemas["LoginPolicyIn"];

@@ -59,6 +59,8 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "template",
         # Consent gate (P1b-10): a notice version such as "v2". Never the notice text.
         "consent_version",
+        # Support access (P2A-08): which grant an operator read through. Never content.
+        "grant_id",
         # Retention purge (P1b-14): which table a count of deleted rows is for.
         "table",
         # Termination purge (P1b-14): the certificate of deletion's number.

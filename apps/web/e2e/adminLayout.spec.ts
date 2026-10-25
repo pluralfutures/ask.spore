@@ -7,7 +7,15 @@ import { SCENARIOS, VIEWPORTS } from "./scenarios/scenarios";
 // UX-18 (design/specs/ux-refresh-spec.md, mockup 3): tenant admin's section sub-nav and
 // cards per section; configuration values in monospace.
 const admin = SCENARIOS.find((s) => s.name === "11-tenant-admin")!;
-const SECTIONS = ["Users", "Usage", "Workspaces", "Chat history retention", "Sign-in", "Audit log"];
+const SECTIONS = [
+  "Users",
+  "Usage",
+  "Workspaces",
+  "Chat history retention",
+  "Sign-in",
+  "Support access",
+  "Audit log",
+];
 // P2A-06: the users heading names the active notice version.
 const HEADINGS = ["Users · notice v1", ...SECTIONS.slice(1)];
 

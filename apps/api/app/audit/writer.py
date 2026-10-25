@@ -84,6 +84,10 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "certificate_sha256",
         # Failover (P1b-17): which backup answered ("eu" or "external"), or none.
         "failover",
+        # Support access (P2A-08): which grant, its scope and length. Never its note.
+        "grant_id",
+        "scope",
+        "duration_minutes",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.

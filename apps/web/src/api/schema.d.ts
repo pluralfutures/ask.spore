@@ -89,6 +89,51 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/support-grants": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Support Grants
+     * @description The tenant's support grants, newest first: state, and how often the operator read.
+     */
+    get: operations["get_support_grants_api_v1_admin_support_grants_get"];
+    put?: never;
+    /**
+     * Grant Support
+     * @description Let the operators read the settings, or one of the admin's own conversations, for
+     *     15 minutes to 4 hours (default 1 hour). Audited; the note is never logged.
+     */
+    post: operations["grant_support_api_v1_admin_support_grants_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/support-grants/{grant_id}/revoke": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Revoke Support
+     * @description End an open grant now: the operator's next read through it is refused.
+     */
+    post: operations["revoke_support_api_v1_admin_support_grants__grant_id__revoke_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/usage": {
     parameters: {
       query?: never;
@@ -1211,6 +1256,60 @@ export interface paths {
      *     spend against the cap with the 80 and 100 percent notice thresholds (UTC month).
      */
     get: operations["tenant_spend_api_v1_operator_tenants__tenant_id__spend_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/support-grants": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Open Support Grants
+     * @description The tenant's open grants: what each covers and until when.
+     */
+    get: operations["list_open_support_grants_api_v1_operator_tenants__tenant_id__support_grants_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/support-grants/{grant_id}/conversations/{conversation_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Support Conversation */
+    get: operations["read_support_conversation_api_v1_operator_tenants__tenant_id__support_grants__grant_id__conversations__conversation_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/operator/tenants/{tenant_id}/support-grants/{grant_id}/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Support Settings */
+    get: operations["read_support_settings_api_v1_operator_tenants__tenant_id__support_grants__grant_id__settings_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2512,6 +2611,36 @@ export interface components {
       type: string;
     };
     /**
+     * OperatorSupportGrantOut
+     * @description An open grant on the operator's tenant page: what it covers and until when.
+     */
+    OperatorSupportGrantOut: {
+      /** Conversation Id */
+      conversation_id: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Note */
+      note: string;
+      /**
+       * Scope
+       * @enum {string}
+       */
+      scope: "settings" | "conversation";
+    };
+    /**
      * OperatorTagOut
      * @description A tag a tenant's workspaces may use (P1b-12): its own, or shared by all tenants.
      */
@@ -2837,6 +2966,185 @@ export interface components {
     SsoStartOut: {
       /** Redirect Url */
       redirect_url: string;
+    };
+    /** SupportCitationOut */
+    SupportCitationOut: {
+      /** Canonical Url */
+      canonical_url: string | null;
+      /** Excerpt */
+      excerpt: string;
+      /** Marker */
+      marker: number;
+      /** Page Or Slide */
+      page_or_slide: number | null;
+      /** Published On */
+      published_on: string | null;
+      /** Publisher */
+      publisher: string;
+      /** Superseded */
+      superseded: boolean;
+      /** Title */
+      title: string;
+      /** Type */
+      type: string;
+      /** Withdrawn */
+      withdrawn: boolean;
+    };
+    /**
+     * SupportConversationOut
+     * @description One granted conversation as its user sees it; no user identifier.
+     */
+    SupportConversationOut: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /**
+       * Grant Id
+       * Format: uuid
+       */
+      grant_id: string;
+      /** Messages */
+      messages: components["schemas"]["SupportMessageOut"][];
+      /** Mode */
+      mode: string;
+      /** Model */
+      model: string;
+      /** Title */
+      title: string | null;
+      /** Workspace Name */
+      workspace_name: string;
+    };
+    /**
+     * SupportGrantIn
+     * @description A tenant admin's grant: the settings, or one of their own conversations.
+     */
+    SupportGrantIn: {
+      /** Conversation Id */
+      conversation_id?: string | null;
+      /**
+       * Duration Minutes
+       * @default 60
+       */
+      duration_minutes: number;
+      /** Note */
+      note: string;
+      /**
+       * Scope
+       * @enum {string}
+       */
+      scope: "settings" | "conversation";
+    };
+    /**
+     * SupportGrantOut
+     * @description A grant as its tenant admin sees it, with the operator's reads through it.
+     */
+    SupportGrantOut: {
+      /** Conversation Id */
+      conversation_id: string | null;
+      /** Conversation Title */
+      conversation_title: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Duration Minutes */
+      duration_minutes: number;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Last Viewed At */
+      last_viewed_at: string | null;
+      /** Note */
+      note: string;
+      /** Revoked At */
+      revoked_at: string | null;
+      /**
+       * Scope
+       * @enum {string}
+       */
+      scope: "settings" | "conversation";
+      /**
+       * State
+       * @enum {string}
+       */
+      state: "open" | "used" | "expired" | "revoked";
+      /** Views */
+      views: number;
+    };
+    /** SupportMessageOut */
+    SupportMessageOut: {
+      /** Citations */
+      citations: components["schemas"]["SupportCitationOut"][];
+      /** Content */
+      content: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Partial */
+      partial: boolean;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "user" | "assistant";
+      /** Truncated */
+      truncated: boolean;
+      /** Unsupported */
+      unsupported: boolean;
+    };
+    /**
+     * SupportSettingsOut
+     * @description The tenant's settings a tenant admin sets, read through a ``settings`` grant.
+     */
+    SupportSettingsOut: {
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /**
+       * Grant Id
+       * Format: uuid
+       */
+      grant_id: string;
+      /** Retention Days */
+      retention_days: number;
+      /** Workspaces */
+      workspaces: components["schemas"]["SupportWorkspaceOut"][];
+    };
+    /** SupportWorkspaceOut */
+    SupportWorkspaceOut: {
+      /** Default Mode */
+      default_mode: string;
+      /** Default Model */
+      default_model: string;
+      /** Default Reasoning */
+      default_reasoning: boolean;
+      /** Instructions */
+      instructions: string | null;
+      /** Instructions Version */
+      instructions_version: number | null;
+      /** Name */
+      name: string;
+      /** Slug */
+      slug: string;
     };
     /**
      * TagOut
@@ -3380,6 +3688,90 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TenantSettingsOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_support_grants_api_v1_admin_support_grants_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SupportGrantOut"][];
+        };
+      };
+    };
+  };
+  grant_support_api_v1_admin_support_grants_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SupportGrantIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SupportGrantOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  revoke_support_api_v1_admin_support_grants__grant_id__revoke_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        grant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SupportGrantOut"];
         };
       };
       /** @description Validation Error */
@@ -5353,6 +5745,102 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TenantSpendOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_open_support_grants_api_v1_operator_tenants__tenant_id__support_grants_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatorSupportGrantOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_support_conversation_api_v1_operator_tenants__tenant_id__support_grants__grant_id__conversations__conversation_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+        grant_id: string;
+        conversation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SupportConversationOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_support_settings_api_v1_operator_tenants__tenant_id__support_grants__grant_id__settings_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        tenant_id: string;
+        grant_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SupportSettingsOut"];
         };
       };
       /** @description Validation Error */

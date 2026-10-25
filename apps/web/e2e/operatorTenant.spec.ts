@@ -43,3 +43,18 @@ test("the login policy is three switches and a save button", async ({ page }) =>
   await expect(page.getByRole("switch")).toHaveCount(3);
   await expect(page.getByRole("button", { name: "Save login policy" })).toBeVisible();
 });
+
+test("an open support grant is read from its own tab, read only", async ({ page }) => {
+  await openScenario(page, scenario("13-operator-tenant-entitlements"));
+  await page
+    .getByRole("navigation", { name: "Tenant settings" })
+    .getByRole("link", { name: "Support access" })
+    .click();
+  const row = page.getByTestId(/^grant-/);
+  await expect(row).toContainText("Settings");
+  await expect(row).toContainText("our answers stopped citing");
+  await row.getByRole("button", { name: "View" }).click();
+  await expect(page.getByText("Chat history retention: 14 days")).toBeVisible();
+  await expect(page.getByText(/^Instructions v2: Synthetic instructions/)).toBeVisible();
+  await expect(page.getByRole("textbox")).toHaveCount(0);
+});

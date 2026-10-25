@@ -295,6 +295,9 @@ export class FakeApi {
         body: "created_at,event,actor_user_id,metadata\n",
       });
     }
+    if (path === "/admin/support-grants") {
+      return route.fulfill({ json: method === "GET" ? [] : { detail: "not_found" } });
+    }
     if (path === "/admin/usage") {
       return route.fulfill({
         json: {

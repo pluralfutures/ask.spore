@@ -36,6 +36,9 @@
                 - link "Sign-in":
                     - /url: "#sign-in"
             - listitem:
+                - link "Support access":
+                    - /url: "#support"
+            - listitem:
                 - link "Audit log":
                     - /url: "#audit"
     - heading "Users · notice v1" [level=2]
@@ -187,6 +190,24 @@
     - term: redirect_uri
     - definition: https://sso.example.org/source/oauth/callback/synthetic-client-entra/
     - paragraph: To change single sign-on, contact the platform operator.
+    - heading "Support access" [level=2]
+    - paragraph: Let the platform operators read your settings or one of your conversations, for a limited time. They use their own account and cannot change anything.
+    - text: What they may read
+    - combobox "What they may read":
+        - option "Settings" [selected]
+        - option "One of my conversations"
+    - text: For
+    - combobox "For":
+        - option /\d+ minutes/
+        - option /\d+ minutes/
+        - option "1 hour" [selected]
+        - option "2 hours"
+        - option "4 hours"
+    - text: Note for the operator
+    - textbox "Note for the operator"
+    - paragraph: /What should they look at\? Up to \d+ characters\./
+    - button "Grant access" [disabled]
+    - paragraph: No support access has been granted.
     - heading "Audit log" [level=2]
     - paragraph: Sign-in, administration, notice-acceptance and download events, operator actions on your users, and support access, as CSV. Questions and their text are never in it.
     - text: From

@@ -764,3 +764,101 @@ class UsageOut(BaseModel):
     # Only for a tenant with the external-models entitlement; null otherwise.
     cost_month: str | None
     costs: list[UsageModelCostOut] | None
+
+
+# --- support access (P2A-08; architecture §7.4) ------------------------------------------
+
+SupportScope = Literal["settings", "conversation"]
+SupportState = Literal["open", "used", "expired", "revoked"]
+
+
+class SupportGrantIn(_In):
+    """A tenant admin's grant: the settings, or one of their own conversations."""
+
+    scope: SupportScope
+    conversation_id: UUID | None = None
+    duration_minutes: int = Field(default=60, ge=15, le=240)
+    note: str = Field(min_length=1, max_length=500)
+
+
+class SupportGrantOut(BaseModel):
+    """A grant as its tenant admin sees it, with the operator's reads through it."""
+
+    id: UUID
+    scope: SupportScope
+    conversation_id: UUID | None
+    conversation_title: str | None
+    duration_minutes: int
+    note: str
+    created_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
+    state: SupportState
+    views: int
+    last_viewed_at: datetime | None
+
+
+class OperatorSupportGrantOut(BaseModel):
+    """An open grant on the operator's tenant page: what it covers and until when."""
+
+    id: UUID
+    scope: SupportScope
+    conversation_id: UUID | None
+    note: str
+    created_at: datetime
+    expires_at: datetime
+
+
+class SupportCitationOut(BaseModel):
+    marker: int
+    title: str
+    publisher: str
+    published_on: date | None
+    page_or_slide: int | None
+    type: str
+    canonical_url: str | None
+    excerpt: str
+    superseded: bool
+    withdrawn: bool
+
+
+class SupportMessageOut(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime
+    unsupported: bool
+    truncated: bool
+    partial: bool
+    citations: list[SupportCitationOut]
+
+
+class SupportConversationOut(BaseModel):
+    """One granted conversation as its user sees it; no user identifier."""
+
+    grant_id: UUID
+    expires_at: datetime
+    title: str | None
+    workspace_name: str
+    mode: str
+    model: str
+    created_at: datetime
+    messages: list[SupportMessageOut]
+
+
+class SupportWorkspaceOut(BaseModel):
+    name: str
+    slug: str
+    default_mode: str
+    default_model: str
+    default_reasoning: bool
+    instructions_version: int | None
+    instructions: str | None
+
+
+class SupportSettingsOut(BaseModel):
+    """The tenant's settings a tenant admin sets, read through a ``settings`` grant."""
+
+    grant_id: UUID
+    expires_at: datetime
+    retention_days: int
+    workspaces: list[SupportWorkspaceOut]

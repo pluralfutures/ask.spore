@@ -300,6 +300,32 @@ export const USAGE = {
   costs: null,
 };
 
+// P2A-08: an open settings grant on the operator's tenant page (synthetic).
+export const SUPPORT_GRANT = {
+  id: "99999999-9999-4999-8999-000000000001",
+  scope: "settings",
+  conversation_id: null,
+  note: "Synthetic note: our answers stopped citing the markets reports.",
+  created_at: "2026-10-18T09:00:00Z",
+  expires_at: "2026-10-18T10:00:00Z",
+};
+export const SUPPORT_SETTINGS = {
+  grant_id: SUPPORT_GRANT.id,
+  expires_at: SUPPORT_GRANT.expires_at,
+  retention_days: 14,
+  workspaces: [
+    {
+      name: "Synthetic Markets",
+      slug: "markets",
+      default_mode: "corpus_only",
+      default_model: "eu-standard",
+      default_reasoning: false,
+      instructions_version: 2,
+      instructions: "Synthetic instructions for a business development audience.",
+    },
+  ],
+};
+
 export const LOGIN_POLICY = {
   sign_in_links_enabled: true,
   sso_source_kind: "entra",

@@ -2,7 +2,7 @@ import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { adminApi } from "../api/client";
-import type { AdminUser, Me } from "../api/types";
+import type { AdminUser, Me, SupportGrant } from "../api/types";
 import {
   auditLogQuery,
   consentStatus,
@@ -13,7 +13,7 @@ import {
   userActions,
   usersHeading,
 } from "../lib/admin";
-import { AdminGate, UsageView, VersionHistory } from "./TenantAdmin";
+import { AdminGate, SupportGrantRow, UsageView, VersionHistory } from "./TenantAdmin";
 
 // Synthetic people only (CLAUDE.md).
 const me = (role: Me["role"]): Me => ({
@@ -262,5 +262,44 @@ describe("audit export (P2A-07)", () => {
       complete: false,
       next: "2026-09-02T00:00:00+00:00|e1",
     });
+  });
+});
+
+describe("support access (P2A-08)", () => {
+  const grant: SupportGrant = {
+    id: "g1",
+    scope: "conversation",
+    conversation_id: "c1",
+    conversation_title: "Synthetic shrimp yields",
+    duration_minutes: 60,
+    note: "Synthetic note.",
+    created_at: "2026-10-25T10:00:00Z",
+    expires_at: "2026-10-25T11:00:00Z",
+    revoked_at: null,
+    state: "used",
+    views: 2,
+    last_viewed_at: "2026-10-25T10:20:00Z",
+  };
+  const row = (g: SupportGrant) =>
+    renderToString(
+      <table>
+        <tbody>
+          <SupportGrantRow grant={g} busy={false} onRevoke={() => {}} />
+        </tbody>
+      </table>,
+    );
+
+  it("shows the operator's reads and a revoke button while open", () => {
+    const html = row(grant);
+    expect(html).toContain("Conversation: Synthetic shrimp yields");
+    expect(html).toContain("Open, viewed");
+    expect(html).toContain("Viewed 2 times");
+    expect(html).toContain("Revoke now");
+  });
+
+  it("has no revoke button once expired", () => {
+    const html = row({ ...grant, state: "expired" });
+    expect(html).toContain("Expired");
+    expect(html).not.toContain("Revoke now");
   });
 });

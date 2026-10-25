@@ -2,7 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 
 import { ApiError, adminApi, api } from "../api/client";
-import type { AdminUser, LoginPolicyOut, Me, ModelOption, UsageOut, Workspace } from "../api/types";
+import type {
+  AdminUser,
+  LoginPolicyOut,
+  Me,
+  ModelOption,
+  SupportGrant,
+  UsageOut,
+  Workspace,
+} from "../api/types";
 import {
   MAX_INSTRUCTIONS_CHARS,
   MAX_RETENTION_DAYS,
@@ -17,8 +25,19 @@ import {
   usersHeading,
 } from "../lib/admin";
 import { UserActions } from "../components/UserActions";
-import { formatDate } from "../lib/format";
+import { formatDate, formatDateTime } from "../lib/format";
 import { count, euros } from "../lib/spend";
+import {
+  DEFAULT_SUPPORT_MINUTES,
+  MAX_SUPPORT_NOTE,
+  SUPPORT_DURATIONS,
+  SUPPORT_STATE_LABELS,
+  canRevoke,
+  durationLabel,
+  grantRefusal,
+  grantScope,
+  viewsLabel,
+} from "../lib/support";
 import { USAGE_MODE_LABELS, usageDays, usageModes, usageTotals } from "../lib/usage";
 import { POLICY_ROWS, policySummary } from "../lib/sso";
 import { modelLabel } from "../lib/startPanel";
@@ -70,6 +89,7 @@ export function TenantAdmin() {
             <Workspaces />
             <Retention />
             <SignInPolicy />
+            <SupportAccess />
             <AuditLog />
           </div>
         </div>
@@ -85,6 +105,7 @@ const SECTIONS = [
   ["workspaces", "Workspaces"],
   ["retention", "Chat history retention"],
   ["sign-in", "Sign-in"],
+  ["support", "Support access"],
   ["audit", "Audit log"],
 ] as const;
 const SECTION_CARD = "scroll-mt-4 text-ui";
@@ -749,6 +770,173 @@ export function UsageView({ usage }: { usage: UsageOut }) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+// P2A-08 (architecture §7.4): the operators may read the settings, or one of the admin's
+// own conversations, only while a grant made here is open. Every read is listed here and
+// in the audit log; "Revoke now" ends the access at once.
+function SupportAccess() {
+  const queryClient = useQueryClient();
+  const grants = useQuery({ queryKey: ["admin", "support"], queryFn: adminApi.supportGrants });
+  const conversations = useQuery({
+    queryKey: ["conversations"],
+    queryFn: api.listConversations,
+  });
+  const [scope, setScope] = useState<"settings" | "conversation">("settings");
+  const [conversationId, setConversationId] = useState("");
+  const [minutes, setMinutes] = useState<number>(DEFAULT_SUPPORT_MINUTES);
+  const [note, setNote] = useState("");
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin", "support"] });
+  const grant = useMutation({
+    mutationFn: () =>
+      adminApi.grantSupport({
+        scope,
+        conversation_id: scope === "conversation" ? conversationId || null : null,
+        duration_minutes: minutes,
+        note,
+      }),
+    onSuccess: async () => {
+      setNote("");
+      await refresh();
+    },
+  });
+  const revoke = useMutation({
+    mutationFn: (grantId: string) => adminApi.revokeSupport(grantId),
+    onSuccess: refresh,
+  });
+  const failed = grant.error ?? revoke.error;
+  const code = failed instanceof ApiError ? failed.code : null;
+  return (
+    <Card
+      id="support"
+      title="Support access"
+      description="Let the platform operators read your settings or one of your conversations, for a limited time. They use their own account and cannot change anything."
+      className={SECTION_CARD}
+    >
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          revoke.reset();
+          grant.mutate();
+        }}
+      >
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="What they may read">
+            <Select
+              value={scope}
+              onChange={(e) => setScope(e.target.value as "settings" | "conversation")}
+            >
+              <option value="settings">Settings</option>
+              <option value="conversation">One of my conversations</option>
+            </Select>
+          </Field>
+          {scope === "conversation" ? (
+            <Field label="Conversation">
+              <Select value={conversationId} onChange={(e) => setConversationId(e.target.value)}>
+                <option value="">Choose…</option>
+                {conversations.data?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title || `Untitled, ${formatDate(c.created_at)}`}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
+          <Field label="For">
+            <Select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
+              {SUPPORT_DURATIONS.map((m) => (
+                <option key={m} value={m}>
+                  {durationLabel(m)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <Field label="Note for the operator" help="What should they look at? Up to 500 characters.">
+          <Textarea
+            value={note}
+            maxLength={MAX_SUPPORT_NOTE}
+            rows={2}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </Field>
+        <Button
+          type="submit"
+          variant="primary"
+          className="w-fit"
+          disabled={
+            grant.isPending || !note.trim() || (scope === "conversation" && !conversationId)
+          }
+        >
+          Grant access
+        </Button>
+      </form>
+      {failed ? <Notice tone="danger">{grantRefusal(code)}</Notice> : null}
+      {grants.data && grants.data.length > 0 ? (
+        <Table>
+          <thead>
+            <tr>
+              <Th>Access to</Th>
+              <Th>Granted</Th>
+              <Th>Until</Th>
+              <Th>State</Th>
+              <Th>Operator reads</Th>
+              <ActionsTh />
+            </tr>
+          </thead>
+          <tbody>
+            {grants.data.map((g) => (
+              <SupportGrantRow
+                key={g.id}
+                grant={g}
+                busy={revoke.isPending}
+                onRevoke={() => {
+                  grant.reset();
+                  revoke.mutate(g.id);
+                }}
+              />
+            ))}
+          </tbody>
+        </Table>
+      ) : (
+        <p className="text-fg-muted">No support access has been granted.</p>
+      )}
+    </Card>
+  );
+}
+
+export function SupportGrantRow({
+  grant,
+  busy,
+  onRevoke,
+}: {
+  grant: SupportGrant;
+  busy: boolean;
+  onRevoke: () => void;
+}) {
+  return (
+    <tr data-testid={`support-${grant.id}`}>
+      <Td label="Access to" className="[overflow-wrap:anywhere]">
+        {grantScope(grant)}
+      </Td>
+      <Td label="Granted">{formatDateTime(grant.created_at)}</Td>
+      <Td label="Until">{formatDateTime(grant.revoked_at ?? grant.expires_at)}</Td>
+      <Td label="State">{SUPPORT_STATE_LABELS[grant.state]}</Td>
+      <Td label="Operator reads">
+        {grant.last_viewed_at
+          ? `${viewsLabel(grant)}, last ${formatDateTime(grant.last_viewed_at)}`
+          : viewsLabel(grant)}
+      </Td>
+      <Td className="text-right">
+        {canRevoke(grant) ? (
+          <Button variant="secondary" disabled={busy} onClick={onRevoke}>
+            Revoke now
+          </Button>
+        ) : null}
+      </Td>
+    </tr>
   );
 }
 

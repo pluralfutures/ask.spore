@@ -34,6 +34,18 @@ export function lastLogin(user: AdminUser): string {
   return method ? `${formatDate(user.last_login_at)} · ${method}` : formatDate(user.last_login_at);
 }
 
+// P2A-06: the notice version a user accepted, and whether it is the active one.
+export function consentStatus(user: AdminUser): string {
+  if (!user.consent_version) return "Not accepted";
+  return user.consent_current
+    ? `${user.consent_version} (current)`
+    : `${user.consent_version} (older notice)`;
+}
+
+export function usersHeading(noticeVersion: string | undefined): string {
+  return noticeVersion ? `Users · notice ${noticeVersion}` : "Users";
+}
+
 // An admin cannot change their own role or status, nor remove themselves (the API
 // refuses it too). P1c-07: an invitation can be sent again while the user is invited.
 export function userActions(user: AdminUser, selfEmail: string | undefined) {

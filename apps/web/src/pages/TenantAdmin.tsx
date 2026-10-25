@@ -7,11 +7,13 @@ import {
   MAX_INSTRUCTIONS_CHARS,
   MAX_RETENTION_DAYS,
   adminRefusal,
+  consentStatus,
   isTenantAdmin,
   lastLogin,
   parseRetention,
   retentionSummary,
   userActions,
+  usersHeading,
 } from "../lib/admin";
 import { UserActions } from "../components/UserActions";
 import { formatDate } from "../lib/format";
@@ -114,6 +116,8 @@ function SectionNav() {
 function Users({ selfEmail }: { selfEmail: string | undefined }) {
   const queryClient = useQueryClient();
   const users = useQuery({ queryKey: ["admin", "users"], queryFn: adminApi.users });
+  // P2A-06: the active notice version, named in the heading (the consent gate's query).
+  const notice = useQuery({ queryKey: ["consent"], queryFn: api.consent });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
   const change = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Parameters<typeof adminApi.changeUser>[1] }) =>
@@ -137,7 +141,7 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
   const failed = refusal(change.error) ?? refusal(resend.error) ?? refusal(remove.error);
 
   return (
-    <Card id="users" title="Users" className={SECTION_CARD}>
+    <Card id="users" title={usersHeading(notice.data?.version)} className={SECTION_CARD}>
       {/* Release F4: each action shows its own outcome only. An invite clears the list's
           last status; a resend or removal remounts the form, clearing its last refusal. */}
       <Invite
@@ -164,6 +168,7 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
             <Th>Role</Th>
             <Th>Status</Th>
             <Th>Last login</Th>
+            <Th>Notice</Th>
             <ActionsTh />
           </tr>
         </thead>
@@ -240,6 +245,13 @@ function UserRow({
       </Td>
       <Td label="Last login" className="sm:min-w-32">
         {lastLogin(user)}
+      </Td>
+      <Td label="Notice" className="sm:min-w-32">
+        {user.consent_current ? (
+          consentStatus(user)
+        ) : (
+          <span className="text-warning">{consentStatus(user)}</span>
+        )}
       </Td>
       <Td className="text-right">
         <UserActions

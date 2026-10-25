@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
@@ -612,6 +612,16 @@ class AdminUserOut(_Out):
     last_login_at: datetime | None
     last_login_method: str | None
     created_at: datetime
+    # P2A-06: the use and privacy notice version the user last accepted, and whether it
+    # is the active one. Admin and operator lists only; never in ``/me``.
+    consent_version: str | None
+    consent_current: bool = False
+
+    @classmethod
+    def of(cls, user: Any, active_version: str) -> AdminUserOut:
+        out = cls.model_validate(user)
+        out.consent_current = user.consent_version == active_version
+        return out
 
 
 class UserInviteIn(_In):

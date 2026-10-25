@@ -324,6 +324,36 @@ async def test_the_tenant_admin_audit_export_includes_acceptance_events(
     assert result(await plain.get("/api/v1/admin/audit-log")) == (403, "forbidden")
 
 
+# --- consent status per user (P2A-06) ---------------------------------------------------------
+
+
+async def test_a_user_on_an_older_notice_is_not_current(
+    auth: Auth,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    tenant, browser = await unconsented(auth, role="tenant_admin")
+    older = await add_user(auth.admin, tenant)  # accepted v1
+    never = await add_user(auth.admin, tenant, consent_version=None)
+    activate(auth, new_version_config(tmp_path), "v2")
+    assert (await browser.post("/api/v1/consent", json={"version": "v2"})).is_success
+    response = await browser.get("/api/v1/admin/users")
+    assert response.status_code == 200, response.text
+    rows = {u["email"]: (u["consent_version"], u["consent_current"]) for u in response.json()}
+    assert rows[older.email] == (CONSENT_VERSION, False)
+    assert rows[never.email] == (None, False)
+    assert rows[tenant.email] == ("v2", True)
+
+
+async def test_consent_status_is_not_in_the_me_body(auth: Auth) -> None:  # noqa: F811
+    tenant, browser = await unconsented(auth, role="tenant_admin")
+    await browser.post("/api/v1/consent", json={"version": CONSENT_VERSION})
+    member = await add_user(auth.admin, tenant)
+    for client in (browser, as_user(auth, member.email, tenant.id)):
+        body = (await client.get("/api/v1/me")).json()
+        assert "consent_version" not in body and "consent_current" not in body
+        assert CONSENT_VERSION not in json.dumps(body)
+
+
 # --- the consent-notice email -----------------------------------------------------------------
 
 

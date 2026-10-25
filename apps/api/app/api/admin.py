@@ -65,7 +65,7 @@ from app.audit.writer import Change, record
 from app.auth.links import normalise_email
 from app.auth.provider import ProviderError, SignInLinkProvider
 from app.chat.selection import load_entitlement
-from app.consent.gate import require_consent
+from app.consent.gate import active_version, require_consent
 from app.core import cache
 from app.core.db import APP_ROLE, AUTH_ROLE, role_session
 from app.core.logging import log
@@ -102,9 +102,13 @@ def _user_values(user: User) -> Change:
 
 
 @router.get("/users", response_model=list[AdminUserOut])
-async def list_users(session: AsyncSession = Depends(db_session)) -> list[User]:
+async def list_users(
+    request: Request, session: AsyncSession = Depends(db_session)
+) -> list[AdminUserOut]:
+    """The tenant's users, with the notice version each accepted (P2A-06)."""
     rows = await session.scalars(select(User).order_by(User.display_name, User.email))
-    return list(rows)
+    active = active_version(request)
+    return [AdminUserOut.of(user, active) for user in rows]
 
 
 @router.post("/users", status_code=status.HTTP_201_CREATED, response_model=AdminUserOut)
@@ -169,7 +173,7 @@ async def invite_user(
         metadata={"before": {}, "after": _user_values(user)},
     )
     log("tenant_admin.user_invited", tenant_id=str(admin.tenant_id), user_id=str(user.id))
-    out = AdminUserOut.model_validate(user)
+    out = AdminUserOut.of(user, active_version(request))
     await session.commit()
     return out
 
@@ -231,7 +235,7 @@ async def change_user(
             metadata={"before": before, "after": after},
         )
         log("tenant_admin.user_changed", tenant_id=str(admin.tenant_id), user_id=str(user.id))
-    out = AdminUserOut.model_validate(user)
+    out = AdminUserOut.of(user, active_version(request))
     await session.commit()
     return out
 

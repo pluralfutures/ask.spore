@@ -109,7 +109,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List Users */
+    /**
+     * List Users
+     * @description The tenant's users, with the notice version each accepted (P2A-06).
+     */
     get: operations["list_users_api_v1_admin_users_get"];
     put?: never;
     /**
@@ -1510,6 +1513,13 @@ export interface components {
     };
     /** AdminUserOut */
     AdminUserOut: {
+      /**
+       * Consent Current
+       * @default false
+       */
+      consent_current: boolean;
+      /** Consent Version */
+      consent_version: string | null;
       /**
        * Created At
        * Format: date-time

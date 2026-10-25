@@ -2,7 +2,14 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import type { AdminUser, Me } from "../api/types";
-import { lastLogin, parseRetention, retentionSummary, userActions } from "../lib/admin";
+import {
+  consentStatus,
+  lastLogin,
+  parseRetention,
+  retentionSummary,
+  userActions,
+  usersHeading,
+} from "../lib/admin";
 import { AdminGate, UsageView, VersionHistory } from "./TenantAdmin";
 
 // Synthetic people only (CLAUDE.md).
@@ -23,6 +30,8 @@ const user = (extra: Partial<AdminUser> = {}): AdminUser => ({
   last_login_at: "2026-10-18T09:00:00Z",
   last_login_method: "sign_in_link",
   created_at: "2026-10-01T09:00:00Z",
+  consent_version: "v1",
+  consent_current: true,
   ...extra,
 });
 
@@ -186,5 +195,24 @@ describe("usage section (P2A-05)", () => {
     );
     expect(html).toContain("No questions in this period.");
     expect(html).toContain("No cited sources in this period.");
+  });
+});
+
+describe("consent status per user (P2A-06)", () => {
+  it("marks a user who accepted an older notice", () => {
+    expect(consentStatus(user({ consent_version: "v1", consent_current: false }))).toBe(
+      "v1 (older notice)",
+    );
+    expect(consentStatus(user({ consent_version: "v2", consent_current: true }))).toBe(
+      "v2 (current)",
+    );
+    expect(consentStatus(user({ consent_version: null, consent_current: false }))).toBe(
+      "Not accepted",
+    );
+  });
+
+  it("names the active notice version in the heading", () => {
+    expect(usersHeading("v2")).toBe("Users · notice v2");
+    expect(usersHeading(undefined)).toBe("Users");
   });
 });

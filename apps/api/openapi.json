@@ -69,6 +69,22 @@
       },
       "AdminUserOut": {
         "properties": {
+          "consent_current": {
+            "default": false,
+            "title": "Consent Current",
+            "type": "boolean"
+          },
+          "consent_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consent Version"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -127,7 +143,8 @@
           "status",
           "last_login_at",
           "last_login_method",
-          "created_at"
+          "created_at",
+          "consent_version"
         ],
         "title": "AdminUserOut",
         "type": "object"
@@ -4827,6 +4844,7 @@
     },
     "/api/v1/admin/users": {
       "get": {
+        "description": "The tenant's users, with the notice version each accepted (P2A-06).",
         "operationId": "list_users_api_v1_admin_users_get",
         "responses": {
           "200": {

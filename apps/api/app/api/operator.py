@@ -82,6 +82,7 @@ from app.auth.sources import (
     saml_config,
     spec_for,
 )
+from app.consent.gate import active_version
 from app.content.models import Source
 from app.content.store import STORABLE_TYPES
 from app.content.tags import load_tags, tags_for_tenant
@@ -820,15 +821,16 @@ async def set_workspace_tags(
 
 @router.get("/tenants/{tenant_id}/users", response_model=list[AdminUserOut])
 async def list_tenant_users(
-    tenant_id: UUID, session: AsyncSession = Depends(operator_session)
-) -> list[User]:
+    tenant_id: UUID, request: Request, session: AsyncSession = Depends(operator_session)
+) -> list[AdminUserOut]:
     """The tenant's users, as its admin sees them (no conversation data)."""
     if await session.get(Tenant, tenant_id) is None:
         raise NOT_FOUND
     rows = await session.scalars(
         select(User).where(User.tenant_id == tenant_id).order_by(User.display_name, User.email)
     )
-    return list(rows)
+    active = active_version(request)
+    return [AdminUserOut.of(user, active) for user in rows]
 
 
 @router.post(

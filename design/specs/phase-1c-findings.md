@@ -572,7 +572,7 @@ and at **80ac763** (`ASK_SPORE_DEPLOY_VERSION=80ac763cdd63`) after the F2, F4 an
 
 ### Release status
 
-**Done, awaiting the owner's confirmation to close Phase 1c** (Oct 23, 2026): sections 0 to 7
+**Done; Phase 1c closed by the owner on Oct 25, 2026** (release Oct 23, 2026): sections 0 to 7
 run. Independent review signed, no blocker; six fixes, F1 to F6 (F1 to F5 deployed at
 80ac763cdd63 and re-checked, F6 documentation); `corpus_only/v6` not adopted (owner
 decision); the restore test moved to the backlog (owner decision); DMARC not yet collecting

@@ -773,5 +773,5 @@ the source is paused: a public page we do not host, unaffected by a pause, as sp
 One `content.refused` `not_platform` at 21:16:17, before the owner's sign-in completed (a
 console request from a session without platform roles); not a drill step.
 The first toggle of each run took about 1.1 s against about 0.1 s for the second, for a
-2-chunk document (the probe's 90 ms was for 1 chunk): a first-call cost on the API's
-RAGFlow connection, not the document size.
+2-chunk document (the probe's 90 ms was for 1 chunk): probably a first-call cost on the API's
+RAGFlow connection rather than the document size (not verified).

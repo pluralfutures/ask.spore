@@ -33,6 +33,8 @@ No visual change: the visual suite passed unchanged.
 
 ## 4. Human confirmation (about 30 minutes)
 
+*Moved to the backlog by the owner on Oct 25, 2026: not part of the UX refresh. The brief below is kept for when it is scheduled.*
+
 Someone outside the build, ideally a daily screen-reader user, on staging, with NVDA and Chrome or Firefox on Windows, or VoiceOver and Safari on a Mac. Optional: VoiceOver on an iPhone for the phone layout.
 
 Check, in this order (the first is the one the automated check cannot cover at all):

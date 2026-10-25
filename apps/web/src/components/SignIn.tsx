@@ -19,7 +19,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (credentials: Credentials) 
   }
 
   return (
-    <AuthCard>
+    <AuthCard step="Sign in">
       <form onSubmit={submit} className="flex flex-col gap-4">
         <Field label="Email">
           <Input

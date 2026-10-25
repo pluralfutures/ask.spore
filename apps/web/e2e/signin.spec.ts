@@ -41,6 +41,50 @@ for (const [width, viewport] of Object.entries(VIEWPORTS)) {
   });
 }
 
+// UX-24 (owner approval, Oct 24, 2026): each step names itself in an h2 and in the tab
+// title; moving to a later step puts focus on its heading.
+const STEPS: Record<string, string> = {
+  "01-signin-token": "Sign in",
+  "02-signin-email": "Sign in",
+  "02b-signin-email-sso-failed": "Sign in",
+  "02c-signin-email-sent": "Check your email",
+  "02d-signin-sso-choice": "Sign in",
+  "03-finish-sign-in": "Finish signing in",
+  "03b-second-factor-setup": "Set up your authenticator app",
+  "03c-second-factor-code": "Enter your code",
+};
+
+test.describe("step headings", () => {
+  test.use({ viewport: VIEWPORTS.desktop });
+
+  for (const s of SIGN_IN) {
+    test(`h2 and tab title: ${s.name}`, async ({ page }) => {
+      await openScenario(page, s);
+      const step = STEPS[s.name];
+      await expect(page.getByRole("heading", { level: 2 })).toHaveText(step);
+      await expect(page).toHaveTitle(`${step} – SporeBot`);
+    });
+  }
+
+  test("the first step leaves focus alone; the next step focuses its heading", async ({ page }) => {
+    await openScenario(
+      page,
+      SIGN_IN.find((s) => s.name === "02-signin-email")!,
+    );
+    await expect(page.getByRole("heading", { level: 2 })).not.toBeFocused();
+    await page.getByLabel("Email").fill("someone@example.org");
+    await page.getByRole("button", { name: "Continue" }).click();
+    const sent = page.getByRole("heading", { level: 2, name: "Check your email" });
+    await expect(sent).toBeFocused();
+  });
+
+  test("the code step focuses its heading after the link step", async ({ page }) => {
+    const s = SIGN_IN.find((x) => x.name === "03c-second-factor-code")!;
+    await openScenario(page, s);
+    await expect(page.getByRole("heading", { level: 2, name: "Enter your code" })).toBeFocused();
+  });
+});
+
 test.describe("second factor", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 

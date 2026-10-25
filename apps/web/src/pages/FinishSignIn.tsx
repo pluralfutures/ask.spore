@@ -59,7 +59,7 @@ export function FinishSignIn({
   }
 
   return (
-    <AuthCard>
+    <AuthCard step="Finish signing in">
       {state === "no_binding" ? (
         <p className="text-ui">
           Open this link in the same browser window where you asked for it. A link works only there,
@@ -111,7 +111,7 @@ export function SecondFactor({
   }
 
   return (
-    <AuthCard>
+    <AuthCard step={key ? "Set up your authenticator app" : "Enter your code"}>
       {key ? (
         <div className="flex flex-col gap-3 text-ui">
           <p>

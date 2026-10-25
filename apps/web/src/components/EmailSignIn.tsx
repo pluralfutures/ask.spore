@@ -76,7 +76,7 @@ export function EmailSignIn({
 
   if (step.kind === "sent") {
     return (
-      <AuthCard>
+      <AuthCard step="Check your email">
         <div className="flex items-start gap-3">
           <MailCheck aria-hidden size={24} strokeWidth={1.5} className="shrink-0 text-primary" />
           <p className="text-ui">
@@ -89,7 +89,7 @@ export function EmailSignIn({
   }
   if (step.kind === "choose") {
     return (
-      <AuthCard>
+      <AuthCard step="Sign in" stepId="choose">
         <Button variant="primary" size="lg" onClick={() => void goToSso()}>
           {ssoButtonLabel(step.found.sso_kind)}
         </Button>
@@ -103,7 +103,7 @@ export function EmailSignIn({
     );
   }
   return (
-    <AuthCard>
+    <AuthCard step="Sign in">
       <form onSubmit={submit} className="flex flex-col gap-4">
         <Field label="Email">
           <Input

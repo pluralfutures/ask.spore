@@ -35,7 +35,14 @@ export function toggle(list: string[], value: string, on: boolean): string[] {
 }
 
 // The console page's tabs, one tenant at a time (P1b-12).
-export const TENANT_TABS = ["entitlements", "login", "workspaces", "users", "spend"] as const;
+export const TENANT_TABS = [
+  "entitlements",
+  "login",
+  "workspaces",
+  "users",
+  "spend",
+  "support",
+] as const;
 export type TenantTab = (typeof TENANT_TABS)[number];
 
 export function tabFrom(value: string | null): TenantTab {

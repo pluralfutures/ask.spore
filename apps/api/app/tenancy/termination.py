@@ -11,7 +11,8 @@ force it), it
 - deletes the tenant's history (conversations, messages, citations, feedback), account
   data (users, sign-in links, SSO attempts, MFA challenges, revoked sessions), its
   workspaces and their prompts, its settings, login policy and entitlements, its
-  download records, its operator notices and the queued or finished jobs that name it;
+  download records, its support grants (P2A-08), its operator notices and the queued or
+  finished jobs that name it;
 - keeps what the offboarding pack keeps: the audit events (append-only, 12 months),
   and the usage ledger and spend notices (aggregate tokens and cost, billing records);
 - removes every answer-cache key under the tenant's prefix (``app.core.cache``), again
@@ -56,6 +57,7 @@ PURGED_TABLES: Final = (
     "messages",
     "conversations",
     "downloads",
+    "support_grants",
     "revoked_sessions",
     "sign_in_links",
     "sso_attempts",

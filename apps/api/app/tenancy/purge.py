@@ -6,7 +6,11 @@ Read-time expiry stays the first layer (every read route hides a conversation pa
 - conversations past ``expires_at``, with their messages, citations and feedback;
 - ``revoked_sessions`` rows past their token's own expiry (the token is refused anyway);
 - ``downloads`` rows older than ``[retention] downloads_days`` (owner decision of Oct 21,
-  2026: 90 days). The ``download`` audit events stay, as every audit event does.
+  2026: 90 days). The ``download`` audit events stay, as every audit event does;
+- (P2A-08) support grants past ``expires_at`` are closed, not deleted: ``closed_at`` is
+  set and ``support.grant_expired`` recorded per grant (``app.support.access``). Reads
+  already refuse an expired grant; closing it is the second layer and the record the
+  tenant admin sees.
 
 It runs as ``askspore_retention`` (revision 0040): the role lists tenant IDs, and every
 deletion runs in a transaction scoped to one tenant (``app.tenant_id``), so the
@@ -33,6 +37,7 @@ from app.chat.models import Citation, Conversation, Feedback, Message
 from app.content.jobs import Job, enqueue
 from app.core.db import RETENTION_ROLE, role_session, tenant_role_session
 from app.files.models import Download
+from app.support.access import close_expired
 from app.tenancy.models import Tenant
 from app.tenancy.retention import NO_HISTORY_WINDOW
 
@@ -49,6 +54,7 @@ class PurgeCounts:
     conversations: int = 0
     revoked_sessions: int = 0
     downloads: int = 0
+    support_grants_closed: int = 0
 
     @property
     def total(self) -> int:
@@ -86,7 +92,9 @@ def _targets(downloads_days: int) -> dict[str, tuple[Any, Any]]:
     }
 
 
-async def _purge_tenant(session: AsyncSession, downloads_days: int, dry_run: bool) -> PurgeCounts:
+async def _purge_tenant(
+    session: AsyncSession, tenant_id: uuid.UUID, downloads_days: int, dry_run: bool
+) -> PurgeCounts:
     counts: dict[str, int] = {}
     for table, (model, condition) in _targets(downloads_days).items():
         if dry_run:
@@ -98,6 +106,7 @@ async def _purge_tenant(session: AsyncSession, downloads_days: int, dry_run: boo
                 delete(model).where(condition).execution_options(synchronize_session=False)
             )
             counts[table] = int(getattr(result, "rowcount", 0) or 0)
+    counts["support_grants_closed"] = await close_expired(session, tenant_id, dry_run=dry_run)
     return PurgeCounts(**counts)
 
 
@@ -112,7 +121,7 @@ async def purge_retention(
     purged: list[TenantPurge] = []
     for tenant_id in tenant_ids:
         async with tenant_role_session(factory, RETENTION_ROLE, tenant_id) as session:
-            counts = await _purge_tenant(session, downloads_days, dry_run)
+            counts = await _purge_tenant(session, tenant_id, downloads_days, dry_run)
         purged.append(TenantPurge(tenant_id, counts))
     return purged
 

@@ -14,6 +14,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.events import AUDIT_EVENTS
 from app.audit.models import AuditEvent
 
 AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
@@ -83,6 +84,10 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "certificate_sha256",
         # Failover (P1b-17): which backup answered ("eu" or "external"), or none.
         "failover",
+        # Support access (P2A-08): which grant, its scope and length. Never its note.
+        "grant_id",
+        "scope",
+        "duration_minutes",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.
@@ -145,6 +150,10 @@ class ForbiddenAuditField(ValueError):
     """An audit event carried a key or value shape that is not allowed."""
 
 
+class UnclassifiedAuditEvent(ValueError):
+    """An event name that ``app.audit.events`` does not classify (P2A-07)."""
+
+
 def _check_value(key: str, value: object) -> None:
     values = value if isinstance(value, list) else [value]
     if len(values) > MAX_LIST_LENGTH:
@@ -186,6 +195,8 @@ async def record(
     metadata: dict[str, AuditValue],
 ) -> None:
     """Add one audit row to the session's (tenant-scoped) transaction."""
+    if event not in AUDIT_EVENTS:
+        raise UnclassifiedAuditEvent(f"audit event {event!r} is not in app.audit.events")
     _check(metadata)
     session.add(
         AuditEvent(

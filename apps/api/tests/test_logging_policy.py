@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -222,3 +223,166 @@ def test_a_fetch_error_handler_may_use_the_code_and_status(handler: str) -> None
     # Other exceptions are not this rule's business.
     other = "try:\n    pass\nexcept IngestError as exc:\n    raise SystemExit(str(exc))\n"
     assert scan_fetch_errors(other, SOMEWHERE) == []
+
+
+# --- P2A-05, P2A-08: response schemas that must carry no body ------------------------------
+# As for log fields: every field name of these responses is on an allow-list, so a new
+# field fails here until it is classified; and none of them can carry a body or a
+# per-user identifier.
+
+BODY_FIELDS = frozenset(
+    {
+        "query",
+        "question",
+        "answer",
+        "prompt",
+        "message",
+        "messages",
+        "chunk_text",
+        "excerpt",
+        "content",
+        "text",
+        "body",
+        "conversation_id",
+        "message_id",
+        "user_id",
+        "actor_user_id",
+        "email",
+        "headers",
+        "token",
+    }
+)
+
+
+def schema_fields(model: type[Any]) -> set[str]:
+    """Every property name in a pydantic model's JSON schema, nested models included."""
+    schema = model.model_json_schema()
+    names: set[str] = set()
+    for part in [schema, *schema.get("$defs", {}).values()]:
+        names |= set(part.get("properties", {}))
+    return names
+
+
+USAGE_FIELDS = frozenset(
+    {
+        "since",
+        "until",
+        "questions",
+        "active_users",
+        "top_sources",
+        "cost_month",
+        "costs",
+        "day",
+        "mode",
+        "users",
+        "title",
+        "publisher",
+        "answers",
+        "model",
+        "display_name",
+        "external",
+        "tokens_in",
+        "tokens_out",
+        "cost_cents",
+    }
+)
+
+
+def test_the_usage_response_carries_counts_only() -> None:
+    from app.api.schemas import UsageOut
+
+    fields = schema_fields(UsageOut)
+    assert fields == USAGE_FIELDS, sorted(fields ^ USAGE_FIELDS)
+    assert not USAGE_FIELDS & BODY_FIELDS
+
+
+# P2A-08: the support view. The operator reads a conversation's text through a grant;
+# none of it may reach a log line, an audit event or an exception. In the support module
+# every log() carries identifiers and codes only, every record() a literal mapping of
+# identifiers, and every raised exception a constant (or nothing).
+SUPPORT_MODULE = APP_DIR / "support" / "access.py"
+SUPPORT_LOG_FIELDS = frozenset({"level", "tenant_id", "grant_id", "status", "error_code"})
+SUPPORT_AUDIT_KEYS = frozenset(
+    {"operator_id", "grant_id", "scope", "conversation_id", "duration_minutes"}
+)
+
+
+def scan_support(source: str, path: Path) -> list[str]:
+    tree = ast.parse(source, filename=str(path))
+    violations: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            name = node.func.id if isinstance(node.func, ast.Name) else None
+            if name == "log":
+                for keyword in node.keywords:
+                    if keyword.arg not in SUPPORT_LOG_FIELDS:
+                        violations.append(f"{node.lineno}: log() field {keyword.arg!r}")
+            if name == "record":
+                metadata = next((k.value for k in node.keywords if k.arg == "metadata"), None)
+                if not isinstance(metadata, ast.Dict) or None in metadata.keys:
+                    violations.append(f"{node.lineno}: record() metadata is not a literal mapping")
+                    continue
+                for key in metadata.keys:
+                    if not (isinstance(key, ast.Constant) and key.value in SUPPORT_AUDIT_KEYS):
+                        violations.append(f"{node.lineno}: record() key {ast.unparse(key)}")  # type: ignore[arg-type]
+        if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
+            for arg in node.exc.args:
+                if not isinstance(arg, ast.Constant):
+                    violations.append(f"{node.lineno}: raise with {ast.unparse(arg)}")
+    return violations
+
+
+def test_the_support_view_logs_and_audits_identifiers_only() -> None:
+    assert scan_support(SUPPORT_MODULE.read_text(encoding="utf-8"), SUPPORT_MODULE) == []
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "log('operator.support_viewed', tenant_id=t, message=m.content)",
+        "log('operator.support_viewed', count=len(body))",
+        "await record(s, tenant_id=t, actor_user_id=None, event='e', metadata={'note': n})",
+        "await record(s, tenant_id=t, actor_user_id=None, event='e', metadata=values)",
+        "raise GrantRefused(f'bad {text}')",
+        "raise SupportNotFound(row.content)",
+    ],
+)
+def test_the_support_scan_rejects(line: str) -> None:
+    assert scan_support(f"async def f():\n    {line}\n", SUPPORT_MODULE)
+
+
+SUPPORT_GRANT_FIELDS = frozenset(
+    {
+        "id",
+        "scope",
+        "conversation_id",
+        "conversation_title",
+        "duration_minutes",
+        "note",
+        "created_at",
+        "expires_at",
+        "revoked_at",
+        "state",
+        "views",
+        "last_viewed_at",
+    }
+)
+
+
+def test_support_grant_lists_carry_no_body_and_no_user() -> None:
+    from app.api.schemas import OperatorSupportGrantOut, SupportGrantOut
+
+    for model in (SupportGrantOut, OperatorSupportGrantOut):
+        fields = schema_fields(model)
+        assert fields <= SUPPORT_GRANT_FIELDS, sorted(fields - SUPPORT_GRANT_FIELDS)
+    assert not SUPPORT_GRANT_FIELDS & (BODY_FIELDS - {"conversation_id"})
+
+
+def test_the_support_view_names_no_user() -> None:
+    """The view shows a conversation as its user sees it, never who the user is."""
+    from app.api.schemas import SupportConversationOut, SupportSettingsOut
+
+    for model in (SupportConversationOut, SupportSettingsOut):
+        fields = schema_fields(model)
+        assert not fields & {"user_id", "actor_user_id", "email", "display_name", "user"}
+        assert not fields & {"conversation_id", "message_id", "id"}

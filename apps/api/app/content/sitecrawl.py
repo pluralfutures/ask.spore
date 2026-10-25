@@ -388,7 +388,8 @@ class _Crawl:
             # A version a newer one will replace stays until that one is ingested.
             pending = {r.supersedes_id for r in rows if r.status != "withdrawn"}
             for row in rows:
-                if row.status not in ("ingested", "failed") or row.id in live | pending:
+                # P2A-03: a paused page that left the site is withdrawn like any other.
+                if row.status not in ("ingested", "paused", "failed") or row.id in live | pending:
                     continue
                 code = reasons.get(row.id)
                 reason = WITHDRAWAL_REASONS.get(code or "", EARLIER_VERSION)

@@ -19,7 +19,7 @@ import hashlib
 import re
 import time
 from collections.abc import Awaitable, Callable, Container, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Literal
@@ -34,6 +34,7 @@ from app.content.jobs import enqueue
 from app.content.models import Dataset, SitePage, Source
 from app.content.store import StoredFileError, read, relative_path
 from app.content.tags import TagConfig
+from app.content.toggle import set_enabled_everywhere
 from app.core.db import tenant_session
 from app.retrieval.ragflow import RUN_DONE, RagflowClient, RagflowDocument, RagflowError
 from app.tenancy.models import INTERNAL_TENANT_ID
@@ -121,6 +122,9 @@ class IngestResult:
     error: str | None = None
     document_ids: dict[str, str] = field(default_factory=dict)
     tags_added: tuple[str, ...] = ()  # retagged only
+    # ingested only (P2A-03): the new version inherited its predecessor's pause, so the
+    # register row is ``paused`` and its RAGFlow documents are disabled.
+    paused: bool = False
     job_id: UUID | None = None  # queued, and after waiting for the job
     seconds: float = 0.0  # the job's run time, after waiting for it
 
@@ -392,15 +396,37 @@ async def ingest_source(
             source_id=source_id, status="ingested", chunk_count=chunk_count, document_ids=uploaded
         )
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        values: dict[str, object] = {}
+        if result.status == "ingested" and row.supersedes_id is not None:
+            # P2A-03: a new version of a paused source is ingested paused, so neither a
+            # recrawl nor a re-ingestion silently resumes it. The predecessor's row is
+            # locked, so a reviewer's pause or resume of it waits for this decision.
+            predecessor = (
+                await session.execute(
+                    select(Source.status, Source.paused_by, Source.pause_reason)
+                    .where(Source.id == row.supersedes_id)
+                    .with_for_update()
+                )
+            ).first()
+            if predecessor is not None and predecessor.status == "paused":
+                result = await _inherit_pause(client, result)
+                if result.paused:
+                    values = {
+                        "paused_at": func.now(),
+                        "paused_by": predecessor.paused_by,
+                        "pause_reason": predecessor.pause_reason,
+                    }
+        status = "paused" if result.paused else result.status
         await session.execute(
             update(Source)
             .where(Source.id == source_id, Source.status == "approved")
             .values(
-                status=result.status,
+                status=status,
                 chunk_count=result.chunk_count if result.status == "ingested" else None,
                 error=result.error,
                 ragflow_document_ids=result.document_ids,
                 updated_at=func.now(),
+                **values,
             )
         )
         await record(
@@ -411,8 +437,9 @@ async def ingest_source(
             metadata={
                 "source_id": str(source_id),
                 "before": {"status": "approved"},
-                "after": {"status": result.status},
+                "after": {"status": status},
                 "error_code": result.error_code,
+                **({"outcome": "pause_inherited"} if result.paused else {}),
             },
         )
         if result.status == "ingested" and row.supersedes_id is not None:
@@ -441,6 +468,29 @@ async def ingest_source(
                     session, "withdraw_source", {"source_id": str(source_id)}, created_by=None
                 )
     return result
+
+
+async def _inherit_pause(client: RagflowClient, result: IngestResult) -> IngestResult:
+    """Disable the new version's documents; if that fails, delete them and fail the
+    ingestion (a reviewer retries), so the new version never goes live unpaused."""
+    pairs = sorted(result.document_ids.items())
+    error, _ = await set_enabled_everywhere(client, pairs, enabled=False)
+    if error is None:
+        return replace(result, paused=True)
+    left = dict(result.document_ids)
+    for dataset_id, document_id in pairs:
+        try:
+            await client.delete_documents(dataset_id, [document_id])
+        except RagflowError:
+            continue  # stays mapped on the failed row; a retry deletes it first
+        del left[dataset_id]
+    return IngestResult(
+        source_id=result.source_id,
+        status="failed",
+        error_code=error.error_code,
+        error=f"the inherited pause could not be applied ({error.error_code})",
+        document_ids=left,
+    )
 
 
 async def _map_retag(
@@ -540,7 +590,13 @@ async def add_tags(
             )
         ).first()
     if row is None or row.status != "ingested" or row.file_sha256 is None:
-        code = "no_source" if row is None else "not_ingested"
+        code = (
+            "no_source"
+            if row is None
+            else "paused"  # P2A-03: paused after the re-tag was approved; resume first
+            if row.status == "paused"
+            else "not_ingested"
+        )
         return IngestResult(source_id=source_id, status="refused", error_code=code)
     try:
         await _clean_unfinished_retag(factory, client, source_id)

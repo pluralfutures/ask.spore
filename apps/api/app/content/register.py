@@ -31,15 +31,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.audit.writer import AuditValue, record
 from app.content.ingest import IngestError, SourceFile, SourceMetadata
-from app.content.jobs import enqueue
+from app.content.jobs import Job, enqueue
 from app.content.models import Dataset, SitePage, Source
 from app.content.roles import EDITOR, REVIEWER, RoleError, require, roles_of
 from app.content.store import STORABLE_TYPES, stage
 from app.content.tags import TagConfig
+from app.content.toggle import set_enabled_everywhere
 from app.content.withdraw import purge_answer_cache
 from app.core.db import tenant_session
 from app.core.logging import log
-from app.retrieval.ragflow import RagflowClient, RagflowError
+from app.retrieval.ragflow import RagflowClient
 from app.tenancy.models import INTERNAL_TENANT_ID
 
 MAX_NOTE_LENGTH = 2000
@@ -150,7 +151,8 @@ async def replacement_candidates(
         select(Source.id)
         .where(
             Source.canonical_url == canonical_url,
-            Source.status == "ingested",
+            # P2A-03: a paused source can be replaced; the new version inherits the pause.
+            Source.status.in_(("ingested", "paused")),
             Source.site_id.is_(None),
         )
         .order_by(Source.created_at)
@@ -169,7 +171,7 @@ async def _being_replaced(session: AsyncSession, source_id: UUID, *, by: UUID | 
     """Another approved (or ingested, or failed) proposal already replaces the source."""
     query = select(Source.id).where(
         Source.supersedes_id == source_id,
-        Source.status.in_(("approved", "ingested", "failed")),
+        Source.status.in_(("approved", "ingested", "paused", "failed")),
     )
     if by is not None:
         query = query.where(Source.id != by)
@@ -255,7 +257,9 @@ async def propose(
         )
         if taken_down is not None:
             return Submission(taken_down.id, "taken_down", "withdrawn")
-        ingested = next((r for r in same if r.status == "ingested"), None)
+        # P2A-03: a paused source is in the corpus as an ingested one is; a re-tag of it is
+        # refused at approval (``paused``).
+        ingested = next((r for r in same if r.status in ("ingested", "paused")), None)
         if ingested is not None:
             # A re-tag reads the staged copy; sources ingested before P1b-02 have none.
             path = staged()
@@ -265,8 +269,8 @@ async def propose(
                 )
             new_tags = tuple(tag for tag in tags if tag not in ingested.tags)
             if new_tags:
-                return Submission(ingested.id, "retag", "ingested", new_tags)
-            return Submission(ingested.id, "duplicate", "ingested")
+                return Submission(ingested.id, "retag", ingested.status, new_tags)
+            return Submission(ingested.id, "duplicate", ingested.status)
         waiting = next((r for r in same if r.status in ("proposed", "approved", "failed")), None)
         if waiting is not None:
             return Submission(waiting.id, "pending", waiting.status)
@@ -498,6 +502,8 @@ async def approve_retag(
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
+        if row.status == "paused":
+            raise RegisterError("paused")  # P2A-03: the reviewer resumes it first
         if row.status != "ingested":
             raise RegisterError("not_ingested")
         await record(
@@ -773,31 +779,17 @@ async def _synced_mapping(session: AsyncSession, row: Source) -> list[tuple[str,
     return sorted(pairs)
 
 
-async def set_enabled_everywhere(
-    client: RagflowClient, pairs: Sequence[tuple[str, str]], *, enabled: bool
-) -> tuple[RagflowError | None, bool]:
-    """Switch every document; on a failure switch back the ones already done.
-
-    Returns the failure (None when all succeeded) and whether switching back failed
-    too, which leaves RAGFlow disagreeing with the register (``datasets sync`` reports
-    it). No partial state is ever recorded on the row.
-    """
-    done: list[tuple[str, str]] = []
-    for dataset_id, document_id in pairs:
-        try:
-            await client.set_document_enabled(dataset_id, document_id, enabled=enabled)
-        except RagflowError as exc:
-            undo_failed = False
-            for undo_dataset, undo_document in reversed(done):
-                try:
-                    await client.set_document_enabled(
-                        undo_dataset, undo_document, enabled=not enabled
-                    )
-                except RagflowError:
-                    undo_failed = True
-            return exc, undo_failed
-        done.append((dataset_id, document_id))
-    return None, False
+async def _ingestion_in_flight(session: AsyncSession, source_id: UUID) -> bool:
+    job = await session.scalar(
+        select(Job.id)
+        .where(
+            Job.type == "ingest_source",
+            Job.status.in_(("queued", "running")),
+            Job.payload["source_id"].astext == str(source_id),
+        )
+        .limit(1)
+    )
+    return job is not None
 
 
 async def _switch(
@@ -817,6 +809,10 @@ async def _switch(
         row = await _locked(session, source_id)
         if row.status != before:
             raise RegisterError(f"not_{before}")
+        if await _ingestion_in_flight(session, source_id):
+            # A re-tag uploads and parses new documents, whose chunks RAGFlow makes
+            # available whatever the status: switch only once it is done.
+            raise RegisterError("ingestion_in_progress")
         pairs = await _synced_mapping(session, row)
         error, undo_failed = await set_enabled_everywhere(client, pairs, enabled=not pause)
         if error is not None:

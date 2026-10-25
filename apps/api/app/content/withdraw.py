@@ -148,7 +148,11 @@ async def _gone(client: RagflowClient, dataset_id: str, document_id: str) -> boo
 
 async def _kind(session: AsyncSession, source_id: UUID) -> Kind:
     replacement = await session.scalar(
-        select(Source.id).where(Source.supersedes_id == source_id, Source.status == "ingested")
+        select(Source.id).where(
+            Source.supersedes_id == source_id,
+            # P2A-03: a new version ingested paused replaces the old one all the same.
+            Source.status.in_(("ingested", "paused")),
+        )
     )
     return "superseded" if replacement is not None else "withdrawn"
 

@@ -1,5 +1,5 @@
 # security.txt for SporeBot (RFC 9116). Draft: see design/compliance/security-disclosure.md.
-Contact: mailto:security-contact@placeholder.invalid
+Contact: mailto:security@myceliumgastronomy.com
 Expires: 2027-10-01T00:00:00Z
 Preferred-Languages: en
 Policy: https://askspore.myceliumgastronomy.com/security-disclosure

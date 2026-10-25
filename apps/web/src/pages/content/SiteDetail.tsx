@@ -309,7 +309,8 @@ export function ReinstateSite({
       </Button>
       <span className="text-fg-muted">
         The site goes back to proposed and needs a fresh approval before any crawl. Pages taken down
-        stay out; its other pages come back as new versions.
+        or withdrawn one by one stay out; the pages the site withdrawal held come back as new
+        versions.
       </span>
     </div>
   );

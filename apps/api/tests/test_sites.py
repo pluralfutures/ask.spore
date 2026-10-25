@@ -867,7 +867,7 @@ async def test_a_reinstated_site_is_proposed_not_approved_and_nothing_crawls_it(
     released, kept = await reinstate_site(
         e.factory, site_id, e.user_id, note="publisher agreed again"
     )
-    assert (released, kept) == (2, 1)
+    assert (released, kept) == (1, 1)  # "/" released, "/a" kept; "/b" stays withdrawn
     site = await crawls.site_row(site_id)
     assert site["status"] == "proposed"
     assert (site["approved_by"], site["approved_at"], site["next_crawl_at"]) == (None, None, None)
@@ -895,9 +895,35 @@ async def test_a_reinstated_site_is_proposed_not_approved_and_nothing_crawls_it(
         e.user_id,
         {"status": "withdrawn"},
         {"status": "proposed"},
-        2,
+        1,
     )
     assert "agreed" not in json.dumps({**event, "actor": None})
+
+
+async def test_a_page_a_reviewer_withdrew_on_its_own_is_not_released_by_a_reinstatement(
+    crawls: Crawls,
+) -> None:
+    """Owner decision, Oct 25, 2026: only the pages the site withdrawal held out are
+    released; a page a reviewer withdrew individually stays out until restored."""
+    e = crawls.e
+    site_id, old = await _withdrawn_site(crawls)
+    await reinstate_site(e.factory, site_id, e.user_id, note="publisher agreed again")
+    page_b = (await crawls.pages(site_id))[ROOT + "/b"]
+    assert (page_b["state"], page_b["reason"]) == ("blocked", "withdrawn")
+    await approve_site(e.factory, site_id, e.user_id)
+    await crawls.run()
+    assert ROOT + "/b" not in await crawls.sources(site_id)
+    page_b = (await crawls.pages(site_id))[ROOT + "/b"]
+    assert (page_b["state"], page_b["reason"], page_b["source_id"]) == (
+        "blocked",
+        "withdrawn",
+        old[ROOT + "/b"]["id"],
+    )
+    # "Restore page" still brings it back, one by one, once the site is approved.
+    assert await restore_page(e.factory, old[ROOT + "/b"]["id"], e.user_id) == site_id
+    await crawls.crawl(site_id)
+    back = (await crawls.sources(site_id))[ROOT + "/b"]
+    assert back["id"] != old[ROOT + "/b"]["id"] and back["status"] == "ingested"
 
 
 async def test_a_reinstated_site_keeps_taken_down_pages_out_and_admits_the_others_as_new(
@@ -908,8 +934,8 @@ async def test_a_reinstated_site_keeps_taken_down_pages_out_and_admits_the_other
     await reinstate_site(e.factory, site_id, e.user_id, note="publisher agreed again")
     pages = await crawls.pages(site_id)
     assert (pages[ROOT + "/a"]["state"], pages[ROOT + "/a"]["reason"]) == ("blocked", "taken_down")
-    for url in (ROOT + "/", ROOT + "/b"):
-        assert (pages[url]["state"], pages[url]["reason"]) == ("removed", "reinstated")
+    assert (pages[ROOT + "/"]["state"], pages[ROOT + "/"]["reason"]) == ("removed", "reinstated")
+    assert (pages[ROOT + "/b"]["state"], pages[ROOT + "/b"]["reason"]) == ("blocked", "withdrawn")
     clinic = pages[ROOT + "/health/clinic"]
     assert (clinic["state"], clinic["reason"]) == ("blocked", "special_category")
 
@@ -922,16 +948,15 @@ async def test_a_reinstated_site_keeps_taken_down_pages_out_and_admits_the_other
     page_a = (await crawls.pages(site_id))[ROOT + "/a"]
     assert (page_a["state"], page_a["reason"]) == ("blocked", "taken_down")
     assert page_a["source_id"] == old[ROOT + "/a"]["id"]
-    # The page the site withdrawal held out and the one a reviewer withdrew come back
-    # as new rows, approved in the new approver's name and ingested.
-    for url in (ROOT + "/", ROOT + "/b"):
-        row = live[url]
-        assert row["id"] != old[url]["id"] and row["supersedes_id"] is None
-        assert row["status"] == "ingested" and row["approved_by"] == e.user_id
-        assert row["file_sha256"] == old[url]["file_sha256"]
-        assert set(json.loads(row["ragflow_document_ids"]).values()) <= set(e.fake.documents)
-        page = (await crawls.pages(site_id))[url]
-        assert (page["state"], page["reason"], page["source_id"]) == ("live", None, row["id"])
+    # The page the site withdrawal held out comes back as a new row, approved in the new
+    # approver's name and ingested.
+    row = live[ROOT + "/"]
+    assert row["id"] != old[ROOT + "/"]["id"] and row["supersedes_id"] is None
+    assert row["status"] == "ingested" and row["approved_by"] == e.user_id
+    assert row["file_sha256"] == old[ROOT + "/"]["file_sha256"]
+    assert set(json.loads(row["ragflow_document_ids"]).values()) <= set(e.fake.documents)
+    page = (await crawls.pages(site_id))[ROOT + "/"]
+    assert (page["state"], page["reason"], page["source_id"]) == ("live", None, row["id"])
     # The withdrawn rows stay withdrawn, with their takedown.
     for url in (ROOT + "/", ROOT + "/a", ROOT + "/b"):
         assert (await source_row(admin_conn, old[url]["id"]))["status"] == "withdrawn"

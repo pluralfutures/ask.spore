@@ -25,8 +25,9 @@ audited.
 P2A-12 (a): a reviewer may reinstate a withdrawn site (``reinstate_site``): it goes back
 to ``proposed`` with a required note and needs a fresh approval before anything is
 crawled; its start URL is unchanged. Its withdrawn register rows stay withdrawn; every
-page held out by a takedown stays blocked, and the other withdrawn pages are released,
-so the first crawl after the approval admits them as new rows.
+page held out by a takedown stays blocked, a page a reviewer withdrew on its own stays
+out, and the pages the site withdrawal held out are released, so the first crawl after
+the approval admits them as new rows.
 """
 
 from __future__ import annotations
@@ -62,8 +63,11 @@ RESTORED: Final = "restored"
 # kept out because a takedown was recorded on a version of it.
 REINSTATED: Final = "reinstated"
 TAKEN_DOWN: Final = "taken_down"
-# Page reasons a reinstatement releases: held out by the site's or a reviewer's withdrawal.
-_RELEASED_ON_REINSTATEMENT: Final = (SITE_WITHDRAWN, "withdrawn")
+# A reinstatement releases only the pages the site withdrawal held out; a page a reviewer
+# withdrew on its own stays out (owner decision, Oct 25, 2026; "Restore page" brings it
+# back one by one after the fresh approval).
+_RELEASED_ON_REINSTATEMENT: Final = (SITE_WITHDRAWN,)
+_WITHDRAWN_PAGE_REASONS: Final = (SITE_WITHDRAWN, "withdrawn", TAKEN_DOWN)
 MAX_PATTERNS: Final = 50
 MAX_PATTERN_LENGTH: Final = 128  # an audit value's limit
 MAX_FIELD_LENGTH: Final = 300
@@ -616,10 +620,13 @@ async def reinstate_site(
     date and reason stay on the row as history. The site's register rows stay withdrawn,
     with their history and citations. Pages: every page a takedown was recorded on (any
     version, matched by URL, as ``restore_page`` checks) stays ``blocked`` with reason
-    ``taken_down``; every other page held out by the site's or a reviewer's withdrawal
+    ``taken_down``; every other page held out by the site withdrawal (``site_withdrawn``)
     becomes ``removed`` (``reinstated``), which the crawler treats as a page it has not
-    got, so the first crawl after approval admits it as a new row. Pages blocked for any
-    other reason (robots, scope, special category) keep it; the crawl decides them again.
+    got, so the first crawl after approval admits it as a new row. A page a reviewer
+    withdrew on its own stays ``blocked`` (``withdrawn``) and comes back only through
+    ``restore_page`` after the approval (owner decision, Oct 25, 2026). Pages blocked for
+    any other reason (robots, scope, special category) keep it; the crawl decides them
+    again.
 
     Refused for a site that is not withdrawn (``not_withdrawn``) and while a withdrawal
     of one of its rows is still running (``withdrawal_running``). Audited
@@ -655,7 +662,7 @@ async def reinstate_site(
                 .where(
                     SitePage.site_id == site_id,
                     SitePage.state == "blocked",
-                    held | (SitePage.reason == TAKEN_DOWN),
+                    SitePage.reason.in_(_WITHDRAWN_PAGE_REASONS),
                     taken_down,
                 )
                 .values(reason=TAKEN_DOWN, special_category=None)

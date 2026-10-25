@@ -8,6 +8,7 @@ count; an empty calendar keeps the Monday-to-Friday rule.
 from __future__ import annotations
 
 import shutil
+import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -25,6 +26,12 @@ GOOD = """active = "test"
 name = "Synthetic region"
 dates = [2026-11-11]
 """
+
+
+def load_holidays_text(text: str) -> tuple[HolidayCalendar, list[str]]:
+    with tempfile.TemporaryDirectory() as directory:
+        (Path(directory) / HOLIDAYS_FILE).write_text(text, encoding="utf-8")
+        return load_holidays(Path(directory))
 
 
 def _problems(tmp_path: Path, text: str) -> list[str]:
@@ -147,16 +154,22 @@ def _easter(year: int) -> date:
     return date(year, month, day + 1)
 
 
-def test_the_repository_calendar_loads_and_keeps_todays_rule_until_the_owner_chooses() -> None:
+def test_the_repository_calendar_follows_france() -> None:
+    """Owner decision, Oct 25, 2026: the clock follows France; ``none`` stays defined."""
     settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
-    assert settings.holidays == HolidayCalendar("none", frozenset())
+    assert settings.holidays.region == "france"
+    assert date(2026, 11, 11) in settings.holidays.dates
+    calendar, problems = load_holidays_text(
+        (DEFAULT_CONFIG_DIR / HOLIDAYS_FILE)
+        .read_text()
+        .replace('active = "france"', 'active = "none"')
+    )
+    assert problems == [] and calendar == HolidayCalendar("none", frozenset())
 
 
 def test_the_draft_france_calendar_has_the_national_holidays(tmp_path: Path) -> None:
     config = tmp_path / "config"
     shutil.copytree(DEFAULT_CONFIG_DIR, config)
-    path = config / HOLIDAYS_FILE
-    path.write_text(path.read_text().replace('active = "none"', 'active = "france"'))
     calendar, problems = load_holidays(config)
     assert problems == [] and calendar.region == "france"
     for year in (2026, 2027):

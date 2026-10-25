@@ -4,21 +4,20 @@
 # (apps/api/app/core/holidays.py): a malformed file stops the API, the worker and the
 # CLI. Dates are TOML dates (2026-11-01), ascending, no repeats.
 #
-# Which region the clock follows is the owner's decision (the operator's jurisdiction,
-# as the terms of service will state it): phase-2a-findings.md section 3, question 5.
-# Until then the active region is "none", which keeps the Monday-to-Friday rule, the
-# stricter one: a deadline is never later than without a calendar.
+# The clock follows France (owner decision, Oct 25, 2026; phase-2a-findings.md section
+# 3, question 5). "none" stays defined: making it active keeps the Monday-to-Friday rule,
+# the stricter one, since a deadline is never later than without a calendar.
 #
 # Extend the active region's dates before its last year runs out: past the last date
 # listed the clock counts Monday to Friday again.
 
-active = "none"
+active = "france"
 
 [regions.none]
 name = "No public holidays (Monday to Friday only)"
 dates = []
 
-# Draft, for the owner's choice: the eleven national public holidays of metropolitan
+# The eleven national public holidays of metropolitan
 # France (Code du travail, art. L3133-1), 2026 and 2027. Not Alsace-Moselle's two extra
 # days. Easter Monday, Ascension and Whit Monday move each year.
 [regions.france]

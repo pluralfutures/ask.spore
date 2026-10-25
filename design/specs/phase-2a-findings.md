@@ -682,3 +682,51 @@ Final run: 124 passed. `pnpm lint` and `typecheck` clean.
 
 The tolerance that let a new tab label pass is left as it is (UX-05 chose it against
 anti-aliasing noise); noted for the owner in the close-out.
+
+### 5.2 Step 2: deploy
+
+`main` at `b2b5beb` (PR #67) pulled into `/root/ask.spore`; `check-credentials.py` reports no
+published credential; `ASKSPORE_TRUST_PAGE` unset in `infra/.env` (Compose default
+`unpublished`). The deploy script was refused by the session's permission classifier and
+waits for the owner (run in the owner's terminal or allowed explicitly). Steps 2, 4, 5 and 6
+follow it.
+
+### 5.3 Step 3: isolation tests and the independent review
+
+On `b2b5beb` with a throwaway PostgreSQL 16 container (the live image, tmpfs, removed after):
+
+| Check | Last line |
+| --- | --- |
+| `ruff check`, `ruff format --check`, `mypy app` | clean, 230 files formatted, 114 source files |
+| `pytest`, `REQUIRE_DB_TESTS=1` | 1706 passed, 2 skipped (real-Caddyfile run, no `caddy` on the path), 1 deselected |
+
+Independent review (a separate agent, read-only, by reading the code at `b2b5beb`, diff
+`80ac763..b2b5beb`): **no blocker**. Every CLAUDE.md non-negotiable passes, and the Phase 2A
+specifics:
+
+| Item | Verdict | Evidence |
+| --- | --- | --- |
+| Pause routes take no dataset or document ID | pass | `api/content.py` pause and resume; `PauseIn` is `reason` only with `extra="forbid"`; pairs from `row.ragflow_document_ids` checked against synced datasets (`register._synced_mapping`) |
+| Toggle log fields | pass | `retrieval/ragflow.py` `set_document_enabled`: status, error_code, latency_ms; `include_detail=False`; the PATCH response's name and location never read; `toggle.py` returns the code only |
+| `support_grants` RLS and index | pass | `0065_support_grants.py`: RLS enabled and forced, `tenant_isolation`, `tenant_id`-first indexes; restrictive `support_grant` policies on the conversation and settings tables |
+| No conversation text in the support view's logs | pass | `support/access.py`: audit metadata grant_id, scope, conversation_id, operator_id, duration; logs tenant_id, grant_id, status, error_code; the note never logged |
+| Export allow-list | pass, concern C1 | `api/admin.py` filters by `EXPORTED_EVENTS`; `record()` refuses an unclassified event |
+
+Concerns, none a blocker, for the owner:
+
+- **C1.** The export filters events but not metadata keys; it is safe today because `record()`
+  writes only `AUDIT_METADATA_KEYS` and no exported event writes a content-bearing key.
+  Recommendation: a test that fixes the keys each exported event may carry (backlog).
+- **C2.** `operator.support_viewed` carries `operator_id`, so the tenant's export shows the
+  operator's internal user ID; the spec names grant ID and scope only. Recommendation:
+  keep it (the tenant sees who read), but confirm.
+- **C3 (confirmed by the release session).** Under a conversation grant with no settings
+  grant open, the restrictive policy on `workspaces` hides the row, so the operator's
+  support view shows an empty workspace name (`support/access.py` `workspace_name`; no
+  test asserts it). Nothing is disclosed; a display gap. A fix is a new migration
+  (read `workspaces.name` for the granted conversation's workspace), so it is not made in
+  the release. Recommendation: backlog, next phase that touches support access.
+- **C4.** `0065`'s docstring says "Revises: 0060" (the chain is 0060, 0070, 0065); a
+  repeated comment in `audit/events.py`; the export rate limiter is per process.
+- **C5.** A pause holds the register row lock across the RAGFlow calls; a timeout blocks
+  other changes to that source until it returns, then the pause is undone and reported.

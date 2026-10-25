@@ -8,6 +8,8 @@ This is a design, not an implementation plan. Scoping decisions are recorded in 
 
 **Product name (owner decision, Oct 22, 2026).** What users see is called **SporeBot**: the web app, the sign-in and platform emails, the operator and tenant admin pages. The repository, packages, hostnames, CLI and internal names stay `ask.spore`, which this document keeps using for the platform.
 
+**Brand lock-up (owner decision, Oct 25, 2026).** In the page heading and the signed-in top bar the name is shown as **Mycelium SporeBot**: "Mycelium" in the Mycelium Gastronomy logo typeface (Poppins 700, self-hosted beside Lato) and "SporeBot" in the app's Lato 700. Browser tab titles, emails, the consent notice, the authenticator issuer and other copy still say "SporeBot" until the owner decides otherwise.
+
 ---
 
 ## 1. Summary
@@ -491,7 +493,7 @@ Phase 1 is split. **Phase 1a** (the first test client) ships multi-tenancy with 
 | Tenant names in prompts | Permitted; matches flagged to the operator console and audit log, not to the user |
 | Downloads (superseded Oct 19, 2026, see the row above) | PDF, DOCX and PPTX in the workspace corpus; single-use 60-second links, audited, capped; only sources flagged `downloadable` |
 | Eval | Default model only (`deepseek-v4.1-flash`) |
-| Product name | "SporeBot" for everything users see; `ask.spore` stays the repository, hostname and internal name (owner decision Oct 22, 2026) |
+| Product name | "SporeBot" for everything users see, shown as "Mycelium SporeBot" in the page heading and top bar (Oct 25, 2026); `ask.spore` stays the repository, hostname and internal name (owner decision Oct 22, 2026) |
 | Inference failover | To the other EU provider for every tenant; to OpenRouter only for a tenant with the external-models entitlement (acceptance reference, ZDR routing, spend cap not reached), counted against its cap; every other tenant stays EU-only (owner decision Oct 22, 2026; §5.2 step 9) |
 | Tenant admin second factor | TOTP in Phase 1b; passkeys and hardware keys are in the backlog, because the API-run sign-in flow cannot relay WebAuthn (owner decision Oct 22, 2026; compliance guide, Oct 22 update) |
 | Email provider | Scaleway Transactional Email (fr-par) for every outbound email: sign-in links (Authentik's email stage over its SMTP relay) and the API's own mail (invitations, operator notices) over its HTTP API from `app.core.mail`. Mailgun EU region is an optional backup, switched on only by configuration after its DPA is filed; exactly one provider is active at a time (owner decision Oct 20, 2026, replacing the Oct 19 decision that made Mailgun the sole provider) |

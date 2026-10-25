@@ -16,6 +16,7 @@ In the spirit of Linear and Stripe's dashboard: restrained neutrals, one accent,
 - **Self-hosted, never fetched from Google.** The production CSP (`infra/caddy/Caddyfile`) is `font-src 'self'`, so a Google-hosted font would be blocked anyway. Vendor `woff2` files under `apps/web/src/assets/fonts/` (or install `@fontsource/lato`, which ships the same files into the bundle) with the OFL text alongside, and declare `@font-face` with `font-display: swap`.
 - **Coverage.** The Google Fonts build of Lato (the one `@fontsource/lato` packages) covers Latin and Latin Extended, which is enough for English, French, Spanish and Portuguese source titles. Lato 2.0 (latofonts.com) adds Greek and Cyrillic; take it if the corpus will hold titles in those scripts. Either way the fallback stack keeps unsupported glyphs legible: `"Lato", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif`.
 - **Numbers.** Tables and spend figures use `font-variant-numeric: tabular-nums` where the font supports it, and are right-aligned.
+- **Brand word.** The "Mycelium" in the "Mycelium SporeBot" heading and top bar is **Poppins 700** (OFL, Latin subset, self-hosted under `apps/web/src/assets/fonts/poppins/`), the Mycelium Gastronomy logo typeface, used nowhere else (`font-brand` token).
 - **Monospace** (IDs, slugs, config keys, certificate numbers): `ui-monospace, "SF Mono", Menlo, Consolas, monospace` at 13 px. No webfont.
 
 ## Type scale

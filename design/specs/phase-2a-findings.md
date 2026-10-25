@@ -613,3 +613,41 @@ On the branch head, in the session container (PostgreSQL 16.15 started with
 | `shellcheck` | not run: no shell script changed |
 
 Not run: anything that needs the Instance, RAGFlow or a provider key.
+
+## 4. Integration of Groups A, B/C and D/E (Oct 25, 2026)
+
+By the orchestrating session on `claude/inspiring-wozniak-e48a12`, which Group A had built on
+directly (the Instance's session merged the spec branch instead of branching; the other two
+groups were cut from it, so integration is two merges into it). Order: Groups B and C merged
+first, the owner's decisions of Oct 25 applied, Groups D and E merged last.
+
+| # | Item | Change | Why |
+| --- | --- | --- | --- |
+| I-1 | P2A-01 | `pause_reason` is kept after a resume (the current or last pause's); the `pause_recorded` constraint covers `paused_at` and `paused_by` only; the console shows "Last pause" on a resumed source. Migration 0070 edited in place (unreleased). | Decision 18 |
+| I-2 | Integration | Migration 0065 (support grants) re-parented onto 0070 (pause). | Decision 22 |
+| I-3 | P2A-01, P2A-07 | `source.pause_failed` and `source.resume_failed` classified operator-only; the two f-string templates of `register._switch` added to `DYNAMIC_EVENTS`. | Group B/C's catalogue test failed on Group A's events |
+| I-4 | P2A-07 | `operator.entitlements_changed`, `operator.login_policy_changed`, `operator.sso_source_changed` moved to `EXPORTED_EVENTS`; a test asserts each is exported. | Decision 24 |
+| I-5 | P2A-01, P2A-13 | `set_enabled_everywhere` returns the failure's error code, not the `RagflowError`; its callers in the register and ingestion use the code. | Group E's `RagflowError` scan flagged Group A's toggle module: the exception's message names the file |
+| I-6 | P2A-10 | `policy-access-control.md` D7 marked taken; open question D2 reworded to TOTP; C5 answered (b) for the next phase that touches the operator console, backlog line added. | Decision 26 |
+| I-7 | P2A-12 (a) | `not_withdrawable` console message keeps Group A's wording ("ingested, paused or failed"); Group D's `withdrawal_running` message kept. | Both groups edited the same map |
+| I-8 | Findings | This file assembled in section order (probe, 1, 2, 3, 4); each group's "Questions for the owner" keeps the answers recorded by its builder or the decision number here. | Three-way conflict in the file |
+
+Checks on the integrated head, in this container (PostgreSQL 16 started locally, role
+`askspore` as in CI, `REQUIRE_DB_TESTS=1`):
+
+| Check | Last line |
+| --- | --- |
+| `ruff check`, `ruff format --check`, `mypy app` | clean, 230 files formatted, 114 source files |
+| `pytest` with the database | 1706 passed, 2 skipped (the real-Caddyfile run without `CADDY_BIN`), 1 deselected |
+| `packages/eval` ruff and pytest | clean, 94 passed |
+| `pnpm lint`, `typecheck`, `test` | Prettier clean, `tsc -b` clean, 190 passed |
+| `pnpm gen:api` | no diff in `openapi.json` or `schema.d.ts` |
+| `pnpm test:e2e` | see the line recorded below this table at push time |
+
+**Not run here, for the release session:** the visual-regression suite (`pnpm test:visual`
+needs Docker, unavailable in this container). Groups B and C changed the tenant admin page
+(new Usage section, consent column, export dates) and the operator tenant page (Support
+access tab) and did **not** refresh their baselines (§2, notes); Group A refreshed the two
+operator-workspaces baselines on the Instance. CI's `web-visual` job will fail on the admin
+and operator-tenant baselines until they are regenerated in the pinned image, which is the
+first task of the release session (runbook, step 1).

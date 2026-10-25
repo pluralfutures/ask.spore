@@ -257,3 +257,91 @@ code.
 | (the source row's `error`, shown in the console detail) | Rows written from now on hold the code-first message. **Not in the spec:** a row that failed before this change may still hold RAGFlow's text on the Instance, and no migration was planned for it, so `source_detail` (`_shown_error`) shows the row's `error` only when it starts with the code of the source's latest `source.failed` audit event, and that code otherwise. No RAGFlow message is shown either way; the stored text of such a row disappears at its next retry or withdrawal (the release session may count them: `status = 'failed'` rows) |
 | Add `RagflowError` to the handlers the static scan in `test_logging_policy` checks, as `FetchError` and `IngestError` are | The P1c-04 rule is generalised to `scan_coded_errors`: a caught `FetchError` may be read through `.code` and `.status` or handed to `_refused`; a caught `RagflowError` through `.code` and `.error_code` only (no sink: `_refused` does not take it); a handler catching both may use only what both allow. Bare `raise` is allowed. Note: the spec's "as `FetchError` and `IngestError` are" — `IngestError` is not in the scan (its messages are ours and name a file, a URL or a tag, by design); `FetchError` is. Run over the code before this change, the scan reports exactly the four sites the review named (`ingest.py` 256, 270, 343, 497 at b5eb872) |
 | Tests: the scan rejects a handler that passes `str(exc)` of a `RagflowError` to a log, a message or an exit; the source row's `error` after a parse failure is a code | `test_logging_policy`: `test_a_ragflow_error_message_never_leaves_its_handler` (11 handlers × 3 ways of catching: `str`, f-string, `.args`, the bare name to `log`, into `_Failure`, into an appended error, into `SystemExit`, `repr` into an `IngestResult`, `.detail`, `_refused`), `test_a_handler_of_both_coded_errors_may_use_only_what_both_allow`, `test_a_ragflow_error_handler_may_use_the_code` (six allowed forms, the app's own), `test_every_ragflow_error_handler_in_the_app_is_scanned` (nine handlers today, none a violation). `test_ingest::test_a_ragflow_errors_text_never_reaches_the_source_row_or_the_log` (an upload refused with synthetic detail text: row and result `ragflow_102`; a parse failure with that text as `progress_msg` and a failing clean-up: `parse_failed: sample-reports FAIL; clean-up failed (ragflow_500), …`; the text is in neither, nor in the log). `test_content_console::test_the_console_shows_a_failure_as_a_code_never_ragflows_text` (the detail shows the code-first message; a row given a pre-P2A-13 RAGFlow message shows the audited code, and the response carries none of the text). Six existing tests that asserted RAGFlow's text on the row now assert its absence |
+
+### 3.5 Notes for the integration
+
+- **No migration** on this branch.
+- `Settings` gains `holidays` (default empty), filled by `load_settings` from
+  `config/holidays.toml`, which every config directory now needs. The tests' stand-in
+  settings objects (`tests/test_auth.py` `oidc_settings`, `tests/test_api.py` `_Settings`)
+  carry it, and `tests/test_config.py` `write_config` writes an empty calendar; a stand-in
+  added on another branch needs the same attribute if it reaches a takedown route.
+- `register.record_takedown`, `takedown_due_on`, `working_days_after` and
+  `TakedownItem.working_days_left` take an optional `holidays`; callers on other branches
+  keep working and count Monday to Friday unless they pass it.
+- `ingest._Failure` is now `_Failure(code, context=None)`; a `_Failure` added on another
+  branch (P2A-03's paused successor, for one) must pass our own context only.
+- `test_logging_policy.scan_coded_errors` checks every `except RagflowError` handler in
+  `app/`, so Group A's `set_document_enabled` handlers must read only `.code` and
+  `.error_code` (the probe's note already says to log the code only).
+- New audit event `site.reinstated` (internal tenant, like every `site.` event): P2A-07's
+  allow-list must classify it; it belongs with the operator-only events (a client's export
+  never sees internal-tenant events anyway).
+- `apps/api/openapi.json` and `apps/web/src/api/schema.d.ts` were regenerated for
+  `POST /content/sites/{id}/reinstate` and `SiteReinstatedOut`; on a conflict, regenerate
+  rather than merge by hand.
+- `infra/caddy/Caddyfile` and `infra/compose.dev.yml` (Caddy's `environment`, the dev web
+  container's `public` mount) changed; the Compose port test passes unchanged.
+- For P2A-14: replace the placeholder contact before the release fetches the two public
+  files (question 1); `test_public_files::test_the_real_caddyfile_serves_the_public_routes`
+  runs on the Instance if `caddy` is on the path, or point `CADDY_BIN` at a binary.
+
+### 3.6 Questions for the owner
+
+1. **`security.txt` contact (P2A-11).** Both files carry the placeholder
+   `security-contact@placeholder.invalid` (`.invalid` cannot receive mail), and the
+   disclosure page `takedown-contact@placeholder.invalid`. Recommendation: one role mailbox
+   that can receive mail (for example `security@` on the organisation domain), read by at
+   least the owner, rather than a personal address; the takedown line can point at the
+   same mailbox until a separate one exists. Needed before the release fetches the files.
+2. **PGP key (P2A-11).** Recommendation: publish none at launch. RFC 9116 makes
+   `Encryption` and the signature optional, and a key nobody manages (rotation, a lost
+   passphrase, who decrypts) is worse than none. If you want one, generate it offline, add
+   the public key as `apps/web/public/.well-known/pgp-key.txt`, uncomment the
+   `Encryption:` line and sign `security.txt` with a cleartext signature at each renewal.
+3. **Disclosure terms (P2A-11).** The safe-harbour paragraph, the three-working-day
+   acknowledgement, the suggested 90 days before disclosure and "no payment for reports"
+   are drafted in `design/compliance/security-disclosure.md` for counsel. Recommendation:
+   keep the safe-harbour paragraph (it is the common short form) and have counsel confirm
+   it under the governing law the terms will name; fill in the legal entity.
+4. **Reinstatement and pages a reviewer withdrew on their own (P2A-12 a).** Built as the
+   spec reads: on reinstatement every withdrawn page without a takedown is released,
+   including one a reviewer withdrew individually before the whole site was withdrawn.
+   Recommendation: keep such pages out (released only through "Restore page", one by one,
+   after the fresh approval), because the reviewer reinstating a site may not know why each
+   page was withdrawn. It is a one-line change in `reinstate_site` and its test; confirm
+   either way.
+5. **Holiday region (P2A-12 b).** Recommendation: France (the `france` region drafted in
+   the file) if the operator's legal entity and the terms' governing law are French, which
+   the Paris hosting suggests; otherwise the Member State the terms name. Until you decide,
+   `none` stays active, which keeps today's Monday-to-Friday clock (never later than with a
+   calendar). Whoever owns the calendar extends it each year before its last year runs out.
+6. **Trust page (P2A-11).** The route exists and 404s; the build ships no `trust.html`, so
+   publishing needs both the final page in `apps/web/public/` and the flag. Confirm, or ask
+   for the draft to be rendered into the build behind the flag now.
+7. **D6 (P2A-11).** Confirm the recommendation in 3.1: a hosted third-party status page,
+   updated by hand, subscribers off, on its own subdomain.
+
+### 3.7 Checks run on this branch
+
+On the branch head, in the session container (PostgreSQL 16.15 started with
+`pg_ctlcluster 16 main start`, role `askspore` as in CI,
+`TEST_ADMIN_DATABASE_URL=postgresql://askspore:ci-only-password@localhost:5432/postgres`,
+`REQUIRE_DB_TESTS=1`). Last line of each:
+
+| Check | Last line |
+| --- | --- |
+| `uv run --directory apps/api ruff check .` | `All checks passed!` |
+| `uv run --directory apps/api ruff format --check .` | `217 files already formatted` |
+| `uv run --directory apps/api mypy app` | `Success: no issues found in 108 source files` |
+| `uv run --directory apps/api pytest` (with the database) | `1602 passed, 2 skipped, 1 deselected` (the two skipped: the real-Caddyfile run without `CADDY_BIN`; with Caddy 2.11.7 it passes) |
+| the same without the database | `764 passed, 840 skipped, 1 deselected` |
+| `packages/eval`: `ruff check .`, `mypy`, `pytest` | `All checks passed!`, `Success: no issues found in 17 source files`, `94 passed` |
+| `pnpm --dir apps/web lint`, `typecheck`, `test` | Prettier clean, `tsc -b` clean, `Tests  159 passed (159)` |
+| `pnpm gen:api` then `git diff --exit-code src/api/schema.d.ts` | no diff |
+| `pnpm --dir apps/web test:e2e` (`PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`) | `549 passed` |
+| `caddy validate` (2.11.7) on `infra/caddy/Caddyfile` | `Valid configuration`; with `ASKSPORE_TRUST_PAGE=bogus`: refused |
+| `docker compose -f infra/compose.dev.yml config --quiet` | exit 0 |
+| `shellcheck` | not run: no shell script changed |
+
+Not run: anything that needs the Instance, RAGFlow or a provider key.

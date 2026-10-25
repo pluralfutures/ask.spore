@@ -69,7 +69,7 @@ We do not offer payment for reports at this time.
 
 ### Safe harbour
 
-[*Draft, for counsel:*] If you act in good faith and follow this policy, we will consider
+If you act in good faith and follow this policy, we will consider
 your research authorised, we will not pursue or support legal action against you for it, and
 we will not report you to law enforcement. If a third party brings action against you for
 research done under this policy, we will make it known that you acted with our

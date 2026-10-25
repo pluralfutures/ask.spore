@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Client], [Client legal name], [support email], [privacy contact email], [security contact email], [termination date], [notice date], [export window days], [backup retention days], [certificate number], [signatory name], [signatory title], [recipient first name], [admin name], [Services Agreement], [export format], [secure transfer method], [n] (counts), [date] |
+| Placeholders | [Client], [Client legal name], [support email], [security contact email], [termination date], [notice date], [export window days], [backup retention days], [certificate number], [signatory name], [signatory title], [recipient first name], [admin name], [Services Agreement], [export format], [secure transfer method], [n] (counts), [date] |
 | To finalise, the owner must | (1) fill in the placeholders; set [export window days] (proposed 30) and [backup retention days] (30, matching the owner-run backup retention) and check both against `terms-of-service.md` and DPA clause 10.5; (2) decide the manual export format (section 1, step 3) until an export tool exists; (3) until P1b-14 passes its tests, use the manual purge in section 1.4 and the "manual" wording of the certificate; (4) decide how the 12-month audit retention is ended for a terminated tenant, since the audit table refuses deletion by design (open question); (5) have counsel check the certificate wording and the exit emails against the DPA. |
 
 ---
@@ -111,7 +111,7 @@ Subject: Your SporeBot access has ended
 >
 > Your conversations are no longer available to you. They are removed when your organisation's retention period ends, at most 30 days after each conversation started. A record that you used the service (sign-ins and similar events, without the content of your questions) is kept for 12 months for security reasons.
 >
-> If you think this is a mistake, contact your administrator, [admin name]. For questions about your data: [privacy contact email].
+> If you think this is a mistake, contact your administrator, [admin name]. For questions about your data: privacyanddata@myceliumgastronomy.com.
 >
 > SporeBot · Estefania Simon-Sasyk y Otro CB
 
@@ -153,7 +153,7 @@ Subject: SporeBot: deletion of [Client]'s data is complete
 >
 > Thank you for using SporeBot.
 >
-> SporeBot · Estefania Simon-Sasyk y Otro CB · [privacy contact email]
+> SporeBot · Estefania Simon-Sasyk y Otro CB · privacyanddata@myceliumgastronomy.com
 
 ---
 

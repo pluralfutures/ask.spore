@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [privacy contact email], [link to privacy notice], [date] |
+| Placeholders | [link to privacy notice], [date] |
 | Revision | Oct 22, 2026, **DRAFT**: one clause in step 1 of "How an answer is made" for organisations that supply documents (P1b-19 step 1, architecture §15); drop it for the test client |
 | To finalise, the owner must | (1) fill in the placeholders; (2) confirm the model list matches the catalogue at publication (`config/models.toml`); (3) remove the external-models paragraph's "not enabled" sentence once a tenant is enabled; (4) link this note from the in-app AI notice and the consent gate (P1b-10); (5) have counsel check it against EU AI Act Art. 50 (ai-act-technical-documentation.md §3). |
 
@@ -47,6 +47,6 @@ Some models can "reason" before answering. If you switch reasoning on, the answe
 - **We do not use your questions or conversations to train or improve any model.**
 - Conversations are kept for 30 days at most, or less if your organisation set a shorter period. You can delete a conversation at any time.
 
-More in our privacy notice: [link to privacy notice]. Questions: [privacy contact email].
+More in our privacy notice: [link to privacy notice]. Questions: privacyanddata@myceliumgastronomy.com.
 
 Estefania Simon-Sasyk y Otro CB · Last updated [date]

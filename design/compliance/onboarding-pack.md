@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: section 1.1 note and section 1.8 for clients that supply their own documents (P1b-19 step 1, architecture §15); not for the test client. Placeholders added: [max file size], [max files per batch], [secure transfer method], [5] (working days) |
-| Placeholders | [Client], [sending domain], [sender address], [support email], [privacy contact email], [security contact email], [client IT contact], [Entra redirect URI], [Google redirect URI], [OIDC redirect URI], [SAML ACS URL], [SAML entity ID], [secret transfer method], [recipient first name], [inviter name], [workspace name], [notice version], [notice summary], [notice path], [date] |
+| Placeholders | [Client], [sending domain], [sender address], [support email], [security contact email], [client IT contact], [Entra redirect URI], [Google redirect URI], [OIDC redirect URI], [SAML ACS URL], [SAML entity ID], [secret transfer method], [recipient first name], [inviter name], [workspace name], [notice version], [notice summary], [notice path], [date] |
 | To finalise, the owner must | (1) fill in the placeholders, using `askspore.myceliumgastronomy.com` for [app hostname] unless a client-facing host replaces it; (2) choose the [secret transfer method] for SSO client secrets and SAML keys (section 1.5); (3) check the email templates in section 2 against the copy that P1b-11 and the Authentik template ship with, and keep the two in step; (4) remove the "not yet built" notes once the matching spec items pass their tests; (5) run the live scanner test (P1b-13(a)) with [Client]'s IT contact before the first `[client domain]` user is invited, and record the result in the Phase 1b findings; (6) have counsel check section 2.3 (consent notice) against `privacy-notice.md` and `terms-of-service.md`. |
 
 Section 1 goes to [Client]'s IT contact. Sections 2 and 3 are templates and guidance used by us and by [Client]'s tenant administrator. Section 4 goes to the tenant administrator.
@@ -82,7 +82,7 @@ From Phase 1b (spec item P1b-08), SporeBot requires a second factor for your ten
 
 - Support and setup: [support email]
 - Security reports: [security contact email]
-- Privacy and data protection: [privacy contact email]
+- Privacy and data protection: privacyanddata@myceliumgastronomy.com
 
 ### 1.8 Supplying your own documents (only if your contract includes it)
 
@@ -94,7 +94,7 @@ If your organisation supplies documents for its workspaces:
 2. **With each batch, a declaration** signed by a person who can bind your organisation, naming the files and stating for each: that you have the right to supply it for SporeBot as described in the terms (§6A); whether your users may download it; whether it contains personal data of people other than your staff. Do not send special-category personal data (health, political opinions, religion and similar) unless agreed in writing first.
 3. **Which workspaces.** Tell us which workspace each file belongs to. Your files go only into content collections that belong to your organisation; no other customer can search or download them.
 4. **Review.** Our content team checks format, the declaration and the workspace, not your rights; a file may be refused with a reason. You will be told when the batch is searchable.
-5. **Withdrawal.** Ask [privacy contact email] or [support email] in writing; we withdraw a file within [5] working days.
+5. **Withdrawal.** Ask privacyanddata@myceliumgastronomy.com or [support email] in writing; we withdraw a file within [5] working days.
 6. **At the end of the contract** your files are deleted and listed in the certificate of deletion; ask before the end date if you want the copies we hold back.
 
 ---
@@ -154,7 +154,7 @@ Subject: We have updated the SporeBot use and privacy notice
 >
 > The next time you sign in, you will be asked to read and accept the new version before you can continue. You can read it now at https://askspore.myceliumgastronomy.com/[notice path].
 >
-> Questions: [privacy contact email]
+> Questions: privacyanddata@myceliumgastronomy.com
 >
 > SporeBot · Estefania Simon-Sasyk y Otro CB
 

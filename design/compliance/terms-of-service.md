@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: §6A (client-supplied documents: warranty, indemnity, downloads, withdrawal), with changes to §1.1, §1.2, §3.1, §6.1, §11, §13.3, §13.4 and Annex A.8, for customers that supply their own documents (P1b-19 step 1). For the test client, which supplies nothing, keep §1.2 option (a) and delete §6A and A.8. Placeholders added: [5] (working days), [secure transfer method], [max file size], [max files per batch], [indemnity cap] |
-| Placeholders | [Client], [Client legal name], [date], [price], [currency], [term], [notice period], [liability cap], [Member State], [courts], [privacy contact email], [security contact email], [support email], [support hours], [response time], [payment days], [seats], [workspace name], [tag], [spend cap], [acceptance reference] |
+| Placeholders | [Client], [Client legal name], [date], [price], [currency], [term], [notice period], [liability cap], [Member State], [courts], [security contact email], [support email], [support hours], [response time], [payment days], [seats], [workspace name], [tag], [spend cap], [acceptance reference] |
 | To finalise, the owner must | (1) fill in the placeholders, in particular prices, liability cap, governing law and support terms; (2) decide the open points in "Notes for the owner"; (3) have counsel review, especially §8 (output disclaimer), §11 (liability) and §13 (termination); (4) attach the signed DPA (`client-dpa-draft.md`) and the order form (Annex A); (5) check every statement in Annex A against what is enabled in the operator console at signature. |
 
 ---
@@ -223,7 +223,7 @@ Chat-history retention: [30] days (maximum 30; the Customer's administrators may
 | Hours | [support hours] |
 | First response | [response time] |
 | Security contact | [security contact email] |
-| Privacy contact | [privacy contact email] |
+| Privacy contact | privacyanddata@myceliumgastronomy.com |
 | Target availability | [ ]% per month, no service credits unless stated: [ ] |
 
 ### A.8 Customer Documents (only where §6A applies)

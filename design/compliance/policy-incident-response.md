@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [security lead name], [security contact email], [privacy contact email], [lead supervisory authority], [48] (DPA notification window, hours), [document store], [date] |
+| Placeholders | [security lead name], [security contact email], [lead supervisory authority], [48] (DPA notification window, hours), [document store], [date] |
 | To finalise, the owner must | (1) confirm the client notification window with counsel (the DPA draft says [48] hours); (2) name the lead supervisory authority; (3) schedule the first tabletop; (4) approve and sign. |
 
 ---

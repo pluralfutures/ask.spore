@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15): scope note in §1, risks R12 to R14, review trigger |
-| Placeholders | [DPO or privacy contact name], [privacy contact email], [takedown contact email], [Client], [supervisory authority], [date] |
+| Placeholders | [DPO or privacy contact name], [takedown contact email], [Client], [supervisory authority], [date] |
 | To finalise, the owner must | (1) confirm the scope in §1 and the risk ratings in §5; (2) decide the open points in §8; (3) ask the DPO or privacy contact for advice and record it (Art. 35(2)); (4) have counsel review; (5) sign §9; (6) set the review date. |
 
 ---

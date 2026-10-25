@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [DPO or privacy contact name], [privacy contact email], [security contact email], [takedown contact email], [incident lead phone], [counsel name and contact], [Client], [Client incident contact], [supervisory authority], [document store], [date] |
+| Placeholders | [DPO or privacy contact name], [security contact email], [takedown contact email], [incident lead phone], [counsel name and contact], [Client], [Client incident contact], [supervisory authority], [document store], [date] |
 | To finalise, the owner must | (1) name the incident lead and deputy and fill in the contacts; (2) confirm the DPA notification window (clause 9.1, [48] hours) with counsel; (3) identify our lead [supervisory authority] and its notification form; (4) collect each client's incident contact at onboarding (`onboarding-pack.md`); (5) run the first tabletop and record it; (6) have counsel review the templates in §7. |
 
 This runbook implements `policy-incident-response.md`.
@@ -98,7 +98,7 @@ Kept at [document store]/incidents/log. One row per incident:
 > 5. **Likely consequences:** [ ].
 > 6. **Measures taken or proposed**, including to reduce possible adverse effects: [ ].
 > 7. **What we suggest you do:** [for example: tell affected users to sign out and request a new link].
-> 8. **Contact:** [DPO or privacy contact name], [privacy contact email], [incident lead phone].
+> 8. **Contact:** [DPO or privacy contact name], privacyanddata@myceliumgastronomy.com, [incident lead phone].
 >
 > As controller, you decide whether to notify your supervisory authority and the people concerned. We will give you the information and help you need for that.
 >
@@ -108,7 +108,7 @@ Kept at [document store]/incidents/log. One row per incident:
 
 | Field | Entry |
 | --- | --- |
-| Controller | Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain; contact [DPO or privacy contact name], [privacy contact email] |
+| Controller | Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain; contact [DPO or privacy contact name], privacyanddata@myceliumgastronomy.com |
 | Nature of the breach | Confidentiality / integrity / availability; [description] |
 | Data subjects | Categories (for example people named in corpus sources; our operators) and approximate number |
 | Records | Categories and approximate number |
@@ -131,7 +131,7 @@ Kept at [document store]/incidents/log. One row per incident:
 > **What we have done:** [ ].
 > **What you can do:** [ ].
 >
-> If you have questions, contact [DPO or privacy contact name] at [privacy contact email]. You also have the right to complain to [supervisory authority].
+> If you have questions, contact [DPO or privacy contact name] at privacyanddata@myceliumgastronomy.com. You also have the right to complain to [supervisory authority].
 
 ## 8. Playbooks
 

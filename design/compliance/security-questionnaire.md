@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15): scope line and rows 4.2, 4.3, 14.1, 14.5, 15.1, 16.3 and new section 17. Use section 17 only for a client that supplies documents, and only once P1b-19 step 2 is built; until then answer "No" to 17.1. Placeholders added: [secure transfer method], [5] (working days) |
-| Placeholders | [Client], [security contact email], [privacy contact email], [support email], [number of staff], [DPO or privacy contact name], [insurance cover], [name], [30] and [48] (DPA notice periods), [date] |
+| Placeholders | [Client], [security contact email], [support email], [number of staff], [DPO or privacy contact name], [insurance cover], [name], [30] and [48] (DPA notice periods), [date] |
 | To finalise, the owner must | (1) fill in the placeholders; (2) re-check every "Partial" and "No" row against the build on the day the questionnaire is sent, and update the ones that Phase 1b items have closed (each names its spec item); (3) confirm row 6.3 (encryption at rest of the Instance volumes) with Scaleway and replace "[confirm]"; (4) answer the HR rows (section 3) yourself; they are about the company, not the system; (5) keep this file as the master and copy answers into a client's own questionnaire format, never the other way round; (6) have counsel check the privacy rows (section 14) against the signed DPA. |
 
 How to read the answers: **Yes** means built and verified, with the evidence named. **Partial** means part of the control is in place; the detail says which part. **No** means not in place; where it is planned, the spec item is named. **N/A** means it does not apply to this service. Status is as of Oct 21, 2026, after the Phase 1a release (findings §10 to §12).
@@ -160,7 +160,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | 14.7 | Data subject request handling | Yes (process) | Forwarded to the customer as controller; we assist within [30] days (DPA clause 8) |
 | 14.8 | DPIA performed | Partial | `dpia.md` (draft) |
 | 14.9 | Privacy notice | Partial | `privacy-notice.md` (draft); shown and accepted at first sign-in from Phase 1b (P1b-10) |
-| 14.10 | DPO or privacy contact | — | [DPO or privacy contact name], [privacy contact email] |
+| 14.10 | DPO or privacy contact | — | [DPO or privacy contact name], privacyanddata@myceliumgastronomy.com |
 
 ## 15. Data residency and transfers
 

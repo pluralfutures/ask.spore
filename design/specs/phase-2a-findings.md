@@ -213,7 +213,7 @@ Instance or RAGFlow (RAGFlow faked, PostgreSQL 16 in the session container).
 The `Expires` test fails once the date has passed, or if the file is
 edited to more than a year ahead; renewing `Expires` is part of the owner's yearly review
 (`security-disclosure.md`). Caddy's other routes are unchanged (`/api/*`, the SSO callbacks,
-the catch-all), checked with the local run.
+the catch-all), checked with the local run. The development `web` container in `infra/compose.dev.yml` now mounts `apps/web/public` read-only beside `src`, so the dev server serves the same files (follow-up commit; `test_public_files` asserts the mount).
 
 **D6, status page: recommendation.** Take the proposal: a hosted third-party status page,
 updated by hand by the operator, until the monitoring stack of idea 3.1 exists. A

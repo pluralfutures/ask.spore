@@ -203,6 +203,11 @@ def test_the_web_build_ships_the_public_files() -> None:
     assert "public" not in dockerignore.split()
 
 
+def test_the_dev_web_container_mounts_the_public_files() -> None:
+    compose = yaml.safe_load((REPO / "infra" / "compose.dev.yml").read_text(encoding="utf-8"))
+    assert "../apps/web/public:/srv/web/public:ro" in compose["services"]["web"]["volumes"]
+
+
 def test_the_dev_server_mirrors_the_caddy_routes() -> None:
     vite = (REPO / "apps" / "web" / "vite.config.ts").read_text(encoding="utf-8")
     assert '"/security-disclosure": "/security-disclosure.html"' in vite

@@ -4705,7 +4705,7 @@
   "paths": {
     "/api/v1/admin/audit-log": {
       "get": {
-        "description": "The tenant's audit events since ``since`` (default 90 days), oldest first, as CSV.",
+        "description": "The tenant's exported audit events (``app.audit.events.EXPORTED_EVENTS``) from\n``since`` (default 90 days ago) to ``until`` (default today), both whole UTC days,\noldest first, as CSV.\n\nAt most 10,000 rows per file. A period that holds more is paged: the response says\nso in ``X-Audit-Export-Complete: false`` and gives the next part's cursor in\n``X-Audit-Export-Next``, which the next call passes as ``after`` with the same\ndates. One export per minute per admin (P2A-07).",
         "operationId": "export_audit_log_api_v1_admin_audit_log_get",
         "parameters": [
           {
@@ -4723,6 +4723,39 @@
                 }
               ],
               "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
             }
           }
         ],
@@ -4742,6 +4775,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "description": "one export per minute per admin"
           }
         },
         "summary": "Export Audit Log"

@@ -22,10 +22,12 @@ and nothing here takes a tenant ID from the request.
 - Usage (P2A-05): questions per day by mode, active users per day, the most cited
   sources and, with external models, month-to-date cost per model; counts only
   (``app.usage.dashboard``).
-- Audit log (architecture §7.2, P1b-10): a CSV download of the tenant's sign-in, admin,
-  operator, consent and download events (``EXPORTED_EVENTS``), metadata only as recorded
-  (owner decision 18, Oct 22, 2026, for downloads). Query and feedback events and the
-  operator-only tenant-name flags are not in it.
+- Audit log (architecture §7.2, P1b-10, P2A-07): a CSV download of the tenant's events
+  named in the explicit allow-list ``app.audit.events.EXPORTED_EVENTS`` (sign-in, admin,
+  consent, download, operator actions on the tenant's users, support access), metadata
+  only as recorded (owner decision 18, Oct 22, 2026, for downloads), between two dates,
+  paged past 10,000 rows, one export per minute per admin. Query and feedback events, the
+  operator-only tenant-name flags and every unclassified event are not in it.
 
 Every route is also behind the consent gate (``app.consent.gate``, P1b-10).
 
@@ -39,11 +41,11 @@ import io
 import json
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
-from typing import Any, Final
+from typing import Final
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import or_, select
+from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session, require_tenant_admin
@@ -60,10 +62,12 @@ from app.api.schemas import (
     WorkspaceDefaultsIn,
     WorkspaceOut,
 )
+from app.audit.events import EXPORTED_EVENTS
 from app.audit.models import AuditEvent
 from app.audit.writer import Change, record
 from app.auth.links import normalise_email
 from app.auth.provider import ProviderError, SignInLinkProvider
+from app.auth.ratelimit import IpRateLimiter
 from app.chat.selection import load_entitlement
 from app.consent.gate import active_version, require_consent
 from app.core import cache
@@ -418,59 +422,119 @@ async def _settings_out(session: AsyncSession, tenant_id: UUID) -> TenantSetting
     )
 
 
-# Event name prefixes (ending in ".") and exact names in the tenant admin's export.
-EXPORTED_EVENTS: Final[tuple[str, ...]] = (
-    "auth.",
-    "tenant_admin.",
-    "operator.",
-    "consent.",
-    "download",
-    "download.refused",
-    "workspace.prompt_saved",
-)
+# --- usage (P2A-05) -----------------------------------------------------------------------
+
+
+@router.get("/usage", response_model=UsageOut)
+async def get_usage(
+    request: Request,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> UsageOut:
+    """The tenant's usage over the last 30 days: counts only, no text or per-user figure."""
+    return await tenant_usage(session, request.app.state.settings, admin.tenant_id)
+
+
 MAX_EXPORT_ROWS: Final = 10_000
 DEFAULT_EXPORT_DAYS: Final = 90
 EXPORT_COLUMNS: Final = ("created_at", "event", "actor_user_id", "metadata")
+# P2A-07: one export per minute per admin (``app.auth.ratelimit``'s sliding window).
+EXPORTS_PER_WINDOW: Final = 1
+EXPORT_WINDOW_SECONDS: Final = 60.0
+# Response headers: whether the file holds the whole period, and if not, the cursor of
+# the next part (pass it back as ``after``).
+EXPORT_COMPLETE_HEADER: Final = "X-Audit-Export-Complete"
+EXPORT_NEXT_HEADER: Final = "X-Audit-Export-Next"
 
 
-def _exported(column: Any) -> Any:
-    return or_(
-        *(
-            column.startswith(name, autoescape=True) if name.endswith(".") else column == name
-            for name in EXPORTED_EVENTS
+def _export_limiter(request: Request) -> IpRateLimiter:
+    state = request.app.state
+    limiter: IpRateLimiter | None = getattr(state, "audit_export_limiter", None)
+    if limiter is None:
+        limiter = state.audit_export_limiter = IpRateLimiter(
+            EXPORTS_PER_WINDOW, EXPORT_WINDOW_SECONDS
         )
-    )
+    return limiter
+
+
+def _cursor(created_at: datetime, event_id: UUID) -> str:
+    return f"{created_at.isoformat()}|{event_id}"
+
+
+def _parse_cursor(value: str) -> tuple[datetime, UUID]:
+    at, _, event_id = value.partition("|")
+    try:
+        parsed = datetime.fromisoformat(at)
+        if parsed.tzinfo is None:
+            raise ValueError
+        return parsed, UUID(event_id)
+    except ValueError:
+        raise _unprocessable("invalid_cursor") from None
 
 
 @router.get(
     "/audit-log",
     response_class=Response,
-    responses={200: {"content": {"text/csv": {}}, "description": "the tenant's audit events"}},
+    responses={
+        200: {"content": {"text/csv": {}}, "description": "the tenant's audit events"},
+        429: {"description": "one export per minute per admin"},
+    },
 )
 async def export_audit_log(
+    request: Request,
     since: date | None = None,
+    until: date | None = None,
+    after: str | None = None,
     admin: RequestContext = Depends(require_tenant_admin),
     session: AsyncSession = Depends(db_session),
 ) -> Response:
-    """The tenant's audit events since ``since`` (default 90 days), oldest first, as CSV."""
-    start = since or (datetime.now(UTC).date() - timedelta(days=DEFAULT_EXPORT_DAYS))
+    """The tenant's exported audit events (``app.audit.events.EXPORTED_EVENTS``) from
+    ``since`` (default 90 days ago) to ``until`` (default today), both whole UTC days,
+    oldest first, as CSV.
+
+    At most 10,000 rows per file. A period that holds more is paged: the response says
+    so in ``X-Audit-Export-Complete: false`` and gives the next part's cursor in
+    ``X-Audit-Export-Next``, which the next call passes as ``after`` with the same
+    dates. One export per minute per admin (P2A-07)."""
+    limiter = _export_limiter(request)
+    key = str(admin.user_id)
+    if not limiter.allow(key):
+        log("tenant_admin.export_rate_limited", tenant_id=str(admin.tenant_id), status=429)
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="rate_limited",
+            headers={"Retry-After": str(limiter.retry_after(key))},
+        )
+    today = datetime.now(UTC).date()
+    end = until or today
+    start = since or (end - timedelta(days=DEFAULT_EXPORT_DAYS))
+    if start > end:
+        raise _unprocessable("invalid_period")
+    conditions = [
+        AuditEvent.tenant_id == admin.tenant_id,
+        AuditEvent.created_at >= datetime.combine(start, time.min, UTC),
+        AuditEvent.created_at < datetime.combine(end + timedelta(days=1), time.min, UTC),
+        AuditEvent.event.in_(sorted(EXPORTED_EVENTS)),
+    ]
+    if after is not None:
+        after_at, after_id = _parse_cursor(after)
+        conditions.append(tuple_(AuditEvent.created_at, AuditEvent.id) > (after_at, after_id))
     rows = (
         await session.execute(
             select(
+                AuditEvent.id,
                 AuditEvent.created_at,
                 AuditEvent.event,
                 AuditEvent.actor_user_id,
                 AuditEvent.metadata_,
             )
-            .where(
-                AuditEvent.tenant_id == admin.tenant_id,
-                AuditEvent.created_at >= datetime.combine(start, time.min, UTC),
-                _exported(AuditEvent.event),
-            )
+            .where(*conditions)
             .order_by(AuditEvent.created_at, AuditEvent.id)
-            .limit(MAX_EXPORT_ROWS)
+            .limit(MAX_EXPORT_ROWS + 1)
         )
     ).all()
+    complete = len(rows) <= MAX_EXPORT_ROWS
+    rows = rows[:MAX_EXPORT_ROWS]
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow(EXPORT_COLUMNS)
@@ -488,31 +552,18 @@ async def export_audit_log(
         tenant_id=admin.tenant_id,
         actor_user_id=admin.user_id,
         event="tenant_admin.audit_exported",
-        metadata={"count": len(rows)},
+        metadata={"count": len(rows), "status": "complete" if complete else "partial"},
     )
     log("tenant_admin.audit_exported", tenant_id=str(admin.tenant_id), count=len(rows))
     await session.commit()
-    return Response(
-        out.getvalue(),
-        media_type="text/csv",
-        headers={
-            "Content-Disposition": 'attachment; filename="audit-log.csv"',
-            "Cache-Control": "no-store",
-        },
-    )
-
-
-# --- usage (P2A-05) -----------------------------------------------------------------------
-
-
-@router.get("/usage", response_model=UsageOut)
-async def get_usage(
-    request: Request,
-    admin: RequestContext = Depends(require_tenant_admin),
-    session: AsyncSession = Depends(db_session),
-) -> UsageOut:
-    """The tenant's usage over the last 30 days: counts only, no text or per-user figure."""
-    return await tenant_usage(session, request.app.state.settings, admin.tenant_id)
+    headers = {
+        "Content-Disposition": f'attachment; filename="audit-log-{start}-{end}.csv"',
+        "Cache-Control": "no-store",
+        EXPORT_COMPLETE_HEADER: "true" if complete else "false",
+    }
+    if not complete:
+        headers[EXPORT_NEXT_HEADER] = _cursor(rows[-1].created_at, rows[-1].id)
+    return Response(out.getvalue(), media_type="text/csv", headers=headers)
 
 
 @router.get("/settings", response_model=TenantSettingsOut)

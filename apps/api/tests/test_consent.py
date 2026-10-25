@@ -317,7 +317,8 @@ async def test_the_tenant_admin_audit_export_includes_acceptance_events(
     assert "chat.query" not in {r["event"] for r in rows}
     assert str(other.user_id) not in json.dumps(rows)
     assert list(rows[0]) == ["created_at", "event", "actor_user_id", "metadata"]
-    # The export is itself audited; a later one lists it.
+    # The export is itself audited; a later one lists it (a minute later: P2A-07's limit).
+    auth.app.state.audit_export_limiter = None
     later = export_rows(await browser.get("/api/v1/admin/audit-log?since=2026-01-01"))
     assert "tenant_admin.audit_exported" in {r["event"] for r in later}
     plain = as_user(auth, member.email, tenant.id)

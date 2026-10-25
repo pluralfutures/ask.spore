@@ -1,9 +1,12 @@
 import { renderToString } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { adminApi } from "../api/client";
 import type { AdminUser, Me } from "../api/types";
 import {
+  auditLogQuery,
   consentStatus,
+  defaultAuditPeriod,
   lastLogin,
   parseRetention,
   retentionSummary,
@@ -214,5 +217,50 @@ describe("consent status per user (P2A-06)", () => {
   it("names the active notice version in the heading", () => {
     expect(usersHeading("v2")).toBe("Users · notice v2");
     expect(usersHeading(undefined)).toBe("Users");
+  });
+});
+
+describe("audit export (P2A-07)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("builds the query from the chosen dates and the next part's cursor", () => {
+    expect(auditLogQuery("2026-09-01", "2026-09-30")).toBe("?since=2026-09-01&until=2026-09-30");
+    expect(auditLogQuery("2026-09-01", "2026-09-30", "2026-09-02T00:00:00+00:00|e1")).toBe(
+      "?since=2026-09-01&until=2026-09-30&after=2026-09-02T00%3A00%3A00%2B00%3A00%7Ce1",
+    );
+    expect(auditLogQuery("", "")).toBe("");
+  });
+
+  it("defaults to the last 90 days", () => {
+    expect(defaultAuditPeriod(new Date("2026-10-25T10:00:00Z"))).toEqual({
+      since: "2026-07-27",
+      until: "2026-10-25",
+    });
+  });
+
+  it("downloads from the route with the chosen dates and reads the paging headers", async () => {
+    const fetchSpy = vi.fn(
+      async () =>
+        new Response("created_at,event,actor_user_id,metadata\n", {
+          status: 200,
+          headers: {
+            "content-type": "text/csv",
+            "content-disposition": 'attachment; filename="audit-log-2026-09-01-2026-09-30.csv"',
+            "x-audit-export-complete": "false",
+            "x-audit-export-next": "2026-09-02T00:00:00+00:00|e1",
+          },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+    const file = await adminApi.auditLog("2026-09-01", "2026-09-30");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/v1/admin/audit-log?since=2026-09-01&until=2026-09-30");
+    expect(init.method).toBe("GET");
+    expect(file).toMatchObject({
+      name: "audit-log-2026-09-01-2026-09-30.csv",
+      complete: false,
+      next: "2026-09-02T00:00:00+00:00|e1",
+    });
   });
 });

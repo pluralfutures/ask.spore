@@ -1,4 +1,5 @@
 // Typed client for /api/v1. The browser never talks to RAGFlow or the LLM.
+import { auditLogQuery } from "../lib/admin";
 import { readEvents } from "../lib/sse";
 import type {
   AdminInviteIn,
@@ -313,6 +314,8 @@ export const api = {
   },
 };
 
+export type AuditExport = { blob: Blob; name: string; complete: boolean; next: string | null };
+
 // Tenant admin pages (P1a-13). The API answers 403 to anyone who is not a tenant admin.
 export const adminApi = {
   users: () => json<AdminUser[]>("GET", "/admin/users"),
@@ -336,8 +339,18 @@ export const adminApi = {
   loginPolicy: () => json<LoginPolicyOut>("GET", "/admin/login-policy"),
   setRetention: (days: number) =>
     json<TenantSettings>("PUT", "/admin/settings/retention", { retention_days: days }),
-  // P1b-10: the tenant's sign-in, admin, operator and consent events, as CSV.
-  auditLog: async (): Promise<Blob> => (await send("GET", "/admin/audit-log")).blob(),
+  // P1b-10, P2A-07: the tenant's exported audit events between two dates, as CSV. A
+  // period over the row cap comes in parts: `next` is the cursor of the next one.
+  auditLog: async (since: string, until: string, after?: string | null): Promise<AuditExport> => {
+    const response = await send("GET", `/admin/audit-log${auditLogQuery(since, until, after)}`);
+    const disposition = response.headers.get("content-disposition") ?? "";
+    return {
+      blob: await response.blob(),
+      name: /filename="([^"]+)"/.exec(disposition)?.[1] ?? "audit-log.csv",
+      complete: response.headers.get("x-audit-export-complete") !== "false",
+      next: response.headers.get("x-audit-export-next"),
+    };
+  },
   // P2A-05: questions, active users, cited sources and (with external models) cost.
   usage: () => json<UsageOut>("GET", "/admin/usage"),
 };

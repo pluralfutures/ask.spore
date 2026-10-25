@@ -79,7 +79,32 @@ const REFUSALS: Record<string, string> = {
   reasoning_unsupported: "That model cannot reason; switch reasoning off.",
   mode_not_enabled: "That answer mode is not enabled for your organisation.",
   concurrent_save: "Someone else saved at the same time; reload and try again.",
+  // P2A-07: the audit export.
+  rate_limited: "One export a minute: wait a minute and download again.",
+  invalid_period: "The start date must be on or before the end date.",
+  invalid_cursor: "Start the download again from the first part.",
 };
+
+// P2A-07: the export's query string, with the chosen dates and the next part's cursor.
+export function auditLogQuery(since: string, until: string, after?: string | null): string {
+  const params = new URLSearchParams();
+  if (since) params.set("since", since);
+  if (until) params.set("until", until);
+  if (after) params.set("after", after);
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+export function isoDay(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+// The form's defaults: the last 90 days, as the API's.
+export function defaultAuditPeriod(today: Date = new Date()): { since: string; until: string } {
+  const since = new Date(today.getTime());
+  since.setUTCDate(since.getUTCDate() - 90);
+  return { since: isoDay(since), until: isoDay(today) };
+}
 
 export function adminRefusal(code: string | null): string {
   return (code && REFUSALS[code]) || "The change was refused.";

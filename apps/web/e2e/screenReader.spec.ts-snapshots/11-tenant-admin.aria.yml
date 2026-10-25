@@ -24,6 +24,9 @@
                 - link "Users":
                     - /url: "#users"
             - listitem:
+                - link "Usage":
+                    - /url: "#usage"
+            - listitem:
                 - link "Workspaces":
                     - /url: "#workspaces"
             - listitem:
@@ -35,7 +38,7 @@
             - listitem:
                 - link "Audit log":
                     - /url: "#audit"
-    - heading "Users" [level=2]
+    - heading "Users · notice v1" [level=2]
     - text: Email
     - textbox "Email"
     - text: Name
@@ -47,22 +50,24 @@
     - button "Invite" [disabled]
     - table:
         - rowgroup:
-            - row "Name Email Role Status Last login Actions":
+            - row "Name Email Role Status Last login Notice Actions":
                 - columnheader "Name"
                 - columnheader "Email"
                 - columnheader "Role"
                 - columnheader "Status"
                 - columnheader "Last login"
+                - columnheader "Notice"
                 - columnheader "Actions"
         - rowgroup:
-            - row /Synthetic analyst analyst@example\.org Admin active \d+ Oct \d+ · sign-in link/:
+            - row /Synthetic analyst analyst@example\.org Admin active \d+ Oct \d+ · sign-in link v1 \(current\)/:
                 - cell "Synthetic analyst"
                 - cell "analyst@example.org"
                 - cell "Admin"
                 - cell "active"
                 - cell /\d+ Oct \d+ · sign-in link/
+                - cell "v1 (current)"
                 - cell
-            - row "Synthetic invited invited@example.org User invited Never signed in Actions for invited@example.org":
+            - row "Synthetic invited invited@example.org User invited Never signed in Not accepted Actions for invited@example.org":
                 - cell "Synthetic invited"
                 - cell "invited@example.org"
                 - cell "User":
@@ -71,9 +76,10 @@
                         - option "Admin"
                 - cell "invited"
                 - cell "Never signed in"
+                - cell "Not accepted"
                 - cell "Actions for invited@example.org":
                     - button "Actions for invited@example.org"
-            - row /Synthetic member member@example\.org User active \d+ Oct \d+ Actions for member@example\.org/:
+            - row /Synthetic member member@example\.org User active \d+ Oct \d+ v1 \(current\) Actions for member@example\.org/:
                 - cell "Synthetic member"
                 - cell "member@example.org"
                 - cell "User":
@@ -82,9 +88,10 @@
                         - option "Admin"
                 - cell "active"
                 - cell /\d+ Oct \d+/
+                - cell "v1 (current)"
                 - cell "Actions for member@example.org":
                     - button "Actions for member@example.org"
-            - row /Synthetic policy\.analyst\.with\.a\.long\.address policy\.analyst\.with\.a\.long\.address@international-organisation\.example\.org User active \d+ Oct \d+ · sign-in link Actions for policy\.analyst\.with\.a\.long\.address@international-organisation\.example\.org/:
+            - row /Synthetic policy\.analyst\.with\.a\.long\.address policy\.analyst\.with\.a\.long\.address@international-organisation\.example\.org User active \d+ Oct \d+ · sign-in link v1 \(current\) Actions for policy\.analyst\.with\.a\.long\.address@international-organisation\.example\.org/:
                 - cell "Synthetic policy.analyst.with.a.long.address"
                 - cell "policy.analyst.with.a.long.address@international-organisation.example.org"
                 - cell "User":
@@ -93,9 +100,10 @@
                         - option "Admin"
                 - cell "active"
                 - cell /\d+ Oct \d+ · sign-in link/
+                - cell "v1 (current)"
                 - cell "Actions for policy.analyst.with.a.long.address@international-organisation.example.org":
                     - button "Actions for policy.analyst.with.a.long.address@international-organisation.example.org"
-            - row /Synthetic former former@example\.org User deactivated \d+ Oct \d+ · sign-in link Actions for former@example\.org/:
+            - row /Synthetic former former@example\.org User deactivated \d+ Oct \d+ · sign-in link v1 \(current\) Actions for former@example\.org/:
                 - cell "Synthetic former"
                 - cell "former@example.org"
                 - cell "User":
@@ -104,8 +112,36 @@
                         - option "Admin"
                 - cell "deactivated"
                 - cell /\d+ Oct \d+ · sign-in link/
+                - cell "v1 (current)"
                 - cell "Actions for former@example.org":
                     - button "Actions for former@example.org"
+    - heading "Usage" [level=2]
+    - paragraph: "/The last \\d+ days, in UTC\\. Counts only: no question text and no per-person figures\\./"
+    - term: Questions
+    - definition: /\d+/
+    - term: Sources only
+    - definition: /\d+/
+    - term: General knowledge
+    - definition: "3"
+    - term: Most active users in a day
+    - definition: "4"
+    - group: Questions and active users per day
+    - heading "Most cited sources" [level=3]
+    - table:
+        - rowgroup:
+            - row "Title Publisher Answers citing it":
+                - columnheader "Title"
+                - columnheader "Publisher"
+                - columnheader "Answers citing it"
+        - rowgroup:
+            - row /Synthetic Trade Outlook \d+ Synthetic Trade Observatory 7/:
+                - cell /Synthetic Trade Outlook \d+/
+                - cell "Synthetic Trade Observatory"
+                - cell "7"
+            - row "Synthetic Food Systems Brief Synthetic Food Systems Council 4":
+                - cell "Synthetic Food Systems Brief"
+                - cell "Synthetic Food Systems Council"
+                - cell "4"
     - heading "Workspaces" [level=2]
     - group "Synthetic Markets":
         - heading "Synthetic Markets" [level=3]
@@ -170,5 +206,9 @@
     - definition: https://sso.example.org/source/oauth/callback/synthetic-client-entra/
     - paragraph: To change single sign-on, contact the platform operator.
     - heading "Audit log" [level=2]
-    - paragraph: /Sign-in, administration, operator and notice-acceptance events of the last \d+ days, as CSV\./
+    - paragraph: Sign-in, administration, notice-acceptance and download events, operator actions on your users, and support access, as CSV. Questions and their text are never in it.
+    - text: From
+    - textbox "From": /\d+-\d+-\d+/
+    - text: To
+    - textbox "To": /\d+-\d+-\d+/
     - button "Download audit log"

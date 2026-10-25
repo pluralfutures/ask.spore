@@ -7,7 +7,9 @@ import { SCENARIOS, VIEWPORTS } from "./scenarios/scenarios";
 // UX-18 (design/specs/ux-refresh-spec.md, mockup 3): tenant admin's section sub-nav and
 // cards per section; configuration values in monospace.
 const admin = SCENARIOS.find((s) => s.name === "11-tenant-admin")!;
-const SECTIONS = ["Users", "Workspaces", "Chat history retention", "Sign-in", "Audit log"];
+const SECTIONS = ["Users", "Usage", "Workspaces", "Chat history retention", "Sign-in", "Audit log"];
+// P2A-06: the users heading names the active notice version.
+const HEADINGS = ["Users · notice v1", ...SECTIONS.slice(1)];
 
 for (const [width, viewport] of Object.entries(VIEWPORTS)) {
   test(`the sub-nav links each section, in page order (${width})`, async ({ page }) => {
@@ -15,7 +17,7 @@ for (const [width, viewport] of Object.entries(VIEWPORTS)) {
     await openScenario(page, admin);
     const nav = page.getByRole("navigation", { name: "Administration sections" });
     await expect(nav.getByRole("link")).toHaveText(SECTIONS);
-    await expect(page.getByRole("heading", { level: 2 })).toHaveText(SECTIONS);
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText(HEADINGS);
     await expect(nav.getByRole("link", { name: "Users" })).toHaveAttribute("aria-current", "true");
     await nav.getByRole("link", { name: "Audit log" }).click();
     await expect(page).toHaveURL(/#audit$/);

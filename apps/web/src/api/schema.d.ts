@@ -13,7 +13,14 @@ export interface paths {
     };
     /**
      * Export Audit Log
-     * @description The tenant's audit events since ``since`` (default 90 days), oldest first, as CSV.
+     * @description The tenant's exported audit events (``app.audit.events.EXPORTED_EVENTS``) from
+     *     ``since`` (default 90 days ago) to ``until`` (default today), both whole UTC days,
+     *     oldest first, as CSV.
+     *
+     *     At most 10,000 rows per file. A period that holds more is paged: the response says
+     *     so in ``X-Audit-Export-Complete: false`` and gives the next part's cursor in
+     *     ``X-Audit-Export-Next``, which the next call passes as ``after`` with the same
+     *     dates. One export per minute per admin (P2A-07).
      */
     get: operations["export_audit_log_api_v1_admin_audit_log_get"];
     put?: never;
@@ -3277,6 +3284,8 @@ export interface operations {
     parameters: {
       query?: {
         since?: string | null;
+        until?: string | null;
+        after?: string | null;
       };
       header?: never;
       path?: never;
@@ -3301,6 +3310,13 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
         };
+      };
+      /** @description one export per minute per admin */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

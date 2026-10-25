@@ -102,6 +102,8 @@ function fakeUser(id: string, email: string, role: string, status = "active") {
     last_login_at: signedIn ? NOW : null,
     last_login_method: signedIn ? "sign_in_link" : null,
     created_at: NOW,
+    consent_version: signedIn ? "v1" : null,
+    consent_current: signedIn,
   };
 }
 
@@ -114,6 +116,8 @@ export class FakeApi {
   // Tenant admin routes (P1a-13): saved prompt versions per workspace, and the calls.
   readonly prompts = new Map<string, { version: number; text: string; created_at: string }[]>();
   readonly adminCalls: { method: string; path: string; body: unknown }[] = [];
+  // P2A-07: the query string of each audit export the page asked for.
+  readonly auditExports: string[] = [];
   readonly downloads: string[] = []; // source IDs whose bytes were served
   private readonly links = new Map<string, string>(); // token -> source ID
   readonly asked: { conversation: string; body: unknown }[] = [];
@@ -275,6 +279,34 @@ export class FakeApi {
       if (index < 0) return route.fulfill({ status: 404, json: { detail: "not_found" } });
       this.users.splice(index, 1);
       return route.fulfill({ status: 204 });
+    }
+    if (path === "/admin/audit-log") {
+      const query = new URL(route.request().url()).search;
+      this.auditExports.push(query);
+      const first = !query.includes("after=");
+      return route.fulfill({
+        status: 200,
+        contentType: "text/csv",
+        headers: {
+          "content-disposition": 'attachment; filename="audit-log-synthetic.csv"',
+          "x-audit-export-complete": first ? "false" : "true",
+          ...(first ? { "x-audit-export-next": "2026-09-02T00:00:00+00:00|synthetic" } : {}),
+        },
+        body: "created_at,event,actor_user_id,metadata\n",
+      });
+    }
+    if (path === "/admin/usage") {
+      return route.fulfill({
+        json: {
+          since: "2026-09-26",
+          until: "2026-10-25",
+          questions: [],
+          active_users: [],
+          top_sources: [],
+          cost_month: null,
+          costs: null,
+        },
+      });
     }
     if (path === "/admin/settings") {
       return route.fulfill({

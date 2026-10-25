@@ -238,6 +238,7 @@ export class ScenarioApi {
         });
       }
       if (path === "/admin/login-policy") return json(F.LOGIN_POLICY);
+      if (path === "/admin/usage") return json(F.USAGE);
       if (path.endsWith("/prompts")) {
         return json(path.includes(F.WS_MARKETS.id) ? o.prompts : []);
       }

@@ -8,6 +8,7 @@ import {
   MAX_RETENTION_DAYS,
   adminRefusal,
   consentStatus,
+  defaultAuditPeriod,
   isTenantAdmin,
   lastLogin,
   parseRetention,
@@ -751,31 +752,69 @@ export function UsageView({ usage }: { usage: UsageOut }) {
   );
 }
 
+function saveBlob(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+// P2A-07: the export between two dates. A period over 10,000 events comes in parts; the
+// page says so and offers the next part instead of a silently truncated file.
 function AuditLog() {
+  const [period, setPeriod] = useState(() => defaultAuditPeriod());
+  const [next, setNext] = useState<string | null>(null);
   const download = useMutation({
-    mutationFn: adminApi.auditLog,
-    onSuccess: (blob) => {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "audit-log.csv";
-      link.click();
-      URL.revokeObjectURL(url);
+    mutationFn: (after: string | null) => adminApi.auditLog(period.since, period.until, after),
+    onSuccess: (file) => {
+      saveBlob(file.blob, file.name);
+      setNext(file.complete ? null : file.next);
     },
   });
+  const change = (key: "since" | "until") => (e: { target: { value: string } }) => {
+    setPeriod((p) => ({ ...p, [key]: e.target.value }));
+    setNext(null);
+    download.reset();
+  };
   return (
     <Card id="audit" title="Audit log" className={SECTION_CARD}>
       <p className="text-fg-muted">
-        Sign-in, administration, operator and notice-acceptance events of the last 90 days, as CSV.
+        Sign-in, administration, notice-acceptance and download events, operator actions on your
+        users, and support access, as CSV. Questions and their text are never in it.
       </p>
-      <Button
-        variant="primary"
-        className="w-fit"
-        disabled={download.isPending}
-        onClick={() => download.mutate()}
+      <form
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setNext(null);
+          download.mutate(null);
+        }}
       >
-        Download audit log
-      </Button>
+        <Field label="From">
+          <Input type="date" value={period.since} max={period.until} onChange={change("since")} />
+        </Field>
+        <Field label="To">
+          <Input type="date" value={period.until} min={period.since} onChange={change("until")} />
+        </Field>
+        <Button type="submit" variant="primary" className="w-fit" disabled={download.isPending}>
+          Download audit log
+        </Button>
+      </form>
+      {next ? (
+        <Notice tone="info" role="status">
+          This period holds more than 10,000 events; the file holds the first part.
+          <Button
+            variant="secondary"
+            className="ml-2 w-fit"
+            disabled={download.isPending}
+            onClick={() => download.mutate(next)}
+          >
+            Download the next part
+          </Button>
+        </Notice>
+      ) : null}
       {refusal(download.error) ? <Notice tone="danger">{refusal(download.error)}</Notice> : null}
     </Card>
   );

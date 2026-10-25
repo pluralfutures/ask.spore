@@ -56,13 +56,20 @@ LATER_TENANT_TABLES = (
     "tenant_login_policy",
     "sso_attempts",
     "mfa_challenges",
+    "support_grants",
 )
 # One row per tenant, created with the tenant (revision 0020's trigger): another tenant
 # sees its own row only.
 ROW_PER_TENANT = {"tenant_login_policy"}
 # Roles with their own, narrower policies besides tenant_isolation (revisions 0005, 0006,
-# 0015 and 0040).
-SET_ROLES = {"askspore_auth", "askspore_operator", "askspore_content", "askspore_retention"}
+# 0015, 0040 and 0065).
+SET_ROLES = {
+    "askspore_auth",
+    "askspore_operator",
+    "askspore_content",
+    "askspore_retention",
+    "askspore_support",
+}
 # Tenant tables the application role cannot read (only a SET role does). Since revision
 # 0008 it may INSERT operator notices (P1a-07, and the spend notices of P1a-10, revision
 # 0009), still without reading them.
@@ -169,6 +176,12 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
         workspace,
         user,
     )
+    grant = await admin_conn.fetchval(
+        "INSERT INTO support_grants (tenant_id, scope, duration_minutes, note, created_at, "
+        "expires_at) VALUES ($1, 'settings', 15, 'Synthetic note.', now(), "
+        "now() + interval '15 minutes') RETURNING id",
+        INTERNAL_TENANT_ID,
+    )
     yield {
         "other": other,
         "user": user,
@@ -176,6 +189,7 @@ async def populated(admin_conn: asyncpg.Connection) -> AsyncIterator[dict[str, u
         "message": message,
         "workspace": workspace,
     }
+    await admin_conn.execute("DELETE FROM support_grants WHERE id = $1", grant)
     await admin_conn.execute("DELETE FROM workspace_prompts WHERE id = $1", prompt)
     await admin_conn.execute("DELETE FROM content_roles WHERE user_id = $1", user)
     await admin_conn.execute("DELETE FROM usage_ledger WHERE month = '1999-01-01'")

@@ -124,3 +124,24 @@ test("an admin resends an invitation, removes a user, and sees a taken address",
   );
   await expect(page.getByText("That address already has an account.")).toHaveCount(0);
 });
+
+test("the audit download asks for the chosen dates and offers the next part", async ({ page }) => {
+  const api = new FakeApi({ workspaces: WORKSPACES, models: MODELS, role: "tenant_admin" });
+  await api.install(page);
+  await page.goto("/admin#audit");
+  const audit = page.locator("#audit");
+  await audit.getByLabel("From").fill("2026-09-01");
+  await audit.getByLabel("To").fill("2026-09-30");
+  const first = page.waitForEvent("download");
+  await audit.getByRole("button", { name: "Download audit log" }).click();
+  expect((await first).suggestedFilename()).toBe("audit-log-synthetic.csv");
+  expect(api.auditExports).toEqual(["?since=2026-09-01&until=2026-09-30"]);
+  await expect(audit.getByRole("status")).toContainText("more than 10,000 events");
+  const second = page.waitForEvent("download");
+  await audit.getByRole("button", { name: "Download the next part" }).click();
+  await second;
+  expect(api.auditExports[1]).toBe(
+    "?since=2026-09-01&until=2026-09-30&after=2026-09-02T00%3A00%3A00%2B00%3A00%7Csynthetic",
+  );
+  await expect(audit.getByRole("status")).toHaveCount(0);
+});

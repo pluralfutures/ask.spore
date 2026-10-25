@@ -28,7 +28,10 @@ source register.
 A site a reviewer withdraws while it is being crawled (P1c-14) stops the crawl at its
 next page: every page is checked against the site's status, and a page is admitted
 only under a share lock on the site row, so it is either admitted before the
-withdrawal (which then blocks and withdraws it) or not at all.
+withdrawal (which then blocks and withdraws it) or not at all. A reinstated site
+(P2A-12 a) is crawled again only once a reviewer approves it afresh; its pages released
+at reinstatement (``removed``, ``reinstated``) are admitted as new rows, and its pages
+under a takedown stay blocked by the reason check and the takedown check below.
 
 Log lines and audit events carry identifiers, codes and counts only, never page text,
 titles or URLs.
@@ -388,7 +391,8 @@ class _Crawl:
             # A version a newer one will replace stays until that one is ingested.
             pending = {r.supersedes_id for r in rows if r.status != "withdrawn"}
             for row in rows:
-                if row.status not in ("ingested", "failed") or row.id in live | pending:
+                # P2A-03: a paused page that left the site is withdrawn like any other.
+                if row.status not in ("ingested", "paused", "failed") or row.id in live | pending:
                     continue
                 code = reasons.get(row.id)
                 reason = WITHDRAWAL_REASONS.get(code or "", EARLIER_VERSION)

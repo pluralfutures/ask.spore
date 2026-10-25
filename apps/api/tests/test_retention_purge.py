@@ -209,7 +209,7 @@ async def test_a_tenant_scoped_purge_reaches_only_that_tenant(
     before_b = await rows(admin_conn, b.id)
 
     async with tenant_role_session(factory, RETENTION_ROLE, a.id) as session:
-        counts = await _purge_tenant(session, 90, dry_run=False)
+        counts = await _purge_tenant(session, a.id, 90, dry_run=False)
 
     assert counts.conversations == 1
     assert (await rows(admin_conn, a.id))["conversations"] == 0

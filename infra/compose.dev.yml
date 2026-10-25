@@ -172,6 +172,7 @@ services:
     volumes:
       - ../apps/web/src:/srv/web/src:ro
       - ../apps/web/index.html:/srv/web/index.html:ro
+      - ../apps/web/public:/srv/web/public:ro
       - ../apps/web/vite.config.ts:/srv/web/vite.config.ts:ro
       - ../apps/web/tsconfig.json:/srv/web/tsconfig.json:ro
       - ../apps/web/tsconfig.app.json:/srv/web/tsconfig.app.json:ro
@@ -204,6 +205,10 @@ services:
       - 80:80
       - 443:443
       - 443:443/udp
+    environment:
+      # P2A-11: "published" serves the trust page at /trust; anything else but the
+      # default stops Caddy at start. Set in infra/.env by the owner (paperwork item 4).
+      ASKSPORE_TRUST_PAGE: ${ASKSPORE_TRUST_PAGE:-unpublished}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - web_dist:/srv/web:ro

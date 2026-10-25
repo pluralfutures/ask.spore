@@ -85,6 +85,9 @@ class RagflowDocument:
     progress: float
     progress_msg: str
     chunk_count: int
+    # RAGFlow's document status (P2A-01): True for "1", False for "0", None when the
+    # response carries none. A disabled document's chunks are never retrieved.
+    enabled: bool | None = None
 
     @property
     def finished(self) -> bool:
@@ -112,7 +115,14 @@ def _document(raw: Mapping[str, Any], dataset_id: str) -> RagflowDocument:
         progress=float(raw.get("progress") or 0.0),
         progress_msg=str(raw.get("progress_msg") or ""),
         chunk_count=int(raw.get("chunk_count") or 0),
+        enabled=_enabled(raw.get("status")),
     )
+
+
+def _enabled(status: object) -> bool | None:
+    """RAGFlow's document ``status`` ("1" enabled, "0" disabled) as a bool, else None."""
+    value = str(status) if isinstance(status, str | int) and not isinstance(status, bool) else ""
+    return {"1": True, "0": False}.get(value)
 
 
 def page_or_slide(raw: Mapping[str, Any]) -> int | None:
@@ -298,6 +308,64 @@ class RagflowClient:
             f"/datasets/{dataset_id}/documents",
             json={"ids": list(document_ids)},
         )
+
+    async def set_document_enabled(
+        self, dataset_id: str, document_id: str, *, enabled: bool
+    ) -> None:
+        """Enable or disable one document, so its chunks are retrieved or not (P2A-01).
+
+        ``PATCH`` with the integer ``enabled`` (RAGFlow v0.27.2 refuses a boolean and
+        silently ignores a ``status`` field; findings, "P2A-00 probe"), and the status
+        RAGFlow returns must be the one asked for, else ``status_mismatch``. RAGFlow does
+        nothing when the status already matches, so a repeat is harmless. The response
+        names the file and its storage location: only the code, the returned status and
+        the latency are logged, and errors carry no RAGFlow message.
+        """
+        started = time.monotonic()
+        try:
+            data = await self._call(
+                "set_document_enabled",
+                "PATCH",
+                f"/datasets/{dataset_id}/documents/{document_id}",
+                json={"enabled": 1 if enabled else 0},
+                include_detail=False,
+            )
+            returned = _enabled(data.get("status")) if isinstance(data, Mapping) else None
+            if returned is None:
+                raise RagflowError("set_document_enabled", "unexpected_response")
+            if returned is not enabled:
+                raise RagflowError("set_document_enabled", "status_mismatch")
+        except RagflowError as exc:
+            log(
+                "ragflow.set_document_enabled",
+                level="error",
+                status="error",
+                error_code=exc.error_code,
+                latency_ms=round((time.monotonic() - started) * 1000),
+            )
+            raise
+        log(
+            "ragflow.set_document_enabled",
+            status="enabled" if returned else "disabled",
+            latency_ms=round((time.monotonic() - started) * 1000),
+        )
+
+    async def list_documents(self, dataset_id: str) -> list[RagflowDocument]:
+        """Every document of one dataset (``datasets sync`` compares their status)."""
+        documents: list[RagflowDocument] = []
+        page = 1
+        while True:
+            data = await self._call(
+                "list_documents",
+                "GET",
+                f"/datasets/{dataset_id}/documents",
+                params={"page": page, "page_size": LIST_PAGE_SIZE},
+            )
+            batch = [_document(item, dataset_id) for item in (data or {}).get("docs") or []]
+            documents += batch
+            if len(batch) < LIST_PAGE_SIZE:
+                return documents
+            page += 1
 
     async def get_document(self, dataset_id: str, document_id: str) -> RagflowDocument:
         data = await self._call(

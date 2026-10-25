@@ -19,7 +19,7 @@ import hashlib
 import re
 import time
 from collections.abc import Awaitable, Callable, Container, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Literal
@@ -34,6 +34,7 @@ from app.content.jobs import enqueue
 from app.content.models import Dataset, SitePage, Source
 from app.content.store import StoredFileError, read, relative_path
 from app.content.tags import TagConfig
+from app.content.toggle import set_enabled_everywhere
 from app.core.db import tenant_session
 from app.retrieval.ragflow import RUN_DONE, RagflowClient, RagflowDocument, RagflowError
 from app.tenancy.models import INTERNAL_TENANT_ID
@@ -121,14 +122,27 @@ class IngestResult:
     error: str | None = None
     document_ids: dict[str, str] = field(default_factory=dict)
     tags_added: tuple[str, ...] = ()  # retagged only
+    # ingested only (P2A-03): the new version inherited its predecessor's pause, so the
+    # register row is ``paused`` and its RAGFlow documents are disabled.
+    paused: bool = False
     job_id: UUID | None = None  # queued, and after waiting for the job
     seconds: float = 0.0  # the job's run time, after waiting for it
 
 
 class _Failure(Exception):
-    def __init__(self, code: str, message: str) -> None:
+    """An ingestion failure. Its message, which becomes ``IngestResult.error`` and the
+    source row's ``error`` (shown in the content console), is the code, optionally
+    followed by context of our own: ``<code>`` or ``<code>: <context>``.
+
+    P2A-13 (Phase 1c independent review, item 3): the context is built from our own
+    codes, tags and names only. A ``RagflowError`` contributes its ``error_code``, never
+    its text (the detail is RAGFlow's own message), and a parse no ``progress_msg``.
+    """
+
+    def __init__(self, code: str, context: str | None = None) -> None:
         self.code = code
-        super().__init__(message)
+        self.context = context
+        super().__init__(f"{code}: {context}" if context else code)
 
 
 def load_path(path: Path) -> SourceFile:
@@ -194,7 +208,7 @@ async def _wait(
 ) -> RagflowDocument:
     while not document.finished:
         if clock() >= deadline:
-            raise _Failure("parse_timeout", "parsing did not finish before the timeout")
+            raise _Failure("parse_timeout")
         await sleep(poll_interval)
         document = await client.get_document(document.dataset_id, document.id)
     return document
@@ -248,34 +262,37 @@ async def _upload_and_parse(
                 clock=clock,
             )
             if done.run != RUN_DONE:
-                raise _Failure("parse_failed", f"{tag}: parse {done.run}: {done.progress_msg}")
+                # RAGFlow's progress_msg is its own text: never kept (P2A-13). The run
+                # is one of our TERMINAL_RUNS constants (FAIL or CANCEL) here.
+                raise _Failure("parse_failed", f"{tag} {done.run}")
             if done.chunk_count == 0:
-                raise _Failure("no_chunks", f"{tag}: parsed into 0 chunks")
+                raise _Failure("no_chunks", tag)
             chunk_count += done.chunk_count
     except RagflowError as exc:
-        failure = _Failure(exc.error_code, str(exc))
+        failure = _Failure(exc.error_code)
     except _Failure as exc:
         failure = exc
     except Exception as exc:  # recorded on the row; never leave it "ingesting"
-        failure = _Failure("internal_error", f"unexpected {type(exc).__name__}")
+        failure = _Failure("internal_error", type(exc).__name__)
 
     if failure is None:
         return uploaded, chunk_count, None
-    error = str(failure)
     try:
         for dataset_id, document_id in uploaded.items():
             await client.delete_documents(dataset_id, [document_id])
         uploaded = {}
     except RagflowError as exc:
-        error += f"\nclean-up failed, documents left in RAGFlow: {exc}"
-    return uploaded, 0, _Failure(failure.code, error)
+        left = f"clean-up failed ({exc.error_code}), documents left in RAGFlow"
+        context = f"{failure.context}; {left}" if failure.context else left
+        return uploaded, 0, _Failure(failure.code, context)
+    return uploaded, 0, failure
 
 
 async def _staged_content(content_root: Path, sha256: str, source_type: str) -> bytes:
     try:
         return read(content_root, relative_path(sha256, source_type), sha256)
     except StoredFileError as exc:
-        raise _Failure(f"staged_{exc.code}", f"the staged file is unusable: {exc.code}") from None
+        raise _Failure(f"staged_{exc.code}") from None
 
 
 async def ingest_source(
@@ -340,17 +357,16 @@ async def ingest_source(
                     await client.delete_documents(dataset_id, [document_id])
                     del uploaded[dataset_id]
             except RagflowError as exc:
-                message = f"clean-up of an interrupted run failed: {exc}"
-                raise _Failure(exc.error_code, message) from None
+                raise _Failure(exc.error_code, "clean-up of an interrupted run") from None
             await record_uploads({})
         if row.file_sha256 is None:
-            raise _Failure("no_file", "the source has no file")
+            raise _Failure("no_file")
         content = await _staged_content(content_root, row.file_sha256, row.type)
         async with factory() as session:
             datasets = await _datasets_for(session, tags)
         missing = [tag for tag in tags if tag not in datasets or tag not in tags_config]
         if missing:
-            raise _Failure("no_dataset", f"no dataset or tag config for {', '.join(missing)}")
+            raise _Failure("no_dataset", ", ".join(missing))
         uploaded, chunk_count, failure = await _upload_and_parse(
             client,
             tags_config,
@@ -392,15 +408,37 @@ async def ingest_source(
             source_id=source_id, status="ingested", chunk_count=chunk_count, document_ids=uploaded
         )
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        values: dict[str, object] = {}
+        if result.status == "ingested" and row.supersedes_id is not None:
+            # P2A-03: a new version of a paused source is ingested paused, so neither a
+            # recrawl nor a re-ingestion silently resumes it. The predecessor's row is
+            # locked, so a reviewer's pause or resume of it waits for this decision.
+            predecessor = (
+                await session.execute(
+                    select(Source.status, Source.paused_by, Source.pause_reason)
+                    .where(Source.id == row.supersedes_id)
+                    .with_for_update()
+                )
+            ).first()
+            if predecessor is not None and predecessor.status == "paused":
+                result = await _inherit_pause(client, result)
+                if result.paused:
+                    values = {
+                        "paused_at": func.now(),
+                        "paused_by": predecessor.paused_by,
+                        "pause_reason": predecessor.pause_reason,
+                    }
+        status = "paused" if result.paused else result.status
         await session.execute(
             update(Source)
             .where(Source.id == source_id, Source.status == "approved")
             .values(
-                status=result.status,
+                status=status,
                 chunk_count=result.chunk_count if result.status == "ingested" else None,
                 error=result.error,
                 ragflow_document_ids=result.document_ids,
                 updated_at=func.now(),
+                **values,
             )
         )
         await record(
@@ -411,8 +449,9 @@ async def ingest_source(
             metadata={
                 "source_id": str(source_id),
                 "before": {"status": "approved"},
-                "after": {"status": result.status},
+                "after": {"status": status},
                 "error_code": result.error_code,
+                **({"outcome": "pause_inherited"} if result.paused else {}),
             },
         )
         if result.status == "ingested" and row.supersedes_id is not None:
@@ -441,6 +480,29 @@ async def ingest_source(
                     session, "withdraw_source", {"source_id": str(source_id)}, created_by=None
                 )
     return result
+
+
+async def _inherit_pause(client: RagflowClient, result: IngestResult) -> IngestResult:
+    """Disable the new version's documents; if that fails, delete them and fail the
+    ingestion (a reviewer retries), so the new version never goes live unpaused."""
+    pairs = sorted(result.document_ids.items())
+    error, _ = await set_enabled_everywhere(client, pairs, enabled=False)
+    if error is None:
+        return replace(result, paused=True)
+    left = dict(result.document_ids)
+    for dataset_id, document_id in pairs:
+        try:
+            await client.delete_documents(dataset_id, [document_id])
+        except RagflowError:
+            continue  # stays mapped on the failed row; a retry deletes it first
+        del left[dataset_id]
+    return IngestResult(
+        source_id=result.source_id,
+        status="failed",
+        error_code=error,
+        error=f"the inherited pause could not be applied ({error})",
+        document_ids=left,
+    )
 
 
 async def _map_retag(
@@ -494,8 +556,7 @@ async def _clean_unfinished_retag(
             await client.delete_documents(dataset_id, [document_id])
             del remaining[dataset_id]
     except RagflowError as exc:
-        message = f"clean-up of an interrupted re-tag failed: {exc}"
-        raise _Failure(exc.error_code, message) from None
+        raise _Failure(exc.error_code, "clean-up of an interrupted re-tag") from None
     finally:
         await _map_retag(factory, source_id, remaining, set(leftover))
 
@@ -540,7 +601,13 @@ async def add_tags(
             )
         ).first()
     if row is None or row.status != "ingested" or row.file_sha256 is None:
-        code = "no_source" if row is None else "not_ingested"
+        code = (
+            "no_source"
+            if row is None
+            else "paused"  # P2A-03: paused after the re-tag was approved; resume first
+            if row.status == "paused"
+            else "not_ingested"
+        )
         return IngestResult(source_id=source_id, status="refused", error_code=code)
     try:
         await _clean_unfinished_retag(factory, client, source_id)
@@ -558,7 +625,7 @@ async def add_tags(
             datasets = await _datasets_for(session, new_tags)
         missing = [tag for tag in new_tags if tag not in datasets or tag not in tags_config]
         if missing:
-            raise _Failure("no_dataset", f"no dataset or tag config for {', '.join(missing)}")
+            raise _Failure("no_dataset", ", ".join(missing))
     except _Failure as exc:
         return IngestResult(
             source_id=source_id, status="failed", error_code=exc.code, error=_short(str(exc))

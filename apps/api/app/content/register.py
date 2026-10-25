@@ -1,7 +1,9 @@
-"""Source register transitions (P1b-01): propose, approve, reject, retry.
+"""Source register transitions (P1b-01): propose, approve, reject, retry, pause, resume.
 
 ``proposed -> approved -> ingested -> withdrawn``, plus ``failed`` (retryable: a
-reviewer sends it back to ``approved``) and ``rejected``. No document reaches RAGFlow
+reviewer sends it back to ``approved``), ``rejected``, and ``ingested <-> paused``
+(P2A-01: a reviewer takes a source out of retrieval without destroying it; a paused
+source can still be withdrawn, and a pause never satisfies a takedown). No document reaches RAGFlow
 without an approved row (architecture §6.1): ``propose`` only records the row and
 stages the file under ``[files] content_root``; ingestion (``app.content.ingest``)
 refuses a source that is not ``approved``.
@@ -17,7 +19,7 @@ they approve their own proposal (allowed and audited by owner decision, Oct 21, 
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
@@ -29,12 +31,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.audit.writer import AuditValue, record
 from app.content.ingest import IngestError, SourceFile, SourceMetadata
-from app.content.jobs import enqueue
+from app.content.jobs import Job, enqueue
 from app.content.models import Dataset, SitePage, Source
 from app.content.roles import EDITOR, REVIEWER, RoleError, require, roles_of
 from app.content.store import STORABLE_TYPES, stage
 from app.content.tags import TagConfig
+from app.content.toggle import set_enabled_everywhere
+from app.content.withdraw import purge_answer_cache
 from app.core.db import tenant_session
+from app.core.logging import log
+from app.retrieval.ragflow import RagflowClient
 from app.tenancy.models import INTERNAL_TENANT_ID
 
 MAX_NOTE_LENGTH = 2000
@@ -145,7 +151,8 @@ async def replacement_candidates(
         select(Source.id)
         .where(
             Source.canonical_url == canonical_url,
-            Source.status == "ingested",
+            # P2A-03: a paused source can be replaced; the new version inherits the pause.
+            Source.status.in_(("ingested", "paused")),
             Source.site_id.is_(None),
         )
         .order_by(Source.created_at)
@@ -164,7 +171,7 @@ async def _being_replaced(session: AsyncSession, source_id: UUID, *, by: UUID | 
     """Another approved (or ingested, or failed) proposal already replaces the source."""
     query = select(Source.id).where(
         Source.supersedes_id == source_id,
-        Source.status.in_(("approved", "ingested", "failed")),
+        Source.status.in_(("approved", "ingested", "paused", "failed")),
     )
     if by is not None:
         query = query.where(Source.id != by)
@@ -250,7 +257,9 @@ async def propose(
         )
         if taken_down is not None:
             return Submission(taken_down.id, "taken_down", "withdrawn")
-        ingested = next((r for r in same if r.status == "ingested"), None)
+        # P2A-03: a paused source is in the corpus as an ingested one is; a re-tag of it is
+        # refused at approval (``paused``).
+        ingested = next((r for r in same if r.status in ("ingested", "paused")), None)
         if ingested is not None:
             # A re-tag reads the staged copy; sources ingested before P1b-02 have none.
             path = staged()
@@ -260,8 +269,8 @@ async def propose(
                 )
             new_tags = tuple(tag for tag in tags if tag not in ingested.tags)
             if new_tags:
-                return Submission(ingested.id, "retag", "ingested", new_tags)
-            return Submission(ingested.id, "duplicate", "ingested")
+                return Submission(ingested.id, "retag", ingested.status, new_tags)
+            return Submission(ingested.id, "duplicate", ingested.status)
         waiting = next((r for r in same if r.status in ("proposed", "approved", "failed")), None)
         if waiting is not None:
             return Submission(waiting.id, "pending", waiting.status)
@@ -493,6 +502,8 @@ async def approve_retag(
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
+        if row.status == "paused":
+            raise RegisterError("paused")  # P2A-03: the reviewer resumes it first
         if row.status != "ingested":
             raise RegisterError("not_ingested")
         await record(
@@ -551,22 +562,26 @@ async def set_licence_file(
         )
 
 
-def working_days_after(start: date, days: int) -> date:
-    """The date ``days`` working days (Monday to Friday) after ``start``."""
+def working_days_after(start: date, days: int, holidays: Collection[date] = ()) -> date:
+    """The date ``days`` working days after ``start``: Monday to Friday, leaving out
+    ``holidays`` (the active region of ``config/holidays.toml``, P2A-12 b). With no
+    holidays, Monday to Friday only."""
     current = start
     while days > 0:
         current += timedelta(days=1)
-        if current.weekday() < 5:
+        if current.weekday() < 5 and current not in holidays:
             days -= 1
     return current
 
 
-def takedown_due_on(requested_on: date, *, licence_breach: bool) -> date:
+def takedown_due_on(
+    requested_on: date, *, licence_breach: bool, holidays: Collection[date] = ()
+) -> date:
     """10 working days from a valid request; the same day for a licence breach we find
     ourselves (architecture §6.3)."""
     if licence_breach:
         return requested_on
-    return working_days_after(requested_on, TAKEDOWN_WORKING_DAYS)
+    return working_days_after(requested_on, TAKEDOWN_WORKING_DAYS, holidays)
 
 
 async def record_takedown(
@@ -578,8 +593,12 @@ async def record_takedown(
     requested_on: date,
     licence_breach: bool,
     licence_grounds: bool = False,
+    holidays: Collection[date] = (),
 ) -> date:
     """Put a source on the takedown queue with its due date; returns the due date.
+
+    ``holidays``: the active public holidays (``Settings.holidays``, P2A-12 b), which the
+    working-day count leaves out; the API and the CLI pass the configured calendar.
 
     ``licence_grounds``: the request is on licence grounds (a licence breach we find
     ourselves always is). Recorded for the queue and the audit trail; since owner
@@ -590,7 +609,7 @@ async def record_takedown(
     reference = reference.strip()
     if not reference or len(reference) > MAX_REFERENCE_LENGTH:
         raise RegisterError("bad_reference")
-    due = takedown_due_on(requested_on, licence_breach=licence_breach)
+    due = takedown_due_on(requested_on, licence_breach=licence_breach, holidays=holidays)
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
@@ -641,15 +660,16 @@ class TakedownItem:
     title: str = ""
     licence_grounds: bool = False
 
-    def working_days_left(self, today: date) -> int:
-        """Working days until the due date; negative when overdue."""
+    def working_days_left(self, today: date, holidays: Collection[date] = ()) -> int:
+        """Working days until the due date, on the same calendar as the due date
+        (``holidays``, P2A-12 b); negative when overdue."""
         if today == self.due_on:
             return 0
         step = 1 if self.due_on > today else -1
         days, current = 0, today
         while current != self.due_on:
             current += timedelta(days=step)
-            if current.weekday() < 5:
+            if current.weekday() < 5 and current not in holidays:
                 days += step
         return days
 
@@ -691,12 +711,13 @@ async def request_withdrawal(
     reason: str,
 ) -> UUID:
     """A reviewer withdraws a source: records the reason and enqueues the
-    ``withdraw_source`` job, which removes it everywhere (``app.content.withdraw``)."""
+    ``withdraw_source`` job, which removes it everywhere (``app.content.withdraw``).
+    A paused source is withdrawn the same way, with the full cascade (P2A-01)."""
     note = _note(reason, required=True)
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
-        if row.status not in ("ingested", "failed"):
+        if row.status not in ("ingested", "failed", "paused"):
             raise RegisterError("not_withdrawable")
         await session.execute(
             update(Source)
@@ -726,3 +747,165 @@ async def request_withdrawal(
             },
         )
     return job_id
+
+
+# P2A-01: pause and resume.
+
+
+@dataclass(frozen=True)
+class PauseResult:
+    """What a pause or a resume did: the RAGFlow documents switched, and (pause only)
+    the cached answers purged, None when the cache could not be reached."""
+
+    source_id: UUID
+    status: Literal["paused", "ingested"]
+    documents: int
+    cache_entries_purged: int | None = None
+
+
+async def _synced_mapping(session: AsyncSession, row: Source) -> list[tuple[str, str]]:
+    """The source's ``(dataset_id, document_id)`` pairs, sorted by dataset ID.
+
+    Every key must be a synced dataset's ID; a mapping from before the datasets table
+    (Phase 0) cannot be switched document by document, so it is refused rather than
+    half-paused. The IDs come from the register, never from a request.
+    """
+    mapping = row.ragflow_document_ids
+    if not isinstance(mapping, dict) or not mapping:
+        raise RegisterError("no_documents")
+    synced = set(
+        (
+            await session.scalars(
+                select(Dataset.ragflow_dataset_id).where(
+                    Dataset.ragflow_dataset_id.in_(list(mapping))
+                )
+            )
+        ).all()
+    )
+    pairs = [(str(k), str(v)) for k, v in mapping.items() if isinstance(v, str)]
+    if len(pairs) != len(mapping) or any(k not in synced for k, _ in pairs):
+        raise RegisterError("unmapped_document")
+    return sorted(pairs)
+
+
+async def _ingestion_in_flight(session: AsyncSession, source_id: UUID) -> bool:
+    job = await session.scalar(
+        select(Job.id)
+        .where(
+            Job.type == "ingest_source",
+            Job.status.in_(("queued", "running")),
+            Job.payload["source_id"].astext == str(source_id),
+        )
+        .limit(1)
+    )
+    return job is not None
+
+
+async def _switch(
+    factory: async_sessionmaker[AsyncSession],
+    client: RagflowClient,
+    source_id: UUID,
+    reviewer_id: UUID,
+    *,
+    pause: bool,
+    reason: str | None,
+) -> PauseResult:
+    before, after = ("ingested", "paused") if pause else ("paused", "ingested")
+    action = "pause" if pause else "resume"
+    failure: str | None = None
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        roles = await require(session, reviewer_id, REVIEWER)
+        row = await _locked(session, source_id)
+        if row.status != before:
+            raise RegisterError(f"not_{before}")
+        if await _ingestion_in_flight(session, source_id):
+            # A re-tag uploads and parses new documents, whose chunks RAGFlow makes
+            # available whatever the status: switch only once it is done.
+            raise RegisterError("ingestion_in_progress")
+        pairs = await _synced_mapping(session, row)
+        error, undo_failed = await set_enabled_everywhere(client, pairs, enabled=not pause)
+        if error is not None:
+            failure = f"{action}_undo_failed" if undo_failed else error
+            await record(
+                session,
+                tenant_id=INTERNAL_TENANT_ID,
+                actor_user_id=reviewer_id,
+                event=f"source.{action}_failed",
+                metadata={
+                    "source_id": str(source_id),
+                    "before": {"status": before},
+                    "after": {"status": before},
+                    "roles": sorted(roles),
+                    "error_code": error,
+                    "outcome": "undo_failed" if undo_failed else "undone",
+                    "count": len(pairs),
+                },
+            )
+        else:
+            values: dict[str, object] = {"status": after, "updated_at": func.now()}
+            if pause:
+                values |= {
+                    "paused_at": func.now(),
+                    "paused_by": reviewer_id,
+                    "pause_reason": reason,
+                }
+            else:
+                # The reason stays as the last pause's (owner decision, Oct 25, 2026).
+                values |= {"paused_at": None, "paused_by": None}
+            await session.execute(update(Source).where(Source.id == source_id).values(**values))
+            await _audit(
+                session,
+                reviewer_id,
+                f"source.{after if pause else 'resumed'}",
+                source_id,
+                before,
+                after,
+                roles=sorted(roles),
+                outcome="ok",
+                count=len(pairs),
+            )
+    if failure is not None:
+        log("content.source_switch_failed", source_id=str(source_id), error_code=failure)
+        raise RegisterError(failure)
+    purged: int | None = None
+    if pause:
+        # The corpus fingerprint changed with the status, so no cache key of any
+        # workspace finds the old answers; they are purged as well, so that a cached
+        # answer never cites a paused source (P2A-01).
+        try:
+            purged = await purge_answer_cache(factory, {str(source_id)})
+        except Exception:  # the pause stands; the old keys are unreachable anyway
+            log("content.cache_purge_failed", source_id=str(source_id), error_code="cache")
+    return PauseResult(source_id, "paused" if pause else "ingested", len(pairs), purged)
+
+
+async def pause(
+    factory: async_sessionmaker[AsyncSession],
+    client: RagflowClient,
+    source_id: UUID,
+    reviewer_id: UUID,
+    *,
+    reason: str,
+) -> PauseResult:
+    """``ingested -> paused``: a reviewer takes the source out of retrieval, the library
+    and downloads for every tenant (D1), keeping its RAGFlow documents and its stored
+    citations (D3).
+
+    Each RAGFlow document of the source is disabled in this call, not in a job. If one
+    fails or answers with the wrong status, those already disabled are enabled again,
+    the row stays ``ingested`` and the error code is raised (``source.pause_failed`` is
+    audited, never ``source.paused``). A pause does not touch the takedown queue.
+    """
+    note = _note(reason, required=True)
+    return await _switch(factory, client, source_id, reviewer_id, pause=True, reason=note)
+
+
+async def resume(
+    factory: async_sessionmaker[AsyncSession],
+    client: RagflowClient,
+    source_id: UUID,
+    reviewer_id: UUID,
+) -> PauseResult:
+    """``paused -> ingested``: every RAGFlow document enabled again, no re-parse. A
+    failure disables again those already enabled and leaves the row ``paused``."""
+    return await _switch(factory, client, source_id, reviewer_id, pause=False, reason=None)

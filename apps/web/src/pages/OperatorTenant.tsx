@@ -8,6 +8,9 @@ import type {
   EntitlementsIn,
   LoginPolicyIn,
   OperatorOptions,
+  OperatorSupportGrant,
+  SupportConversation,
+  SupportSettings,
   OperatorTag,
   OperatorWorkspace,
   SsoSourceIn,
@@ -16,8 +19,9 @@ import type {
 import { SaveStatus } from "../components/SaveStatus";
 import { UserActions } from "../components/UserActions";
 import { lastLogin } from "../lib/admin";
+import { sourcesForTags } from "../lib/content";
 import { formFrom, toRequest, type EntitlementsForm } from "../lib/entitlements";
-import { formatDate } from "../lib/format";
+import { formatDate, formatDateTime, pageLabel } from "../lib/format";
 import { TENANT_TABS, errorText, tabFrom, toggle, type TenantTab } from "../lib/operator";
 import { capShare, count, euros } from "../lib/spend";
 import {
@@ -52,6 +56,7 @@ const TAB_LABELS: Record<TenantTab, string> = {
   workspaces: "Workspaces",
   users: "Users",
   spend: "Spend",
+  support: "Support access",
 };
 
 // One tenant per page (P1b-12, Phase 1a findings F2): every form on this page is keyed
@@ -130,6 +135,7 @@ function TenantPage({ tenantId }: { tenantId: string }) {
       {tab === "workspaces" && <Workspaces tenant={current} />}
       {tab === "users" && <Users tenant={current} />}
       {tab === "spend" && <Spend tenant={current} />}
+      {tab === "support" && <SupportAccess tenant={current} />}
     </div>
   );
 }
@@ -489,6 +495,13 @@ function WorkspaceTags({
         Save tags
       </Button>
       <SaveStatus isSuccess={save.isSuccess} error={save.error} />
+      {/* P2A-04 (D4): the files this workspace holds, in the content console, where a
+          content reviewer pauses or withdraws them. */}
+      {workspace.tag_ids.length ? (
+        <Link to={sourcesForTags(workspace.tag_ids)} className={LINK}>
+          Sources in its tags
+        </Link>
+      ) : null}
     </form>
   );
 }
@@ -715,6 +728,140 @@ function Spend({ tenant }: { tenant: TenantOut }) {
           </tbody>
         </Table>
       )}
+    </Card>
+  );
+}
+
+// P2A-08 (architecture §7.4): what the tenant's admins opened for support, and a read of
+// it. Each read is audited under the tenant and shown on its admin page; an expired or
+// revoked grant reads as not found. Read only: nothing here changes the tenant.
+function SupportAccess({ tenant }: { tenant: TenantOut }) {
+  const grants = useQuery({
+    queryKey: ["operator", "support", tenant.id],
+    queryFn: () => operatorApi.supportGrants(tenant.id),
+  });
+  const [open, setOpen] = useState<OperatorSupportGrant | null>(null);
+  if (grants.isPending) return <Skeleton />;
+  return (
+    <div className="flex flex-col gap-4">
+      <Card
+        title="Open support grants"
+        description="Granted by the tenant's admins. Each view is recorded and shown to them."
+      >
+        {grants.data && grants.data.length > 0 ? (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Access to</Th>
+                <Th>Note</Th>
+                <Th>Until</Th>
+                <ActionsTh />
+              </tr>
+            </thead>
+            <tbody>
+              {grants.data.map((g) => (
+                <tr key={g.id} data-testid={`grant-${g.id}`}>
+                  <Td label="Access to">
+                    {g.scope === "settings" ? "Settings" : "One conversation"}
+                  </Td>
+                  <Td label="Note" className="[overflow-wrap:anywhere]">
+                    {g.note}
+                  </Td>
+                  <Td label="Until">{formatDateTime(g.expires_at)}</Td>
+                  <Td className="text-right">
+                    <Button variant="secondary" onClick={() => setOpen(g)}>
+                      View
+                    </Button>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : (
+          <EmptyState title="No open support grants">
+            A tenant admin grants access from their administration page.
+          </EmptyState>
+        )}
+      </Card>
+      {open ? <SupportView key={open.id} tenantId={tenant.id} grant={open} /> : null}
+    </div>
+  );
+}
+
+function SupportView({ tenantId, grant }: { tenantId: string; grant: OperatorSupportGrant }) {
+  const view = useQuery({
+    queryKey: ["operator", "support", tenantId, grant.id, "view"],
+    queryFn: (): Promise<SupportSettings | SupportConversation> =>
+      grant.scope === "settings"
+        ? operatorApi.supportSettings(tenantId, grant.id)
+        : operatorApi.supportConversation(tenantId, grant.id, grant.conversation_id ?? ""),
+    retry: false,
+    staleTime: Infinity,
+  });
+  if (view.isPending) return <Skeleton />;
+  if (view.error)
+    return <Notice tone="danger">This grant is no longer open; nothing can be read.</Notice>;
+  return "messages" in view.data ? (
+    <SupportConversationView conversation={view.data} />
+  ) : (
+    <SupportSettingsView settings={view.data} />
+  );
+}
+
+function citationLine(c: SupportConversation["messages"][number]["citations"][number]): string {
+  const page = c.page_or_slide !== null ? `, ${pageLabel(c.type, c.page_or_slide)}` : "";
+  const status = c.withdrawn ? " (withdrawn)" : c.superseded ? " (superseded)" : "";
+  return `[${c.marker}] ${c.publisher}, ${c.title}${page}${status}`;
+}
+
+export function SupportConversationView({ conversation }: { conversation: SupportConversation }) {
+  return (
+    <Card
+      title={conversation.title || "Untitled conversation"}
+      description={`${conversation.workspace_name} · read only, until ${formatDateTime(conversation.expires_at)}`}
+    >
+      <ol className="flex flex-col gap-3">
+        {conversation.messages.map((m, index) => (
+          <li key={index} className="flex flex-col gap-1">
+            <p className="font-strong">{m.role === "user" ? "Question" : "Answer"}</p>
+            <p className="whitespace-pre-wrap">{m.content}</p>
+            {m.citations.length > 0 ? (
+              <ul className="flex flex-col gap-1 text-fg-muted">
+                {m.citations.map((c) => (
+                  <li key={c.marker}>
+                    {citationLine(c)}
+                    <blockquote className="ml-4 whitespace-pre-wrap">{c.excerpt}</blockquote>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
+export function SupportSettingsView({ settings }: { settings: SupportSettings }) {
+  return (
+    <Card
+      title="Tenant settings"
+      description={`Read only, until ${formatDateTime(settings.expires_at)}`}
+    >
+      <p>{`Chat history retention: ${settings.retention_days} days`}</p>
+      {settings.workspaces.map((w) => (
+        <section key={w.slug} className="flex flex-col gap-1">
+          <h3 className="font-strong">{w.name}</h3>
+          <p className="text-fg-muted">
+            {`Default mode ${w.default_mode}, model ${w.default_model}, reasoning ${w.default_reasoning ? "on" : "off"}`}
+          </p>
+          {w.instructions ? (
+            <p className="whitespace-pre-wrap">{`Instructions v${w.instructions_version}: ${w.instructions}`}</p>
+          ) : (
+            <p className="text-fg-muted">No additional instructions.</p>
+          )}
+        </section>
+      ))}
     </Card>
   );
 }

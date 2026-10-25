@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
@@ -130,6 +130,9 @@ class CitationOut(BaseModel):
     # withdrawn. A citation in a live answer has neither.
     superseded: bool = False
     withdrawn: bool = False
+    # P2A-02, history only: the source is paused now (D3: the excerpt and provenance are
+    # kept); read live from the register, so the label goes when the source is resumed.
+    unavailable: bool = False
 
 
 class MessageOut(BaseModel):
@@ -612,6 +615,16 @@ class AdminUserOut(_Out):
     last_login_at: datetime | None
     last_login_method: str | None
     created_at: datetime
+    # P2A-06: the use and privacy notice version the user last accepted, and whether it
+    # is the active one. Admin and operator lists only; never in ``/me``.
+    consent_version: str | None
+    consent_current: bool = False
+
+    @classmethod
+    def of(cls, user: Any, active_version: str) -> AdminUserOut:
+        out = cls.model_validate(user)
+        out.consent_current = user.consent_version == active_version
+        return out
 
 
 class UserInviteIn(_In):
@@ -704,3 +717,151 @@ class OperatorSourceOut(BaseModel):
 
 class SourceDownloadableIn(_In):
     downloadable: bool
+
+
+# --- tenant admin usage (P2A-05; architecture §7.2) --------------------------------------
+# Counts only: no query text, no conversation or message ID, no user ID or per-user
+# figure. ``test_logging_policy`` asserts the field names against an allow-list.
+
+
+class UsageQuestionsOut(BaseModel):
+    """Questions asked on one UTC day in one answer mode (``chat.query`` events)."""
+
+    day: date
+    mode: str
+    questions: int
+
+
+class UsageActiveUsersOut(BaseModel):
+    """How many distinct users asked at least one question on one UTC day."""
+
+    day: date
+    users: int
+
+
+class UsageSourceOut(BaseModel):
+    """A cited source, by title and publisher, and how many answers cited it."""
+
+    title: str
+    publisher: str
+    answers: int
+
+
+class UsageModelCostOut(BaseModel):
+    """One model's month-to-date usage from ``usage_ledger``, as the operator sees it."""
+
+    model: str
+    display_name: str
+    external: bool
+    tokens_in: int
+    tokens_out: int
+    cost_cents: Decimal
+
+
+class UsageOut(BaseModel):
+    since: date
+    until: date
+    questions: list[UsageQuestionsOut]
+    active_users: list[UsageActiveUsersOut]
+    top_sources: list[UsageSourceOut]
+    # Only for a tenant with the external-models entitlement; null otherwise.
+    cost_month: str | None
+    costs: list[UsageModelCostOut] | None
+
+
+# --- support access (P2A-08; architecture §7.4) ------------------------------------------
+
+SupportScope = Literal["settings", "conversation"]
+SupportState = Literal["open", "used", "expired", "revoked"]
+
+
+class SupportGrantIn(_In):
+    """A tenant admin's grant: the settings, or one of their own conversations."""
+
+    scope: SupportScope
+    conversation_id: UUID | None = None
+    duration_minutes: int = Field(default=60, ge=15, le=240)
+    note: str = Field(min_length=1, max_length=500)
+
+
+class SupportGrantOut(BaseModel):
+    """A grant as its tenant admin sees it, with the operator's reads through it."""
+
+    id: UUID
+    scope: SupportScope
+    conversation_id: UUID | None
+    conversation_title: str | None
+    duration_minutes: int
+    note: str
+    created_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
+    state: SupportState
+    views: int
+    last_viewed_at: datetime | None
+
+
+class OperatorSupportGrantOut(BaseModel):
+    """An open grant on the operator's tenant page: what it covers and until when."""
+
+    id: UUID
+    scope: SupportScope
+    conversation_id: UUID | None
+    note: str
+    created_at: datetime
+    expires_at: datetime
+
+
+class SupportCitationOut(BaseModel):
+    marker: int
+    title: str
+    publisher: str
+    published_on: date | None
+    page_or_slide: int | None
+    type: str
+    canonical_url: str | None
+    excerpt: str
+    superseded: bool
+    withdrawn: bool
+
+
+class SupportMessageOut(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime
+    unsupported: bool
+    truncated: bool
+    partial: bool
+    citations: list[SupportCitationOut]
+
+
+class SupportConversationOut(BaseModel):
+    """One granted conversation as its user sees it; no user identifier."""
+
+    grant_id: UUID
+    expires_at: datetime
+    title: str | None
+    workspace_name: str
+    mode: str
+    model: str
+    created_at: datetime
+    messages: list[SupportMessageOut]
+
+
+class SupportWorkspaceOut(BaseModel):
+    name: str
+    slug: str
+    default_mode: str
+    default_model: str
+    default_reasoning: bool
+    instructions_version: int | None
+    instructions: str | None
+
+
+class SupportSettingsOut(BaseModel):
+    """The tenant's settings a tenant admin sets, read through a ``settings`` grant."""
+
+    grant_id: UUID
+    expires_at: datetime
+    retention_days: int
+    workspaces: list[SupportWorkspaceOut]

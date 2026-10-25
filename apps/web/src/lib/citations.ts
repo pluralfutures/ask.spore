@@ -39,18 +39,34 @@ export function markerFromHref(href: string | undefined): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-/** What happened to a cited source since the answer (P1b-03): withdrawn wins over superseded. */
-export type CitationStatus = "withdrawn" | "superseded" | null;
+/**
+ * What happened to a cited source since the answer (P1b-03): withdrawn wins over
+ * superseded. P2A-02: a paused source is "currently unavailable"; its excerpt and
+ * "View at source" stay (D3), and the label goes when the source is resumed.
+ */
+export type CitationStatus = "withdrawn" | "superseded" | "unavailable" | null;
 
-export function citationStatus(c: { superseded?: boolean; withdrawn?: boolean }): CitationStatus {
+export function citationStatus(c: {
+  superseded?: boolean;
+  withdrawn?: boolean;
+  unavailable?: boolean;
+}): CitationStatus {
   if (c.withdrawn) return "withdrawn";
   if (c.superseded) return "superseded";
+  if (c.unavailable) return "unavailable";
   return null;
 }
+
+export const CITATION_STATUS_LABEL: Record<Exclude<CitationStatus, null>, string> = {
+  withdrawn: "withdrawn",
+  superseded: "superseded",
+  unavailable: "currently unavailable",
+};
 
 export const CITATION_STATUS_NOTE: Record<Exclude<CitationStatus, null>, string> = {
   withdrawn: "This source has been withdrawn from the research package since this answer.",
   superseded: "A newer version of this source has replaced the one this answer quoted.",
+  unavailable: "This source is currently unavailable in the research package.",
 };
 
 // Owner decision 3 (Oct 23, 2026, P1c-14): every withdrawal blanks the stored excerpts of

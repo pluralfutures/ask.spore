@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
@@ -12,7 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import cli
-from app.content.datasets import SyncResult, sync_datasets
+from app.content.datasets import StatusMismatch, SyncResult, sync_datasets
 from app.content.tags import TagConfig, load_tags
 from app.core.config import DEFAULT_CONFIG_DIR, load_settings
 from app.core.db import create_engine, session_factory
@@ -204,6 +205,11 @@ def test_cli_logs_metadata_and_exits_non_zero_on_failure(
     async def fake_sync(*_: Any) -> list[SyncResult]:
         return results
 
+    mismatches: list[StatusMismatch] = []
+
+    async def fake_mismatches(*_: Any) -> list[StatusMismatch]:
+        return mismatches
+
     class Client:
         async def __aenter__(self) -> Client:
             return self
@@ -223,6 +229,7 @@ def test_cli_logs_metadata_and_exits_non_zero_on_failure(
 
     monkeypatch.setattr(cli, "get_settings", lambda: load_settings(environ=ENV))
     monkeypatch.setattr(cli, "sync_datasets", fake_sync)
+    monkeypatch.setattr(cli, "status_mismatches", fake_mismatches)
     monkeypatch.setattr(cli.RagflowClient, "from_settings", staticmethod(lambda _: Client()))
     monkeypatch.setattr(cli, "session_factory", lambda _: Session)
 
@@ -233,6 +240,22 @@ def test_cli_logs_metadata_and_exits_non_zero_on_failure(
         ("sample-web", "mismatch", "error"),
     ]
     assert all(line["event"] == "datasets.sync" for line in lines)
+
+    # P2A-01: a document whose RAGFlow status disagrees with the register fails the run.
+    results[1] = SyncResult("sample-web", "ok", "b" * 32)
+    source_id = uuid.uuid4()
+    mismatches.append(StatusMismatch(source_id, "sample-web", "b" * 32, "disabled", "enabled"))
+    assert cli.main(["datasets", "sync"]) == 1
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert lines[-1] == lines[-1] | {
+        "event": "datasets.status_mismatch",
+        "level": "error",
+        "source_id": str(source_id),
+        "tag": "sample-web",
+        "status": "expected_disabled_found_enabled",
+    }
+    mismatches.clear()
+    assert cli.main(["datasets", "sync"]) == 0
 
 
 def test_cli_requires_a_subcommand() -> None:

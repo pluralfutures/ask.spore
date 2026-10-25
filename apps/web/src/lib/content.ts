@@ -9,6 +9,7 @@ export const SOURCE_STATUSES = [
   "failed",
   "withdrawn",
   "rejected",
+  "paused",
 ] as const;
 export const SOURCE_TYPES = ["pdf", "docx", "pptx", "html", "markdown"] as const;
 export const SCHEDULES = ["none", "weekly", "monthly"] as const;
@@ -23,6 +24,30 @@ export function canEdit(roles: readonly string[]): boolean {
 
 export function canReview(roles: readonly string[]): boolean {
   return roles.includes(REVIEWER);
+}
+
+/** P2A-04: the content console's source list filtered by a workspace's tags. */
+export function sourcesForTags(tags: readonly string[]): string {
+  const params = new URLSearchParams(tags.map((tag) => ["tag", tag]));
+  return tags.length ? `/content?${params.toString()}` : "/content";
+}
+
+/** The register filters a link carries (the operator console's workspace link). */
+export function filtersFromSearch(search: string): {
+  status?: string;
+  tags?: string[];
+  type?: string;
+  publisher?: string;
+} {
+  const params = new URLSearchParams(search);
+  const tags = params.getAll("tag").filter(Boolean);
+  const one = (key: string) => params.get(key) || undefined;
+  return {
+    ...(one("status") ? { status: one("status") } : {}),
+    ...(tags.length ? { tags } : {}),
+    ...(one("type") ? { type: one("type") } : {}),
+    ...(one("publisher") ? { publisher: one("publisher") } : {}),
+  };
 }
 
 /** The takedown SLA timer, in working days (negative when overdue). */
@@ -50,6 +75,8 @@ export const PAGE_REASONS: Record<string, string> = {
   withdrawn: "withdrawn by a reviewer",
   site_withdrawn: "the whole site was withdrawn",
   restored: "restored by a reviewer: taken again at the next crawl",
+  reinstated:
+    "released when the site was reinstated: taken again at the first crawl after approval",
   robots_disallowed: "robots.txt disallows the site",
   tdm_reserved: "the site reserves text-and-data mining",
   http_404: "gone (404)",
@@ -84,7 +111,18 @@ const ERRORS = {
   no_dataset: "A tag has no dataset yet: sync the tags first.",
   site_exists: "That site is registered already.",
   bad_pattern: "Patterns are paths starting with /, e.g. /reports/*.",
-  not_withdrawable: "Only an ingested or failed source can be withdrawn.",
+  not_withdrawable: "Only an ingested, paused or failed source can be withdrawn.",
+  // P2A-01 to P2A-03: pause and resume.
+  not_ingested: "Only an ingested source can be paused.",
+  not_paused: "Only a paused source can be resumed.",
+  paused: "The source is paused: resume it first.",
+  ingestion_in_progress: "An ingestion of this source is running: pause it once it is done.",
+  pause_undo_failed:
+    "RAGFlow failed part-way and could not be put back: run datasets sync and check the documents.",
+  resume_undo_failed:
+    "RAGFlow failed part-way and could not be put back: run datasets sync and check the documents.",
+  withdrawal_running:
+    "The site's pages are still being withdrawn: reinstate it once those jobs have finished.",
   too_large: "The file is too large.",
 } as const;
 const ERROR_TEXT: Record<string, string | undefined> = ERRORS;
@@ -94,6 +132,8 @@ export function errorMessage(error: unknown): string | null {
   if (error instanceof ApiError) {
     const known = error.code ? ERROR_TEXT[error.code] : undefined;
     if (known) return known;
+    if (error.code?.startsWith("ragflow_"))
+      return `RAGFlow refused the change (${error.code}); nothing was changed.`;
     if (error.status === 403) return ERRORS.forbidden;
     return error.code ? `Refused (${error.code}).` : `Refused (${error.status}).`;
   }

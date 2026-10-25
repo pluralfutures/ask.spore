@@ -16,6 +16,7 @@ const TONES: Record<StatusKind, Record<string, Tone>> = {
     failed: "danger",
     withdrawn: "neutral",
     rejected: "neutral",
+    paused: "warning",
   },
   site: { proposed: "accent", approved: "success", rejected: "neutral", withdrawn: "neutral" },
   takedown: { open: "warning", done: "success", withdrawn: "neutral" },

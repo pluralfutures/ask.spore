@@ -2,7 +2,12 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
 import type { Citation } from "../api/types";
-import { CITATION_STATUS_NOTE, EXCERPT_REMOVED_NOTE, citationStatus } from "../lib/citations";
+import {
+  CITATION_STATUS_LABEL,
+  CITATION_STATUS_NOTE,
+  EXCERPT_REMOVED_NOTE,
+  citationStatus,
+} from "../lib/citations";
 import { formatDate, pageLabel } from "../lib/format";
 import { cx } from "../ui/controlClass";
 import { IconButton } from "../ui/IconButton";
@@ -143,7 +148,7 @@ export function CitationPanel({ citations, selected, onClose }: Props) {
                       title={CITATION_STATUS_NOTE[status]}
                       className="ml-2 rounded-badge bg-warning-muted px-1.5 py-0.5 text-meta font-normal text-warning"
                     >
-                      {status}
+                      {CITATION_STATUS_LABEL[status]}
                     </span>
                   ) : null}
                 </span>

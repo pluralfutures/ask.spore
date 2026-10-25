@@ -80,6 +80,18 @@ export function SourceSummary({ source }: { source: ContentSourceDetail }) {
             {formatDate(source.withdrawn_at)}: {source.withdrawal_reason}
           </Fact>
         ) : null}
+        {source.status === "paused" ? (
+          <Fact label="Paused">
+            <span data-testid="pause-record">
+              {formatDate(source.paused_at)}
+              {source.paused_by ? ` by ${source.paused_by}` : ""}: {source.pause_reason}
+            </span>
+          </Fact>
+        ) : source.pause_reason ? (
+          <Fact label="Last pause">
+            <span data-testid="pause-record">{source.pause_reason}</span>
+          </Fact>
+        ) : null}
         {source.supersedes ? <Fact label="Replaces">{source.supersedes.title}</Fact> : null}
       </dl>
       {source.error ? (
@@ -191,12 +203,27 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
     mutationFn: () => contentApi.restore(source.id),
     onSuccess: refresh,
   });
+  // P2A-04: pause and resume, done in the call (the RAGFlow documents are switched).
+  const [pauseReason, setPauseReason] = useState("");
+  const pause = useMutation({
+    mutationFn: () => contentApi.pause(source.id, pauseReason),
+    onSuccess: async () => {
+      setPauseReason("");
+      await refresh();
+    },
+  });
+  const resume = useMutation({
+    mutationFn: () => contentApi.resume(source.id),
+    onSuccess: refresh,
+  });
   const error =
     errorMessage(approve.error) ??
     errorMessage(reject.error) ??
     errorMessage(retry.error) ??
     errorMessage(withdraw.error) ??
-    errorMessage(restore.error);
+    errorMessage(restore.error) ??
+    errorMessage(pause.error) ??
+    errorMessage(resume.error);
   return (
     <Card title="Review" level={3}>
       {error ? <Notice tone="danger">{error}</Notice> : null}
@@ -235,7 +262,15 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
           Retry ingestion
         </Button>
       ) : null}
-      {source.status === "ingested" || source.status === "failed" ? (
+      <PauseControls
+        status={source.status}
+        reason={pauseReason}
+        onReason={setPauseReason}
+        onPause={() => pause.mutate()}
+        onResume={() => resume.mutate()}
+        pending={pause.isPending || resume.isPending}
+      />
+      {source.status === "ingested" || source.status === "paused" || source.status === "failed" ? (
         <div className="flex flex-wrap items-end gap-2">
           <Field label="Withdrawal reason">
             <Input value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -268,6 +303,45 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
       ) : null}
       {source.status !== "withdrawn" ? <TakedownForm id={source.id} /> : null}
     </Card>
+  );
+}
+
+// P2A-04: "Pause" with a reason on an ingested source, "Resume" on a paused one.
+export function PauseControls({
+  status,
+  reason,
+  onReason,
+  onPause,
+  onResume,
+  pending,
+}: {
+  status: string;
+  reason: string;
+  onReason: (reason: string) => void;
+  onPause: () => void;
+  onResume: () => void;
+  pending: boolean;
+}) {
+  if (status === "paused")
+    return (
+      <Button variant="secondary" className="w-fit" onClick={onResume} disabled={pending}>
+        Resume
+      </Button>
+    );
+  if (status !== "ingested") return null;
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <Field label="Pause reason">
+        <Input value={reason} onChange={(e) => onReason(e.target.value)} />
+      </Field>
+      <Button variant="secondary" onClick={onPause} disabled={pending || !reason.trim()}>
+        Pause
+      </Button>
+      <span className="text-meta text-fg-muted">
+        Out of retrieval, file lists and downloads for every tenant until resumed. A pause does not
+        answer a takedown.
+      </span>
+    </div>
   );
 }
 

@@ -19,10 +19,18 @@ and nothing here takes a tenant ID from the request.
 - Login policy (P1b-07): the tenant's sign-in methods and SSO source, read-only.
 - Retention: shorten chat-history retention to between 1 and 30 days
   (``app.tenancy.retention``); never above 30 (CLAUDE.md).
-- Audit log (architecture §7.2, P1b-10): a CSV download of the tenant's sign-in, admin,
-  operator, consent and download events (``EXPORTED_EVENTS``), metadata only as recorded
-  (owner decision 18, Oct 22, 2026, for downloads). Query and feedback events and the
-  operator-only tenant-name flags are not in it.
+- Usage (P2A-05): questions per day by mode, active users per day, the most cited
+  sources and, with external models, month-to-date cost per model; counts only
+  (``app.usage.dashboard``).
+- Support access (P2A-08, ``app.support.access``): grant the operators a time-boxed read
+  of the tenant's settings or one of the admin's own conversations, list the grants
+  with their state and the operator's reads, revoke one at once.
+- Audit log (architecture §7.2, P1b-10, P2A-07): a CSV download of the tenant's events
+  named in the explicit allow-list ``app.audit.events.EXPORTED_EVENTS`` (sign-in, admin,
+  consent, download, operator actions on the tenant's users, support access), metadata
+  only as recorded (owner decision 18, Oct 22, 2026, for downloads), between two dates,
+  paged past 10,000 rows, one export per minute per admin. Query and feedback events, the
+  operator-only tenant-name flags and every unclassified event are not in it.
 
 Every route is also behind the consent gate (``app.consent.gate``, P1b-10).
 
@@ -36,11 +44,11 @@ import io
 import json
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
-from typing import Any, Final
+from typing import Final
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import or_, select
+from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session, require_tenant_admin
@@ -50,23 +58,35 @@ from app.api.schemas import (
     InvitationResentOut,
     LoginPolicyOut,
     RetentionIn,
+    SupportGrantIn,
+    SupportGrantOut,
     TenantSettingsOut,
+    UsageOut,
     UserChangeIn,
     UserInviteIn,
     WorkspaceDefaultsIn,
     WorkspaceOut,
 )
+from app.audit.events import EXPORTED_EVENTS
 from app.audit.models import AuditEvent
 from app.audit.writer import Change, record
 from app.auth.links import normalise_email
 from app.auth.provider import ProviderError, SignInLinkProvider
+from app.auth.ratelimit import IpRateLimiter
 from app.chat.selection import load_entitlement
-from app.consent.gate import require_consent
+from app.consent.gate import active_version, require_consent
 from app.core import cache
 from app.core.db import APP_ROLE, AUTH_ROLE, role_session
 from app.core.logging import log
 from app.llm.catalogue import ModelChoice
 from app.mail.queue import enqueue_invitation
+from app.support.access import (
+    GrantRefused,
+    SupportNotFound,
+    create_grant,
+    list_grants,
+    revoke_grant,
+)
 from app.tenancy.context import RequestContext
 from app.tenancy.entitlements import ModelRefused, check_choice
 from app.tenancy.login_policy import TenantLoginPolicy
@@ -74,6 +94,7 @@ from app.tenancy.models import MAX_RETENTION_DAYS, Tenant, TenantEntitlements, U
 from app.tenancy.retention import retention_days, set_retention
 from app.tenancy.user_removal import RemovalRefused, remove_user
 from app.tenancy.workspaces import Workspace
+from app.usage.dashboard import tenant_usage
 
 NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, detail="not_found")
 
@@ -97,9 +118,13 @@ def _user_values(user: User) -> Change:
 
 
 @router.get("/users", response_model=list[AdminUserOut])
-async def list_users(session: AsyncSession = Depends(db_session)) -> list[User]:
+async def list_users(
+    request: Request, session: AsyncSession = Depends(db_session)
+) -> list[AdminUserOut]:
+    """The tenant's users, with the notice version each accepted (P2A-06)."""
     rows = await session.scalars(select(User).order_by(User.display_name, User.email))
-    return list(rows)
+    active = active_version(request)
+    return [AdminUserOut.of(user, active) for user in rows]
 
 
 @router.post("/users", status_code=status.HTTP_201_CREATED, response_model=AdminUserOut)
@@ -164,7 +189,7 @@ async def invite_user(
         metadata={"before": {}, "after": _user_values(user)},
     )
     log("tenant_admin.user_invited", tenant_id=str(admin.tenant_id), user_id=str(user.id))
-    out = AdminUserOut.model_validate(user)
+    out = AdminUserOut.of(user, active_version(request))
     await session.commit()
     return out
 
@@ -226,7 +251,7 @@ async def change_user(
             metadata={"before": before, "after": after},
         )
         log("tenant_admin.user_changed", tenant_id=str(admin.tenant_id), user_id=str(user.id))
-    out = AdminUserOut.model_validate(user)
+    out = AdminUserOut.of(user, active_version(request))
     await session.commit()
     return out
 
@@ -409,59 +434,181 @@ async def _settings_out(session: AsyncSession, tenant_id: UUID) -> TenantSetting
     )
 
 
-# Event name prefixes (ending in ".") and exact names in the tenant admin's export.
-EXPORTED_EVENTS: Final[tuple[str, ...]] = (
-    "auth.",
-    "tenant_admin.",
-    "operator.",
-    "consent.",
-    "download",
-    "download.refused",
-    "workspace.prompt_saved",
-)
+# --- support access (P2A-08) ------------------------------------------------------------
+
+
+def _grant_refused(exc: GrantRefused) -> HTTPException:
+    return _unprocessable(exc.code)
+
+
+@router.get("/support-grants", response_model=list[SupportGrantOut])
+async def get_support_grants(
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> list[SupportGrantOut]:
+    """The tenant's support grants, newest first: state, and how often the operator read."""
+    return await list_grants(session, admin.tenant_id)
+
+
+def _one(grants: list[SupportGrantOut], grant_id: UUID) -> SupportGrantOut:
+    for grant in grants:
+        if grant.id == grant_id:
+            return grant
+    raise NOT_FOUND
+
+
+@router.post("/support-grants", status_code=status.HTTP_201_CREATED, response_model=SupportGrantOut)
+async def grant_support(
+    body: SupportGrantIn,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> SupportGrantOut:
+    """Let the operators read the settings, or one of the admin's own conversations, for
+    15 minutes to 4 hours (default 1 hour). Audited; the note is never logged."""
+    try:
+        grant = await create_grant(
+            session, tenant_id=admin.tenant_id, admin_user_id=admin.user_id, body=body
+        )
+    except GrantRefused as exc:
+        raise _grant_refused(exc) from None
+    out = _one(await list_grants(session, admin.tenant_id), grant.id)
+    await session.commit()
+    return out
+
+
+@router.post("/support-grants/{grant_id}/revoke", response_model=SupportGrantOut)
+async def revoke_support(
+    grant_id: UUID,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> SupportGrantOut:
+    """End an open grant now: the operator's next read through it is refused."""
+    try:
+        grant = await revoke_grant(
+            session, tenant_id=admin.tenant_id, admin_user_id=admin.user_id, grant_id=grant_id
+        )
+    except SupportNotFound:
+        raise NOT_FOUND from None
+    except GrantRefused as exc:
+        raise _grant_refused(exc) from None
+    out = _one(await list_grants(session, admin.tenant_id), grant.id)
+    await session.commit()
+    return out
+
+
+# --- usage (P2A-05) -----------------------------------------------------------------------
+
+
+@router.get("/usage", response_model=UsageOut)
+async def get_usage(
+    request: Request,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> UsageOut:
+    """The tenant's usage over the last 30 days: counts only, no text or per-user figure."""
+    return await tenant_usage(session, request.app.state.settings, admin.tenant_id)
+
+
 MAX_EXPORT_ROWS: Final = 10_000
 DEFAULT_EXPORT_DAYS: Final = 90
 EXPORT_COLUMNS: Final = ("created_at", "event", "actor_user_id", "metadata")
+# P2A-07: one export per minute per admin (``app.auth.ratelimit``'s sliding window).
+EXPORTS_PER_WINDOW: Final = 1
+EXPORT_WINDOW_SECONDS: Final = 60.0
+# Response headers: whether the file holds the whole period, and if not, the cursor of
+# the next part (pass it back as ``after``).
+EXPORT_COMPLETE_HEADER: Final = "X-Audit-Export-Complete"
+EXPORT_NEXT_HEADER: Final = "X-Audit-Export-Next"
 
 
-def _exported(column: Any) -> Any:
-    return or_(
-        *(
-            column.startswith(name, autoescape=True) if name.endswith(".") else column == name
-            for name in EXPORTED_EVENTS
+def _export_limiter(request: Request) -> IpRateLimiter:
+    state = request.app.state
+    limiter: IpRateLimiter | None = getattr(state, "audit_export_limiter", None)
+    if limiter is None:
+        limiter = state.audit_export_limiter = IpRateLimiter(
+            EXPORTS_PER_WINDOW, EXPORT_WINDOW_SECONDS
         )
-    )
+    return limiter
+
+
+def _cursor(created_at: datetime, event_id: UUID) -> str:
+    return f"{created_at.isoformat()}|{event_id}"
+
+
+def _parse_cursor(value: str) -> tuple[datetime, UUID]:
+    at, _, event_id = value.partition("|")
+    try:
+        parsed = datetime.fromisoformat(at)
+        if parsed.tzinfo is None:
+            raise ValueError
+        return parsed, UUID(event_id)
+    except ValueError:
+        raise _unprocessable("invalid_cursor") from None
 
 
 @router.get(
     "/audit-log",
     response_class=Response,
-    responses={200: {"content": {"text/csv": {}}, "description": "the tenant's audit events"}},
+    responses={
+        200: {"content": {"text/csv": {}}, "description": "the tenant's audit events"},
+        429: {"description": "one export per minute per admin"},
+    },
 )
 async def export_audit_log(
+    request: Request,
     since: date | None = None,
+    until: date | None = None,
+    after: str | None = None,
     admin: RequestContext = Depends(require_tenant_admin),
     session: AsyncSession = Depends(db_session),
 ) -> Response:
-    """The tenant's audit events since ``since`` (default 90 days), oldest first, as CSV."""
-    start = since or (datetime.now(UTC).date() - timedelta(days=DEFAULT_EXPORT_DAYS))
+    """The tenant's exported audit events (``app.audit.events.EXPORTED_EVENTS``) from
+    ``since`` (default 90 days ago) to ``until`` (default today), both whole UTC days,
+    oldest first, as CSV.
+
+    At most 10,000 rows per file. A period that holds more is paged: the response says
+    so in ``X-Audit-Export-Complete: false`` and gives the next part's cursor in
+    ``X-Audit-Export-Next``, which the next call passes as ``after`` with the same
+    dates. One export per minute per admin (P2A-07)."""
+    limiter = _export_limiter(request)
+    key = str(admin.user_id)
+    if not limiter.allow(key):
+        log("tenant_admin.export_rate_limited", tenant_id=str(admin.tenant_id), status=429)
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="rate_limited",
+            headers={"Retry-After": str(limiter.retry_after(key))},
+        )
+    today = datetime.now(UTC).date()
+    end = until or today
+    start = since or (end - timedelta(days=DEFAULT_EXPORT_DAYS))
+    if start > end:
+        raise _unprocessable("invalid_period")
+    conditions = [
+        AuditEvent.tenant_id == admin.tenant_id,
+        AuditEvent.created_at >= datetime.combine(start, time.min, UTC),
+        AuditEvent.created_at < datetime.combine(end + timedelta(days=1), time.min, UTC),
+        AuditEvent.event.in_(sorted(EXPORTED_EVENTS)),
+    ]
+    if after is not None:
+        after_at, after_id = _parse_cursor(after)
+        conditions.append(tuple_(AuditEvent.created_at, AuditEvent.id) > (after_at, after_id))
     rows = (
         await session.execute(
             select(
+                AuditEvent.id,
                 AuditEvent.created_at,
                 AuditEvent.event,
                 AuditEvent.actor_user_id,
                 AuditEvent.metadata_,
             )
-            .where(
-                AuditEvent.tenant_id == admin.tenant_id,
-                AuditEvent.created_at >= datetime.combine(start, time.min, UTC),
-                _exported(AuditEvent.event),
-            )
+            .where(*conditions)
             .order_by(AuditEvent.created_at, AuditEvent.id)
-            .limit(MAX_EXPORT_ROWS)
+            .limit(MAX_EXPORT_ROWS + 1)
         )
     ).all()
+    complete = len(rows) <= MAX_EXPORT_ROWS
+    rows = rows[:MAX_EXPORT_ROWS]
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow(EXPORT_COLUMNS)
@@ -479,18 +626,18 @@ async def export_audit_log(
         tenant_id=admin.tenant_id,
         actor_user_id=admin.user_id,
         event="tenant_admin.audit_exported",
-        metadata={"count": len(rows)},
+        metadata={"count": len(rows), "status": "complete" if complete else "partial"},
     )
     log("tenant_admin.audit_exported", tenant_id=str(admin.tenant_id), count=len(rows))
     await session.commit()
-    return Response(
-        out.getvalue(),
-        media_type="text/csv",
-        headers={
-            "Content-Disposition": 'attachment; filename="audit-log.csv"',
-            "Cache-Control": "no-store",
-        },
-    )
+    headers = {
+        "Content-Disposition": f'attachment; filename="audit-log-{start}-{end}.csv"',
+        "Cache-Control": "no-store",
+        EXPORT_COMPLETE_HEADER: "true" if complete else "false",
+    }
+    if not complete:
+        headers[EXPORT_NEXT_HEADER] = _cursor(rows[-1].created_at, rows[-1].id)
+    return Response(out.getvalue(), media_type="text/csv", headers=headers)
 
 
 @router.get("/settings", response_model=TenantSettingsOut)

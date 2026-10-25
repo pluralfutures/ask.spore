@@ -598,3 +598,40 @@ async def test_history_cap_counts_tokens_with_the_tokenizer(
     async with tenant_session(session_factory(engine), INTERNAL_TENANT_ID) as session:
         turns = await orch._history(session, world.conversation_id)
     assert [t.role for t in turns] == ["assistant"]  # newest first within the cap
+
+
+# --- P2A-02: a paused source never reaches the prompt -----------------------------------
+
+
+async def test_a_paused_sources_chunk_never_reaches_the_prompt(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    (doc_a, doc_b) = list(world.sources)
+    paused = world.sources[doc_a]
+    await world.admin.execute(
+        "UPDATE sources SET status = 'paused', paused_at = now(), paused_by = gen_random_uuid(), "
+        "pause_reason = 'synthetic' WHERE id = $1",
+        paused,
+    )
+    try:
+        # The retriever still returns the paused source's chunk, as RAGFlow would if the
+        # toggle had not reached it: select_context drops it, as it has no provenance.
+        retriever = FakeRetriever(chunks_for(world))
+        recorder = Recorder(sse(delta("A slowdown [1]."), delta("", USAGE)))
+        events = await run(orchestrator(settings, engine, retriever, recorder), world, "Q?")
+        prompt = json.dumps(recorder.bodies())
+        assert "Synthetic capacity grew by 12 percent" not in prompt
+        assert "Our synthetic deck expects a slowdown" in prompt
+        assert [str(c.source_id) for c in citations_of(events).citations] == [
+            str(world.sources[doc_b])
+        ]
+        stored = await world.admin.fetch(
+            "SELECT source_id FROM citations WHERE message_id = $1", done_of(events).message_id
+        )
+        assert paused not in [r["source_id"] for r in stored]
+    finally:
+        await world.admin.execute(
+            "UPDATE sources SET status = 'ingested', paused_at = NULL, paused_by = NULL, "
+            "pause_reason = NULL WHERE id = $1",
+            paused,
+        )

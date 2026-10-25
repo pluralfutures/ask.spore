@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import type { OperatorOptions, TenantOut } from "../api/types";
 import { tabFrom } from "../lib/operator";
-import { OperatorTenant } from "./OperatorTenant";
+import { OperatorTenant, SupportConversationView, SupportSettingsView } from "./OperatorTenant";
 
 // Synthetic tenants only (CLAUDE.md).
 const tenant = (id: string, slug: string, name: string): TenantOut => ({
@@ -74,5 +74,91 @@ describe("OperatorTenant", () => {
     expect(tabFrom("spend")).toBe("spend");
     expect(tabFrom("nonsense")).toBe("entitlements");
     expect(tabFrom(null)).toBe("entitlements");
+  });
+});
+
+describe("support view (P2A-08)", () => {
+  it("shows the granted conversation read only, as its user sees it", () => {
+    const html = renderToString(
+      <SupportConversationView
+        conversation={{
+          grant_id: "g1",
+          expires_at: "2026-10-25T11:00:00Z",
+          title: "Synthetic shrimp yields",
+          workspace_name: "Synthetic Markets",
+          mode: "corpus_only",
+          model: "eu-fast",
+          created_at: "2026-10-25T09:00:00Z",
+          messages: [
+            {
+              role: "user",
+              content: "Synthetic question?",
+              created_at: "2026-10-25T09:00:00Z",
+              unsupported: false,
+              truncated: false,
+              partial: false,
+              citations: [],
+            },
+            {
+              role: "assistant",
+              content: "Synthetic answer [1].",
+              created_at: "2026-10-25T09:00:01Z",
+              unsupported: false,
+              truncated: false,
+              partial: false,
+              citations: [
+                {
+                  marker: 1,
+                  title: "Synthetic Report",
+                  publisher: "Synthetic Institute",
+                  published_on: null,
+                  page_or_slide: 4,
+                  type: "pdf",
+                  canonical_url: null,
+                  excerpt: "Synthetic excerpt.",
+                  superseded: false,
+                  withdrawn: true,
+                },
+              ],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain("Synthetic question?");
+    expect(html).toContain("[1] Synthetic Institute, Synthetic Report, p. 4 (withdrawn)");
+    expect(html).toContain("read only");
+    expect(html).not.toContain("<button");
+    expect(html).not.toContain("<form");
+  });
+
+  it("shows the settings read only", () => {
+    const html = renderToString(
+      <SupportSettingsView
+        settings={{
+          grant_id: "g1",
+          expires_at: "2026-10-25T11:00:00Z",
+          retention_days: 7,
+          workspaces: [
+            {
+              name: "Synthetic Markets",
+              slug: "markets",
+              default_mode: "corpus_only",
+              default_model: "eu-fast",
+              default_reasoning: false,
+              instructions_version: 2,
+              instructions: "Synthetic instructions.",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain("Chat history retention: 7 days");
+    expect(html).toContain("Instructions v2: Synthetic instructions.");
+    expect(html).not.toContain("<input");
+  });
+
+  it("has its own tab", () => {
+    expect(tabFrom("support")).toBe("support");
   });
 });

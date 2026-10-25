@@ -54,12 +54,15 @@ from app.api.content_schemas import (
     JobQueuedOut,
     NoteIn,
     PatternsIn,
+    PauseIn,
+    PauseOut,
     ProposeOut,
     SiteApproveIn,
     SiteCreateIn,
     SiteDetail,
     SiteOut,
     SitePageOut,
+    SiteReinstatedOut,
     SiteSettingsIn,
     SiteWithdrawnOut,
     SourceRef,
@@ -75,7 +78,7 @@ from app.audit.models import AuditEvent
 from app.audit.writer import record
 from app.auth.middleware import IDENTITY_KEY
 from app.content import register, sites
-from app.content.datasets import sync_datasets
+from app.content.datasets import status_mismatches, sync_datasets
 from app.content.fetch import (
     MAX_BYTES,
     Connector,
@@ -192,6 +195,9 @@ def _refused(exc: RegisterError | RoleError | IngestError | FetchError) -> HTTPE
         return FORBIDDEN
     if exc.code in ("no_source", "no_site"):
         return NOT_FOUND
+    if exc.code.startswith("ragflow_") or exc.code.endswith("_undo_failed"):
+        # P2A-01: RAGFlow refused or failed the pause or resume; nothing was recorded.
+        return HTTPException(status.HTTP_502_BAD_GATEWAY, detail=exc.code)
     if isinstance(exc, IngestError | FetchError) or exc.code in INPUT_CODES:
         return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=exc.code)
     return HTTPException(status.HTTP_409_CONFLICT, detail=exc.code)
@@ -320,19 +326,22 @@ def _source_out(row: Any, flag: bool) -> dict[str, Any]:
 async def list_sources(
     session: AsyncSession = Depends(content_session),
     status_filter: str | None = Query(default=None, alias="status", max_length=20),
-    tag: str | None = Query(default=None, max_length=100),
+    tag: list[str] | None = Query(default=None, max_length=20),
     type_filter: str | None = Query(default=None, alias="type", max_length=20),
     publisher: str | None = Query(default=None, max_length=200),
     site_id: UUID | None = None,
 ) -> list[ContentSourceOut]:
-    """The register, newest change first, filtered by status, tag, type and publisher
-    (a case-insensitive part of the name); at most 500 rows."""
+    """The register, newest change first, filtered by status, tags (any of them; the
+    operator console links a workspace's tags here, P2A-04), type and publisher (a
+    case-insensitive part of the name); at most 500 rows."""
     flag = _replacement_flag()
     query = select(Source, flag.label("candidates")).order_by(Source.updated_at.desc(), Source.id)
     if status_filter:
         query = query.where(Source.status == status_filter)
     if tag:
-        query = query.where(Source.tags.contains([tag]))
+        if any(len(t) > 100 for t in tag):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="bad_tag")
+        query = query.where(Source.tags.overlap(tag))
     if type_filter:
         query = query.where(Source.type == type_filter)
     if publisher:
@@ -423,6 +432,31 @@ async def _history(session: AsyncSession, source_id: UUID) -> list[HistoryEntry]
     ]
 
 
+async def _shown_error(session: AsyncSession, row: Source) -> str | None:
+    """The failure as the console shows it: a code (P2A-13).
+
+    Since P2A-13 a row's ``error`` is ``<code>`` or ``<code>: <our context>`` and never
+    carries RAGFlow's message text. A row that failed before then may still hold
+    RAGFlow's text; for it the console shows the code of the ``source.failed`` audit
+    event instead, so no RAGFlow message is ever shown.
+    """
+    if not row.error:
+        return None
+    code = await session.scalar(
+        select(AuditEvent.metadata_["error_code"].astext)
+        .where(
+            AuditEvent.tenant_id == INTERNAL_TENANT_ID,
+            AuditEvent.event == "source.failed",
+            AuditEvent.metadata_["source_id"].astext == str(row.id),
+        )
+        .order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc())
+        .limit(1)
+    )
+    if code and (row.error == code or row.error.startswith(f"{code}: ")):
+        return row.error[:MAX_ERROR_SHOWN]
+    return code or "error_not_shown"
+
+
 @router.get("/sources/{source_id}", response_model=ContentSourceDetail)
 async def source_detail(
     source_id: UUID, request: Request, session: AsyncSession = Depends(content_session)
@@ -446,7 +480,7 @@ async def source_detail(
         )
         for dataset_id, document_id in sorted((row.ragflow_document_ids or {}).items())
     ]
-    emails = await _emails(session, [row.proposed_by, row.approved_by])
+    emails = await _emails(session, [row.proposed_by, row.approved_by, row.paused_by])
     takedown = None
     if row.takedown_reference and row.takedown_requested_on and row.takedown_due_on:
         item = register.TakedownItem(
@@ -458,7 +492,7 @@ async def source_detail(
             row.title,
             row.takedown_licence_grounds,
         )
-        takedown = _takedown_out(item)
+        takedown = _takedown_out(item, settings.holidays.dates)
     supersedes = await _refs(session, [row.supersedes_id] if row.supersedes_id else [])
     return ContentSourceDetail(
         **_source_out(row, bool(candidates)),
@@ -469,8 +503,11 @@ async def source_detail(
         approved_at=row.approved_at,
         withdrawn_at=row.withdrawn_at,
         withdrawal_reason=row.withdrawal_reason,
+        paused_at=row.paused_at,
+        paused_by=emails.get(row.paused_by) if row.paused_by else None,
+        pause_reason=row.pause_reason,
         chunk_count=row.chunk_count,
-        error=(row.error or "")[:MAX_ERROR_SHOWN] or None,
+        error=await _shown_error(session, row),
         licence_file=row.licence_file_path is not None,
         stored=row.stored_path is not None,
         fetched_at=row.fetched_at,
@@ -689,6 +726,54 @@ async def withdraw_source(
     return JobQueuedOut(job_id=job_id)
 
 
+@router.post("/sources/{source_id}/pause", response_model=PauseOut)
+async def pause_source(
+    source_id: UUID,
+    body: PauseIn,
+    request: Request,
+    user: ContentUser = Depends(require_content_user),
+) -> PauseOut:
+    """P2A-04: a reviewer takes an ingested source out of retrieval, the library and
+    downloads for every tenant (D1), without deleting it; its RAGFlow documents are
+    disabled in this call. A pause never satisfies a takedown."""
+    return await _switch_source(request, source_id, user, reason=body.reason)
+
+
+@router.post("/sources/{source_id}/resume", response_model=PauseOut)
+async def resume_source(
+    source_id: UUID, request: Request, user: ContentUser = Depends(require_content_user)
+) -> PauseOut:
+    """P2A-04: a reviewer resumes a paused source; no re-parse."""
+    return await _switch_source(request, source_id, user, reason=None)
+
+
+async def _switch_source(
+    request: Request, source_id: UUID, user: ContentUser, *, reason: str | None
+) -> PauseOut:
+    """The same code path as ``sources pause`` and ``sources resume`` in the CLI. The
+    RAGFlow document IDs come from the register row, never from the request."""
+    client_factory = getattr(request.app.state, "content_ragflow", RagflowClient.from_settings)
+    async with client_factory(_settings(request)) as client:
+        if reason is None:
+            action = register.resume(_factory(request), client, source_id, user.user_id)
+        else:
+            action = register.pause(
+                _factory(request), client, source_id, user.user_id, reason=reason
+            )
+        result: register.PauseResult = await _decide(action)
+    log(
+        "content.source_paused" if reason is not None else "content.source_resumed",
+        user_id=str(user.user_id),
+        source_id=str(source_id),
+        count=result.documents,
+    )
+    return PauseOut(
+        status=result.status,
+        documents=result.documents,
+        cache_entries_purged=result.cache_entries_purged,
+    )
+
+
 @router.post("/sources/{source_id}/restore", status_code=status.HTTP_204_NO_CONTENT)
 async def restore_source(
     source_id: UUID, request: Request, user: ContentUser = Depends(require_content_user)
@@ -718,15 +803,16 @@ async def record_takedown(
             requested_on=body.requested_on,
             licence_breach=body.licence_breach,
             licence_grounds=body.licence_grounds,
+            holidays=_settings(request).holidays.dates,
         )
     )
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         queue = await register.takedown_queue(session)
     (item,) = [i for i in queue if i.source_id == source_id]
-    return _takedown_out(item)
+    return _takedown_out(item, _settings(request).holidays.dates)
 
 
-def _takedown_out(item: register.TakedownItem) -> TakedownOut:
+def _takedown_out(item: register.TakedownItem, holidays: frozenset[date]) -> TakedownOut:
     return TakedownOut(
         source_id=item.source_id,
         title=item.title,
@@ -734,15 +820,18 @@ def _takedown_out(item: register.TakedownItem) -> TakedownOut:
         reference=item.reference,
         requested_on=item.requested_on,
         due_on=item.due_on,
-        working_days_left=item.working_days_left(date.today()),
+        working_days_left=item.working_days_left(date.today(), holidays),
         licence_grounds=item.licence_grounds,
     )
 
 
 @router.get("/takedowns", response_model=list[TakedownOut])
-async def takedowns(session: AsyncSession = Depends(content_session)) -> list[TakedownOut]:
+async def takedowns(
+    request: Request, session: AsyncSession = Depends(content_session)
+) -> list[TakedownOut]:
     """The takedown queue, soonest due first, with the SLA timer in working days."""
-    return [_takedown_out(item) for item in await register.takedown_queue(session)]
+    holidays = _settings(request).holidays.dates
+    return [_takedown_out(item, holidays) for item in await register.takedown_queue(session)]
 
 
 # --- sites -------------------------------------------------------------------------------
@@ -937,6 +1026,23 @@ async def withdraw_site(
     return SiteWithdrawnOut(job_ids=job_ids)
 
 
+@router.post("/sites/{site_id}/reinstate", response_model=SiteReinstatedOut)
+async def reinstate_site(
+    site_id: UUID,
+    body: NoteIn,
+    request: Request,
+    user: ContentUser = Depends(require_content_user),
+) -> SiteReinstatedOut:
+    """P2A-12 (a): a reviewer reinstates a withdrawn site: back to ``proposed`` with the
+    note, for a fresh approval; pages under a takedown stay blocked, the site's other
+    withdrawn pages are released for the first crawl after approval."""
+    released, kept = await _decide(
+        sites.reinstate_site(_factory(request), site_id, user.user_id, note=body.note)
+    )
+    log("content.site_reinstated", user_id=str(user.user_id), site_id=str(site_id), count=released)
+    return SiteReinstatedOut(released=released, kept_blocked=kept)
+
+
 @router.post("/sites/{site_id}/crawl", response_model=JobQueuedOut)
 async def crawl_now(
     site_id: UUID, request: Request, user: ContentUser = Depends(require_content_user)
@@ -999,6 +1105,8 @@ async def sync_tags(
             results = await sync_datasets(
                 session, client, tags, settings.models.ragflow.embedding_model
             )
+            # P2A-01: documents whose RAGFlow status disagrees with the register.
+            mismatches = await status_mismatches(session, client)
             await record(
                 session,
                 tenant_id=INTERNAL_TENANT_ID,
@@ -1015,4 +1123,12 @@ async def sync_tags(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="ragflow_unavailable") from None
     for result in results:
         log("content.tag_synced", tag=result.tag, status=result.status)
+    for mismatch in mismatches:
+        log(
+            "content.status_mismatch",
+            level="error",
+            source_id=str(mismatch.source_id),
+            tag=mismatch.tag,
+            status=f"expected_{mismatch.expected}_found_{mismatch.found}",
+        )
     return [TagSyncOut(tag=r.tag, status=r.status, dataset_id=r.dataset_id) for r in results]

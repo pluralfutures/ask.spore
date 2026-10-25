@@ -1,4 +1,5 @@
 // Typed client for /api/v1. The browser never talks to RAGFlow or the LLM.
+import { auditLogQuery } from "../lib/admin";
 import { readEvents } from "../lib/sse";
 import type {
   AdminInviteIn,
@@ -35,6 +36,7 @@ import type {
   OperatorSource,
   OperatorTag,
   OperatorWorkspace,
+  PauseOut,
   ProposeOut,
   SiteCreateIn,
   SiteSettingsIn,
@@ -46,6 +48,12 @@ import type {
   TenantCreateIn,
   TenantOut,
   TenantSettings,
+  OperatorSupportGrant,
+  SupportConversation,
+  SupportGrant,
+  SupportGrantIn,
+  SupportSettings,
+  UsageOut,
   TenantSpend,
   TerminatedTenant,
   UserChangeIn,
@@ -312,6 +320,8 @@ export const api = {
   },
 };
 
+export type AuditExport = { blob: Blob; name: string; complete: boolean; next: string | null };
+
 // Tenant admin pages (P1a-13). The API answers 403 to anyone who is not a tenant admin.
 export const adminApi = {
   users: () => json<AdminUser[]>("GET", "/admin/users"),
@@ -335,8 +345,25 @@ export const adminApi = {
   loginPolicy: () => json<LoginPolicyOut>("GET", "/admin/login-policy"),
   setRetention: (days: number) =>
     json<TenantSettings>("PUT", "/admin/settings/retention", { retention_days: days }),
-  // P1b-10: the tenant's sign-in, admin, operator and consent events, as CSV.
-  auditLog: async (): Promise<Blob> => (await send("GET", "/admin/audit-log")).blob(),
+  // P1b-10, P2A-07: the tenant's exported audit events between two dates, as CSV. A
+  // period over the row cap comes in parts: `next` is the cursor of the next one.
+  auditLog: async (since: string, until: string, after?: string | null): Promise<AuditExport> => {
+    const response = await send("GET", `/admin/audit-log${auditLogQuery(since, until, after)}`);
+    const disposition = response.headers.get("content-disposition") ?? "";
+    return {
+      blob: await response.blob(),
+      name: /filename="([^"]+)"/.exec(disposition)?.[1] ?? "audit-log.csv",
+      complete: response.headers.get("x-audit-export-complete") !== "false",
+      next: response.headers.get("x-audit-export-next"),
+    };
+  },
+  // P2A-05: questions, active users, cited sources and (with external models) cost.
+  usage: () => json<UsageOut>("GET", "/admin/usage"),
+  // P2A-08: grant the operators a time-boxed read, list the grants, revoke one.
+  supportGrants: () => json<SupportGrant[]>("GET", "/admin/support-grants"),
+  grantSupport: (body: SupportGrantIn) => json<SupportGrant>("POST", "/admin/support-grants", body),
+  revokeSupport: (grantId: string) =>
+    json<SupportGrant>("POST", `/admin/support-grants/${grantId}/revoke`),
 };
 
 // Operator console (P1a-03). The API answers 403 to anyone who is not an operator.
@@ -354,6 +381,19 @@ export const operatorApi = {
   tenantSpend: (tenantId: string) =>
     json<TenantSpend>("GET", `/operator/tenants/${tenantId}/spend`),
   aggregates: () => json<Aggregates>("GET", "/operator/aggregates"),
+  // P2A-08: the tenant's open support grants, and the reads they allow (404 otherwise).
+  supportGrants: (tenantId: string) =>
+    json<OperatorSupportGrant[]>("GET", `/operator/tenants/${tenantId}/support-grants`),
+  supportSettings: (tenantId: string, grantId: string) =>
+    json<SupportSettings>(
+      "GET",
+      `/operator/tenants/${tenantId}/support-grants/${grantId}/settings`,
+    ),
+  supportConversation: (tenantId: string, grantId: string, conversationId: string) =>
+    json<SupportConversation>(
+      "GET",
+      `/operator/tenants/${tenantId}/support-grants/${grantId}/conversations/${conversationId}`,
+    ),
   createTenant: (body: TenantCreateIn) => json<TenantOut>("POST", "/operator/tenants", body),
   inviteAdmin: (tenantId: string, body: AdminInviteIn) =>
     json<{ user_id: string; status: "invited" }>(
@@ -398,15 +438,23 @@ export const operatorApi = {
 export interface SourceFilters {
   status?: string;
   tag?: string;
+  // P2A-04: several tags at once (any of them), from the operator console's workspace link.
+  tags?: string[];
   type?: string;
   publisher?: string;
   site_id?: string;
 }
 
 function query(params: object): string {
-  const entries = Object.entries(params).filter(
-    (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1] !== "",
-  );
+  const entries: [string, string][] = [];
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === "string" && value !== "") entries.push([key, value]);
+    // A list repeats its key; `tags` is the API's repeated `tag` parameter (P2A-04).
+    if (Array.isArray(value))
+      for (const item of value)
+        if (typeof item === "string" && item !== "")
+          entries.push([key === "tags" ? "tag" : key, item]);
+  }
   return entries.length ? `?${new URLSearchParams(entries).toString()}` : "";
 }
 
@@ -429,6 +477,10 @@ export const contentApi = {
   retry: (id: string) => json<{ job_id: string }>("POST", `/content/sources/${id}/retry`),
   withdraw: (id: string, reason: string) =>
     json<{ job_id: string }>("POST", `/content/sources/${id}/withdraw`, { reason }),
+  // P2A-04: a reviewer pauses or resumes a source; done in the call, no job.
+  pause: (id: string, reason: string) =>
+    json<PauseOut>("POST", `/content/sources/${id}/pause`, { reason }),
+  resume: (id: string) => json<PauseOut>("POST", `/content/sources/${id}/resume`),
   // P1c-14: a withdrawn crawled page comes back at the next crawl of its site.
   restore: async (id: string) => {
     await send("POST", `/content/sources/${id}/restore`);
@@ -454,6 +506,11 @@ export const contentApi = {
   // P1c-14: retires the site and withdraws every page, one job per page.
   withdrawSite: (id: string, reason: string) =>
     json<{ job_ids: string[] }>("POST", `/content/sites/${id}/withdraw`, { reason }),
+  // P2A-12 (a): back to proposed, for a fresh approval; takedown pages stay blocked.
+  reinstateSite: (id: string, note: string) =>
+    json<{ released: number; kept_blocked: number }>("POST", `/content/sites/${id}/reinstate`, {
+      note,
+    }),
   tags: () => json<ContentTag[]>("GET", "/content/tags"),
   syncTags: () => json<TagSync[]>("POST", "/content/tags/sync"),
 };

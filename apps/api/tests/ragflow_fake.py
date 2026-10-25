@@ -4,15 +4,28 @@ Mirrors the behaviour recorded from RAGFlow v0.27.2 that the content code depend
 on: a duplicate dataset name is created as ``name(1)`` (findings R9), uploads
 start ``UNSTART``, and parsing moves a document through ``RUNNING`` to a final
 state. Tests script the final state per file name with ``outcomes``.
+
+P2A-01: the document status toggle as recorded in the P2A-00 probe. ``PATCH`` with an
+integer ``enabled`` sets the status and with it the availability of the document's
+chunks; a boolean is refused with code 102; a ``status`` field is ignored; a document
+under another dataset is refused. ``retrieve_chunks`` returns the chunks of parsed,
+enabled documents only, as RAGFlow's retrieval filters ``available_int = 1``.
+``transport()`` serves the toggle over HTTP so a real ``RagflowClient`` can drive it and
+a test can read the payload RAGFlow received (``patch_payloads``).
 """
 
 from __future__ import annotations
 
 import itertools
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
+from typing import Any
+
+import httpx
 
 from app.retrieval.ragflow import RagflowDataset, RagflowDocument, RagflowError
+from app.retrieval.types import RetrievedChunk
 
 _ids = (f"{n:032x}" for n in itertools.count(1))
 
@@ -37,6 +50,15 @@ class FakeRagflow:
     created: list[str] = field(default_factory=list)
     deleted: list[str] = field(default_factory=list)
     fail_delete: RagflowError | None = None
+    # P2A-01: every toggle as (dataset_id, document_id, enabled), the raw PATCH bodies
+    # received over ``transport()``, toggles that fail per dataset, datasets whose toggle
+    # answers success with the old status, and every retrieval's dataset IDs.
+    toggles: list[tuple[str, str, int]] = field(default_factory=list)
+    patch_payloads: list[dict[str, Any]] = field(default_factory=list)
+    fail_toggle: dict[str, RagflowError] = field(default_factory=dict)
+    fail_enable: dict[str, RagflowError] = field(default_factory=dict)  # enabled 1 only
+    stale_status: set[str] = field(default_factory=set)
+    retrievals: list[list[str]] = field(default_factory=list)
     _polls: dict[str, int] = field(default_factory=dict)
 
     def add_dataset(
@@ -88,6 +110,7 @@ class FakeRagflow:
             progress=0.0,
             progress_msg="",
             chunk_count=0,
+            enabled=True,
         )
         self.documents[document.id] = document
         return document
@@ -115,6 +138,108 @@ class FakeRagflow:
                 raise RagflowError("delete_documents", 102, "document not found")
             self.deleted.append(document_id)
             del self.documents[document_id]
+
+    def patch_document(self, dataset_id: str, document_id: str, body: dict[str, Any]) -> Any:
+        """RAGFlow's ``PATCH …/documents/<id>`` for the status, as the probe recorded it:
+        the response envelope (always HTTP 200)."""
+        self.patch_payloads.append(dict(body))
+        document = self.documents.get(document_id)
+        if document is None or document.dataset_id != dataset_id:
+            return {"code": 102, "message": "the dataset doesn't own the document"}
+        if "enabled" in body:
+            value = body["enabled"]
+            if not isinstance(value, int) or isinstance(value, bool) or value not in (0, 1):
+                return {"code": 102, "message": "Field: <enabled> - Message: <invalid>"}
+            error = self.fail_toggle.get(dataset_id) or (
+                self.fail_enable.get(dataset_id) if value == 1 else None
+            )
+            if error is not None:
+                return {"code": error.code, "message": "toggle failed"}
+            self.toggles.append((dataset_id, document_id, value))
+            if dataset_id not in self.stale_status:
+                document = replace(document, enabled=bool(value))
+                self.documents[document_id] = document
+        # Any other field (``status`` among them) is ignored, as by RAGFlow.
+        return {
+            "code": 0,
+            "data": {
+                "id": document.id,
+                "dataset_id": dataset_id,
+                "name": document.name,
+                "location": document.name,
+                "run": document.run,
+                "chunk_count": document.chunk_count,
+                "status": "1" if document.enabled is not False else "0",
+            },
+        }
+
+    def transport(self) -> httpx.MockTransport:
+        """The toggle over HTTP for a real ``RagflowClient`` (other paths answer 404)."""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            parts = request.url.path.strip("/").split("/")
+            if (
+                request.method == "PATCH"
+                and len(parts) == 6
+                and parts[:3] == ["api", "v1", "datasets"]
+                and parts[4] == "documents"
+            ):
+                body = json.loads(request.content or b"{}")
+                return httpx.Response(200, json=self.patch_document(parts[3], parts[5], body))
+            return httpx.Response(404, json={"code": 404, "message": "not found"})
+
+        return httpx.MockTransport(handler)
+
+    async def set_document_enabled(
+        self, dataset_id: str, document_id: str, *, enabled: bool
+    ) -> None:
+        """The client method over the fake, with the client's checks."""
+        reply = self.patch_document(dataset_id, document_id, {"enabled": 1 if enabled else 0})
+        if reply["code"] != 0:
+            raise RagflowError("set_document_enabled", reply["code"])
+        if (reply["data"]["status"] == "1") is not enabled:
+            raise RagflowError("set_document_enabled", "status_mismatch")
+
+    async def list_documents(self, dataset_id: str) -> list[RagflowDocument]:
+        return [d for d in self.documents.values() if d.dataset_id == dataset_id]
+
+    async def retrieve_chunks(
+        self,
+        *,
+        dataset_ids: Sequence[str],
+        question: str,
+        top_k: int,
+        similarity_threshold: float,
+    ) -> list[RetrievedChunk]:
+        """Every chunk of every parsed, enabled document in ``dataset_ids``."""
+        self.retrievals.append(list(dataset_ids))
+        chunks = [
+            RetrievedChunk(
+                chunk_id=f"{document.id}-{n}",
+                document_id=document.id,
+                dataset_id=document.dataset_id,
+                text=f"Synthetic passage {n} of {document.name}.",
+                score=0.9,
+                page_or_slide=n + 1,
+            )
+            for document in self.documents.values()
+            if document.dataset_id in dataset_ids
+            and document.run == "DONE"
+            and document.enabled is not False
+            for n in range(document.chunk_count)
+        ]
+        return chunks[:top_k]
+
+    async def retrieve(
+        self, *, dataset_ids: list[str], query: str, top_k: int, similarity_threshold: float
+    ) -> list[RetrievedChunk]:
+        """``app.retrieval.protocol.Retriever`` over the fake (the chat orchestrator)."""
+        return await self.retrieve_chunks(
+            dataset_ids=dataset_ids,
+            question=query,
+            top_k=top_k,
+            similarity_threshold=similarity_threshold,
+        )
 
     async def get_document(self, dataset_id: str, document_id: str) -> RagflowDocument:
         if document_id not in self.documents:

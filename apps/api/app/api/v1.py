@@ -292,6 +292,7 @@ async def get_conversation(
                 type=source.type,
                 superseded=citation.superseded_at is not None,
                 withdrawn=citation.withdrawn_at is not None,
+                unavailable=source.status == "paused",
             )
         )
     workspace_name = await session.scalar(

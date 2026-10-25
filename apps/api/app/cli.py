@@ -34,7 +34,7 @@ from app.auth.authentik import oidc_services
 from app.auth.provider import ProviderError
 from app.consent.notices import ConsentNoticeTick
 from app.content import worker
-from app.content.datasets import dataset_counts, sync_datasets
+from app.content.datasets import dataset_counts, status_mismatches, sync_datasets
 from app.content.fetch import FetchError, fetch, http_client
 from app.content.ingest import (
     IngestError,
@@ -57,13 +57,21 @@ from app.content.manifest import (
 from app.content.register import (
     RegisterError,
     approve,
+    pause,
     record_takedown,
     reject,
     request_withdrawal,
+    resume,
     retry,
 )
 from app.content.roles import RoleError, grant_role, revoke_role, user_by_email
-from app.content.sites import SiteSpec, restore_page, schedule_due_crawls, withdraw_site
+from app.content.sites import (
+    SiteSpec,
+    reinstate_site,
+    restore_page,
+    schedule_due_crawls,
+    withdraw_site,
+)
 from app.content.submit import settle, settle_site, submit, submit_site
 from app.content.tags import TagConfig, load_tags
 from app.core import cache
@@ -116,6 +124,8 @@ async def _datasets_sync() -> int:
             results = await sync_datasets(
                 session, client, tags, settings.models.ragflow.embedding_model
             )
+            # P2A-01: documents whose RAGFlow status disagrees with the register.
+            mismatches = await status_mismatches(session, client)
     finally:
         await engine.dispose()
     for result in results:
@@ -126,7 +136,16 @@ async def _datasets_sync() -> int:
             status=result.status,
             dataset_id=result.dataset_id,
         )
-    return 1 if any(result.failed for result in results) else 0
+    for mismatch in mismatches:
+        log(
+            "datasets.status_mismatch",
+            level="error",
+            source_id=str(mismatch.source_id),
+            tag=mismatch.tag,
+            dataset_id=mismatch.dataset_id,
+            status=f"expected_{mismatch.expected}_found_{mismatch.found}",
+        )
+    return 1 if mismatches or any(result.failed for result in results) else 0
 
 
 @dataclass(frozen=True)
@@ -439,7 +458,8 @@ async def _content_roles(args: argparse.Namespace) -> int:
 
 async def _sources(args: argparse.Namespace) -> int:
     """A reviewer's decision on one register row: approve or retry (each queues an
-    ingestion job), reject, withdraw (queues the withdrawal job) or record a takedown."""
+    ingestion job), reject, withdraw (queues the withdrawal job), record a takedown, or
+    pause and resume (P2A-04, done in the call)."""
     settings = get_settings()
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     source_id: UUID = args.source_id
@@ -459,8 +479,35 @@ async def _sources(args: argparse.Namespace) -> int:
                 requested_on=args.requested_on,
                 licence_breach=args.licence_breach,
                 licence_grounds=args.licence_grounds,
+                holidays=settings.holidays.dates,
             )
             log("sources.takedown", source_id=str(source_id), status="recorded")
+            return 0
+        if args.sources_command in ("pause", "resume"):
+            # P2A-04: the console's code path (register.pause / register.resume); the
+            # RAGFlow documents switched are the register row's, never an argument.
+            async with RagflowClient.from_settings(settings) as client:
+                if args.sources_command == "pause":
+                    # A pause purges the cached answers citing the source, as from the
+                    # console (P2A-01), only through app.core.cache.
+                    cache.connect(settings.secrets.redis_url.get_secret_value())
+                    try:
+                        switched = await pause(
+                            factory, client, source_id, reviewer_id, reason=args.reason
+                        )
+                    finally:
+                        await cache.close()
+                else:
+                    switched = await resume(factory, client, source_id, reviewer_id)
+            purge_failed = args.sources_command == "pause" and switched.cache_entries_purged is None
+            log(
+                "sources." + args.sources_command,
+                level="warning" if purge_failed else "info",
+                source_id=str(source_id),
+                status=switched.status,
+                count=switched.documents,
+                error_code="cache_not_purged" if purge_failed else None,
+            )
             return 0
         if args.sources_command == "restore":
             site_id = await restore_page(factory, source_id, reviewer_id)
@@ -513,13 +560,18 @@ async def _sources(args: argparse.Namespace) -> int:
 
 async def _sites(args: argparse.Namespace) -> int:
     """A reviewer withdraws a whole site (P1c-14): retired, never crawled again, every
-    page withdrawn by its own ``withdraw_source`` job."""
+    page withdrawn by its own ``withdraw_source`` job; or reinstates a withdrawn one
+    (P2A-12 a): back to proposed, for a fresh approval."""
     settings = get_settings()
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     site_id: UUID = args.site_id
     try:
         factory = session_factory(engine)
         reviewer_id = await user_by_email(factory, args.reviewer)
+        if args.sites_command == "reinstate":
+            released, _ = await reinstate_site(factory, site_id, reviewer_id, note=args.note)
+            log("sites.reinstate", site_id=str(site_id), count=released, status="proposed")
+            return 0
         job_ids = await withdraw_site(factory, site_id, reviewer_id, reason=args.reason)
         status = "queued"
         if args.wait and job_ids:
@@ -528,7 +580,7 @@ async def _sites(args: argparse.Namespace) -> int:
             status = "failed" if failed else "succeeded"
     except (RoleError, RegisterError) as exc:
         log(
-            "sites.withdraw",
+            "sites." + args.sites_command,
             level="error",
             site_id=str(site_id),
             status="refused",
@@ -919,6 +971,20 @@ def build_parser() -> argparse.ArgumentParser:
     withdraw_cmd.add_argument("--reason", required=True, help="kept on the register row")
     _wait_flag(withdraw_cmd)
 
+    pause_cmd = sources_commands.add_parser(
+        "pause",
+        help="take an ingested source out of retrieval, file lists and downloads for every "
+        "tenant without deleting it; its RAGFlow documents are disabled (P2A-04)",
+    )
+    pause_cmd.add_argument("source_id", type=UUID)
+    pause_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+    pause_cmd.add_argument("--reason", required=True, help="kept on the register row")
+    resume_cmd = sources_commands.add_parser(
+        "resume", help="put a paused source back into retrieval, no re-parse (P2A-04)"
+    )
+    resume_cmd.add_argument("source_id", type=UUID)
+    resume_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+
     restore_cmd = sources_commands.add_parser(
         "restore",
         help="restore a crawled page a reviewer withdrew: the next crawl of its site takes "
@@ -940,6 +1006,15 @@ def build_parser() -> argparse.ArgumentParser:
     site_withdraw.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
     site_withdraw.add_argument("--reason", required=True, help="kept on the site and its rows")
     _wait_flag(site_withdraw)
+    site_reinstate = sites_commands.add_parser(
+        "reinstate",
+        help="reinstate a withdrawn site (P2A-12): back to proposed, so it needs a fresh "
+        "approval before any crawl; pages under a takedown stay blocked, its other "
+        "withdrawn pages come back as new rows at the first crawl after approval",
+    )
+    site_reinstate.add_argument("site_id", type=UUID)
+    site_reinstate.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+    site_reinstate.add_argument("--note", required=True, help="kept as the site's review note")
 
     takedown_cmd = sources_commands.add_parser(
         "takedown",

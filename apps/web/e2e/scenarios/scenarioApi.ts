@@ -238,6 +238,8 @@ export class ScenarioApi {
         });
       }
       if (path === "/admin/login-policy") return json(F.LOGIN_POLICY);
+      if (path === "/admin/usage") return json(F.USAGE);
+      if (path === "/admin/support-grants") return json([]);
       if (path.endsWith("/prompts")) {
         return json(path.includes(F.WS_MARKETS.id) ? o.prompts : []);
       }
@@ -391,6 +393,11 @@ export class ScenarioApi {
     }
     if (path === `${tenant}/users`) return json(this.options.users);
     if (path === `${tenant}/spend`) return json(F.SPEND);
+    // P2A-08: one open settings grant, and the read it allows.
+    if (path === `${tenant}/support-grants`) return json([F.SUPPORT_GRANT]);
+    if (path === `${tenant}/support-grants/${F.SUPPORT_GRANT.id}/settings`) {
+      return json(F.SUPPORT_SETTINGS);
+    }
     return json({ detail: "not_found" }, 404);
   }
 

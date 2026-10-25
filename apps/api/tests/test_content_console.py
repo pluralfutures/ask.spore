@@ -16,6 +16,7 @@ import pytest
 
 from app.content import worker
 from app.content.crawler import HostLimiter
+from app.retrieval.ragflow import RagflowError
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.fake_idp import sign
 from tests.fakes import FakeRedis
@@ -41,6 +42,8 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", f"{API}/sources/{SOURCE}/reject", {"note": "no"}),
     ("POST", f"{API}/sources/{SOURCE}/retry", None),
     ("POST", f"{API}/sources/{SOURCE}/withdraw", {"reason": "r"}),
+    ("POST", f"{API}/sources/{SOURCE}/pause", {"reason": "r"}),  # P2A-04
+    ("POST", f"{API}/sources/{SOURCE}/resume", None),
     (
         "POST",
         f"{API}/sources/{SOURCE}/takedown",
@@ -70,6 +73,7 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     ("PUT", f"{API}/sites/{SITE}/special-category-allow", {"patterns": []}),
     ("POST", f"{API}/sites/{SITE}/crawl", None),
     ("POST", f"{API}/sites/{SITE}/withdraw", {"reason": "r"}),
+    ("POST", f"{API}/sites/{SITE}/reinstate", {"note": "n"}),
     ("POST", f"{API}/sources/{SOURCE}/restore", None),
     ("GET", f"{API}/tags", None),
     ("POST", f"{API}/tags/sync", None),
@@ -522,6 +526,62 @@ async def test_reject_withdraw_and_the_takedown_queue(console: Console) -> None:
     assert (await client.get(f"{API}/sources/{uuid.uuid4()}")).status_code == 404
 
 
+async def test_the_console_shows_a_failure_as_a_code_never_ragflows_text(
+    console: Console,
+) -> None:
+    """P2A-13: a parse failure shows its code; a row written before P2A-13 with
+    RAGFlow's text shows the audited code instead."""
+    from tests.ragflow_fake import Outcome
+
+    await console.roles("content_editor", "content_reviewer")
+    client = console.editor()
+    console.e.fake.outcomes[".pdf"] = Outcome(
+        run="FAIL", chunk_count=0, progress_msg="[ERROR] Synthetic secret body text"
+    )
+    source_id = (await console.propose(client, PDF.read_bytes())).json()["source_id"]
+    await client.post(f"{API}/sources/{source_id}/approve", json={})
+    await console.run_jobs()
+    detail = (await client.get(f"{API}/sources/{source_id}")).json()
+    assert detail["status"] == "failed"
+    assert detail["error"] == "parse_failed: sample-reports FAIL"
+    # A row from before P2A-13 still holding RAGFlow's message text.
+    legacy = "RAGFlow get_document failed (code 102): Synthetic secret body text"
+    await console.auth.admin.execute(
+        "UPDATE sources SET error = $2 WHERE id = $1", UUID(source_id), legacy
+    )
+    shown = (await client.get(f"{API}/sources/{source_id}")).json()["error"]
+    assert shown == "parse_failed"
+    assert "secret" not in json.dumps((await client.get(f"{API}/sources/{source_id}")).json())
+
+
+async def test_the_takedown_clock_follows_the_configured_calendar(console: Console) -> None:
+    """P2A-12 (b): the route takes the due date and the SLA timer from the startup
+    calendar (``Settings.holidays``), not from a default."""
+    from app.content.register import TakedownItem
+    from app.core.holidays import HolidayCalendar
+
+    await console.roles("content_editor", "content_reviewer")
+    client = console.editor()
+    source_id = (await console.propose(client, PDF.read_bytes())).json()["source_id"]
+    await client.post(f"{API}/sources/{source_id}/approve", json={})
+    await console.run_jobs()
+    # Tue Oct 20, 2026; a synthetic holiday on Wed Oct 21.
+    holiday = date(2026, 10, 21)
+    console.auth.app.state.settings.holidays = HolidayCalendar("test", frozenset({holiday}))
+    recorded = await client.post(
+        f"{API}/sources/{source_id}/takedown",
+        json={"reference": "TD-2026-12", "requested_on": "2026-10-20"},
+    )
+    assert recorded.status_code == 200, recorded.text
+    assert recorded.json()["due_on"] == "2026-11-04"  # Nov 3 without the holiday
+    item = TakedownItem(uuid.uuid4(), "ingested", "TD", date(2026, 10, 20), date(2026, 11, 4))
+    left = item.working_days_left(date.today(), {holiday})
+    [queued] = (await client.get(f"{API}/takedowns")).json()
+    assert (queued["due_on"], queued["working_days_left"]) == ("2026-11-04", left)
+    detail = (await client.get(f"{API}/sources/{source_id}")).json()
+    assert detail["takedown"]["working_days_left"] == left
+
+
 # --- sites ---------------------------------------------------------------------------------
 
 
@@ -675,6 +735,151 @@ async def test_a_reviewer_withdraws_a_site_and_restores_a_page_from_the_console(
     assert (twice.status_code, twice.json()["detail"]) == (409, "already_withdrawn")
     assert await console.events("site.withdrawn", "site_id", site_id)
     assert await console.events("source.restored", "source_id", page["id"])
+
+
+async def test_a_reviewer_pauses_and_resumes_a_source_from_the_console(
+    console: Console, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P2A-04: "Pause" and "Resume" on the source detail, a reviewer's action (D4)."""
+    await console.roles("content_editor", "content_reviewer")
+    client = console.editor()
+    proposed = await console.propose(client, PDF.read_bytes(), tags="sample-reports")
+    source_id = proposed.json()["source_id"]
+    assert (await client.post(f"{API}/sources/{source_id}/approve", json={})).status_code == 200
+    await console.run_jobs()
+    reason = "Synthetic rights check"
+
+    # Refusals first: an editor; a body naming documents; an empty reason; a resume of an
+    # ingested source; RAGFlow refusing (nothing recorded).
+    await console.roles("content_editor")
+    refused = await client.post(f"{API}/sources/{source_id}/pause", json={"reason": reason})
+    assert refused.status_code == 403
+    await console.roles("content_editor", "content_reviewer")
+    smuggled = await client.post(
+        f"{API}/sources/{source_id}/pause",
+        json={"reason": reason, "document_ids": ["x"], "dataset_ids": ["y"]},
+    )
+    assert smuggled.status_code == 422
+    blank = await client.post(f"{API}/sources/{source_id}/pause", json={"reason": " "})
+    assert (blank.status_code, blank.json()["detail"]) == (422, "note_required")
+    early = await client.post(f"{API}/sources/{source_id}/resume")
+    assert (early.status_code, early.json()["detail"]) == (409, "not_paused")
+    dataset = console.e.datasets["sample-reports"]
+    console.e.fake.fail_toggle[dataset] = RagflowError("set_document_enabled", 102)
+    failed = await client.post(f"{API}/sources/{source_id}/pause", json={"reason": reason})
+    assert (failed.status_code, failed.json()["detail"]) == (502, "ragflow_102")
+    console.e.fake.fail_toggle.clear()
+    assert (await client.get(f"{API}/sources/{source_id}")).json()["status"] == "ingested"
+    assert toggled_documents(console) == []
+
+    paused = await client.post(f"{API}/sources/{source_id}/pause", json={"reason": reason})
+    assert paused.status_code == 200, paused.text
+    assert paused.json() == {"status": "paused", "documents": 1, "cache_entries_purged": 0}
+    detail = (await client.get(f"{API}/sources/{source_id}")).json()
+    assert (detail["status"], detail["pause_reason"], detail["paused_by"]) == (
+        "paused",
+        reason,
+        EDITOR_EMAIL,
+    )
+    assert detail["paused_at"] is not None
+    history = [(h["event"], h["before"], h["after"], h["actor"]) for h in detail["history"]]
+    assert ("source.pause_failed", "ingested", "ingested", EDITOR_EMAIL) in history
+    assert history[-1] == ("source.paused", "ingested", "paused", EDITOR_EMAIL)
+    listed = (await client.get(f"{API}/sources", params={"status": "paused"})).json()
+    assert [s["id"] for s in listed] == [source_id]
+    twice = await client.post(f"{API}/sources/{source_id}/pause", json={"reason": reason})
+    assert (twice.status_code, twice.json()["detail"]) == (409, "not_ingested")
+
+    resumed = await client.post(f"{API}/sources/{source_id}/resume")
+    assert resumed.status_code == 200, resumed.text
+    assert resumed.json() == {"status": "ingested", "documents": 1, "cache_entries_purged": None}
+    detail = (await client.get(f"{API}/sources/{source_id}")).json()
+    # The last pause's reason stays readable after a resume (owner, Oct 25, 2026).
+    assert (detail["status"], detail["pause_reason"], detail["paused_at"]) == (
+        "ingested",
+        detail["pause_reason"],
+        None,
+    )
+    assert detail["pause_reason"]
+    assert detail["history"][-1]["event"] == "source.resumed"
+    assert reason not in capsys.readouterr().out  # the reason stays on the row
+
+
+def toggled_documents(console: Console) -> list[tuple[str, str, int]]:
+    return list(console.e.fake.toggles)
+
+
+async def test_the_source_list_takes_a_workspaces_tags(console: Console) -> None:
+    """P2A-04: the operator console links a workspace's tags to the source list."""
+    await console.roles("content_editor")
+    client = console.editor()
+    reports = await console.propose(client, PDF.read_bytes(), tags="sample-reports")
+    web = await console.propose(
+        client, b"# Synthetic page", name="page.md", tags="sample-web", canonical_url=""
+    )
+    ids = {reports.json()["source_id"], web.json()["source_id"]}
+    both = await client.get(
+        f"{API}/sources", params=[("tag", "sample-reports"), ("tag", "sample-web")]
+    )
+    assert {s["id"] for s in both.json()} == ids
+    one = await client.get(f"{API}/sources", params={"tag": "sample-web"})
+    assert [s["id"] for s in one.json()] == [web.json()["source_id"]]
+    none = await client.get(f"{API}/sources", params={"tag": "sample-analysis"})
+    assert none.json() == []
+
+
+async def test_a_reviewer_reinstates_a_withdrawn_site_from_the_console(console: Console) -> None:
+    """P2A-12 (a): "reinstate" is a reviewer action with a required note; the site comes
+    back proposed, for a fresh approval, never approved."""
+    await console.roles("content_editor", "content_reviewer")
+    editor = console.editor()
+    created = await editor.post(
+        f"{API}/sites",
+        json={
+            "start_url": ROOT + "/",
+            "name": "Synthetic Energy Institute",
+            "publisher": "Synthetic Energy Institute",
+            "licence_basis": "publisher-terms",
+            "tags": ["sample-web"],
+        },
+    )
+    site_id = created.json()["id"]
+    assert (await editor.post(f"{API}/sites/{site_id}/approve", json={})).status_code == 200
+    await console.run_jobs()
+    early = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": "back"})
+    assert (early.status_code, early.json()["detail"]) == (409, "not_withdrawn")
+    withdrawn = await editor.post(f"{API}/sites/{site_id}/withdraw", json={"reason": "retired"})
+    assert withdrawn.status_code == 200
+    running = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": "back"})
+    assert (running.status_code, running.json()["detail"]) == (409, "withdrawal_running")
+    await console.run_jobs()
+
+    await console.roles("content_editor")
+    refused = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": "back"})
+    assert refused.status_code == 403
+    await console.roles("content_editor", "content_reviewer")
+    assert (await editor.post(f"{API}/sites/{site_id}/reinstate", json={})).status_code == 422
+    blank = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": " "})
+    assert (blank.status_code, blank.json()["detail"]) == (422, "note_required")
+    unknown = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": "b", "x": 1})
+    assert unknown.status_code == 422  # no other field is accepted
+    done = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": "agreed again"})
+    assert done.status_code == 200, done.text
+    assert done.json() == {"released": 3, "kept_blocked": 0}
+    detail = (await editor.get(f"{API}/sites/{site_id}")).json()
+    assert (detail["status"], detail["approved_by"], detail["next_crawl_at"]) == (
+        "proposed",
+        None,
+        None,
+    )
+    assert (detail["start_url"], detail["review_note"]) == (ROOT + "/", "agreed again")
+    crawl = await editor.post(f"{API}/sites/{site_id}/crawl")
+    assert (crawl.status_code, crawl.json()["detail"]) == (409, "not_approved")
+    assert await console.events("site.reinstated", "site_id", site_id)
+    assert (await editor.post(f"{API}/sites/{site_id}/approve", json={})).status_code == 200
+    await console.run_jobs()
+    sources = (await editor.get(f"{API}/sources", params={"site_id": site_id})).json()
+    assert sorted(s["status"] for s in sources) == ["ingested"] * 3 + ["withdrawn"] * 3
 
 
 # --- tags ----------------------------------------------------------------------------------

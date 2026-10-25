@@ -407,3 +407,77 @@ async def test_delete_documents_names_ids_never_delete_all() -> None:
     assert rec.last.method == "DELETE"
     assert rec.last.url.path == f"/api/v1/datasets/{DATASET_ID}/documents"
     assert rec.last_json() == {"ids": [DOCUMENT_ID]}
+
+
+# P2A-01: the document status toggle. update_document_disabled.json is the recorded
+# update_document.json with the status RAGFlow returns after ``enabled: 0`` (P2A-00 probe).
+
+
+async def test_set_document_enabled_refuses_a_status_it_did_not_ask_for() -> None:
+    rec = Recorder(fixture("update_document"))  # status "1"
+    async with client(rec) as c:
+        with pytest.raises(RagflowError) as raised:
+            await c.set_document_enabled(DATASET_ID, DOCUMENT_ID, enabled=False)
+    assert raised.value.error_code == "ragflow_status_mismatch"
+
+    body = fixture("update_document")
+    del body["data"]["status"]
+    rec = Recorder(body)
+    async with client(rec) as c:
+        with pytest.raises(RagflowError, match="unexpected_response"):
+            await c.set_document_enabled(DATASET_ID, DOCUMENT_ID, enabled=True)
+
+
+async def test_set_document_enabled_error_carries_no_ragflow_message(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    rec = Recorder({"code": 102, "message": "the dataset doesn't own tidewater.pdf"})
+    async with client(rec) as c:
+        with pytest.raises(RagflowError) as raised:
+            await c.set_document_enabled(DATASET_ID, DOCUMENT_ID, enabled=False)
+    assert raised.value.error_code == "ragflow_102"
+    assert "tidewater" not in str(raised.value)
+    line = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert line["event"] == "ragflow.set_document_enabled"
+    assert (line["status"], line["error_code"]) == ("error", "ragflow_102")
+
+
+@pytest.mark.parametrize(
+    ("enabled", "name", "sent", "logged"),
+    [(False, "update_document_disabled", 0, "disabled"), (True, "update_document", 1, "enabled")],
+)
+async def test_set_document_enabled_sends_an_integer_and_logs_no_name(
+    enabled: bool, name: str, sent: int, logged: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rec = Recorder(fixture(name))
+    async with client(rec) as c:
+        await c.set_document_enabled(DATASET_ID, DOCUMENT_ID, enabled=enabled)
+    assert rec.last.method == "PATCH"
+    assert rec.last.url.path == f"/api/v1/datasets/{DATASET_ID}/documents/{DOCUMENT_ID}"
+    assert_authenticated(rec.last)
+    body = rec.last_json()
+    assert body == {"enabled": sent} and type(body["enabled"]) is int  # never a boolean
+    out = capsys.readouterr().out
+    line = json.loads(out.strip().splitlines()[-1])
+    assert line["event"] == "ragflow.set_document_enabled"
+    assert line["status"] == logged and isinstance(line["latency_ms"], int)
+    assert "tidewater" not in out and "location" not in out  # the response names the file
+
+
+async def test_list_documents_reads_every_page_with_the_status() -> None:
+    page = fixture("get_document_done")
+    doc = page["data"]["docs"][0]
+    full = [{**doc, "id": f"{n:032x}", "status": str(n % 2)} for n in range(100)]
+    replies = iter(
+        [
+            {"code": 0, "data": {"docs": full, "total": 101}},
+            {"code": 0, "data": {"docs": [{**doc, "status": "0"}], "total": 101}},
+        ]
+    )
+    rec = Recorder()
+    rec._respond = lambda _: httpx.Response(200, json=next(replies))
+    async with client(rec) as c:
+        documents = await c.list_documents(DATASET_ID)
+    assert len(documents) == 101 and len(rec.requests) == 2
+    assert [r.url.params["page"] for r in rec.requests] == ["1", "2"]
+    assert [d.enabled for d in documents[:2]] == [False, True] and documents[-1].enabled is False

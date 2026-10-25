@@ -237,7 +237,7 @@ Phase 0 may use a RAGFlow chat assistant behind our API for an early demo; it ca
 
 ### 6.1 Source register
 
-PostgreSQL table, the single source of truth for what is in the corpus and why. Fields: source ID, type (PDF, web, DOCX, PPTX), URL or file hash, publisher, title, publication date, canonical link shown to users, licence basis (licence name, permission letter reference, or "own work"), content tags, crawl/upload date, review date, status (proposed, approved, ingested, withdrawn; plus failed, retryable, and rejected, Phase 1b findings A1-1), RAGFlow document IDs per dataset, takedown reference if any.
+PostgreSQL table, the single source of truth for what is in the corpus and why. Fields: source ID, type (PDF, web, DOCX, PPTX), URL or file hash, publisher, title, publication date, canonical link shown to users, licence basis (licence name, permission letter reference, or "own work"), content tags, crawl/upload date, review date, status (proposed, approved, ingested, withdrawn; plus failed, retryable, and rejected, Phase 1b findings A1-1; plus paused, Phase 2A, §6.3), RAGFlow document IDs per dataset, takedown reference if any.
 
 No document reaches RAGFlow without an approved register row. This is both the licensing defence and the index for erasure. Licences are assumed to permit text-and-data mining and excerpt display; the register still records the basis per document so that an exception can be handled.
 
@@ -255,7 +255,9 @@ Re-ingestion is versioned: a new parse creates new chunk IDs, old chunks are wit
 
 ### 6.3 Withdrawal and takedown cascade
 
-A single job per source ID: delete the document from every RAGFlow dataset it is in (which removes file, parsed text, chunks and embeddings), purge cache entries, mark the register row withdrawn with reason and date, and flag citations in stored chat history as withdrawn. Every withdrawal blanks the stored excerpts as well, whatever its grounds, the citation keeping its provenance and the "withdrawn" label (owner decision 3, Oct 23, 2026, P1c-14; decision 5 of Oct 22 had blanked them only for takedowns on licence grounds); a supersession by a re-ingested version keeps them, since the document stays in the corpus. Target window: 10 working days from a valid request, immediately for licence breaches we identify ourselves.
+A single job per source ID: delete the document from every RAGFlow dataset it is in (which removes file, parsed text, chunks and embeddings), purge cache entries, mark the register row withdrawn with reason and date, and flag citations in stored chat history as withdrawn. Every withdrawal blanks the stored excerpts as well, whatever its grounds, the citation keeping its provenance and the "withdrawn" label (owner decision 3, Oct 23, 2026, P1c-14; decision 5 of Oct 22 had blanked them only for takedowns on licence grounds); a supersession by a re-ingested version keeps them, since the document stays in the corpus. Target window: 10 working days from a valid request, immediately for licence breaches we identify ourselves. Working days are Monday to Friday less the public holidays of the active region in `config/holidays.toml` (P2A-12 b); the file is validated at startup, and an empty calendar counts Monday to Friday only.
+
+**Pause (Phase 2A, P2A-01 to P2A-04).** A content reviewer may pause an ingested source, with a reason, and resume it. A pause disables the source's document in every RAGFlow dataset it is in (RAGFlow's document status, so its chunks are not retrieved) and leaves the documents, chunks and stored copy in place; resuming re-enables them with no re-parse. While paused, the source is out of retrieval, file lists and downloads for every tenant whose package holds its tags (corpus-wide, decision D1), and it has no provenance, so a chunk of it can never reach a prompt. Stored citations keep their excerpt and are labelled "currently unavailable" until the source is resumed (D3). Cached answers citing it are purged on pause. A new version of a paused source, from a recrawl or a re-ingestion, is ingested paused. A pause is reversible and is not a withdrawal: it never satisfies a takedown, whose due date and cascade are unchanged, and a paused source can be withdrawn with the full cascade above.
 
 ### 6.4 Crawler policy
 
@@ -264,7 +266,7 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 - Rate-limit per host; never crawl behind logins; strip tracking parameters; skip pages that match obvious special-category patterns (health, religion, politics about named individuals) unless a reviewer whitelists them.
 - Store the HTML snapshot for provenance; serve users only excerpts and links.
 - Phase 1b (P1b-04): sites live in a `sites` table with scope rules (path allow and deny patterns), schedule (none, weekly, monthly), page budget, the allow decision and the last crawl; each page URL is a `site_pages` row (live, blocked with its reason, or removed). A reviewer's approval of a site covers its pages: each crawl records new and changed pages as approved register rows in the reviewer's name, audited. The worker and API fetch only public http(s) addresses on the default ports (no private, loopback or link-local hosts, redirects included).
-- Phase 1c (P1c-14): a reviewer may **withdraw a whole site**: the site is retired (status `withdrawn`, no further crawls), every page is blocked and each page's register row is withdrawn by the same per-page job as §6.3, audited; a crawl running at that moment stops at its next page. A reviewer may **restore** a crawled page they withdrew: the next crawl that meets it takes it again as a new register row; a page any version of which had a takedown recorded cannot be restored.
+- Phase 1c (P1c-14): a reviewer may **withdraw a whole site**: the site is retired (status `withdrawn`, no further crawls), every page is blocked and each page's register row is withdrawn by the same per-page job as §6.3, audited; a crawl running at that moment stops at its next page. A reviewer may **restore** a crawled page they withdrew: the next crawl that meets it takes it again as a new register row; a page any version of which had a takedown recorded cannot be restored. Phase 2A (P2A-12 a): a reviewer may **reinstate** a withdrawn site with a note: it goes back to `proposed` with the same start URL and needs a fresh approval before any crawl; its withdrawn rows stay withdrawn, every page a takedown was recorded on stays blocked, and its other withdrawn pages come back as new register rows at the first crawl after the approval, audited `site.reinstated`.
 
 ---
 
@@ -287,7 +289,8 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 - Shorten chat-history retention from the 30-day maximum, down to 0 ("no history", Phase 1b P1b-14: a conversation takes one question and is deleted when its answer ends; the daily purge job deletes expired history, with read-time expiry as the second layer). The maximum cannot be raised.
 - Set the default answer mode among those the operator enabled (cannot enable or disable modes).
 - Usage dashboard: queries per day by mode, active users, top sources (no query text).
-- Download tenant audit log (auth and admin events).
+- Download tenant audit log (auth and admin events): an explicit allow-list of event names, between two dates, paged past 10,000 rows (Phase 2A, P2A-07).
+- Grant, list and revoke time-boxed support access (Phase 2A, P2A-08; §7.4).
 - View the tenant's configured SSO connection (configuration itself is done by the operator with the client's IT contact).
 
 ### 7.3 Content operations console (MVP)
@@ -308,7 +311,7 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 - One tenant per page (Phase 1b, P1b-12, after the Phase 1a release saved one tenant's entitlements on another's panel): a tenant picker, then the tenant's entitlements, login policy, workspaces (tag pickers offer only the tenant's own and shared tags), users, and month-to-date spend and token usage by model against the external spend cap with its 80 and 100 percent thresholds. Cross-tenant totals are on a separate page.
 - Vendor and model configuration: provider endpoints, model pins (Mistral Large by default), failover order, prompt template versions.
 - Evaluation results and regression gate status.
-- Support access: time-boxed "view tenant settings" mode without impersonation; any access is logged and visible to the tenant.
+- Support access: time-boxed "view tenant settings" mode without impersonation; any access is logged and visible to the tenant. Built in Phase 2A (P2A-08): a tenant admin grants a read of the settings or of one of their own conversations, for 15 minutes to 4 hours, from the admin page; the operator reads it read-only under their own identity, through a database role that shows only what an open grant covers; every read is audited under the tenant and listed on its admin page (`policy-access-control.md` §2.1).
 
 ### 7.5 Later-phase features (not MVP)
 

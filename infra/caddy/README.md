@@ -16,6 +16,8 @@ starts both. `web-build` builds `apps/web/Dockerfile` and copies `dist/` into th
 | --- | --- |
 | `/api/*`, `/healthz` | `api:8000` |
 | `/source/oauth/callback/<slug>/`, `/source/saml/<slug>/acs/` | `api:8000`, rewritten to `/api/v1/auth/sso/oauth/<slug>` and `/api/v1/auth/sso/saml/<slug>`: a tenant IdP's answer, which the API relays to Authentik (P1b-07). Nothing else of Authentik is reachable |
+| `/.well-known/security.txt`, `/security-disclosure` | the web build's `public/` files as they are (P2A-11): no `index.html`, no API call, so no sign-in and no consent gate. Source text: `design/compliance/security-disclosure.md` |
+| `/trust` | 404 unless `ASKSPORE_TRUST_PAGE=published` (in `infra/.env`, passed by Compose; default `unpublished`), then `trust.html` of the web build. The build has no `trust.html` yet: the owner adds it from `design/compliance/trust-page.md` once paperwork item 4 clears. Any other value stops Caddy at start. `/trust.html` and `/security-disclosure.html` themselves are 404 |
 | everything else, including `/auth/finish` | the production web build; unknown paths fall back to `index.html` (client-side routes) |
 
 - Certificates: automatic from Let's Encrypt, account email the operator's, stored in the

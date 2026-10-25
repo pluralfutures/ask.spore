@@ -99,6 +99,10 @@ class ContentSourceDetail(ContentSourceOut):
     approved_at: datetime | None
     withdrawn_at: datetime | None
     withdrawal_reason: str | None
+    # P2A-01: set while the source is paused.
+    paused_at: datetime | None
+    paused_by: str | None
+    pause_reason: str | None
     chunk_count: int | None
     error: str | None  # the ingestion error RAGFlow reported, for a failed source
     licence_file: bool
@@ -142,6 +146,22 @@ class WithdrawIn(_In):
     reason: str = Field(min_length=1, max_length=MAX_NOTE_CHARS)
 
 
+class PauseIn(_In):
+    """P2A-04: a reviewer pauses a source; the reason is kept on the register row."""
+
+    reason: str = Field(min_length=1, max_length=MAX_NOTE_CHARS)
+
+
+class PauseOut(BaseModel):
+    """P2A-01: the source's status after a pause or resume, how many RAGFlow documents
+    were switched, and (pause only) how many cached answers were purged (None when the
+    cache could not be reached)."""
+
+    status: Literal["paused", "ingested"]
+    documents: int
+    cache_entries_purged: int | None
+
+
 class TakedownIn(_In):
     reference: str = Field(min_length=1, max_length=128)
     requested_on: date
@@ -157,6 +177,14 @@ class SiteWithdrawnOut(BaseModel):
     """P1c-14: the per-page ``withdraw_source`` jobs a site withdrawal queued."""
 
     job_ids: list[UUID]
+
+
+class SiteReinstatedOut(BaseModel):
+    """P2A-12 (a): pages released for the next crawl, and pages kept blocked for a
+    takedown. The site is ``proposed`` and needs a fresh approval."""
+
+    released: int
+    kept_blocked: int
 
 
 class SiteOut(BaseModel):

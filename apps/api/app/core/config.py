@@ -1,4 +1,5 @@
-"""Configuration: config/models.toml plus secrets from the environment.
+"""Configuration: config/models.toml (and config/holidays.toml, P2A-12 b) plus secrets
+from the environment.
 
 Startup checks (design/Stack Decision.md, Conventions):
 
@@ -36,7 +37,7 @@ import os
 import re
 import tomllib
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
@@ -47,6 +48,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 from app.chat.prompts import check_slot
 from app.consent.notice import check_notice
 from app.core.credentials import published_credentials
+from app.core.holidays import HolidayCalendar, load_holidays
 from app.core.mailtemplates import TEMPLATE_NAMES, check_template
 
 CONFIG_DIR_ENV = "ASK_SPORE_CONFIG_DIR"
@@ -450,6 +452,8 @@ class Settings:
     config_dir: Path
     # The deployed build (``deploy_version``); in the answer cache key.
     deploy_version: str = "unversioned"
+    # P2A-12 (b): the takedown clock's public holidays (config/holidays.toml).
+    holidays: HolidayCalendar = field(default_factory=HolidayCalendar)
 
 
 def _tree_bytes(root: Path, pattern: str) -> Iterator[bytes]:
@@ -753,6 +757,8 @@ def load_settings(
         problems += _check_prompts(models.prompts, directory)
         problems += _check_mail_templates(models.mail, directory)
         problems += _check_consent(models.consent, directory)
+    holidays, holiday_problems = load_holidays(directory)
+    problems += holiday_problems
 
     provider = models.llm.provider if models is not None else None
     auth_mode = models.auth.mode if models is not None else None
@@ -825,6 +831,7 @@ def load_settings(
         secrets=secrets,
         config_dir=directory,
         deploy_version=deploy_version(env, directory),
+        holidays=holidays,
     )
 
 

@@ -1,9 +1,42 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import type { Connect, Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 
+// P2A-11: the public pages' addresses, as infra/caddy/Caddyfile serves them in production
+// (outside the app, its sign-in and its consent gate), mirrored here so the dev server and
+// the Playwright check see the same routes. The trust page stays unpublished (404).
+const PUBLIC_PAGES: Record<string, string> = {
+  "/security-disclosure": "/security-disclosure.html",
+};
+const NOT_SERVED = new Set(["/security-disclosure.html", "/trust", "/trust.html"]);
+
+const publicPages: Connect.NextHandleFunction = (req, res, next) => {
+  const path = (req.url ?? "").split("?", 1)[0];
+  if (NOT_SERVED.has(path)) {
+    res.statusCode = 404;
+    res.end();
+    return;
+  }
+  const file = PUBLIC_PAGES[path];
+  if (file) req.url = file;
+  next();
+};
+
+function publicPagesPlugin(): Plugin {
+  return {
+    name: "askspore-public-pages",
+    configureServer(server) {
+      server.middlewares.use(publicPages);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(publicPages);
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), publicPagesPlugin()],
   server: {
     host: "0.0.0.0",
     port: 5173,

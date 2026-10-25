@@ -1,0 +1,47 @@
+/* P2A-11: the static public pages (/security-disclosure). No inline styles: the CSP allows 'self' only. */
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1f2328;
+  --muted: #59636e;
+  --link: #0b5cad;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171a;
+    --fg: #e6e8ea;
+    --muted: #a0a8b0;
+    --link: #79b8ff;
+  }
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    16px/1.6 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
+h1 {
+  font-size: 1.75rem;
+  line-height: 1.25;
+}
+h2 {
+  font-size: 1.2rem;
+  margin-top: 2rem;
+}
+a {
+  color: var(--link);
+}
+footer {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin-top: 3rem;
+}

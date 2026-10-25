@@ -54,6 +54,15 @@ EXPORTED_EVENTS: Final[frozenset[str]] = frozenset(
         "operator.invitation_resent",
         "operator.revoked",
         "operator.user_removed",
+        # Operator changes to how this tenant's users sign in and what it may use
+        # (owner decision, Oct 25, 2026, Groups B and C question 2): non-secret settings
+        # a security contact asks about.
+        "operator.entitlements_changed",
+        "operator.login_policy_changed",
+        "operator.sso_source_changed",
+        # Operator changes to how this tenant's users sign in and what it may use
+        # (owner decision, Oct 25, 2026, Groups B and C question 2): non-secret settings
+        # a security contact asks about.
         # Support access (P2A-08): every operator read through a grant, and a grant
         # closed by the daily purge job once expired.
         "operator.support_viewed",
@@ -74,10 +83,7 @@ OPERATOR_ONLY_EVENTS: Final[frozenset[str]] = frozenset(
         # The tenant-name flag of tenant-authored instructions: operator only (CLAUDE.md).
         "workspace.prompt_tenant_name_match",
         # Operator configuration of a tenant (P1a-03, P1a-04, P1a-14, P1b-07).
-        "operator.entitlements_changed",
-        "operator.login_policy_changed",
         "operator.source_downloadable_changed",
-        "operator.sso_source_changed",
         "operator.tenant_created",
         "operator.workspace_created",
         "operator.workspace_tags_changed",
@@ -99,11 +105,13 @@ OPERATOR_ONLY_EVENTS: Final[frozenset[str]] = frozenset(
         "source.failed",  # f"source.{result.status}" in app.content.ingest
         "source.ingested",  # likewise
         "source.licence_file_set",
-        "source.paused",  # P2A-01 (Group A), classified ahead of its build
+        "source.pause_failed",  # f"source.{action}_failed" in app.content.register (P2A-01)
+        "source.paused",  # P2A-01 (Group A)
         "source.proposed",
         "source.rejected",
         "source.restored",
-        "source.resumed",  # P2A-01 (Group A), classified ahead of its build
+        "source.resume_failed",  # likewise
+        "source.resumed",  # P2A-01 (Group A)
         "source.retag_approved",
         "source.retried",
         "source.takedown_recorded",
@@ -121,4 +129,7 @@ AUDIT_EVENTS: Final[frozenset[str]] = EXPORTED_EVENTS | OPERATOR_ONLY_EVENTS
 # Event names built at run time, with every value the code can produce.
 DYNAMIC_EVENTS: Final[dict[str, frozenset[str]]] = {
     "source.{result.status}": frozenset({"source.ingested", "source.failed"}),
+    # P2A-01 (app.content.register._switch): a pause or resume, and its failure.
+    "source.{action}_failed": frozenset({"source.pause_failed", "source.resume_failed"}),
+    "source.{(after if pause else 'resumed')}": frozenset({"source.paused", "source.resumed"}),
 }

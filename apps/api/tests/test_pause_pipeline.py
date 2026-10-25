@@ -227,6 +227,7 @@ async def test_withdrawing_a_paused_source_runs_the_full_cascade_and_blanks_exce
     await run_queue(e)
     row = await source_row(admin_conn, source.source_id)
     assert (row["status"], row["withdrawal_reason"]) == ("withdrawn", "takedown (synthetic)")
+    # A withdrawal ends the pause and carries its own reason; the pause fields are cleared.
     assert (row["paused_at"], row["paused_by"], row["pause_reason"]) == (None, None, None)
     assert (row["ragflow_document_ids"], row["stored_path"]) == ("{}", None)
     assert set(source.document_ids.values()) <= set(e.fake.deleted)

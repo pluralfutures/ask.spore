@@ -79,7 +79,7 @@ class Source(Base):
         CheckConstraint(
             "CASE WHEN status = 'paused' THEN paused_at IS NOT NULL AND paused_by IS NOT NULL "
             "AND length(btrim(coalesce(pause_reason, ''))) > 0 "
-            "ELSE paused_at IS NULL AND paused_by IS NULL AND pause_reason IS NULL END",
+            "ELSE paused_at IS NULL AND paused_by IS NULL END",
             name="pause_recorded",
         ),
         CheckConstraint(
@@ -159,8 +159,11 @@ class Source(Base):
     site_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sites.id"))
     snapshot_path: Mapped[str | None] = mapped_column(Text)
     fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # Revision 0070 (P2A-01): a reviewer's pause, set exactly while the status is
-    # ``paused`` (``pause_recorded``); a resume clears them, the audit trail keeps them.
+    # Revision 0070 (P2A-01): a reviewer's pause. ``paused_at`` and ``paused_by`` are set
+    # exactly while the status is ``paused`` (``pause_recorded``) and cleared on resume;
+    # ``pause_reason`` is the reason of the current or the last pause and is kept after a
+    # resume (owner decision, Oct 25, 2026, Group A question 1), since the audit writer
+    # carries no free text.
     paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     paused_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     pause_reason: Mapped[str | None] = mapped_column(Text)

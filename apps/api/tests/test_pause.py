@@ -169,6 +169,7 @@ async def test_a_failed_toggle_on_the_second_dataset_reenables_the_first(
     assert e.fake.toggles == [(first, document, 0), (first, document, 1)]
     assert enabled(e.fake, source) == [True, True]
     row = await source_row(admin_conn, source.source_id)
+    # A failed pause sets nothing, the reason included.
     assert (row["status"], row["paused_at"], row["paused_by"], row["pause_reason"]) == (
         "ingested",
         None,
@@ -278,11 +279,12 @@ async def test_a_paused_source_is_not_retrieved_and_comes_back_on_resume_without
     assert await retrievable(e.fake, e.factory, client_tenant, source) == 3
     assert e.fake.parsed == parsed and e.fake.deleted == []  # no re-parse, nothing deleted
     row = await source_row(admin_conn, source.source_id)
+    # The last pause's reason stays on the row after a resume (owner, Oct 25, 2026).
     assert (row["status"], row["paused_at"], row["paused_by"], row["pause_reason"]) == (
         "ingested",
         None,
         None,
-        None,
+        REASON,
     )
     assert json.loads(row["ragflow_document_ids"]) == documents
     assert row["chunk_count"] == 6

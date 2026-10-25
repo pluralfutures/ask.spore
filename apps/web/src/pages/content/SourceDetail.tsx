@@ -87,6 +87,10 @@ export function SourceSummary({ source }: { source: ContentSourceDetail }) {
               {source.paused_by ? ` by ${source.paused_by}` : ""}: {source.pause_reason}
             </span>
           </Fact>
+        ) : source.pause_reason ? (
+          <Fact label="Last pause">
+            <span data-testid="pause-record">{source.pause_reason}</span>
+          </Fact>
         ) : null}
         {source.supersedes ? <Fact label="Replaces">{source.supersedes.title}</Fact> : null}
       </dl>

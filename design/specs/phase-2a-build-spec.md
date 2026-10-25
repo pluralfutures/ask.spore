@@ -1,8 +1,7 @@
 # Phase 2A Build Spec — Document Pause, Tenant Assurance, Promises Kept
 
-Oct 25, 2026 · Status: **Groups A to E approved for build** (owner go-ahead of Oct 25, 2026: D1 to D4 taken;
-D5 withdrawn; D6 and D7 proposed, the builders record a recommendation for the owner; Group F
-runs after integration) · Target duration: 3–4 weeks · Starts after the UX refresh closed (UX-24, Oct 25, 2026)
+Oct 25, 2026 · Status: **Groups A to E built and integrated, Oct 25, 2026**; D1 to D4, D6 and D7 taken, D5
+withdrawn; the builders' questions decided (table below); Group F, the release, is next · Target duration: 3–4 weeks · Starts after the UX refresh closed (UX-24, Oct 25, 2026)
 
 Source decisions: the owner's selection of Oct 25, 2026 from `Phase 2 spec - ideas only.md`
 (items 1, 2.4, 2.5, 2.8, 4.1, 4.2 and the logging follow-up of the Phase 1c independent
@@ -276,8 +275,8 @@ review signed as in Phase 1c §5.2.
 | D3 | **Taken, Oct 25, 2026. A pause keeps stored excerpts.** Citations of a paused source stay readable in history, labelled "currently unavailable". Only a withdrawal blanks (owner decision 3, Oct 23). | Blank on pause too. Rejected: a pause is reversible and not a rights event. | P2A-02 |
 | D4 | **Taken, Oct 25, 2026. Pause is a content reviewer action**, as withdrawal is; the operator console links to it. | An operator action on the tenant page. Rejected: it would be the first content decision made from a tenant's page and would blur the register's roles. | P2A-04 |
 | D5 | *(withdrawn)* Audit disposal moved to the backlog, "Enterprise requirements" (owner, Oct 25, 2026); its design proposal is recorded there. | — | P2A-09 |
-| D6 | **Status page source: a third-party status page** fed by hand until a monitoring stack exists (3.1); it receives no personal data unless subscribers are enabled, which stays off. Recorded, not built. | A self-hosted status page from a monitoring stack, with 3.1. | P2A-11 |
-| D7 | **Soften the operator MFA policy line to TOTP** with hardware keys as a Phase 2 item. | Build passkeys now (3.4): a browser-run Authentik flow or a WebAuthn relay; a session on its own. | P2A-10 |
+| D6 | **Taken, Oct 25, 2026. Status page source: a third-party status page** fed by hand until a monitoring stack exists (3.1); it receives no personal data unless subscribers are enabled, which stays off. Recorded, not built. | A self-hosted status page from a monitoring stack, with 3.1. | P2A-11 |
+| D7 | **Taken, Oct 25, 2026. Soften the operator MFA policy line to TOTP** with hardware keys as a Phase 2 item. | Build passkeys now (3.4): a browser-run Authentik flow or a WebAuthn relay; a session on its own. | P2A-10 |
 
 ## Open items for the owner
 
@@ -302,3 +301,23 @@ Three parallel build sessions, each on its own branch off `claude/inspiring-wozn
 Group A (`claude/p2a-group-a`, started by the owner on the Instance's session); Groups B and C
 (`claude/p2a-group-bc`); Groups D and E (`claude/p2a-group-de`). Then integration by the
 orchestrating session on the spec branch, then the release session (Group F).
+
+## Owner decisions of Oct 25, 2026 (after the Group A, B/C and D/E builds)
+
+The builders' questions (`phase-2a-findings.md` §1, §2 and §3.6); the owner took every
+recommendation. Applied at integration where they change code.
+
+| # | Decision | Applies to |
+| --- | --- | --- |
+| 18 | The pause reason stays on the row after a resume (`pause_reason` is the current or last pause's); the audit writer keeps its no-free-text rule. | P2A-01 |
+| 19 | A refused download of a paused file is audited with `error_code: paused`, exportable by the tenant admin. | P2A-02 |
+| 20 | New copy of the pause (badge, note, console buttons, refusals) approved as built. | P2A-02, P2A-04 |
+| 21 | The parse window on an inherited pause is accepted; the crawler does not hold changed versions. | P2A-03 |
+| 22 | Migration 0065 (support grants) is re-parented onto 0070 (pause) at integration. | Integration |
+| 23 | Support grants cover the tenant admin's own conversations or the settings only; a user-initiated request is a backlog idea; counsel to say whether the notice narrows. | P2A-08 |
+| 24 | `operator.entitlements_changed`, `operator.login_policy_changed` and `operator.sso_source_changed` are exported to the tenant admin. | P2A-07 |
+| 25 | Export continuation parts one a minute, and `record()` failing closed on an unclassified event, stay as built. Questions per day count every `chat.query` event. | P2A-05, P2A-07 |
+| 26 | D7 taken; open question D2 reworded to TOTP. C5: an audited suspension action in the next phase that touches the operator console (backlog line). H2's date stays with the owner. | P2A-10 |
+| 27 | Security contact `security@myceliumgastronomy.com` in `security.txt` and on the disclosure page; the takedown line points at the same mailbox for now. No PGP key at launch. The safe-harbour paragraph stays, for counsel; the legal entity is filled by the owner. | P2A-11 |
+| 28 | Reinstatement releases only pages held by the site withdrawal; a page a reviewer withdrew individually stays out until restored one by one. | P2A-12 (a) |
+| 29 | Holiday region `france` active. Trust page as built: 404 until the final page is added and the flag flipped. D6 taken. | P2A-11, P2A-12 (b) |

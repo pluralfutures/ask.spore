@@ -737,11 +737,13 @@ async def test_a_reviewer_pauses_and_resumes_a_source_from_the_console(
     assert resumed.status_code == 200, resumed.text
     assert resumed.json() == {"status": "ingested", "documents": 1, "cache_entries_purged": None}
     detail = (await client.get(f"{API}/sources/{source_id}")).json()
+    # The last pause's reason stays readable after a resume (owner, Oct 25, 2026).
     assert (detail["status"], detail["pause_reason"], detail["paused_at"]) == (
         "ingested",
-        None,
+        detail["pause_reason"],
         None,
     )
+    assert detail["pause_reason"]
     assert detail["history"][-1]["event"] == "source.resumed"
     assert reason not in capsys.readouterr().out  # the reason stays on the row
 

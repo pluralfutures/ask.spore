@@ -112,6 +112,8 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 - Unscheduled (P2A-08 build, Oct 25, 2026): support on a **user's** own conversation. Today a tenant admin can grant only one of their own conversations (or the settings); a user's conversation is never readable by the operators. If clients ask for it: a user marks one conversation "ask for support", their admin approves it as a grant (same table, scope and checks), and both see the reads. Needs the owner's answer to `phase-2a-findings.md` §2, question 1, and possibly a new notice version.
 - Unscheduled (open question C5 answer, Oct 25, 2026): an audited tenant suspension action on the operator console (`operator.tenant_suspended` / `operator.tenant_reactivated`, before and after values). About an hour; recommended for the next phase that touches the operator console. Until then a suspension is a schema-owner `UPDATE`, recorded by hand.
 
+- Phase 2B or later, the next phase that touches the operator console (owner decision Oct 25, 2026, open question C5): an audited operator-console action to suspend and reactivate a tenant (`operator.tenant_suspended`, `operator.tenant_reactivated`, before and after values); until then a suspension on its own is a schema-owner `UPDATE` recorded by hand.
+
 ## Enterprise requirements
 
 Items a client's security or procurement contact asks for at contract or renewal time, kept

@@ -34,7 +34,7 @@ NEW_STATUSES = "('proposed', 'approved', 'ingested', 'failed', 'withdrawn', 'rej
 PAUSE_RECORDED = (
     "CASE WHEN status = 'paused' THEN paused_at IS NOT NULL AND paused_by IS NOT NULL "
     "AND length(btrim(coalesce(pause_reason, ''))) > 0 "
-    "ELSE paused_at IS NULL AND paused_by IS NULL AND pause_reason IS NULL END"
+    "ELSE paused_at IS NULL AND paused_by IS NULL END"
 )
 
 

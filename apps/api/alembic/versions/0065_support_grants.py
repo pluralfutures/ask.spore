@@ -85,7 +85,7 @@ CONVERSATION_POLICIES = {
 SETTINGS_TABLES = ("tenant_settings", "workspaces", "workspace_prompts")
 
 revision: str = "0065"
-down_revision: str | None = "0060"
+down_revision: str | None = "0070"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

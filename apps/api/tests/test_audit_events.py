@@ -229,9 +229,6 @@ def test_exported_and_operator_only_do_not_overlap() -> None:
         "model.fallback",
         "chat.query",
         "chat.feedback",
-        "operator.entitlements_changed",
-        "operator.login_policy_changed",
-        "operator.sso_source_changed",
         "operator.tenant_created",
         "operator.workspace_created",
         "operator.workspace_tags_changed",
@@ -240,6 +237,20 @@ def test_exported_and_operator_only_do_not_overlap() -> None:
 )
 def test_operator_only_events_are_not_exported(event: str) -> None:
     assert event in OPERATOR_ONLY_EVENTS and event not in EXPORTED_EVENTS
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        "operator.entitlements_changed",
+        "operator.login_policy_changed",
+        "operator.sso_source_changed",
+    ],
+)
+def test_operator_sign_in_and_entitlement_changes_are_exported(event: str) -> None:
+    """Owner decision, Oct 25, 2026 (Groups B and C question 2): non-secret settings a
+    security contact asks about."""
+    assert event in EXPORTED_EVENTS and event not in OPERATOR_ONLY_EVENTS
 
 
 def test_record_refuses_an_unclassified_event() -> None:

@@ -841,7 +841,8 @@ async def _switch(
                     "pause_reason": reason,
                 }
             else:
-                values |= {"paused_at": None, "paused_by": None, "pause_reason": None}
+                # The reason stays as the last pause's (owner decision, Oct 25, 2026).
+                values |= {"paused_at": None, "paused_by": None}
             await session.execute(update(Source).where(Source.id == source_id).values(**values))
             await _audit(
                 session,

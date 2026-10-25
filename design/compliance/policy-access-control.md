@@ -7,9 +7,9 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Revision | Oct 25, 2026, **DRAFT** (spec item P2A-10): rule 7 replaced by the support-access policy (§2.1), built in P2A-08; the operator MFA line of rule 4 changed to TOTP, **proposed for the owner** (decision D7 of `phase-2a-build-spec.md` is not taken); staff onboarding and offboarding in `staff-access-checklist.md` |
+| Revision | Oct 25, 2026, **DRAFT** (spec item P2A-10): rule 7 replaced by the support-access policy (§2.1), built in P2A-08; the operator MFA line of rule 4 changed to TOTP (decision D7 of `phase-2a-build-spec.md`, **taken by the owner Oct 25, 2026**); staff onboarding and offboarding in `staff-access-checklist.md` |
 | Placeholders | [security lead name], [document store], [date], [first review date] |
-| To finalise, the owner must | (1) take or reject decision D7 (rule 4: TOTP for operators today, hardware keys a Phase 2 item) and record that operator accounts have the second factor configured in Authentik; (2) set the date of the first quarterly access review (open question H2) in §2 rule 9; (3) approve and sign. |
+| To finalise, the owner must | (1) record that every operator account has TOTP configured in Authentik (D7 taken Oct 25, 2026); (2) set the date of the first quarterly access review (open question H2) in §2 rule 9; (3) approve and sign. |
 
 ---
 
@@ -22,7 +22,7 @@ Who may reach what on the platform, how access is granted and removed, and how i
 1. **Least privilege.** Client roles are `user` and `tenant_admin`, scoped to one tenant. Operators work on the internal tenant and run as the database role `askspore_operator`, which cannot read conversations, messages, citations, feedback, sign-in links or the private corpus columns (findings A12).
 2. **Operators are granted only from the command line** as the schema owner (`ask-spore operators grant` / `revoke`), never from the web app.
 3. **Sign-in.** Users sign in with a single-use emailed link (15 minutes, consumed only by a POST from the landing page, bound to the requesting browser, at most 5 links per user per window, no account enumeration). Client SSO (Entra ID, Google Workspace, generic OIDC, SAML) from Phase 1b (P1b-07).
-4. **MFA.** Operators: a time-based one-time code (TOTP) as second factor, configured in Authentik; hardware keys or passkeys are a Phase 2 item (ideas 3.4) and are not required until built. *(Proposed for the owner, decision D7 of `phase-2a-build-spec.md`; until it is taken the earlier line, "hardware-key MFA configured in Authentik", stands, and it is not met: the API does not check the factor, findings A12.)* Tenant admins: second factor enforced from Phase 1b (P1b-08). Scaleway, GitHub and vendor consoles: MFA on every account.
+4. **MFA.** Operators: a time-based one-time code (TOTP) as second factor, configured in Authentik; hardware keys or passkeys are a Phase 2 item (ideas 3.4) and are not required until built. *(Decision D7 of `phase-2a-build-spec.md`, taken Oct 25, 2026; the API does not check the factor, findings A12.)* Tenant admins: second factor enforced from Phase 1b (P1b-08). Scaleway, GitHub and vendor consoles: MFA on every account.
 5. **A user of one tenant can never act in another.** Tenant binding comes from the Authentik attribute set at provisioning, never from a claim or a request.
 6. **Invitations** only for addresses on the tenant's verified domains; an address already in any tenant is refused.
 7. **Support access only on the tenant's grant, never by impersonation.** Operators do not read a tenant's conversations or settings unless one of the tenant's administrators grants time-boxed access, under the policy in §2.1 (built in Phase 2A, P2A-08).
@@ -59,7 +59,7 @@ The owner holds the operator, content editor, content reviewer and security lead
 | Invite scope (CC6.2) | `test_operator::test_invite_refuses_an_email_of_another_tenant`; findings D6 | Built |
 | Client SSO and JIT by verified domain (CC6.1) | — | From Phase 1b (P1b-06, P1b-07) |
 | Admin MFA (CC6.1) | — | From Phase 1b (P1b-08) |
-| Operator second factor (CC6.1) | Authentik configuration (TOTP, proposed D7; hardware keys Phase 2); not checked by the API (A12) | To verify |
+| Operator second factor (CC6.1) | Authentik configuration (TOTP, D7 taken Oct 25, 2026; hardware keys Phase 2); not checked by the API (A12) | To verify |
 | Per-IP rate limit on link requests | — | From Phase 1b (P1b-08) |
 | Session revocation on sign-out | `auth.signed_out`; `revoked_sessions` table; live check of the Authentik revocation from Phase 1b (P1b-08) | Partly built |
 | Quarterly access review (CC6.2) | Sign-off record in [document store]; first review [first review date] | Not started |

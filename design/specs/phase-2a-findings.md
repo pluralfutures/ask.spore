@@ -685,11 +685,25 @@ anti-aliasing noise); noted for the owner in the close-out.
 
 ### 5.2 Step 2: deploy
 
-`main` at `b2b5beb` (PR #67) pulled into `/root/ask.spore`; `check-credentials.py` reports no
-published credential; `ASKSPORE_TRUST_PAGE` unset in `infra/.env` (Compose default
-`unpublished`). The deploy script was refused by the session's permission classifier and
-waits for the owner (run in the owner's terminal or allowed explicitly). Steps 2, 4, 5 and 6
-follow it.
+`check-credentials.py`: no published credential. `ASKSPORE_TRUST_PAGE` unset in `infra/.env`
+(Compose default `unpublished`). The deploy script was refused by the session's permission
+classifier and was run by the owner in their terminal (Oct 25, 2026, about 20:50 UTC). It
+fast-forwarded `main` to **`8f5396b`**, two owner commits after the release commit `b2b5beb`
+that change `design/compliance/security-disclosure.md` and `trust-page.md` only (no code;
+steps 1 and 3 hold). The Instance runs `8f5396b`.
+
+| Check | Result |
+| --- | --- |
+| Containers | api, worker, caddy recreated; api healthy |
+| `ASK_SPORE_DEPLOY_VERSION` | `8f5396b9f109` |
+| Alembic | `0065 (head)` (0070 then 0065); one RLS policy on `support_grants` |
+| Startup lines | `api.started`, `worker.started`; no `worker.mail_not_configured` |
+| `/healthz` (public, TLS) | 200 |
+| `/.well-known/security.txt` (no session) | 200 `text/plain`, `Contact: mailto:security@myceliumgastronomy.com`, no redirect |
+| `/security-disclosure` (no session) | 200 `text/html`, the contact address, no redirect; no legal-entity line (decision of Oct 25: placeholder for counsel) |
+| `/trust` | 404 |
+| Dataset counts | `sample-reports` 59 / 2580; `cc-team1-healthcare-gpo` 60 / 4037; `cc-team2-college-universities` 64 / 4087; `cc-team3-commercial-restaurants` 22 / 1145; `cc-shared`, `sample-analysis`, `sample-web` 0 |
+| Register | ingested 146, withdrawn 43, failed 8, rejected 1; none paused |
 
 ### 5.3 Step 3: isolation tests and the independent review
 

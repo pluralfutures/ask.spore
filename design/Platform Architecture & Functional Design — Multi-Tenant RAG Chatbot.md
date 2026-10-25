@@ -237,7 +237,7 @@ Phase 0 may use a RAGFlow chat assistant behind our API for an early demo; it ca
 
 ### 6.1 Source register
 
-PostgreSQL table, the single source of truth for what is in the corpus and why. Fields: source ID, type (PDF, web, DOCX, PPTX), URL or file hash, publisher, title, publication date, canonical link shown to users, licence basis (licence name, permission letter reference, or "own work"), content tags, crawl/upload date, review date, status (proposed, approved, ingested, withdrawn; plus failed, retryable, and rejected, Phase 1b findings A1-1), RAGFlow document IDs per dataset, takedown reference if any.
+PostgreSQL table, the single source of truth for what is in the corpus and why. Fields: source ID, type (PDF, web, DOCX, PPTX), URL or file hash, publisher, title, publication date, canonical link shown to users, licence basis (licence name, permission letter reference, or "own work"), content tags, crawl/upload date, review date, status (proposed, approved, ingested, withdrawn; plus failed, retryable, and rejected, Phase 1b findings A1-1; plus paused, Phase 2A, §6.3), RAGFlow document IDs per dataset, takedown reference if any.
 
 No document reaches RAGFlow without an approved register row. This is both the licensing defence and the index for erasure. Licences are assumed to permit text-and-data mining and excerpt display; the register still records the basis per document so that an exception can be handled.
 
@@ -256,6 +256,8 @@ Re-ingestion is versioned: a new parse creates new chunk IDs, old chunks are wit
 ### 6.3 Withdrawal and takedown cascade
 
 A single job per source ID: delete the document from every RAGFlow dataset it is in (which removes file, parsed text, chunks and embeddings), purge cache entries, mark the register row withdrawn with reason and date, and flag citations in stored chat history as withdrawn. Every withdrawal blanks the stored excerpts as well, whatever its grounds, the citation keeping its provenance and the "withdrawn" label (owner decision 3, Oct 23, 2026, P1c-14; decision 5 of Oct 22 had blanked them only for takedowns on licence grounds); a supersession by a re-ingested version keeps them, since the document stays in the corpus. Target window: 10 working days from a valid request, immediately for licence breaches we identify ourselves.
+
+**Pause (Phase 2A, P2A-01 to P2A-04).** A content reviewer may pause an ingested source, with a reason, and resume it. A pause disables the source's document in every RAGFlow dataset it is in (RAGFlow's document status, so its chunks are not retrieved) and leaves the documents, chunks and stored copy in place; resuming re-enables them with no re-parse. While paused, the source is out of retrieval, file lists and downloads for every tenant whose package holds its tags (corpus-wide, decision D1), and it has no provenance, so a chunk of it can never reach a prompt. Stored citations keep their excerpt and are labelled "currently unavailable" until the source is resumed (D3). Cached answers citing it are purged on pause. A new version of a paused source, from a recrawl or a re-ingestion, is ingested paused. A pause is reversible and is not a withdrawal: it never satisfies a takedown, whose due date and cascade are unchanged, and a paused source can be withdrawn with the full cascade above.
 
 ### 6.4 Crawler policy
 

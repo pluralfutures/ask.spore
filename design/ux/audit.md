@@ -12,6 +12,8 @@ Look and feel only: no branding, no change to behaviour, copy or flow. Companion
 
 File names are `design/ux/screenshots/<scenario>-<desktop|phone>.png`.
 
+**After the refresh (Oct 25, 2026):** the same screens after UX-01 to UX-24 are in `design/ux/screenshots/after/`, compared with these in [After the refresh](#after-the-refresh-oct-25-2026) at the end of this document.
+
 ## Cross-cutting findings
 
 These cause most of what the per-screen notes repeat, so they come first.
@@ -230,3 +232,109 @@ Each finding is tagged: **T** type hierarchy, **S** spacing, **C** colour, **A**
 8. **Unpadded, unaligned tables** (files, users, register, spend): wrapping dates, stacked row actions, and raw status codes instead of badges.
 9. **Colour without a system**: amber means six different things, red means error, delete and "unsupported", there is no accent colour, and links and buttons look alike.
 10. **Bare loading, empty, error and access-denied states**: one-line text at top-left with no heading, landmark, retry or next step. Related: weak focus visibility, and the consent notice has no tab stop of its own (Safari users cannot scroll it from the keyboard).
+
+## After the refresh (Oct 25, 2026)
+
+The UX refresh (spec items UX-01 to UX-24, [../specs/ux-refresh-spec.md](../specs/ux-refresh-spec.md)) was built on Oct 24 and 25, 2026. The after-screenshots are copies of the visual-regression suite's snapshots of the same scenarios (`apps/web/e2e/visual/__screenshots__`, taken in the pinned Playwright image against the same fake API), colour-quantised like the originals and kept here as a fixed record; the suite's own snapshots keep changing with the app.
+
+Checks at the close of UX-24: the visual suite (124 snapshots, every scenario at 1440 and 390 px), the axe baseline, the 390 px overflow check, the keyboard paths and the automated screen-reader check ([screen-reader-check.md](screen-reader-check.md)) all pass. No page is wider than the screen at 390 px. One axe entry remains, accepted by the owner: `page-has-heading-one` on the app's first load (04), a transient state before the app knows which page to show. The human screen-reader confirmation was moved to the backlog (owner, Oct 25, 2026).
+
+### The top ten issues, after
+
+| # | Issue | Status |
+|---|---|---|
+| 1 | Near-black borders | Fixed (UX-05): border tokens; borders are a light grey line, focus is a 2 px ring. |
+| 2 | No app shell | Fixed (UX-10, UX-13): a top bar with product, tenant, role-based navigation and the user menu with sign-out; from 1024 px a conversation rail beside the chat and start pages. |
+| 3 | Phone overflow | Fixed (UX-02, UX-09): zero pages wider than 390 px; tables scroll in their card or stack as label and value pairs. |
+| 4 | Phone citation panel out of view | Fixed (UX-16): a bottom sheet on phone ("Sources 1 of 2", previous, next), a drawer on tablet, a column that scrolls on its own on desktop. |
+| 5 | Markdown loses its structure | Fixed (UX-12, UX-15): headings and lists render in answers and the consent notice. A table in the notice still needs `remark-gfm` or a rewrite (backlog). |
+| 6 | No type scale or font | Fixed (UX-05): self-hosted Lato and a type scale (display, heading, reading, UI, meta). |
+| 7 | Five button styles | Fixed (UX-06, UX-07): one button set (primary, secondary, ghost, danger), icon buttons, row menus, one input size; thumbs-up and down icons instead of emoji. |
+| 8 | Unpadded tables, raw status codes | Fixed (UX-09, UX-17 to UX-22): one table style with column headers and status badges; raw values are shown as before but as badges (wording unchanged). |
+| 9 | Colour without a system | Fixed (UX-05, UX-08): a slate-blue accent for links and primary actions; amber, red and green tones mean warning, danger and success only. |
+| 10 | Bare loading, empty, error and access-denied states | Fixed (UX-08, UX-23, UX-24): skeletons, empty states with their existing sentence, access-denied and load-error pages whose sentence is the `h1`, a visible focus ring, and a tab stop on the consent notice. |
+
+### Screens, before and after
+
+Sign-in (UX-11, UX-24: a centred card; each step names itself)
+
+| Before (Oct 23) | After (Oct 25) |
+|---|---|
+| ![Email sign-in, desktop, before](screenshots/02-signin-email-desktop.png) | ![Email sign-in, desktop, after](screenshots/after/02-signin-email-desktop.png) |
+| ![SSO choice, before](screenshots/02d-signin-sso-choice-desktop.png) | ![SSO choice, after](screenshots/after/02d-signin-sso-choice-desktop.png) |
+| ![SSO refused, phone, before](screenshots/02b-signin-email-sso-failed-phone.png) | ![SSO refused, phone, after](screenshots/after/02b-signin-email-sso-failed-phone.png) |
+
+App loading and consent (UX-12, UX-23, UX-24)
+
+| Before (Oct 23) | After (Oct 25) |
+|---|---|
+| ![Loading, before](screenshots/04-app-loading-desktop.png) | ![Loading, after](screenshots/after/04-app-loading-desktop.png) |
+| ![Consent, first, before](screenshots/05-consent-first-desktop.png) | ![Consent, first, after](screenshots/after/05-consent-first-desktop.png) |
+| ![Consent changed, before](screenshots/05b-consent-changed-desktop.png) | ![Consent changed, after](screenshots/after/05b-consent-changed-desktop.png) |
+| ![Consent, phone, before](screenshots/05-consent-first-phone.png) | ![Consent, phone, after](screenshots/after/05-consent-first-phone.png) |
+
+Conversation list (UX-10, UX-13)
+
+| Before (Oct 23) | After (Oct 25) |
+|---|---|
+| ![Conversations, admin + operator, before](screenshots/06b-conversations-admin-operator-desktop.png) | ![Conversations, admin + operator, after](screenshots/after/06b-conversations-admin-operator-desktop.png) |
+| ![Conversations, phone, before](screenshots/06-conversations-phone.png) | ![Conversations, phone, after](screenshots/after/06-conversations-phone.png) |
+| ![Empty, before](screenshots/06c-conversations-empty-desktop.png) | ![Empty, after](screenshots/after/06c-conversations-empty-desktop.png) |
+
+Start panel (UX-14)
+
+| Before (Oct 23) | After (Oct 25) |
+|---|---|
+| ![Start panel, choices, before](screenshots/07b-start-panel-choices-desktop.png) | ![Start panel, choices, after](screenshots/after/07b-start-panel-choices-desktop.png) |
+| ![External model, before](screenshots/07c-start-panel-external-desktop.png) | ![External model, after](screenshots/after/07c-start-panel-external-desktop.png) |
+| ![Single workspace and model, before](screenshots/07-start-panel-single-desktop.png) | ![Single workspace and model, after](screenshots/after/07-start-panel-single-desktop.png) |
+
+Chat and citations (UX-15, UX-16)
+
+| Before (Oct 23) | After (Oct 25) |
+|---|---|
+| ![Answer with citation open, before](screenshots/08c-chat-answer-citation-open-desktop.png) | ![Answer with citation open, after](screenshots/after/08c-chat-answer-citation-open-desktop.png) |
+| ![Searching, before](screenshots/08-chat-searching-desktop.png) | ![Searching, after](screenshots/after/08-chat-searching-desktop.png) |
+| ![Citation panel on phone, before](screenshots/08c-chat-answer-citation-open-phone.png) | ![Citation panel on phone, after](screenshots/after/08c-chat-answer-citation-open-phone.png) |
+| ![Long answer, 14 citations, before](screenshots/09-chat-long-answer-many-citations-desktop.png) | ![Long answer, 14 citations, after](screenshots/after/09-chat-long-answer-many-citations-desktop.png) |
+| ![Notes, abstained, unsupported, before](screenshots/09c-chat-notes-abstain-unsupported-desktop.png) | ![Notes, abstained, unsupported, after](screenshots/after/09c-chat-notes-abstain-unsupported-desktop.png) |
+
+Workspace files (UX-17)
+
+| Before (Oct 23) | After (Oct 25) |
+|---|---|
+| ![Files, before](screenshots/10-files-desktop.png) | ![Files, after](screenshots/after/10-files-desktop.png) |
+| ![Files, phone, before](screenshots/10-files-phone.png) | ![Files, phone, after](screenshots/after/10-files-phone.png) |
+| ![Files, empty, before](screenshots/10b-files-empty-desktop.png) | ![Files, empty, after](screenshots/after/10b-files-empty-desktop.png) |
+
+Tenant admin (UX-18)
+
+| Before (Oct 23) | After (Oct 25) |
+|---|---|
+| ![Tenant admin, before](screenshots/11-tenant-admin-desktop.png) | ![Tenant admin, after](screenshots/after/11-tenant-admin-desktop.png) |
+| ![Tenant admin, phone, before](screenshots/11-tenant-admin-phone.png) | ![Tenant admin, phone, after](screenshots/after/11-tenant-admin-phone.png) |
+| ![Remove confirmation, before](screenshots/11c-tenant-admin-remove-confirm-desktop.png) | ![Remove confirmation, after](screenshots/after/11c-tenant-admin-remove-confirm-desktop.png) |
+
+Operator console (UX-19, UX-20)
+
+| Before (Oct 23) | After (Oct 25) |
+|---|---|
+| ![Operator console, before](screenshots/12-operator-console-desktop.png) | ![Operator console, after](screenshots/after/12-operator-console-desktop.png) |
+| ![Entitlements, before](screenshots/13-operator-tenant-entitlements-desktop.png) | ![Entitlements, after](screenshots/after/13-operator-tenant-entitlements-desktop.png) |
+| ![Login policy, before](screenshots/13b-operator-tenant-login-desktop.png) | ![Login policy, after](screenshots/after/13b-operator-tenant-login-desktop.png) |
+
+Content console (UX-21, UX-22)
+
+| Before (Oct 23) | After (Oct 25) |
+|---|---|
+| ![Register, before](screenshots/15-content-register-desktop.png) | ![Register, after](screenshots/after/15-content-register-desktop.png) |
+| ![Source detail, before](screenshots/16-content-source-detail-desktop.png) | ![Source detail, after](screenshots/after/16-content-source-detail-desktop.png) |
+| ![Takedowns, before](screenshots/18-content-takedowns-desktop.png) | ![Takedowns, after](screenshots/after/18-content-takedowns-desktop.png) |
+
+Access-denied and load-error states (UX-23, UX-24)
+
+| Before (Oct 23) | After (Oct 25) |
+|---|---|
+| ![Tenant admins only, before](screenshots/11d-tenant-admin-not-admin-desktop.png) | ![Tenant admins only, after](screenshots/after/11d-tenant-admin-not-admin-desktop.png) |
+| ![Content roles only, before](screenshots/15c-content-roles-only-desktop.png) | ![Content roles only, after](screenshots/after/15c-content-roles-only-desktop.png) |
+| ![Consent load error, before](screenshots/05c-consent-error-desktop.png) | ![Consent load error, after](screenshots/after/05c-consent-error-desktop.png) |

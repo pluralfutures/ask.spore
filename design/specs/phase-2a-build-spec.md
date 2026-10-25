@@ -12,9 +12,10 @@ and C5, and `policy-data-retention-disposal.md` §4.
 ## Goal
 
 Give the content team a way to take a document out of retrieval without destroying it, give
-the tenant admin the usage and audit view a client's security contact asks for, and build the
-two things the consent notice and the policies already promise but the system does not do:
-time-boxed support access and audit disposal. Everything else in this phase is small and
+the tenant admin the usage and audit view a client's security contact asks for, and build what
+the consent notice already promises but the system does not do: time-boxed support access.
+Audit disposal (open question C1) moved to the backlog's "Enterprise requirements" by owner
+decision of Oct 25, 2026; it stays a promise in the documents with no mechanism yet. Everything else in this phase is small and
 closes a known gap. No new tenant feature beyond the admin page, no new provider, no change to
 what the language model sees, no change to the content model (platform-gathered only).
 
@@ -26,8 +27,7 @@ Exit criteria (all must hold):
 - A tenant admin sees usage counts and consent status on the admin page and the audit export
   carries only allow-listed event names (Group B).
 - Support access exists as a tenant-admin-granted, time-boxed, audited operator action that
-  the tenant can see; audit events older than 12 months are disposed of by a controlled job
-  with its own record (Group C). `open-questions.md` rows C1, C3 and C5 are answered.
+  the tenant can see (Group C). `open-questions.md` rows C3 and C5 are answered.
 - Group D and E items are done with their tests, and the release checks of P2A-13 pass on the
   Instance with an independent review signed as in Phase 1c §5.
 
@@ -51,13 +51,16 @@ Binding. Record ideas in `backlog.md`.
   ID accepted from a request.
 - Any change to prompts, `config/models.toml`, the retrieval call's shape, or chat-history
   retention.
+- **Audit disposal** (open question C1): backlog, "Enterprise requirements" (owner, Oct 25,
+  2026). The append-only trigger stays as it is; the 12-month line in the policy and the DPA
+  keeps its "no disposal path today" note until that item is built.
 
 ## Deployment target
 
 The Phase 1c Instance (single host, Compose, Caddy TLS, Authentik, RAGFlow `v0.27.2`, the
 worker) running `main`. No new service. One new Compose-level change: Caddy serves two static
 files (P2A-11). Migrations: one for the `paused` status and its columns, one for support-access
-grants, one for the audit disposal role and trigger change.
+grants.
 
 ## Work items
 
@@ -190,18 +193,9 @@ grant stops the next read; nothing of the viewed conversation reaches the log (s
 a runtime log capture); the tenant admin page shows the view event; `support_grants` has RLS
 and the index (the migration test).
 
-**P2A-09 Audit disposal (C1).** Decision D5 proposes: keep the append-only trigger, and let it
-pass a DELETE only when the session role is a new `askspore_audit_disposal` role **and** the
-row is older than 12 months (both checked in the trigger function, so a disposal cannot delete
-young rows and no other role can delete at all). A monthly worker job runs under that role,
-deletes the eligible rows in batches, and writes one `audit.disposed` event per run (count,
-oldest and newest `created_at` deleted, run date; the event itself lives 12 months). The job
-is refused unless the daily backup of the previous night exists (the owner's backup from the
-Phase 1c follow-up). The offboarding pack's certificate line "audit events: 12 months" now
-has a mechanism; `policy-data-retention-disposal.md` §4 is rewritten to describe it, and
-`open-questions.md` C1 is answered. Tests: the application role, the content role and the
-owner still cannot delete; the disposal role cannot delete a row 364 days old and can delete
-one 366 days old; the run event is written; a run with no eligible rows writes no event.
+**P2A-09 (moved).** Audit disposal left this phase for the backlog's "Enterprise
+requirements" (owner, Oct 25, 2026). The number is kept so the Phase 2 ideas file and this
+spec's drafts still line up.
 
 **P2A-10 Policy and checklist documents.** Documents only, under `design/compliance/`: the
 support-access policy text (how a grant is requested, who may hold one, the maximum duration,
@@ -210,7 +204,8 @@ staff onboarding and offboarding checklist (accounts, keys, MFA, repository, ven
 the exit interview line); the first quarterly access review date set by the owner (H2); the
 access-control policy's operator MFA line changed to match the build (TOTP today, hardware
 keys as a Phase 2 item) unless the owner builds passkeys instead (D7); `records-of-processing`
-and `privacy-notice.md` note the disposal job and the support-access control.
+and `privacy-notice.md` note the support-access control; their audit-retention lines keep the
+"no disposal path yet" note.
 `open-questions.md` C3 and C5 answered (C5: suspension stays an operator-console action out of
 this phase; record the decision or build the audited action, owner's call, an hour either way).
 
@@ -259,8 +254,7 @@ changed, so no regression expected; the run proves the retrieval path still work
 toggle in place); the pause drill live on the internal tenant (pause a `sample-*` source, ask a
 question that cited it before, see no citation and no cache hit, resume, see it cited again,
 each step's audit event present); a support grant opened and read on the internal tenant and
-the tenant-side record checked; the disposal job run once in dry mode (counts only); the two
-public files fetched without sign-in; findings file `phase-2a-findings.md` and an independent
+the tenant-side record checked; the two public files fetched without sign-in; findings file `phase-2a-findings.md` and an independent
 review signed as in Phase 1c §5.2.
 
 ## Decisions proposed for the owner
@@ -271,7 +265,7 @@ review signed as in Phase 1c §5.2.
 | D2 | **Mechanism (a): RAGFlow's document status toggle**, if the P2A-00 probe finds it on `/api/v1`. | (b) the retrieval call carries the package's live document IDs, built server-side. Works regardless of RAGFlow; costs long ID lists for crawled sites. Chosen only if (a) is unavailable or the probe shows the toggle unreliable. | P2A-00, P2A-01 |
 | D3 | **A pause keeps stored excerpts.** Citations of a paused source stay readable in history, labelled "currently unavailable". Only a withdrawal blanks (owner decision 3, Oct 23). | Blank on pause too. Rejected: a pause is reversible and not a rights event. | P2A-02 |
 | D4 | **Pause is a content reviewer action**, as withdrawal is; the operator console links to it. | An operator action on the tenant page. Rejected: it would be the first content decision made from a tenant's page and would blur the register's roles. | P2A-04 |
-| D5 | **Audit disposal by a dedicated role the trigger lets through only for rows older than 12 months**, run monthly by the worker, each run recorded. | Monthly partitions dropped by the owner (a larger migration of a live table); or a longer period stated in the DPA (a paperwork change, nothing built). | P2A-09 |
+| D5 | *(withdrawn)* Audit disposal moved to the backlog, "Enterprise requirements" (owner, Oct 25, 2026); its design proposal is recorded there. | — | P2A-09 |
 | D6 | **Status page source: a third-party status page** fed by hand until a monitoring stack exists (3.1); it receives no personal data unless subscribers are enabled, which stays off. Recorded, not built. | A self-hosted status page from a monitoring stack, with 3.1. | P2A-11 |
 | D7 | **Soften the operator MFA policy line to TOTP** with hardware keys as a Phase 2 item. | Build passkeys now (3.4): a browser-run Authentik flow or a WebAuthn relay; a session on its own. | P2A-10 |
 
@@ -280,10 +274,6 @@ review signed as in Phase 1c §5.2.
 - **Scope of pause** (D1): confirm corpus-wide. If the real ask is "this file in this
   workspace only", stop Group A and spec the exclusion item instead; the rest of the phase is
   unaffected.
-- **Backup prerequisite** (P2A-09): the disposal job refuses to run without last night's
-  backup. The Phase 1c follow-up "establish where the nightly backup lives, run the restore
-  test" must be done first; it is a pre-launch item, not a Phase 2A item, and stays in the
-  backlog with its "before the first client user" mark.
 - **Support access scope** (P2A-08): confirm that a tenant admin may grant a view of one
   conversation, as the consent notice says, or limit grants to settings only until counsel
   reviews the notice wording.

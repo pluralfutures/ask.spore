@@ -287,7 +287,8 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 - Shorten chat-history retention from the 30-day maximum, down to 0 ("no history", Phase 1b P1b-14: a conversation takes one question and is deleted when its answer ends; the daily purge job deletes expired history, with read-time expiry as the second layer). The maximum cannot be raised.
 - Set the default answer mode among those the operator enabled (cannot enable or disable modes).
 - Usage dashboard: queries per day by mode, active users, top sources (no query text).
-- Download tenant audit log (auth and admin events).
+- Download tenant audit log (auth and admin events): an explicit allow-list of event names, between two dates, paged past 10,000 rows (Phase 2A, P2A-07).
+- Grant, list and revoke time-boxed support access (Phase 2A, P2A-08; §7.4).
 - View the tenant's configured SSO connection (configuration itself is done by the operator with the client's IT contact).
 
 ### 7.3 Content operations console (MVP)
@@ -308,7 +309,7 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 - One tenant per page (Phase 1b, P1b-12, after the Phase 1a release saved one tenant's entitlements on another's panel): a tenant picker, then the tenant's entitlements, login policy, workspaces (tag pickers offer only the tenant's own and shared tags), users, and month-to-date spend and token usage by model against the external spend cap with its 80 and 100 percent thresholds. Cross-tenant totals are on a separate page.
 - Vendor and model configuration: provider endpoints, model pins (Mistral Large by default), failover order, prompt template versions.
 - Evaluation results and regression gate status.
-- Support access: time-boxed "view tenant settings" mode without impersonation; any access is logged and visible to the tenant.
+- Support access: time-boxed "view tenant settings" mode without impersonation; any access is logged and visible to the tenant. Built in Phase 2A (P2A-08): a tenant admin grants a read of the settings or of one of their own conversations, for 15 minutes to 4 hours, from the admin page; the operator reads it read-only under their own identity, through a database role that shows only what an open grant covers; every read is audited under the tenant and listed on its admin page (`policy-access-control.md` §2.1).
 
 ### 7.5 Later-phase features (not MVP)
 

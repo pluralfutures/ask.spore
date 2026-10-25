@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted |
+| Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted. Oct 25, 2026, **DRAFT** (P2A-10): support access described in §2 and in the audit row, as built in P2A-08 (owner note 8) |
 | Placeholders | [registered address], [DPO or privacy contact name], [privacy contact email], [security contact email], [takedown contact email], [website address], [supervisory authority], [Member State], [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
 | To finalise, the owner must | (1) fill in the entity, contacts and supervisory authority; (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) confirm the website and contact-form processing in §3 matches what the public website actually does (analytics, cookies); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records (the wording goes in `config/consent/<version>.md`, the version in `[consent] version` of `config/models.toml`; P1b-10, findings E1-5). |
 
@@ -51,11 +51,11 @@ The rest of Part A describes both, so that you can see the whole picture.
 | Questions and conversations | Your questions, the answers, the sources cited, your feedback, the model and settings you chose | 30 days at most; your employer can set a shorter period (1 to 30 days). From Phase 1b (P1b-14) your employer can also choose not to keep history at all |
 | Downloads | Which file you downloaded and when | Audit record, below |
 | Documents your employer supplied (only if it does) | The files your employer sent us for its workspaces, their text and search index | Until your employer withdraws them, and deleted when it stops using the service. Only your employer's users can search or download them |
-| Audit records | Who signed in, administrative actions, when a question was asked and which sources were cited, downloads. Never the text of a question or answer | 12 months |
+| Audit records | Who signed in, administrative actions, when a question was asked and which sources were cited, downloads, support access granted by your employer and each read by our staff. Never the text of a question or answer | 12 months |
 
 Today, conversations past their retention period no longer appear anywhere in the service. They are removed from the database by a scheduled clean-up job from Phase 1b (P1b-14).
 
-We do **not** use your questions or conversations to train or improve any AI model, we do not sell them, and we never show one customer's questions or answers to another customer. Our staff do not read conversations, except where your employer asks for support on a specific conversation; such access is time-boxed and logged.
+We do **not** use your questions or conversations to train or improve any AI model, we do not sell them, and we never show one customer's questions or answers to another customer. Our staff do not read conversations, except where your employer asks for support on a specific conversation; such access is time-boxed and logged. In practice, one of your employer's administrators grants our staff read-only access to one of the administrator's own conversations, or to your organisation's settings, for at most four hours; each read is recorded and shown to your employer's administrators, and they can end the access at any time. Our staff use their own accounts and cannot change anything.
 
 ### 3. What we process as controller
 
@@ -159,3 +159,4 @@ Estefania Simon-Sasyk y Otro CB, [registered address]
 5. **Downloads** (§8): by owner decision of Oct 20, 2026, third-party files in the test corpus are downloadable where their manifest row says so. Confirm the licence basis per source before publishing "only where its licence allows".
 6. **Encryption at rest** is not claimed in §6 because the Instance volume encryption is unconfirmed; add it once confirmed.
 7. **Customer-supplied documents** (§13, Oct 22, 2026): drafted ahead of the build (P1b-19 step 2). Counsel to confirm that the processor role and the forward-to-the-customer route are right for people named in client files, and whether we may tell a requester which customer supplied a document (open-questions J).
+8. **Support access** (§2, Oct 25, 2026, P2A-10): the added sentences describe the control built in Phase 2A (P2A-08): an administrator grants access to one of their **own** conversations or to the settings, never to another user's conversation. The in-app notice (`config/consent/v1.md` §1 and the same §2 sentence) still says "where your employer asks for support on a specific conversation", which is broader than the build; it stays true (nothing is read without the employer's grant), but if counsel prefers the narrower wording, it is a new notice version (`phase-2a-findings.md` §2, question 1).

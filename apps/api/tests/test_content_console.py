@@ -826,6 +826,8 @@ async def test_the_source_list_takes_a_workspaces_tags(console: Console) -> None
     assert [s["id"] for s in one.json()] == [web.json()["source_id"]]
     none = await client.get(f"{API}/sources", params={"tag": "sample-analysis"})
     assert none.json() == []
+
+
 async def test_a_reviewer_reinstates_a_withdrawn_site_from_the_console(console: Console) -> None:
     """P2A-12 (a): "reinstate" is a reviewer action with a required note; the site comes
     back proposed, for a fresh approval, never approved."""

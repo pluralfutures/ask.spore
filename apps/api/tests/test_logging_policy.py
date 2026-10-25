@@ -411,6 +411,8 @@ def test_the_support_view_names_no_user() -> None:
         fields = schema_fields(model)
         assert not fields & {"user_id", "actor_user_id", "email", "display_name", "user"}
         assert not fields & {"conversation_id", "message_id", "id"}
+
+
 # --- P2A-13: RagflowError handlers -------------------------------------------------------
 
 

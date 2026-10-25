@@ -825,7 +825,7 @@ async def _switch(
         pairs = await _synced_mapping(session, row)
         error, undo_failed = await set_enabled_everywhere(client, pairs, enabled=not pause)
         if error is not None:
-            failure = f"{action}_undo_failed" if undo_failed else error.error_code
+            failure = f"{action}_undo_failed" if undo_failed else error
             await record(
                 session,
                 tenant_id=INTERNAL_TENANT_ID,
@@ -836,7 +836,7 @@ async def _switch(
                     "before": {"status": before},
                     "after": {"status": before},
                     "roles": sorted(roles),
-                    "error_code": error.error_code,
+                    "error_code": error,
                     "outcome": "undo_failed" if undo_failed else "undone",
                     "count": len(pairs),
                 },

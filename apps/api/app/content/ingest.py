@@ -499,8 +499,8 @@ async def _inherit_pause(client: RagflowClient, result: IngestResult) -> IngestR
     return IngestResult(
         source_id=result.source_id,
         status="failed",
-        error_code=error.error_code,
-        error=f"the inherited pause could not be applied ({error.error_code})",
+        error_code=error,
+        error=f"the inherited pause could not be applied ({error})",
         document_ids=left,
     )
 

@@ -13,10 +13,11 @@ from app.retrieval.ragflow import RagflowClient, RagflowError
 
 async def set_enabled_everywhere(
     client: RagflowClient, pairs: Sequence[tuple[str, str]], *, enabled: bool
-) -> tuple[RagflowError | None, bool]:
+) -> tuple[str | None, bool]:
     """Switch every document; on a failure switch back the ones already done.
 
-    Returns the failure (None when all succeeded) and whether switching back failed
+    Returns the failure's error code (None when all succeeded; never the exception,
+    whose message names the file, P2A-13) and whether switching back failed
     too, which leaves RAGFlow disagreeing with the register (``datasets sync`` reports
     it). No partial state is ever recorded on the row.
     """
@@ -33,6 +34,6 @@ async def set_enabled_everywhere(
                     )
                 except RagflowError:
                     undo_failed = True
-            return exc, undo_failed
+            return exc.error_code, undo_failed
         done.append((dataset_id, document_id))
     return None, False

@@ -76,8 +76,12 @@ SYNTHETIC_NOTICE = (
 )
 
 
+HOLIDAYS_TOML = 'active = "none"\n\n[regions.none]\nname = "Monday to Friday"\ndates = []\n'
+
+
 def write_config(tmp_path: Path, text: str = VALID_TOML, *, prompts: bool = True) -> Path:
     (tmp_path / "models.toml").write_text(text, encoding="utf-8")
+    (tmp_path / "holidays.toml").write_text(HOLIDAYS_TOML, encoding="utf-8")
     if prompts:
         for name in ("corpus_only", "general_knowledge", "rewrite", "judge"):
             (tmp_path / "prompts" / name).mkdir(parents=True, exist_ok=True)

@@ -91,6 +91,7 @@ class _Settings:
 
         self.models = real.models
         self.config_dir = real.config_dir
+        self.holidays = real.holidays
         self.secrets = Secrets(
             mistral_api_key=SecretStr("unused"),
             ragflow_api_key=SecretStr("unused"),

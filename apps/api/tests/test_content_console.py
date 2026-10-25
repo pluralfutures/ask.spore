@@ -523,6 +523,34 @@ async def test_reject_withdraw_and_the_takedown_queue(console: Console) -> None:
     assert (await client.get(f"{API}/sources/{uuid.uuid4()}")).status_code == 404
 
 
+async def test_the_takedown_clock_follows_the_configured_calendar(console: Console) -> None:
+    """P2A-12 (b): the route takes the due date and the SLA timer from the startup
+    calendar (``Settings.holidays``), not from a default."""
+    from app.content.register import TakedownItem
+    from app.core.holidays import HolidayCalendar
+
+    await console.roles("content_editor", "content_reviewer")
+    client = console.editor()
+    source_id = (await console.propose(client, PDF.read_bytes())).json()["source_id"]
+    await client.post(f"{API}/sources/{source_id}/approve", json={})
+    await console.run_jobs()
+    # Tue Oct 20, 2026; a synthetic holiday on Wed Oct 21.
+    holiday = date(2026, 10, 21)
+    console.auth.app.state.settings.holidays = HolidayCalendar("test", frozenset({holiday}))
+    recorded = await client.post(
+        f"{API}/sources/{source_id}/takedown",
+        json={"reference": "TD-2026-12", "requested_on": "2026-10-20"},
+    )
+    assert recorded.status_code == 200, recorded.text
+    assert recorded.json()["due_on"] == "2026-11-04"  # Nov 3 without the holiday
+    item = TakedownItem(uuid.uuid4(), "ingested", "TD", date(2026, 10, 20), date(2026, 11, 4))
+    left = item.working_days_left(date.today(), {holiday})
+    [queued] = (await client.get(f"{API}/takedowns")).json()
+    assert (queued["due_on"], queued["working_days_left"]) == ("2026-11-04", left)
+    detail = (await client.get(f"{API}/sources/{source_id}")).json()
+    assert detail["takedown"]["working_days_left"] == left
+
+
 # --- sites ---------------------------------------------------------------------------------
 
 

@@ -17,7 +17,7 @@ they approve their own proposal (allowed and audited by owner decision, Oct 21, 
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
@@ -551,22 +551,26 @@ async def set_licence_file(
         )
 
 
-def working_days_after(start: date, days: int) -> date:
-    """The date ``days`` working days (Monday to Friday) after ``start``."""
+def working_days_after(start: date, days: int, holidays: Collection[date] = ()) -> date:
+    """The date ``days`` working days after ``start``: Monday to Friday, leaving out
+    ``holidays`` (the active region of ``config/holidays.toml``, P2A-12 b). With no
+    holidays, Monday to Friday only."""
     current = start
     while days > 0:
         current += timedelta(days=1)
-        if current.weekday() < 5:
+        if current.weekday() < 5 and current not in holidays:
             days -= 1
     return current
 
 
-def takedown_due_on(requested_on: date, *, licence_breach: bool) -> date:
+def takedown_due_on(
+    requested_on: date, *, licence_breach: bool, holidays: Collection[date] = ()
+) -> date:
     """10 working days from a valid request; the same day for a licence breach we find
     ourselves (architecture §6.3)."""
     if licence_breach:
         return requested_on
-    return working_days_after(requested_on, TAKEDOWN_WORKING_DAYS)
+    return working_days_after(requested_on, TAKEDOWN_WORKING_DAYS, holidays)
 
 
 async def record_takedown(
@@ -578,8 +582,12 @@ async def record_takedown(
     requested_on: date,
     licence_breach: bool,
     licence_grounds: bool = False,
+    holidays: Collection[date] = (),
 ) -> date:
     """Put a source on the takedown queue with its due date; returns the due date.
+
+    ``holidays``: the active public holidays (``Settings.holidays``, P2A-12 b), which the
+    working-day count leaves out; the API and the CLI pass the configured calendar.
 
     ``licence_grounds``: the request is on licence grounds (a licence breach we find
     ourselves always is). Recorded for the queue and the audit trail; since owner
@@ -590,7 +598,7 @@ async def record_takedown(
     reference = reference.strip()
     if not reference or len(reference) > MAX_REFERENCE_LENGTH:
         raise RegisterError("bad_reference")
-    due = takedown_due_on(requested_on, licence_breach=licence_breach)
+    due = takedown_due_on(requested_on, licence_breach=licence_breach, holidays=holidays)
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
@@ -641,15 +649,16 @@ class TakedownItem:
     title: str = ""
     licence_grounds: bool = False
 
-    def working_days_left(self, today: date) -> int:
-        """Working days until the due date; negative when overdue."""
+    def working_days_left(self, today: date, holidays: Collection[date] = ()) -> int:
+        """Working days until the due date, on the same calendar as the due date
+        (``holidays``, P2A-12 b); negative when overdue."""
         if today == self.due_on:
             return 0
         step = 1 if self.due_on > today else -1
         days, current = 0, today
         while current != self.due_on:
             current += timedelta(days=step)
-            if current.weekday() < 5:
+            if current.weekday() < 5 and current not in holidays:
                 days += step
         return days
 

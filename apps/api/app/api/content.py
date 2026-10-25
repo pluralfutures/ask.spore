@@ -459,7 +459,7 @@ async def source_detail(
             row.title,
             row.takedown_licence_grounds,
         )
-        takedown = _takedown_out(item)
+        takedown = _takedown_out(item, settings.holidays.dates)
     supersedes = await _refs(session, [row.supersedes_id] if row.supersedes_id else [])
     return ContentSourceDetail(
         **_source_out(row, bool(candidates)),
@@ -719,15 +719,16 @@ async def record_takedown(
             requested_on=body.requested_on,
             licence_breach=body.licence_breach,
             licence_grounds=body.licence_grounds,
+            holidays=_settings(request).holidays.dates,
         )
     )
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         queue = await register.takedown_queue(session)
     (item,) = [i for i in queue if i.source_id == source_id]
-    return _takedown_out(item)
+    return _takedown_out(item, _settings(request).holidays.dates)
 
 
-def _takedown_out(item: register.TakedownItem) -> TakedownOut:
+def _takedown_out(item: register.TakedownItem, holidays: frozenset[date]) -> TakedownOut:
     return TakedownOut(
         source_id=item.source_id,
         title=item.title,
@@ -735,15 +736,18 @@ def _takedown_out(item: register.TakedownItem) -> TakedownOut:
         reference=item.reference,
         requested_on=item.requested_on,
         due_on=item.due_on,
-        working_days_left=item.working_days_left(date.today()),
+        working_days_left=item.working_days_left(date.today(), holidays),
         licence_grounds=item.licence_grounds,
     )
 
 
 @router.get("/takedowns", response_model=list[TakedownOut])
-async def takedowns(session: AsyncSession = Depends(content_session)) -> list[TakedownOut]:
+async def takedowns(
+    request: Request, session: AsyncSession = Depends(content_session)
+) -> list[TakedownOut]:
     """The takedown queue, soonest due first, with the SLA timer in working days."""
-    return [_takedown_out(item) for item in await register.takedown_queue(session)]
+    holidays = _settings(request).holidays.dates
+    return [_takedown_out(item, holidays) for item in await register.takedown_queue(session)]
 
 
 # --- sites -------------------------------------------------------------------------------

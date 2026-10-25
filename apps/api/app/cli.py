@@ -465,6 +465,7 @@ async def _sources(args: argparse.Namespace) -> int:
                 requested_on=args.requested_on,
                 licence_breach=args.licence_breach,
                 licence_grounds=args.licence_grounds,
+                holidays=settings.holidays.dates,
             )
             log("sources.takedown", source_id=str(source_id), status="recorded")
             return 0

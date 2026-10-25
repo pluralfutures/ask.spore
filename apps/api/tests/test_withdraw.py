@@ -822,6 +822,37 @@ def test_cli_site_reinstatement_needs_a_note_and_logs_no_note(
     assert "agreed" not in output
 
 
+def test_cli_takedown_uses_the_configured_calendar(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P2A-12 (b): ``sources takedown`` passes the startup calendar to the clock."""
+    from dataclasses import replace
+
+    from app.core.config import load_settings
+    from app.core.holidays import HolidayCalendar
+    from tests.test_datasets_sync import ENV
+
+    calendar = HolidayCalendar("test", frozenset({date(2026, 10, 21)}))
+    settings = replace(load_settings(environ=ENV), holidays=calendar)
+    seen: list[object] = []
+
+    async def fake_takedown(*_: Any, holidays: object, **__: Any) -> date:
+        seen.append(holidays)
+        return date(2026, 11, 4)
+
+    async def reviewer(*_: Any) -> UUID:
+        return uuid.UUID(int=1)
+
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+    monkeypatch.setattr(cli, "user_by_email", reviewer)
+    monkeypatch.setattr(cli, "record_takedown", fake_takedown)
+    source = str(uuid.UUID(int=5))
+    command = ["sources", "takedown", source, "--as", "r@example.org", "--reference", "TD-1"]
+    assert cli.main([*command, "--requested-on", "2026-10-20"]) == 0
+    assert seen == [calendar.dates]
+    capsys.readouterr()
+
+
 def test_cli_withdraw_and_takedown_flags() -> None:
     source = str(uuid.UUID(int=5))
     args = cli.build_parser().parse_args(

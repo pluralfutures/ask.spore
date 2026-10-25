@@ -49,6 +49,7 @@ def oidc_settings(real: Settings, mode: str = "oidc") -> Any:
     return SimpleNamespace(
         models=real.models.model_copy(update={"auth": auth}),
         config_dir=real.config_dir,
+        holidays=real.holidays,
         secrets=Secrets(
             mistral_api_key=SecretStr("unused"),
             ragflow_api_key=SecretStr("unused"),

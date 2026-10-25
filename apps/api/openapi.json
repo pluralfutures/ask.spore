@@ -759,6 +759,40 @@
             "title": "Licence File",
             "type": "boolean"
           },
+          "pause_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Reason"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
+          },
+          "paused_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused By"
+          },
           "possible_replacement": {
             "title": "Possible Replacement",
             "type": "boolean"
@@ -939,6 +973,9 @@
           "approved_at",
           "withdrawn_at",
           "withdrawal_reason",
+          "paused_at",
+          "paused_by",
+          "pause_reason",
           "chunk_count",
           "error",
           "licence_file",
@@ -2782,6 +2819,58 @@
           "patterns"
         ],
         "title": "PatternsIn",
+        "type": "object"
+      },
+      "PauseIn": {
+        "additionalProperties": false,
+        "description": "P2A-04: a reviewer pauses a source; the reason is kept on the register row.",
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "PauseIn",
+        "type": "object"
+      },
+      "PauseOut": {
+        "description": "P2A-01: the source's status after a pause or resume, how many RAGFlow documents\nwere switched, and (pause only) how many cached answers were purged (None when the\ncache could not be reached).",
+        "properties": {
+          "cache_entries_purged": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cache Entries Purged"
+          },
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "paused",
+              "ingested"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "documents",
+          "cache_entries_purged"
+        ],
+        "title": "PauseOut",
         "type": "object"
       },
       "ProposeOut": {
@@ -5553,7 +5642,7 @@
     },
     "/api/v1/content/sources": {
       "get": {
-        "description": "The register, newest change first, filtered by status, tag, type and publisher\n(a case-insensitive part of the name); at most 500 rows.",
+        "description": "The register, newest change first, filtered by status, tags (any of them; the\noperator console links a workspace's tags here, P2A-04), type and publisher (a\ncase-insensitive part of the name); at most 500 rows.",
         "operationId": "list_sources_api_v1_content_sources_get",
         "parameters": [
           {
@@ -5580,8 +5669,11 @@
             "schema": {
               "anyOf": [
                 {
-                  "maxLength": 100,
-                  "type": "string"
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 20,
+                  "type": "array"
                 },
                 {
                   "type": "null"
@@ -5889,6 +5981,57 @@
         "summary": "Attach Licence"
       }
     },
+    "/api/v1/content/sources/{source_id}/pause": {
+      "post": {
+        "description": "P2A-04: a reviewer takes an ingested source out of retrieval, the library and\ndownloads for every tenant (D1), without deleting it; its RAGFlow documents are\ndisabled in this call. A pause never satisfies a takedown.",
+        "operationId": "pause_source_api_v1_content_sources__source_id__pause_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PauseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PauseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause Source"
+      }
+    },
     "/api/v1/content/sources/{source_id}/reject": {
       "post": {
         "operationId": "reject_source_api_v1_content_sources__source_id__reject_post",
@@ -5964,6 +6107,47 @@
           }
         },
         "summary": "Restore Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/resume": {
+      "post": {
+        "description": "P2A-04: a reviewer resumes a paused source; no re-parse.",
+        "operationId": "resume_source_api_v1_content_sources__source_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PauseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Source"
       }
     },
     "/api/v1/content/sources/{source_id}/retry": {

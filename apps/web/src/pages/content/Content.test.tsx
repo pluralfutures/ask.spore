@@ -3,6 +3,9 @@ import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
+import { errorMessage, filtersFromSearch, sourcesForTags } from "../../lib/content";
+import { ApiError } from "../../api/client";
+
 import type {
   ContentSite,
   ContentSiteDetail,
@@ -15,7 +18,7 @@ import { ProposeResult } from "./Propose";
 import { SourceTable } from "./Register";
 import { PageTable, SiteSummary, WithdrawSite } from "./SiteDetail";
 import { SiteTable } from "./Sites";
-import { ReplacementChoice, SourceRecord, SourceSummary } from "./SourceDetail";
+import { PauseControls, ReplacementChoice, SourceRecord, SourceSummary } from "./SourceDetail";
 import { TagTable } from "./Tags";
 import { TakedownTable } from "./Takedowns";
 
@@ -51,6 +54,9 @@ const detail = (extra: Partial<ContentSourceDetail> = {}): ContentSourceDetail =
   approved_at: null,
   withdrawn_at: null,
   withdrawal_reason: null,
+  paused_at: null,
+  paused_by: null,
+  pause_reason: null,
   chunk_count: null,
   error: null,
   licence_file: false,
@@ -437,5 +443,109 @@ describe("tags", () => {
     expect(html).toContain('href="http://127.0.0.1:8080/dataset/dataset/d1"');
     expect(html).toContain("not synced");
     expect(html).toContain("pptx: presentation");
+  });
+});
+
+describe("pause (P2A-04)", () => {
+  const controls = (status: string, reason: string) =>
+    render(
+      <PauseControls
+        status={status}
+        reason={reason}
+        onReason={() => {}}
+        onPause={() => {}}
+        onResume={() => {}}
+        pending={false}
+      />,
+    );
+
+  it("offers nothing on a source that is neither ingested nor paused", () => {
+    for (const status of ["proposed", "approved", "failed", "withdrawn", "rejected"])
+      expect(controls(status, "r")).toBe("");
+  });
+
+  it("asks for a reason before an ingested source can be paused", () => {
+    expect(controls("ingested", "")).toMatch(/<button[^>]*disabled=""[^>]*>Pause/);
+    const ready = controls("ingested", "rights check");
+    expect(ready).not.toMatch(/<button[^>]*disabled=""[^>]*>Pause/);
+    expect(ready).toContain("Pause reason");
+    expect(ready).toContain("A pause does not answer a takedown.");
+    expect(ready).not.toContain("Resume");
+  });
+
+  it("offers Resume on a paused source", () => {
+    const html = controls("paused", "");
+    expect(html).toContain(">Resume<");
+    expect(html).not.toContain("Pause reason");
+  });
+
+  it("shows the badge and who paused it, when and why", () => {
+    const html = render(
+      <SourceSummary
+        source={detail({
+          status: "paused",
+          paused_at: "2026-10-25T10:00:00Z",
+          paused_by: "reviewer@example.org",
+          pause_reason: "Synthetic rights check",
+        })}
+      />,
+    );
+    expect(html).toMatch(/data-testid="source-status"[^>]*>paused</);
+    expect(html).toContain("by reviewer@example.org: Synthetic rights check");
+    expect(render(<SourceSummary source={detail({ status: "ingested" })} />)).not.toContain(
+      "pause-record",
+    );
+  });
+
+  it("lists a paused source with its badge and shows the pause in the history", () => {
+    const html = render(<SourceTable sources={[source({ status: "paused" })]} />);
+    expect(html).toMatch(/>paused</);
+    const record = render(
+      <SourceRecord
+        source={detail({
+          status: "paused",
+          history: [
+            {
+              event: "source.paused",
+              at: "2026-10-25T10:00:00Z",
+              actor: "reviewer@example.org",
+              before: "ingested",
+              after: "paused",
+              method: null,
+            },
+            {
+              event: "source.resumed",
+              at: "2026-10-25T11:00:00Z",
+              actor: "reviewer@example.org",
+              before: "paused",
+              after: "ingested",
+              method: null,
+            },
+          ],
+        })}
+      />,
+    );
+    expect(record).toContain("paused (ingested → paused) · reviewer@example.org");
+    expect(record).toContain("resumed (paused → ingested) · reviewer@example.org");
+  });
+
+  it("links a workspace's tags to the filtered source list and reads them back", () => {
+    const href = sourcesForTags(["sample-reports", "sample-web"]);
+    expect(href).toBe("/content?tag=sample-reports&tag=sample-web");
+    expect(filtersFromSearch(href.slice(href.indexOf("?")))).toEqual({
+      tags: ["sample-reports", "sample-web"],
+    });
+    expect(filtersFromSearch("?status=paused")).toEqual({ status: "paused" });
+    expect(sourcesForTags([])).toBe("/content");
+  });
+
+  it("explains the pause refusals", () => {
+    const refused = (code: string, status = 409) => errorMessage(new ApiError(status, code));
+    expect(refused("paused")).toContain("resume it first");
+    expect(refused("ingestion_in_progress")).toContain("once it is done");
+    expect(refused("ragflow_102", 502)).toBe(
+      "RAGFlow refused the change (ragflow_102); nothing was changed.",
+    );
+    expect(refused("pause_undo_failed", 502)).toContain("datasets sync");
   });
 });

@@ -57,9 +57,11 @@ from app.content.manifest import (
 from app.content.register import (
     RegisterError,
     approve,
+    pause,
     record_takedown,
     reject,
     request_withdrawal,
+    resume,
     retry,
 )
 from app.content.roles import RoleError, grant_role, revoke_role, user_by_email
@@ -450,7 +452,8 @@ async def _content_roles(args: argparse.Namespace) -> int:
 
 async def _sources(args: argparse.Namespace) -> int:
     """A reviewer's decision on one register row: approve or retry (each queues an
-    ingestion job), reject, withdraw (queues the withdrawal job) or record a takedown."""
+    ingestion job), reject, withdraw (queues the withdrawal job), record a takedown, or
+    pause and resume (P2A-04, done in the call)."""
     settings = get_settings()
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     source_id: UUID = args.source_id
@@ -472,6 +475,32 @@ async def _sources(args: argparse.Namespace) -> int:
                 licence_grounds=args.licence_grounds,
             )
             log("sources.takedown", source_id=str(source_id), status="recorded")
+            return 0
+        if args.sources_command in ("pause", "resume"):
+            # P2A-04: the console's code path (register.pause / register.resume); the
+            # RAGFlow documents switched are the register row's, never an argument.
+            async with RagflowClient.from_settings(settings) as client:
+                if args.sources_command == "pause":
+                    # A pause purges the cached answers citing the source, as from the
+                    # console (P2A-01), only through app.core.cache.
+                    cache.connect(settings.secrets.redis_url.get_secret_value())
+                    try:
+                        switched = await pause(
+                            factory, client, source_id, reviewer_id, reason=args.reason
+                        )
+                    finally:
+                        await cache.close()
+                else:
+                    switched = await resume(factory, client, source_id, reviewer_id)
+            purge_failed = args.sources_command == "pause" and switched.cache_entries_purged is None
+            log(
+                "sources." + args.sources_command,
+                level="warning" if purge_failed else "info",
+                source_id=str(source_id),
+                status=switched.status,
+                count=switched.documents,
+                error_code="cache_not_purged" if purge_failed else None,
+            )
             return 0
         if args.sources_command == "restore":
             site_id = await restore_page(factory, source_id, reviewer_id)
@@ -929,6 +958,20 @@ def build_parser() -> argparse.ArgumentParser:
     withdraw_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
     withdraw_cmd.add_argument("--reason", required=True, help="kept on the register row")
     _wait_flag(withdraw_cmd)
+
+    pause_cmd = sources_commands.add_parser(
+        "pause",
+        help="take an ingested source out of retrieval, file lists and downloads for every "
+        "tenant without deleting it; its RAGFlow documents are disabled (P2A-04)",
+    )
+    pause_cmd.add_argument("source_id", type=UUID)
+    pause_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+    pause_cmd.add_argument("--reason", required=True, help="kept on the register row")
+    resume_cmd = sources_commands.add_parser(
+        "resume", help="put a paused source back into retrieval, no re-parse (P2A-04)"
+    )
+    resume_cmd.add_argument("source_id", type=UUID)
+    resume_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
 
     restore_cmd = sources_commands.add_parser(
         "restore",

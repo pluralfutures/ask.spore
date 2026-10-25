@@ -35,6 +35,7 @@ import type {
   OperatorSource,
   OperatorTag,
   OperatorWorkspace,
+  PauseOut,
   ProposeOut,
   SiteCreateIn,
   SiteSettingsIn,
@@ -398,15 +399,23 @@ export const operatorApi = {
 export interface SourceFilters {
   status?: string;
   tag?: string;
+  // P2A-04: several tags at once (any of them), from the operator console's workspace link.
+  tags?: string[];
   type?: string;
   publisher?: string;
   site_id?: string;
 }
 
 function query(params: object): string {
-  const entries = Object.entries(params).filter(
-    (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1] !== "",
-  );
+  const entries: [string, string][] = [];
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === "string" && value !== "") entries.push([key, value]);
+    // A list repeats its key; `tags` is the API's repeated `tag` parameter (P2A-04).
+    if (Array.isArray(value))
+      for (const item of value)
+        if (typeof item === "string" && item !== "")
+          entries.push([key === "tags" ? "tag" : key, item]);
+  }
   return entries.length ? `?${new URLSearchParams(entries).toString()}` : "";
 }
 
@@ -429,6 +438,10 @@ export const contentApi = {
   retry: (id: string) => json<{ job_id: string }>("POST", `/content/sources/${id}/retry`),
   withdraw: (id: string, reason: string) =>
     json<{ job_id: string }>("POST", `/content/sources/${id}/withdraw`, { reason }),
+  // P2A-04: a reviewer pauses or resumes a source; done in the call, no job.
+  pause: (id: string, reason: string) =>
+    json<PauseOut>("POST", `/content/sources/${id}/pause`, { reason }),
+  resume: (id: string) => json<PauseOut>("POST", `/content/sources/${id}/resume`),
   // P1c-14: a withdrawn crawled page comes back at the next crawl of its site.
   restore: async (id: string) => {
     await send("POST", `/content/sources/${id}/restore`);

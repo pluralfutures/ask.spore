@@ -16,6 +16,7 @@ import pytest
 
 from app.content import worker
 from app.content.crawler import HostLimiter
+from app.retrieval.ragflow import RagflowError
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.fake_idp import sign
 from tests.fakes import FakeRedis
@@ -41,6 +42,8 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", f"{API}/sources/{SOURCE}/reject", {"note": "no"}),
     ("POST", f"{API}/sources/{SOURCE}/retry", None),
     ("POST", f"{API}/sources/{SOURCE}/withdraw", {"reason": "r"}),
+    ("POST", f"{API}/sources/{SOURCE}/pause", {"reason": "r"}),  # P2A-04
+    ("POST", f"{API}/sources/{SOURCE}/resume", None),
     (
         "POST",
         f"{API}/sources/{SOURCE}/takedown",
@@ -675,6 +678,95 @@ async def test_a_reviewer_withdraws_a_site_and_restores_a_page_from_the_console(
     assert (twice.status_code, twice.json()["detail"]) == (409, "already_withdrawn")
     assert await console.events("site.withdrawn", "site_id", site_id)
     assert await console.events("source.restored", "source_id", page["id"])
+
+
+async def test_a_reviewer_pauses_and_resumes_a_source_from_the_console(
+    console: Console, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P2A-04: "Pause" and "Resume" on the source detail, a reviewer's action (D4)."""
+    await console.roles("content_editor", "content_reviewer")
+    client = console.editor()
+    proposed = await console.propose(client, PDF.read_bytes(), tags="sample-reports")
+    source_id = proposed.json()["source_id"]
+    assert (await client.post(f"{API}/sources/{source_id}/approve", json={})).status_code == 200
+    await console.run_jobs()
+    reason = "Synthetic rights check"
+
+    # Refusals first: an editor; a body naming documents; an empty reason; a resume of an
+    # ingested source; RAGFlow refusing (nothing recorded).
+    await console.roles("content_editor")
+    refused = await client.post(f"{API}/sources/{source_id}/pause", json={"reason": reason})
+    assert refused.status_code == 403
+    await console.roles("content_editor", "content_reviewer")
+    smuggled = await client.post(
+        f"{API}/sources/{source_id}/pause",
+        json={"reason": reason, "document_ids": ["x"], "dataset_ids": ["y"]},
+    )
+    assert smuggled.status_code == 422
+    blank = await client.post(f"{API}/sources/{source_id}/pause", json={"reason": " "})
+    assert (blank.status_code, blank.json()["detail"]) == (422, "note_required")
+    early = await client.post(f"{API}/sources/{source_id}/resume")
+    assert (early.status_code, early.json()["detail"]) == (409, "not_paused")
+    dataset = console.e.datasets["sample-reports"]
+    console.e.fake.fail_toggle[dataset] = RagflowError("set_document_enabled", 102)
+    failed = await client.post(f"{API}/sources/{source_id}/pause", json={"reason": reason})
+    assert (failed.status_code, failed.json()["detail"]) == (502, "ragflow_102")
+    console.e.fake.fail_toggle.clear()
+    assert (await client.get(f"{API}/sources/{source_id}")).json()["status"] == "ingested"
+    assert toggled_documents(console) == []
+
+    paused = await client.post(f"{API}/sources/{source_id}/pause", json={"reason": reason})
+    assert paused.status_code == 200, paused.text
+    assert paused.json() == {"status": "paused", "documents": 1, "cache_entries_purged": 0}
+    detail = (await client.get(f"{API}/sources/{source_id}")).json()
+    assert (detail["status"], detail["pause_reason"], detail["paused_by"]) == (
+        "paused",
+        reason,
+        EDITOR_EMAIL,
+    )
+    assert detail["paused_at"] is not None
+    history = [(h["event"], h["before"], h["after"], h["actor"]) for h in detail["history"]]
+    assert ("source.pause_failed", "ingested", "ingested", EDITOR_EMAIL) in history
+    assert history[-1] == ("source.paused", "ingested", "paused", EDITOR_EMAIL)
+    listed = (await client.get(f"{API}/sources", params={"status": "paused"})).json()
+    assert [s["id"] for s in listed] == [source_id]
+    twice = await client.post(f"{API}/sources/{source_id}/pause", json={"reason": reason})
+    assert (twice.status_code, twice.json()["detail"]) == (409, "not_ingested")
+
+    resumed = await client.post(f"{API}/sources/{source_id}/resume")
+    assert resumed.status_code == 200, resumed.text
+    assert resumed.json() == {"status": "ingested", "documents": 1, "cache_entries_purged": None}
+    detail = (await client.get(f"{API}/sources/{source_id}")).json()
+    assert (detail["status"], detail["pause_reason"], detail["paused_at"]) == (
+        "ingested",
+        None,
+        None,
+    )
+    assert detail["history"][-1]["event"] == "source.resumed"
+    assert reason not in capsys.readouterr().out  # the reason stays on the row
+
+
+def toggled_documents(console: Console) -> list[tuple[str, str, int]]:
+    return list(console.e.fake.toggles)
+
+
+async def test_the_source_list_takes_a_workspaces_tags(console: Console) -> None:
+    """P2A-04: the operator console links a workspace's tags to the source list."""
+    await console.roles("content_editor")
+    client = console.editor()
+    reports = await console.propose(client, PDF.read_bytes(), tags="sample-reports")
+    web = await console.propose(
+        client, b"# Synthetic page", name="page.md", tags="sample-web", canonical_url=""
+    )
+    ids = {reports.json()["source_id"], web.json()["source_id"]}
+    both = await client.get(
+        f"{API}/sources", params=[("tag", "sample-reports"), ("tag", "sample-web")]
+    )
+    assert {s["id"] for s in both.json()} == ids
+    one = await client.get(f"{API}/sources", params={"tag": "sample-web"})
+    assert [s["id"] for s in one.json()] == [web.json()["source_id"]]
+    none = await client.get(f"{API}/sources", params={"tag": "sample-analysis"})
+    assert none.json() == []
 
 
 # --- tags ----------------------------------------------------------------------------------

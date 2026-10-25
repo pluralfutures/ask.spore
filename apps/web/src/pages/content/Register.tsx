@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { contentApi, type SourceFilters } from "../../api/client";
 import type { ContentSource } from "../../api/types";
-import { SOURCE_STATUSES, SOURCE_TYPES, errorMessage } from "../../lib/content";
+import { SOURCE_STATUSES, SOURCE_TYPES, errorMessage, filtersFromSearch } from "../../lib/content";
 import { formatDate } from "../../lib/format";
 import { LINK } from "../../ui/link";
 import { Field } from "../../ui/Field";
@@ -16,16 +16,23 @@ import { Badge, StatusBadge } from "../../ui/Badge";
 import { EmptyState, Skeleton } from "../../ui/States";
 import { Table, Td, Th } from "../../ui/Table";
 
-// The source register with filters by status, tag, type and publisher (P1b-05).
+// The source register with filters by status, tag, type and publisher (P1b-05). P2A-04: a
+// link may carry them (the operator console links a workspace's tags here).
 export function Register() {
-  const [filters, setFilters] = useState<SourceFilters>({});
+  const location = useLocation();
+  const [filters, setFilters] = useState<SourceFilters>(() => filtersFromSearch(location.search));
   const tags = useQuery({ queryKey: ["content", "tags"], queryFn: contentApi.tags });
   const sources = useQuery({
     queryKey: ["content", "sources", filters],
     queryFn: () => contentApi.sources(filters),
   });
   const set = (key: keyof SourceFilters) => (value: string) =>
-    setFilters({ ...filters, [key]: value || undefined });
+    setFilters({
+      ...filters,
+      [key]: value || undefined,
+      // Choosing one tag replaces the workspace's set.
+      ...(key === "tag" ? { tags: undefined } : {}),
+    });
   return (
     <section className="flex flex-col gap-3">
       {/* UX-21: the filter bar on the form components, one row from 768 px. */}
@@ -55,6 +62,14 @@ export function Register() {
           />
         </Field>
       </div>
+      {filters.tags?.length ? (
+        <Notice tone="info" data-testid="workspace-tags">
+          Sources in the tags {filters.tags.join(", ")}.{" "}
+          <button type="button" className={LINK} onClick={() => set("tag")("")}>
+            Show every tag
+          </button>
+        </Notice>
+      ) : null}
       {errorMessage(sources.error) ? (
         <Notice tone="danger">{errorMessage(sources.error)}</Notice>
       ) : null}

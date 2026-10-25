@@ -531,8 +531,9 @@ export interface paths {
     };
     /**
      * List Sources
-     * @description The register, newest change first, filtered by status, tag, type and publisher
-     *     (a case-insensitive part of the name); at most 500 rows.
+     * @description The register, newest change first, filtered by status, tags (any of them; the
+     *     operator console links a workspace's tags here, P2A-04), type and publisher (a
+     *     case-insensitive part of the name); at most 500 rows.
      */
     get: operations["list_sources_api_v1_content_sources_get"];
     put?: never;
@@ -608,6 +609,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/content/sources/{source_id}/pause": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Pause Source
+     * @description P2A-04: a reviewer takes an ingested source out of retrieval, the library and
+     *     downloads for every tenant (D1), without deleting it; its RAGFlow documents are
+     *     disabled in this call. A pause never satisfies a takedown.
+     */
+    post: operations["pause_source_api_v1_content_sources__source_id__pause_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/content/sources/{source_id}/reject": {
     parameters: {
       query?: never;
@@ -640,6 +663,26 @@ export interface paths {
      *     site takes it again as a new register row.
      */
     post: operations["restore_source_api_v1_content_sources__source_id__restore_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sources/{source_id}/resume": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resume Source
+     * @description P2A-04: a reviewer resumes a paused source; no re-parse.
+     */
+    post: operations["resume_source_api_v1_content_sources__source_id__resume_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1731,6 +1774,12 @@ export interface components {
       licence_basis: string;
       /** Licence File */
       licence_file: boolean;
+      /** Pause Reason */
+      pause_reason: string | null;
+      /** Paused At */
+      paused_at: string | null;
+      /** Paused By */
+      paused_by: string | null;
       /** Possible Replacement */
       possible_replacement: boolean;
       /** Possible Replacements */
@@ -2523,6 +2572,31 @@ export interface components {
     PatternsIn: {
       /** Patterns */
       patterns: string[];
+    };
+    /**
+     * PauseIn
+     * @description P2A-04: a reviewer pauses a source; the reason is kept on the register row.
+     */
+    PauseIn: {
+      /** Reason */
+      reason: string;
+    };
+    /**
+     * PauseOut
+     * @description P2A-01: the source's status after a pause or resume, how many RAGFlow documents
+     *     were switched, and (pause only) how many cached answers were purged (None when the
+     *     cache could not be reached).
+     */
+    PauseOut: {
+      /** Cache Entries Purged */
+      cache_entries_purged: number | null;
+      /** Documents */
+      documents: number;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "paused" | "ingested";
     };
     /**
      * ProposeOut
@@ -4050,7 +4124,7 @@ export interface operations {
     parameters: {
       query?: {
         status?: string | null;
-        tag?: string | null;
+        tag?: string[] | null;
         type?: string | null;
         publisher?: string | null;
         site_id?: string | null;
@@ -4253,6 +4327,41 @@ export interface operations {
       };
     };
   };
+  pause_source_api_v1_content_sources__source_id__pause_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PauseIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PauseOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   reject_source_api_v1_content_sources__source_id__reject_post: {
     parameters: {
       query?: never;
@@ -4303,6 +4412,37 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  resume_source_api_v1_content_sources__source_id__resume_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PauseOut"];
+        };
       };
       /** @description Validation Error */
       422: {

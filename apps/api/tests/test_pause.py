@@ -12,8 +12,10 @@ from uuid import UUID
 
 import asyncpg
 import pytest
+from pydantic import SecretStr
 from sqlalchemy import text
 
+from app import cli
 from app.chat.package import resolve_package, workspace_package
 from app.content import register, worker
 from app.content.datasets import StatusMismatch, status_mismatches
@@ -30,11 +32,14 @@ from app.content.register import (
 )
 from app.content.roles import RoleError
 from app.core import cache
+from app.core.config import load_settings
 from app.core.db import tenant_session
 from app.retrieval.ragflow import RagflowClient, RagflowError
 from app.tenancy.models import INTERNAL_TENANT_ID
+from tests.conftest import MigratedDatabase
 from tests.fakes import FakeRedis
 from tests.ragflow_fake import FakeRagflow
+from tests.test_datasets_sync import ENV
 from tests.test_ingest import PDF, Env, Ingest, content_user, env, meta, source_row
 from tests.test_withdraw import cached, linked, other_tenant, run_queue
 
@@ -381,3 +386,93 @@ def test_the_toggle_lives_in_the_register_not_in_a_job() -> None:
     """P2A-01: the RAGFlow toggle is made inside the register action."""
     assert "set_document_enabled" not in inspect.getsource(worker)
     assert "set_enabled_everywhere" in inspect.getsource(register)
+
+
+# P2A-04: the CLI, the console's code path.
+
+
+def test_cli_pause_and_resume_flags() -> None:
+    source = str(UUID(int=9))
+    args = cli.build_parser().parse_args(
+        ["sources", "pause", source, "--as", "r@example.org", "--reason", "rights check"]
+    )
+    assert (args.sources_command, str(args.source_id), args.reviewer, args.reason) == (
+        "pause",
+        source,
+        "r@example.org",
+        "rights check",
+    )
+    args = cli.build_parser().parse_args(["sources", "resume", source, "--as", "r@example.org"])
+    assert (args.sources_command, args.reviewer) == ("resume", "r@example.org")
+    for missing in (
+        ["sources", "pause", source, "--as", "r@example.org"],  # no reason
+        ["sources", "pause", source, "--reason", "r"],  # no reviewer
+        ["sources", "resume", source],
+    ):
+        with pytest.raises(SystemExit):
+            cli.build_parser().parse_args(missing)
+
+
+async def test_cli_pauses_and_resumes_through_the_register(
+    env: tuple[Env, Ingest],
+    redis: FakeRedis,
+    database: MigratedDatabase,
+    admin_conn: asyncpg.Connection,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    e, run = env
+    source = await two_datasets(run)
+    sid = str(source.source_id)
+    # The test database's password is the CI one, which the startup check refuses (as it
+    # should); load the test settings, then point them at the test database.
+    settings = load_settings(environ=ENV)
+    secrets = replace(settings.secrets, database_url=SecretStr(database.sqlalchemy_url))
+    settings = replace(settings, secrets=secrets)
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+
+    class Client:
+        async def __aenter__(self) -> FakeRagflow:
+            return e.fake
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+    monkeypatch.setattr(cli.RagflowClient, "from_settings", staticmethod(lambda _: Client()))
+    # The CLI connects the answer cache for a pause; here it is the test's fake Redis.
+    connected: list[str] = []
+
+    async def keep_open() -> None:
+        return None
+
+    monkeypatch.setattr(cli.cache, "connect", connected.append)
+    monkeypatch.setattr(cli.cache, "close", keep_open)
+    await cache.set(INTERNAL_TENANT_ID, "answer:corpus_only:a", cached([sid], [sid]), 60)
+    reviewer = "editor@example.org"
+
+    def parsed(*argv: str) -> Any:
+        return cli.build_parser().parse_args(["sources", *argv])
+
+    # Refused first: an editor without the reviewer role, then a resume of an ingested row.
+    await content_user(admin_conn, "content_editor")
+    assert await cli._sources(parsed("pause", sid, "--as", reviewer, "--reason", REASON)) == 1
+    await content_user(admin_conn, "content_editor", "content_reviewer")
+    assert await cli._sources(parsed("resume", sid, "--as", reviewer)) == 1
+    assert e.fake.toggles == []
+
+    assert await cli._sources(parsed("pause", sid, "--as", reviewer, "--reason", REASON)) == 0
+    assert (await source_row(admin_conn, source.source_id))["status"] == "paused"
+    assert enabled(e.fake, source) == [False, False]
+    assert await cli._sources(parsed("resume", sid, "--as", reviewer)) == 0
+    assert (await source_row(admin_conn, source.source_id))["status"] == "ingested"
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    mine = [line for line in lines if line["event"] in ("sources.pause", "sources.resume")]
+    assert [(line["event"], line["status"], line.get("error_code")) for line in mine] == [
+        ("sources.pause", "refused", "not_content_reviewer"),
+        ("sources.resume", "refused", "not_paused"),
+        ("sources.pause", "paused", None),
+        ("sources.resume", "ingested", None),
+    ]
+    assert mine[2]["count"] == 2
+    assert redis.store == {} and len(connected) == 2  # purged on pause; connected per pause
+    assert REASON not in json.dumps(lines)

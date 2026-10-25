@@ -16,6 +16,7 @@ import type {
 import { SaveStatus } from "../components/SaveStatus";
 import { UserActions } from "../components/UserActions";
 import { lastLogin } from "../lib/admin";
+import { sourcesForTags } from "../lib/content";
 import { formFrom, toRequest, type EntitlementsForm } from "../lib/entitlements";
 import { formatDate } from "../lib/format";
 import { TENANT_TABS, errorText, tabFrom, toggle, type TenantTab } from "../lib/operator";
@@ -489,6 +490,13 @@ function WorkspaceTags({
         Save tags
       </Button>
       <SaveStatus isSuccess={save.isSuccess} error={save.error} />
+      {/* P2A-04 (D4): the files this workspace holds, in the content console, where a
+          content reviewer pauses or withdraws them. */}
+      {workspace.tag_ids.length ? (
+        <Link to={sourcesForTags(workspace.tag_ids)} className={LINK}>
+          Sources in its tags
+        </Link>
+      ) : null}
     </form>
   );
 }

@@ -54,6 +54,8 @@ from app.api.content_schemas import (
     JobQueuedOut,
     NoteIn,
     PatternsIn,
+    PauseIn,
+    PauseOut,
     ProposeOut,
     SiteApproveIn,
     SiteCreateIn,
@@ -192,6 +194,9 @@ def _refused(exc: RegisterError | RoleError | IngestError | FetchError) -> HTTPE
         return FORBIDDEN
     if exc.code in ("no_source", "no_site"):
         return NOT_FOUND
+    if exc.code.startswith("ragflow_") or exc.code.endswith("_undo_failed"):
+        # P2A-01: RAGFlow refused or failed the pause or resume; nothing was recorded.
+        return HTTPException(status.HTTP_502_BAD_GATEWAY, detail=exc.code)
     if isinstance(exc, IngestError | FetchError) or exc.code in INPUT_CODES:
         return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=exc.code)
     return HTTPException(status.HTTP_409_CONFLICT, detail=exc.code)
@@ -320,19 +325,22 @@ def _source_out(row: Any, flag: bool) -> dict[str, Any]:
 async def list_sources(
     session: AsyncSession = Depends(content_session),
     status_filter: str | None = Query(default=None, alias="status", max_length=20),
-    tag: str | None = Query(default=None, max_length=100),
+    tag: list[str] | None = Query(default=None, max_length=20),
     type_filter: str | None = Query(default=None, alias="type", max_length=20),
     publisher: str | None = Query(default=None, max_length=200),
     site_id: UUID | None = None,
 ) -> list[ContentSourceOut]:
-    """The register, newest change first, filtered by status, tag, type and publisher
-    (a case-insensitive part of the name); at most 500 rows."""
+    """The register, newest change first, filtered by status, tags (any of them; the
+    operator console links a workspace's tags here, P2A-04), type and publisher (a
+    case-insensitive part of the name); at most 500 rows."""
     flag = _replacement_flag()
     query = select(Source, flag.label("candidates")).order_by(Source.updated_at.desc(), Source.id)
     if status_filter:
         query = query.where(Source.status == status_filter)
     if tag:
-        query = query.where(Source.tags.contains([tag]))
+        if any(len(t) > 100 for t in tag):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="bad_tag")
+        query = query.where(Source.tags.overlap(tag))
     if type_filter:
         query = query.where(Source.type == type_filter)
     if publisher:
@@ -446,7 +454,7 @@ async def source_detail(
         )
         for dataset_id, document_id in sorted((row.ragflow_document_ids or {}).items())
     ]
-    emails = await _emails(session, [row.proposed_by, row.approved_by])
+    emails = await _emails(session, [row.proposed_by, row.approved_by, row.paused_by])
     takedown = None
     if row.takedown_reference and row.takedown_requested_on and row.takedown_due_on:
         item = register.TakedownItem(
@@ -469,6 +477,9 @@ async def source_detail(
         approved_at=row.approved_at,
         withdrawn_at=row.withdrawn_at,
         withdrawal_reason=row.withdrawal_reason,
+        paused_at=row.paused_at,
+        paused_by=emails.get(row.paused_by) if row.paused_by else None,
+        pause_reason=row.pause_reason,
         chunk_count=row.chunk_count,
         error=(row.error or "")[:MAX_ERROR_SHOWN] or None,
         licence_file=row.licence_file_path is not None,
@@ -687,6 +698,54 @@ async def withdraw_source(
         register.request_withdrawal(_factory(request), source_id, user.user_id, reason=body.reason)
     )
     return JobQueuedOut(job_id=job_id)
+
+
+@router.post("/sources/{source_id}/pause", response_model=PauseOut)
+async def pause_source(
+    source_id: UUID,
+    body: PauseIn,
+    request: Request,
+    user: ContentUser = Depends(require_content_user),
+) -> PauseOut:
+    """P2A-04: a reviewer takes an ingested source out of retrieval, the library and
+    downloads for every tenant (D1), without deleting it; its RAGFlow documents are
+    disabled in this call. A pause never satisfies a takedown."""
+    return await _switch_source(request, source_id, user, reason=body.reason)
+
+
+@router.post("/sources/{source_id}/resume", response_model=PauseOut)
+async def resume_source(
+    source_id: UUID, request: Request, user: ContentUser = Depends(require_content_user)
+) -> PauseOut:
+    """P2A-04: a reviewer resumes a paused source; no re-parse."""
+    return await _switch_source(request, source_id, user, reason=None)
+
+
+async def _switch_source(
+    request: Request, source_id: UUID, user: ContentUser, *, reason: str | None
+) -> PauseOut:
+    """The same code path as ``sources pause`` and ``sources resume`` in the CLI. The
+    RAGFlow document IDs come from the register row, never from the request."""
+    client_factory = getattr(request.app.state, "content_ragflow", RagflowClient.from_settings)
+    async with client_factory(_settings(request)) as client:
+        if reason is None:
+            action = register.resume(_factory(request), client, source_id, user.user_id)
+        else:
+            action = register.pause(
+                _factory(request), client, source_id, user.user_id, reason=reason
+            )
+        result: register.PauseResult = await _decide(action)
+    log(
+        "content.source_paused" if reason is not None else "content.source_resumed",
+        user_id=str(user.user_id),
+        source_id=str(source_id),
+        count=result.documents,
+    )
+    return PauseOut(
+        status=result.status,
+        documents=result.documents,
+        cache_entries_purged=result.cache_entries_purged,
+    )
 
 
 @router.post("/sources/{source_id}/restore", status_code=status.HTTP_204_NO_CONTENT)

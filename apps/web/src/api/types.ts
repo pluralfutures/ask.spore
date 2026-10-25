@@ -64,6 +64,7 @@ export type OperatorSource = Schemas["OperatorSourceOut"];
 export type ContentMe = Schemas["ContentMeOut"];
 export type ContentSource = Schemas["ContentSourceOut"];
 export type ContentSourceDetail = Schemas["ContentSourceDetail"];
+export type PauseOut = Schemas["PauseOut"];
 export type SourceRef = Schemas["SourceRef"];
 export type DocumentLink = Schemas["DocumentLink"];
 export type HistoryEntry = Schemas["HistoryEntry"];

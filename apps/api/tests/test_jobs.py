@@ -134,8 +134,10 @@ async def test_a_failed_job_records_an_error_code_and_no_body(
     as_text = json.dumps(dict(job), default=str)
     for leak in ("secret body text", "Tidewater", "Fictional", "tidewater"):
         assert leak not in as_text
-    # The register row keeps the detail for the console; the job and the log do not.
-    assert (await source_row(admin_conn, source_id))["status"] == "failed"
+    # Nor does the register row (P2A-13): its error is the code.
+    row = await source_row(admin_conn, source_id)
+    assert row["status"] == "failed" and row["error"].startswith("parse_failed: ")
+    assert "secret" not in row["error"]
     out = capsys.readouterr().out
     assert "secret body text" not in out and "Tidewater" not in out
     [line] = [json.loads(x) for x in out.splitlines() if "job.finished" in x]

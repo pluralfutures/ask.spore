@@ -3610,6 +3610,25 @@
         "title": "SitePageOut",
         "type": "object"
       },
+      "SiteReinstatedOut": {
+        "description": "P2A-12 (a): pages released for the next crawl, and pages kept blocked for a\ntakedown. The site is ``proposed`` and needs a fresh approval.",
+        "properties": {
+          "kept_blocked": {
+            "title": "Kept Blocked",
+            "type": "integer"
+          },
+          "released": {
+            "title": "Released",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "released",
+          "kept_blocked"
+        ],
+        "title": "SiteReinstatedOut",
+        "type": "object"
+      },
       "SiteSettingsIn": {
         "additionalProperties": false,
         "properties": {
@@ -6307,6 +6326,57 @@
           }
         },
         "summary": "Crawl Now"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/reinstate": {
+      "post": {
+        "description": "P2A-12 (a): a reviewer reinstates a withdrawn site: back to ``proposed`` with the\nnote, for a fresh approval; pages under a takedown stay blocked, the site's other\nwithdrawn pages are released for the first crawl after approval.",
+        "operationId": "reinstate_site_api_v1_content_sites__site_id__reinstate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteReinstatedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reinstate Site"
       }
     },
     "/api/v1/content/sites/{site_id}/reject": {

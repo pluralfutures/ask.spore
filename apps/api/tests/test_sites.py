@@ -25,6 +25,7 @@ from app.content.sites import (
     SiteSpec,
     approve_site,
     register_site,
+    reinstate_site,
     reject_site,
     request_crawl,
     restore_page,
@@ -799,3 +800,166 @@ async def test_a_taken_down_or_unwithdrawn_page_cannot_be_restored(
     with pytest.raises(RegisterError) as file_source:
         await restore_page(e.factory, uuid4(), e.user_id)
     assert file_source.value.code == "no_source"
+
+
+# --- P2A-12 (a): reinstating a withdrawn site ----------------------------------------------
+
+
+async def _withdrawn_site(crawls: Crawls) -> tuple[UUID, dict[str, asyncpg.Record]]:
+    """A crawled site with a takedown on /a and a reviewer's own withdrawal of /b, then
+    withdrawn as a whole; returns the site and its rows before the withdrawal."""
+    e = crawls.e
+    site_id = await crawls.approved()
+    await crawls.run()
+    live = await crawls.sources(site_id)
+    await record_takedown(
+        e.factory,
+        live[ROOT + "/a"]["id"],
+        e.user_id,
+        reference="TD-WEB-12",
+        requested_on=date(2026, 10, 22),
+        licence_breach=False,
+    )
+    await request_withdrawal(e.factory, live[ROOT + "/a"]["id"], e.user_id, reason="takedown")
+    await request_withdrawal(e.factory, live[ROOT + "/b"]["id"], e.user_id, reason="checking")
+    await crawls.run()
+    await withdraw_site(e.factory, site_id, e.user_id, reason="publisher asked us to stop")
+    await crawls.run()
+    return site_id, live
+
+
+async def test_a_reinstatement_is_refused_to_an_editor_without_a_note_or_too_early(
+    crawls: Crawls, admin_conn: asyncpg.Connection
+) -> None:
+    e = crawls.e
+    site_id = await crawls.approved()
+    await crawls.run()
+    with pytest.raises(RegisterError) as approved:  # only a withdrawn site
+        await reinstate_site(e.factory, site_id, e.user_id, note="back")
+    assert approved.value.code == "not_withdrawn"
+    await withdraw_site(e.factory, site_id, e.user_id, reason="retired")
+    with pytest.raises(RegisterError) as running:  # its withdrawal jobs have not run
+        await reinstate_site(e.factory, site_id, e.user_id, note="back")
+    assert running.value.code == "withdrawal_running"
+    await crawls.run()
+    with pytest.raises(RegisterError) as no_note:
+        await reinstate_site(e.factory, site_id, e.user_id, note="  ")
+    assert no_note.value.code == "note_required"
+    await content_user(admin_conn, "content_editor")
+    with pytest.raises(RoleError):
+        await reinstate_site(e.factory, site_id, e.user_id, note="back")
+    await content_user(admin_conn, "content_editor", "content_reviewer")
+    with pytest.raises(RegisterError) as missing:
+        await reinstate_site(e.factory, uuid4(), e.user_id, note="back")
+    assert missing.value.code == "no_site"
+    assert (await crawls.site_row(site_id))["status"] == "withdrawn"
+    assert await crawls.events("site.reinstated", site_id) == []
+
+
+async def test_a_reinstated_site_is_proposed_not_approved_and_nothing_crawls_it(
+    crawls: Crawls,
+) -> None:
+    e = crawls.e
+    site_id, _ = await _withdrawn_site(crawls)
+    before = await crawls.site_row(site_id)
+    requested = len(crawls.site.requested)
+
+    released, kept = await reinstate_site(
+        e.factory, site_id, e.user_id, note="publisher agreed again"
+    )
+    assert (released, kept) == (1, 1)  # "/" released, "/a" kept; "/b" stays withdrawn
+    site = await crawls.site_row(site_id)
+    assert site["status"] == "proposed"
+    assert (site["approved_by"], site["approved_at"], site["next_crawl_at"]) == (None, None, None)
+    assert site["start_url"] == before["start_url"] == ROOT + "/"
+    assert site["review_note"] == "publisher agreed again"
+    # The withdrawal stays on the row as history.
+    assert site["withdrawal_reason"] == "publisher asked us to stop"
+    # Not approved: no schedule, no "crawl now", and a stale crawl job does nothing.
+    await crawls.admin.execute("UPDATE sites SET next_crawl_at = now() - interval '1 day'")
+    assert await schedule_due_crawls(e.factory) == 0
+    with pytest.raises(RegisterError) as refused:
+        await request_crawl(e.factory, site_id, e.user_id)
+    assert refused.value.code == "not_approved"
+    async with tenant_session(e.factory, INTERNAL_TENANT_ID) as session:
+        await enqueue(session, "crawl_site", {"site_id": str(site_id)}, created_by=None)
+    await crawls.run()
+    assert len(crawls.site.requested) == requested
+    assert await crawls.sources(site_id) == {}
+    with pytest.raises(RegisterError) as twice:
+        await reinstate_site(e.factory, site_id, e.user_id, note="again")
+    assert twice.value.code == "not_withdrawn"
+    # Audited with the reviewer and the count, never the note.
+    [event] = await crawls.events("site.reinstated", site_id)
+    assert (event["actor"], event["before"], event["after"], event["count"]) == (
+        e.user_id,
+        {"status": "withdrawn"},
+        {"status": "proposed"},
+        1,
+    )
+    assert "agreed" not in json.dumps({**event, "actor": None})
+
+
+async def test_a_page_a_reviewer_withdrew_on_its_own_is_not_released_by_a_reinstatement(
+    crawls: Crawls,
+) -> None:
+    """Owner decision, Oct 25, 2026: only the pages the site withdrawal held out are
+    released; a page a reviewer withdrew individually stays out until restored."""
+    e = crawls.e
+    site_id, old = await _withdrawn_site(crawls)
+    await reinstate_site(e.factory, site_id, e.user_id, note="publisher agreed again")
+    page_b = (await crawls.pages(site_id))[ROOT + "/b"]
+    assert (page_b["state"], page_b["reason"]) == ("blocked", "withdrawn")
+    await approve_site(e.factory, site_id, e.user_id)
+    await crawls.run()
+    assert ROOT + "/b" not in await crawls.sources(site_id)
+    page_b = (await crawls.pages(site_id))[ROOT + "/b"]
+    assert (page_b["state"], page_b["reason"], page_b["source_id"]) == (
+        "blocked",
+        "withdrawn",
+        old[ROOT + "/b"]["id"],
+    )
+    # "Restore page" still brings it back, one by one, once the site is approved.
+    assert await restore_page(e.factory, old[ROOT + "/b"]["id"], e.user_id) == site_id
+    await crawls.crawl(site_id)
+    back = (await crawls.sources(site_id))[ROOT + "/b"]
+    assert back["id"] != old[ROOT + "/b"]["id"] and back["status"] == "ingested"
+
+
+async def test_a_reinstated_site_keeps_taken_down_pages_out_and_admits_the_others_as_new(
+    crawls: Crawls, admin_conn: asyncpg.Connection
+) -> None:
+    e = crawls.e
+    site_id, old = await _withdrawn_site(crawls)
+    await reinstate_site(e.factory, site_id, e.user_id, note="publisher agreed again")
+    pages = await crawls.pages(site_id)
+    assert (pages[ROOT + "/a"]["state"], pages[ROOT + "/a"]["reason"]) == ("blocked", "taken_down")
+    assert (pages[ROOT + "/"]["state"], pages[ROOT + "/"]["reason"]) == ("removed", "reinstated")
+    assert (pages[ROOT + "/b"]["state"], pages[ROOT + "/b"]["reason"]) == ("blocked", "withdrawn")
+    clinic = pages[ROOT + "/health/clinic"]
+    assert (clinic["state"], clinic["reason"]) == ("blocked", "special_category")
+
+    await approve_site(e.factory, site_id, e.user_id)
+    await crawls.run()
+
+    # The takedown-blocked URL is still refused by the crawl.
+    live = await crawls.sources(site_id)
+    assert ROOT + "/a" not in live
+    page_a = (await crawls.pages(site_id))[ROOT + "/a"]
+    assert (page_a["state"], page_a["reason"]) == ("blocked", "taken_down")
+    assert page_a["source_id"] == old[ROOT + "/a"]["id"]
+    # The page the site withdrawal held out comes back as a new row, approved in the new
+    # approver's name and ingested.
+    row = live[ROOT + "/"]
+    assert row["id"] != old[ROOT + "/"]["id"] and row["supersedes_id"] is None
+    assert row["status"] == "ingested" and row["approved_by"] == e.user_id
+    assert row["file_sha256"] == old[ROOT + "/"]["file_sha256"]
+    assert set(json.loads(row["ragflow_document_ids"]).values()) <= set(e.fake.documents)
+    page = (await crawls.pages(site_id))[ROOT + "/"]
+    assert (page["state"], page["reason"], page["source_id"]) == ("live", None, row["id"])
+    # The withdrawn rows stay withdrawn, with their takedown.
+    for url in (ROOT + "/", ROOT + "/a", ROOT + "/b"):
+        assert (await source_row(admin_conn, old[url]["id"]))["status"] == "withdrawn"
+    assert (await source_row(admin_conn, old[ROOT + "/a"]["id"]))["takedown_reference"]
+    site = await crawls.site_row(site_id)
+    assert site["status"] == "approved" and site["review_note"] == "publisher agreed again"

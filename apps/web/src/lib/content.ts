@@ -75,6 +75,8 @@ export const PAGE_REASONS: Record<string, string> = {
   withdrawn: "withdrawn by a reviewer",
   site_withdrawn: "the whole site was withdrawn",
   restored: "restored by a reviewer: taken again at the next crawl",
+  reinstated:
+    "released when the site was reinstated: taken again at the first crawl after approval",
   robots_disallowed: "robots.txt disallows the site",
   tdm_reserved: "the site reserves text-and-data mining",
   http_404: "gone (404)",
@@ -119,6 +121,8 @@ const ERRORS = {
     "RAGFlow failed part-way and could not be put back: run datasets sync and check the documents.",
   resume_undo_failed:
     "RAGFlow failed part-way and could not be put back: run datasets sync and check the documents.",
+  withdrawal_running:
+    "The site's pages are still being withdrawn: reinstate it once those jobs have finished.",
   too_large: "The file is too large.",
 } as const;
 const ERROR_TEXT: Record<string, string | undefined> = ERRORS;

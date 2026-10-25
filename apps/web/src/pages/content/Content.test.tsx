@@ -16,7 +16,7 @@ import type {
 } from "../../api/types";
 import { ProposeResult } from "./Propose";
 import { SourceTable } from "./Register";
-import { PageTable, SiteSummary, WithdrawSite } from "./SiteDetail";
+import { PageTable, ReinstateSite, SiteSummary, WithdrawSite } from "./SiteDetail";
 import { SiteTable } from "./Sites";
 import { PauseControls, ReplacementChoice, SourceRecord, SourceSummary } from "./SourceDetail";
 import { TagTable } from "./Tags";
@@ -416,6 +416,71 @@ describe("sites", () => {
     );
     expect(ready).not.toMatch(/<button[^>]*disabled=""[^>]*>Withdraw site/);
     expect(ready).toContain("never crawled again");
+  });
+
+  it("asks for a note before a withdrawn site is reinstated, never approving it (P2A-12)", () => {
+    const empty = render(
+      <ReinstateSite note="" onNote={() => {}} onReinstate={() => {}} pending={false} />,
+    );
+    expect(empty).toMatch(/<button[^>]*disabled=""[^>]*>Reinstate site/);
+    expect(empty).toContain("needs a fresh approval");
+    expect(empty).not.toContain("Approve");
+    const ready = render(
+      <ReinstateSite
+        note="agreed again"
+        onNote={() => {}}
+        onReinstate={() => {}}
+        pending={false}
+      />,
+    );
+    expect(ready).not.toMatch(/<button[^>]*disabled=""[^>]*>Reinstate site/);
+    const busy = render(
+      <ReinstateSite note="agreed again" onNote={() => {}} onReinstate={() => {}} pending />,
+    );
+    expect(busy).toMatch(/<button[^>]*disabled=""[^>]*>Reinstate site/);
+  });
+
+  it("shows a reinstated site as proposed and waiting for approval (P2A-12)", () => {
+    const reinstated: ContentSiteDetail = {
+      ...site,
+      status: "proposed",
+      allow_patterns: [],
+      deny_patterns: [],
+      special_category_allow: [],
+      review_note: "Publisher agreed again",
+      proposed_by: "editor@example.org",
+      approved_by: null,
+      approved_at: null,
+      withdrawn_at: "2026-10-23T10:00:00Z",
+      withdrawal_reason: "Publisher asked us to stop",
+      next_crawl_at: null,
+      pages: [],
+      jobs: [],
+    };
+    const html = render(<SiteSummary site={reinstated} />);
+    expect(html).toContain('data-testid="site-reinstated"');
+    expect(html).toContain("Not crawled until a reviewer approves it again");
+    expect(html).toContain("(Publisher asked us to stop)");
+    expect(html).not.toContain('data-testid="site-withdrawn"');
+    expect(render(<SiteSummary site={{ ...reinstated, withdrawn_at: null }} />)).not.toContain(
+      "site-reinstated",
+    );
+    const pages = render(
+      <PageTable
+        pages={[
+          {
+            url: "https://site.example/b",
+            state: "removed",
+            reason: "reinstated",
+            special_category: null,
+            source_id: ID,
+            published_on: null,
+            fetched_at: "2026-10-21T10:00:00Z",
+          },
+        ]}
+      />,
+    );
+    expect(pages).toContain("taken again at the first crawl after approval");
   });
 });
 

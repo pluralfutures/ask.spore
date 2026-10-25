@@ -1,0 +1,48 @@
+# Public holidays the takedown clock skips (P2A-12 b): a takedown request is due 10
+# working days after it was received, counting Monday to Friday and leaving out the
+# dates of the active region below. Read at startup and validated like models.toml
+# (apps/api/app/core/holidays.py): a malformed file stops the API, the worker and the
+# CLI. Dates are TOML dates (2026-11-01), ascending, no repeats.
+#
+# The clock follows France (owner decision, Oct 25, 2026; phase-2a-findings.md section
+# 3, question 5). "none" stays defined: making it active keeps the Monday-to-Friday rule,
+# the stricter one, since a deadline is never later than without a calendar.
+#
+# Extend the active region's dates before its last year runs out: past the last date
+# listed the clock counts Monday to Friday again.
+
+active = "france"
+
+[regions.none]
+name = "No public holidays (Monday to Friday only)"
+dates = []
+
+# The eleven national public holidays of metropolitan
+# France (Code du travail, art. L3133-1), 2026 and 2027. Not Alsace-Moselle's two extra
+# days. Easter Monday, Ascension and Whit Monday move each year.
+[regions.france]
+name = "France (metropolitan), national public holidays"
+dates = [
+  2026-01-01, # New Year's Day
+  2026-04-06, # Easter Monday
+  2026-05-01, # Labour Day
+  2026-05-08, # Victory in Europe Day
+  2026-05-14, # Ascension Day
+  2026-05-25, # Whit Monday
+  2026-07-14, # Bastille Day
+  2026-08-15, # Assumption
+  2026-11-01, # All Saints' Day
+  2026-11-11, # Armistice Day
+  2026-12-25, # Christmas Day
+  2027-01-01, # New Year's Day
+  2027-03-29, # Easter Monday
+  2027-05-01, # Labour Day
+  2027-05-06, # Ascension Day
+  2027-05-08, # Victory in Europe Day
+  2027-05-17, # Whit Monday
+  2027-07-14, # Bastille Day
+  2027-08-15, # Assumption
+  2027-11-01, # All Saints' Day
+  2027-11-11, # Armistice Day
+  2027-12-25, # Christmas Day
+]

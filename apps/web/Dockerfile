@@ -7,6 +7,8 @@ COPY package.json pnpm-lock.yaml .npmrc ./
 RUN pnpm install --frozen-lockfile
 COPY index.html vite.config.ts tsconfig.json tsconfig.app.json tsconfig.node.json ./
 COPY src ./src
+# P2A-11: the public files (security.txt, the disclosure page) are copied to dist/ as they are.
+COPY public ./public
 RUN pnpm build
 
 FROM busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e

@@ -506,6 +506,11 @@ export const contentApi = {
   // P1c-14: retires the site and withdraws every page, one job per page.
   withdrawSite: (id: string, reason: string) =>
     json<{ job_ids: string[] }>("POST", `/content/sites/${id}/withdraw`, { reason }),
+  // P2A-12 (a): back to proposed, for a fresh approval; takedown pages stay blocked.
+  reinstateSite: (id: string, note: string) =>
+    json<{ released: number; kept_blocked: number }>("POST", `/content/sites/${id}/reinstate`, {
+      note,
+    }),
   tags: () => json<ContentTag[]>("GET", "/content/tags"),
   syncTags: () => json<TagSync[]>("POST", "/content/tags/sync"),
 };

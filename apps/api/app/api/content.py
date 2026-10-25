@@ -62,6 +62,7 @@ from app.api.content_schemas import (
     SiteDetail,
     SiteOut,
     SitePageOut,
+    SiteReinstatedOut,
     SiteSettingsIn,
     SiteWithdrawnOut,
     SourceRef,
@@ -431,6 +432,31 @@ async def _history(session: AsyncSession, source_id: UUID) -> list[HistoryEntry]
     ]
 
 
+async def _shown_error(session: AsyncSession, row: Source) -> str | None:
+    """The failure as the console shows it: a code (P2A-13).
+
+    Since P2A-13 a row's ``error`` is ``<code>`` or ``<code>: <our context>`` and never
+    carries RAGFlow's message text. A row that failed before then may still hold
+    RAGFlow's text; for it the console shows the code of the ``source.failed`` audit
+    event instead, so no RAGFlow message is ever shown.
+    """
+    if not row.error:
+        return None
+    code = await session.scalar(
+        select(AuditEvent.metadata_["error_code"].astext)
+        .where(
+            AuditEvent.tenant_id == INTERNAL_TENANT_ID,
+            AuditEvent.event == "source.failed",
+            AuditEvent.metadata_["source_id"].astext == str(row.id),
+        )
+        .order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc())
+        .limit(1)
+    )
+    if code and (row.error == code or row.error.startswith(f"{code}: ")):
+        return row.error[:MAX_ERROR_SHOWN]
+    return code or "error_not_shown"
+
+
 @router.get("/sources/{source_id}", response_model=ContentSourceDetail)
 async def source_detail(
     source_id: UUID, request: Request, session: AsyncSession = Depends(content_session)
@@ -466,7 +492,7 @@ async def source_detail(
             row.title,
             row.takedown_licence_grounds,
         )
-        takedown = _takedown_out(item)
+        takedown = _takedown_out(item, settings.holidays.dates)
     supersedes = await _refs(session, [row.supersedes_id] if row.supersedes_id else [])
     return ContentSourceDetail(
         **_source_out(row, bool(candidates)),
@@ -481,7 +507,7 @@ async def source_detail(
         paused_by=emails.get(row.paused_by) if row.paused_by else None,
         pause_reason=row.pause_reason,
         chunk_count=row.chunk_count,
-        error=(row.error or "")[:MAX_ERROR_SHOWN] or None,
+        error=await _shown_error(session, row),
         licence_file=row.licence_file_path is not None,
         stored=row.stored_path is not None,
         fetched_at=row.fetched_at,
@@ -777,15 +803,16 @@ async def record_takedown(
             requested_on=body.requested_on,
             licence_breach=body.licence_breach,
             licence_grounds=body.licence_grounds,
+            holidays=_settings(request).holidays.dates,
         )
     )
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         queue = await register.takedown_queue(session)
     (item,) = [i for i in queue if i.source_id == source_id]
-    return _takedown_out(item)
+    return _takedown_out(item, _settings(request).holidays.dates)
 
 
-def _takedown_out(item: register.TakedownItem) -> TakedownOut:
+def _takedown_out(item: register.TakedownItem, holidays: frozenset[date]) -> TakedownOut:
     return TakedownOut(
         source_id=item.source_id,
         title=item.title,
@@ -793,15 +820,18 @@ def _takedown_out(item: register.TakedownItem) -> TakedownOut:
         reference=item.reference,
         requested_on=item.requested_on,
         due_on=item.due_on,
-        working_days_left=item.working_days_left(date.today()),
+        working_days_left=item.working_days_left(date.today(), holidays),
         licence_grounds=item.licence_grounds,
     )
 
 
 @router.get("/takedowns", response_model=list[TakedownOut])
-async def takedowns(session: AsyncSession = Depends(content_session)) -> list[TakedownOut]:
+async def takedowns(
+    request: Request, session: AsyncSession = Depends(content_session)
+) -> list[TakedownOut]:
     """The takedown queue, soonest due first, with the SLA timer in working days."""
-    return [_takedown_out(item) for item in await register.takedown_queue(session)]
+    holidays = _settings(request).holidays.dates
+    return [_takedown_out(item, holidays) for item in await register.takedown_queue(session)]
 
 
 # --- sites -------------------------------------------------------------------------------
@@ -994,6 +1024,23 @@ async def withdraw_site(
         count=len(job_ids),
     )
     return SiteWithdrawnOut(job_ids=job_ids)
+
+
+@router.post("/sites/{site_id}/reinstate", response_model=SiteReinstatedOut)
+async def reinstate_site(
+    site_id: UUID,
+    body: NoteIn,
+    request: Request,
+    user: ContentUser = Depends(require_content_user),
+) -> SiteReinstatedOut:
+    """P2A-12 (a): a reviewer reinstates a withdrawn site: back to ``proposed`` with the
+    note, for a fresh approval; pages under a takedown stay blocked, the site's other
+    withdrawn pages are released for the first crawl after approval."""
+    released, kept = await _decide(
+        sites.reinstate_site(_factory(request), site_id, user.user_id, note=body.note)
+    )
+    log("content.site_reinstated", user_id=str(user.user_id), site_id=str(site_id), count=released)
+    return SiteReinstatedOut(released=released, kept_blocked=kept)
 
 
 @router.post("/sites/{site_id}/crawl", response_model=JobQueuedOut)

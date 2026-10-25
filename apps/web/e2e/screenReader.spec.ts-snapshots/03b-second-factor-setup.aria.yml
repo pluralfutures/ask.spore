@@ -3,7 +3,7 @@
     - link "Skip to content":
         - /url: "#main"
 - main:
-    - heading "SporeBot" [level=1]
+    - heading "Mycelium SporeBot" [level=1]
     - paragraph: Administrators confirm each sign-in with an authenticator app. Scan this code with your app, or add the key below to it (time-based, 6 digits), then enter the code it shows.
     - img "QR code for your authenticator app"
     - code: JBSW Y3DP EHPK 3PXP

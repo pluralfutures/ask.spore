@@ -3,7 +3,7 @@
     - link "Skip to content":
         - /url: "#main"
 - main:
-    - heading "SporeBot" [level=1]
+    - heading "Mycelium SporeBot" [level=1]
     - text: Email
     - textbox "Email"
     - button "Continue"

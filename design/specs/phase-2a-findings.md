@@ -775,3 +775,58 @@ console request from a session without platform roles); not a drill step.
 The first toggle of each run took about 1.1 s against about 0.1 s for the second, for a
 2-chunk document (the probe's 90 ms was for 1 chunk): probably a first-call cost on the API's
 RAGFlow connection rather than the document size (not verified).
+
+### 5.5 Step 5: support access drill
+
+Oct 25, 2026, internal tenant, the owner at the keyboard as tenant admin (private window) and
+as operator. **The internal tenant had no tenant admin** (two users, both `user`); the
+runbook assumed one. The owner invited one from the operator console
+(`operator.admin_invited` 21:30:38; signed in 21:32:15 with the tenant's required second
+factor; `consent.accepted` 21:32:36). It stays as the internal tenant's admin for later drills.
+
+| Step (UTC) | Observed | Evidence |
+| --- | --- | --- |
+| Settings grant, 21:33:42 | 15 minutes, with a note | `tenant_admin.support_granted`, scope `settings`, `duration_minutes` 15 |
+| Operator reads, 21:34:17 | Settings shown in the console | `operator.support_viewed`, `settings`, status ok |
+| Admin page shows the view | Yes | owner |
+| Revoke, 21:34:26 | Grant revoked | `tenant_admin.support_revoked`; `revoked_at` set |
+| Operator reads again, 21:37:32 | 404 | `operator.support_refused`, `no_open_grant`. The console no longer lists a revoked grant, so the read was sent from the browser console (`GET …/support-grants/{id}/settings`) |
+| Conversation grant, 21:35:57 | 15 minutes, one of the admin's conversations | `tenant_admin.support_granted`, scope `conversation` |
+| Operator reads once, 21:36:09 | The conversation shown | `operator.support_viewed`, `conversation`, status ok |
+| Read after expiry (21:50:57), 21:51:38 | 404 | `operator.support_refused`, `no_open_grant` (and two more by 21:52:11) |
+| Purge closes it | **Pending**: the retention purge runs daily (last 13:58 UTC); `support.grant_expired` and `closed_at` to be checked after the run of Oct 26 | |
+| Logs | Nothing of the conversation | api and worker logs since 21:30: no key `query`, `question`, `answer`, `prompt`, `message(s)`, `chunk_text`, `note`, `title`, `excerpt`, `content`, `text`, `body`; support lines carry event, tenant_id, grant_id, status, error_code only |
+
+Not covered by the review's C3 check: the drill's conversation view was not inspected for
+the workspace name (the owner reported "all good").
+
+### 5.6 Step 6: evals
+
+Config copy rebuilt from the live `config/` of `8f5396b` (`/srv/ask-spore/eval-config/`,
+differing only by `[auth.eval_service]`; the Phase 1c copy set aside as `eval-config-1c`:
+it lacked `holidays.toml`, which the API needs since P2A-12). Temporary api
+`askspore-eval-api` from the release image, `127.0.0.1:8001` only,
+`ASK_SPORE_DEPLOY_VERSION=8f5396b9f109-eval`, logged `api.eval_service_enabled`. The owner ran
+`/root/eval-2a.sh` (Phase 1c's script, adapted; RAGFlow's private address now looked up at
+run time, it had moved). Harness from the `phase-2a/release` worktree.
+
+**Eval set v1** (`20261025T210034Z-6ed93612c3c6`, 371 s): `eval compare` against the baseline
+`20261023T085603Z-c06e9e99bae9`: **no regression**, exit 0. Harness exit 1 for one item
+error: hc-v1-025 `llm_timeout` (Scaleway's answer model gave no response within 60 s).
+
+| Metric | Baseline | P2A-14 | Change |
+| --- | ---: | ---: | ---: |
+| Retrieval hit@5 | 98.0 | 98.0 | 0 |
+| Retrieval hit@10 | 100.0 | 100.0 | 0 |
+| Citation precision | 82.8 | 83.1 | +0.3 |
+| Faithfulness | 90.8 | 89.9 | −0.9 |
+| Abstention correctness (out_of_corpus) | 80.0 | 80.0 | 0 |
+| Cited-answer rate (factual + synthesis) | 98.0 | 98.0 | 0 |
+
+Answered 50, unsupported 9, errors 1. hc-v1-055 and hc-v1-058 answered, the known limits
+of decision 12 (Phase 1c §5.4).
+
+**Guardrail eval: no result yet.** Two runs (21:06:46 and 21:18:11) each ended on one
+`llm_timeout` (the second after 108 s of calls): the guardrail harness stops at the first
+error instead of recording it per item, as eval set v1 does. To be run again; the backlog
+gains the per-item error handling.

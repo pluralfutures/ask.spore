@@ -444,8 +444,8 @@ async def withdraw_site(
     In one transaction: the site becomes ``withdrawn`` with the date and reason and no
     next crawl (so no schedule, "crawl now" or queued crawl runs it again; a running
     crawl stops at its next page, ``app.content.sitecrawl``); every live page is
-    ``blocked`` (``site_withdrawn``); every ingested or failed register row of the site
-    gets the reason and its ``withdraw_source`` job, the same job a single page's
+    ``blocked`` (``site_withdrawn``); every ingested, paused (P2A-01) or failed register
+    row of the site gets the reason and its ``withdraw_source`` job, the same job a single page's
     withdrawal runs. A row still being ingested is withdrawn as soon as its ingestion
     finishes, because its page is no longer live (findings 1b A2-7). Audited
     ``site.withdrawn`` and, per page, ``source.withdrawal_requested``.
@@ -479,7 +479,10 @@ async def withdraw_site(
         rows = (
             await session.execute(
                 select(Source.id, Source.status)
-                .where(Source.site_id == site_id, Source.status.in_(("ingested", "failed")))
+                .where(
+                    Source.site_id == site_id,
+                    Source.status.in_(("ingested", "paused", "failed")),
+                )
                 .order_by(Source.created_at)
                 .with_for_update()
             )

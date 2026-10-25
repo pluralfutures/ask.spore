@@ -34,7 +34,7 @@ from app.auth.authentik import oidc_services
 from app.auth.provider import ProviderError
 from app.consent.notices import ConsentNoticeTick
 from app.content import worker
-from app.content.datasets import dataset_counts, sync_datasets
+from app.content.datasets import dataset_counts, status_mismatches, sync_datasets
 from app.content.fetch import FetchError, fetch, http_client
 from app.content.ingest import (
     IngestError,
@@ -116,6 +116,8 @@ async def _datasets_sync() -> int:
             results = await sync_datasets(
                 session, client, tags, settings.models.ragflow.embedding_model
             )
+            # P2A-01: documents whose RAGFlow status disagrees with the register.
+            mismatches = await status_mismatches(session, client)
     finally:
         await engine.dispose()
     for result in results:
@@ -126,7 +128,16 @@ async def _datasets_sync() -> int:
             status=result.status,
             dataset_id=result.dataset_id,
         )
-    return 1 if any(result.failed for result in results) else 0
+    for mismatch in mismatches:
+        log(
+            "datasets.status_mismatch",
+            level="error",
+            source_id=str(mismatch.source_id),
+            tag=mismatch.tag,
+            dataset_id=mismatch.dataset_id,
+            status=f"expected_{mismatch.expected}_found_{mismatch.found}",
+        )
+    return 1 if mismatches or any(result.failed for result in results) else 0
 
 
 @dataclass(frozen=True)

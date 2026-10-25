@@ -13,11 +13,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.content.models import Dataset
+from app.content.models import Dataset, Source
 from app.content.tags import TagConfig, dataset_name
 from app.retrieval.ragflow import RagflowClient, RagflowDataset
 
@@ -130,3 +131,57 @@ async def dataset_counts(session: AsyncSession, client: RagflowClient) -> list[D
             )
         )
     return counts
+
+
+DocumentState = Literal["enabled", "disabled", "missing"]
+
+
+@dataclass(frozen=True)
+class StatusMismatch:
+    """P2A-01: a source's RAGFlow document whose status disagrees with the register:
+    an ingested source's document disabled (or gone), a paused source's enabled."""
+
+    source_id: UUID
+    tag: str
+    dataset_id: str
+    expected: DocumentState
+    found: DocumentState
+
+
+async def status_mismatches(session: AsyncSession, client: RagflowClient) -> list[StatusMismatch]:
+    """Compare every ingested or paused source's documents in the mapped datasets with
+    RAGFlow's status; one listing per dataset, metadata only. A pause or resume whose
+    undo failed, or a change made by hand in RAGFlow, shows up here."""
+    datasets = {
+        row.ragflow_dataset_id: row.tag
+        for row in (await session.scalars(select(Dataset).order_by(Dataset.tag))).all()
+    }
+    rows = (
+        await session.execute(
+            select(Source.id, Source.status, Source.ragflow_document_ids)
+            .where(Source.status.in_(("ingested", "paused")))
+            .order_by(Source.id)
+        )
+    ).all()
+    wanted = {dataset_id for row in rows for dataset_id in (row.ragflow_document_ids or {})}
+    remote: dict[str, dict[str, bool | None]] = {}
+    for dataset_id in sorted(wanted & set(datasets)):
+        remote[dataset_id] = {d.id: d.enabled for d in await client.list_documents(dataset_id)}
+    mismatches: list[StatusMismatch] = []
+    for row in rows:
+        mapping = row.ragflow_document_ids
+        if not isinstance(mapping, dict):
+            continue
+        expected: DocumentState = "disabled" if row.status == "paused" else "enabled"
+        for dataset_id, document_id in sorted(mapping.items()):
+            if dataset_id not in remote:
+                continue  # not a synced dataset (Phase 0 mapping): nothing to compare
+            enabled = remote[dataset_id].get(str(document_id), "missing")
+            found: DocumentState = (
+                "missing" if enabled == "missing" else "disabled" if enabled is False else "enabled"
+            )
+            if found != expected:
+                mismatches.append(
+                    StatusMismatch(row.id, datasets[dataset_id], dataset_id, expected, found)
+                )
+    return mismatches

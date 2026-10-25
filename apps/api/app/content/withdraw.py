@@ -13,7 +13,8 @@ One job per source (architecture §6.3), run by the worker, idempotent on retry:
    then only a takedown on licence grounds did), and labels those versions' citations
    withdrawn too; the citation, its provenance and its label stay. A supersession
    keeps them: the document is still in the corpus;
-3. mark the register row ``withdrawn`` with its date and reason, audited;
+3. mark the register row ``withdrawn`` with its date and reason, audited (a paused
+   source is withdrawn the same way, its pause cleared: P2A-01);
 4. delete our stored copy of the file, unless another live source has the same content,
    and a crawled page's raw HTML snapshot (P1b-04) likewise;
 5. purge every tenant's answer-cache entries that cite the source (cache values record
@@ -168,7 +169,7 @@ async def withdraw_source(
         # Owner decision 3 (Oct 23, 2026): every withdrawal blanks, a supersession does not.
         blank = kind == "withdrawn"
         versions = await _versions(session, source_id) if blank else []
-    if row.status not in ("ingested", "failed", "withdrawn"):
+    if row.status not in ("ingested", "failed", "paused", "withdrawn"):
         return WithdrawResult(source_id, "refused", kind, error_code="not_withdrawable")
 
     # 1. RAGFlow: every dataset the register maps the source into.
@@ -216,6 +217,10 @@ async def withdraw_source(
                     chunk_count=None,
                     error=None,
                     stored_path=None,
+                    # A paused source withdrawn (P2A-01): the pause ends with it.
+                    paused_at=None,
+                    paused_by=None,
+                    pause_reason=None,
                     updated_at=func.now(),
                 )
             )

@@ -1,7 +1,9 @@
-"""Source register transitions (P1b-01): propose, approve, reject, retry.
+"""Source register transitions (P1b-01): propose, approve, reject, retry, pause, resume.
 
 ``proposed -> approved -> ingested -> withdrawn``, plus ``failed`` (retryable: a
-reviewer sends it back to ``approved``) and ``rejected``. No document reaches RAGFlow
+reviewer sends it back to ``approved``), ``rejected``, and ``ingested <-> paused``
+(P2A-01: a reviewer takes a source out of retrieval without destroying it; a paused
+source can still be withdrawn, and a pause never satisfies a takedown). No document reaches RAGFlow
 without an approved row (architecture §6.1): ``propose`` only records the row and
 stages the file under ``[files] content_root``; ingestion (``app.content.ingest``)
 refuses a source that is not ``approved``.
@@ -34,7 +36,10 @@ from app.content.models import Dataset, SitePage, Source
 from app.content.roles import EDITOR, REVIEWER, RoleError, require, roles_of
 from app.content.store import STORABLE_TYPES, stage
 from app.content.tags import TagConfig
+from app.content.withdraw import purge_answer_cache
 from app.core.db import tenant_session
+from app.core.logging import log
+from app.retrieval.ragflow import RagflowClient, RagflowError
 from app.tenancy.models import INTERNAL_TENANT_ID
 
 MAX_NOTE_LENGTH = 2000
@@ -691,12 +696,13 @@ async def request_withdrawal(
     reason: str,
 ) -> UUID:
     """A reviewer withdraws a source: records the reason and enqueues the
-    ``withdraw_source`` job, which removes it everywhere (``app.content.withdraw``)."""
+    ``withdraw_source`` job, which removes it everywhere (``app.content.withdraw``).
+    A paused source is withdrawn the same way, with the full cascade (P2A-01)."""
     note = _note(reason, required=True)
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
-        if row.status not in ("ingested", "failed"):
+        if row.status not in ("ingested", "failed", "paused"):
             raise RegisterError("not_withdrawable")
         await session.execute(
             update(Source)
@@ -726,3 +732,174 @@ async def request_withdrawal(
             },
         )
     return job_id
+
+
+# P2A-01: pause and resume.
+
+
+@dataclass(frozen=True)
+class PauseResult:
+    """What a pause or a resume did: the RAGFlow documents switched, and (pause only)
+    the cached answers purged, None when the cache could not be reached."""
+
+    source_id: UUID
+    status: Literal["paused", "ingested"]
+    documents: int
+    cache_entries_purged: int | None = None
+
+
+async def _synced_mapping(session: AsyncSession, row: Source) -> list[tuple[str, str]]:
+    """The source's ``(dataset_id, document_id)`` pairs, sorted by dataset ID.
+
+    Every key must be a synced dataset's ID; a mapping from before the datasets table
+    (Phase 0) cannot be switched document by document, so it is refused rather than
+    half-paused. The IDs come from the register, never from a request.
+    """
+    mapping = row.ragflow_document_ids
+    if not isinstance(mapping, dict) or not mapping:
+        raise RegisterError("no_documents")
+    synced = set(
+        (
+            await session.scalars(
+                select(Dataset.ragflow_dataset_id).where(
+                    Dataset.ragflow_dataset_id.in_(list(mapping))
+                )
+            )
+        ).all()
+    )
+    pairs = [(str(k), str(v)) for k, v in mapping.items() if isinstance(v, str)]
+    if len(pairs) != len(mapping) or any(k not in synced for k, _ in pairs):
+        raise RegisterError("unmapped_document")
+    return sorted(pairs)
+
+
+async def set_enabled_everywhere(
+    client: RagflowClient, pairs: Sequence[tuple[str, str]], *, enabled: bool
+) -> tuple[RagflowError | None, bool]:
+    """Switch every document; on a failure switch back the ones already done.
+
+    Returns the failure (None when all succeeded) and whether switching back failed
+    too, which leaves RAGFlow disagreeing with the register (``datasets sync`` reports
+    it). No partial state is ever recorded on the row.
+    """
+    done: list[tuple[str, str]] = []
+    for dataset_id, document_id in pairs:
+        try:
+            await client.set_document_enabled(dataset_id, document_id, enabled=enabled)
+        except RagflowError as exc:
+            undo_failed = False
+            for undo_dataset, undo_document in reversed(done):
+                try:
+                    await client.set_document_enabled(
+                        undo_dataset, undo_document, enabled=not enabled
+                    )
+                except RagflowError:
+                    undo_failed = True
+            return exc, undo_failed
+        done.append((dataset_id, document_id))
+    return None, False
+
+
+async def _switch(
+    factory: async_sessionmaker[AsyncSession],
+    client: RagflowClient,
+    source_id: UUID,
+    reviewer_id: UUID,
+    *,
+    pause: bool,
+    reason: str | None,
+) -> PauseResult:
+    before, after = ("ingested", "paused") if pause else ("paused", "ingested")
+    action = "pause" if pause else "resume"
+    failure: str | None = None
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        roles = await require(session, reviewer_id, REVIEWER)
+        row = await _locked(session, source_id)
+        if row.status != before:
+            raise RegisterError(f"not_{before}")
+        pairs = await _synced_mapping(session, row)
+        error, undo_failed = await set_enabled_everywhere(client, pairs, enabled=not pause)
+        if error is not None:
+            failure = f"{action}_undo_failed" if undo_failed else error.error_code
+            await record(
+                session,
+                tenant_id=INTERNAL_TENANT_ID,
+                actor_user_id=reviewer_id,
+                event=f"source.{action}_failed",
+                metadata={
+                    "source_id": str(source_id),
+                    "before": {"status": before},
+                    "after": {"status": before},
+                    "roles": sorted(roles),
+                    "error_code": error.error_code,
+                    "outcome": "undo_failed" if undo_failed else "undone",
+                    "count": len(pairs),
+                },
+            )
+        else:
+            values: dict[str, object] = {"status": after, "updated_at": func.now()}
+            if pause:
+                values |= {
+                    "paused_at": func.now(),
+                    "paused_by": reviewer_id,
+                    "pause_reason": reason,
+                }
+            else:
+                values |= {"paused_at": None, "paused_by": None, "pause_reason": None}
+            await session.execute(update(Source).where(Source.id == source_id).values(**values))
+            await _audit(
+                session,
+                reviewer_id,
+                f"source.{after if pause else 'resumed'}",
+                source_id,
+                before,
+                after,
+                roles=sorted(roles),
+                outcome="ok",
+                count=len(pairs),
+            )
+    if failure is not None:
+        log("content.source_switch_failed", source_id=str(source_id), error_code=failure)
+        raise RegisterError(failure)
+    purged: int | None = None
+    if pause:
+        # The corpus fingerprint changed with the status, so no cache key of any
+        # workspace finds the old answers; they are purged as well, so that a cached
+        # answer never cites a paused source (P2A-01).
+        try:
+            purged = await purge_answer_cache(factory, {str(source_id)})
+        except Exception:  # the pause stands; the old keys are unreachable anyway
+            log("content.cache_purge_failed", source_id=str(source_id), error_code="cache")
+    return PauseResult(source_id, "paused" if pause else "ingested", len(pairs), purged)
+
+
+async def pause(
+    factory: async_sessionmaker[AsyncSession],
+    client: RagflowClient,
+    source_id: UUID,
+    reviewer_id: UUID,
+    *,
+    reason: str,
+) -> PauseResult:
+    """``ingested -> paused``: a reviewer takes the source out of retrieval, the library
+    and downloads for every tenant (D1), keeping its RAGFlow documents and its stored
+    citations (D3).
+
+    Each RAGFlow document of the source is disabled in this call, not in a job. If one
+    fails or answers with the wrong status, those already disabled are enabled again,
+    the row stays ``ingested`` and the error code is raised (``source.pause_failed`` is
+    audited, never ``source.paused``). A pause does not touch the takedown queue.
+    """
+    note = _note(reason, required=True)
+    return await _switch(factory, client, source_id, reviewer_id, pause=True, reason=note)
+
+
+async def resume(
+    factory: async_sessionmaker[AsyncSession],
+    client: RagflowClient,
+    source_id: UUID,
+    reviewer_id: UUID,
+) -> PauseResult:
+    """``paused -> ingested``: every RAGFlow document enabled again, no re-parse. A
+    failure disables again those already enabled and leaves the row ``paused``."""
+    return await _switch(factory, client, source_id, reviewer_id, pause=False, reason=None)

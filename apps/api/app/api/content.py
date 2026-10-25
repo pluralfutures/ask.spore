@@ -75,7 +75,7 @@ from app.audit.models import AuditEvent
 from app.audit.writer import record
 from app.auth.middleware import IDENTITY_KEY
 from app.content import register, sites
-from app.content.datasets import sync_datasets
+from app.content.datasets import status_mismatches, sync_datasets
 from app.content.fetch import (
     MAX_BYTES,
     Connector,
@@ -999,6 +999,8 @@ async def sync_tags(
             results = await sync_datasets(
                 session, client, tags, settings.models.ragflow.embedding_model
             )
+            # P2A-01: documents whose RAGFlow status disagrees with the register.
+            mismatches = await status_mismatches(session, client)
             await record(
                 session,
                 tenant_id=INTERNAL_TENANT_ID,
@@ -1015,4 +1017,12 @@ async def sync_tags(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="ragflow_unavailable") from None
     for result in results:
         log("content.tag_synced", tag=result.tag, status=result.status)
+    for mismatch in mismatches:
+        log(
+            "content.status_mismatch",
+            level="error",
+            source_id=str(mismatch.source_id),
+            tag=mismatch.tag,
+            status=f"expected_{mismatch.expected}_found_{mismatch.found}",
+        )
     return [TagSyncOut(tag=r.tag, status=r.status, dataset_id=r.dataset_id) for r in results]

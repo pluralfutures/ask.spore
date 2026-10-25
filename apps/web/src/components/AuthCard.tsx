@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
 import { cardClass } from "../ui/cardClass";
+import { ProductName } from "./ProductName";
 
 const PRODUCT = "SporeBot";
 
@@ -50,7 +51,9 @@ export function AuthCard({
         className={cardClass("flex w-full max-w-sm flex-col gap-4 md:p-6")}
       >
         <div className="flex flex-col gap-1">
-          <h1 className="text-display font-strong">{PRODUCT}</h1>
+          <h1 className="text-display font-strong">
+            <ProductName />
+          </h1>
           <h2 ref={heading} tabIndex={-1} className="text-heading font-strong focus:outline-none">
             {step}
           </h2>

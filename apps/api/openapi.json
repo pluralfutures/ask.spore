@@ -4064,6 +4064,185 @@
         "title": "TokenData",
         "type": "object"
       },
+      "UsageActiveUsersOut": {
+        "description": "How many distinct users asked at least one question on one UTC day.",
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "users": {
+            "title": "Users",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "users"
+        ],
+        "title": "UsageActiveUsersOut",
+        "type": "object"
+      },
+      "UsageModelCostOut": {
+        "description": "One model's month-to-date usage from ``usage_ledger``, as the operator sees it.",
+        "properties": {
+          "cost_cents": {
+            "title": "Cost Cents",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "external": {
+            "title": "External",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "tokens_in": {
+            "title": "Tokens In",
+            "type": "integer"
+          },
+          "tokens_out": {
+            "title": "Tokens Out",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "display_name",
+          "external",
+          "tokens_in",
+          "tokens_out",
+          "cost_cents"
+        ],
+        "title": "UsageModelCostOut",
+        "type": "object"
+      },
+      "UsageOut": {
+        "properties": {
+          "active_users": {
+            "items": {
+              "$ref": "#/components/schemas/UsageActiveUsersOut"
+            },
+            "title": "Active Users",
+            "type": "array"
+          },
+          "cost_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Month"
+          },
+          "costs": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/UsageModelCostOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Costs"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/UsageQuestionsOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "since": {
+            "format": "date",
+            "title": "Since",
+            "type": "string"
+          },
+          "top_sources": {
+            "items": {
+              "$ref": "#/components/schemas/UsageSourceOut"
+            },
+            "title": "Top Sources",
+            "type": "array"
+          },
+          "until": {
+            "format": "date",
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "since",
+          "until",
+          "questions",
+          "active_users",
+          "top_sources",
+          "cost_month",
+          "costs"
+        ],
+        "title": "UsageOut",
+        "type": "object"
+      },
+      "UsageQuestionsOut": {
+        "description": "Questions asked on one UTC day in one answer mode (``chat.query`` events).",
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "mode",
+          "questions"
+        ],
+        "title": "UsageQuestionsOut",
+        "type": "object"
+      },
+      "UsageSourceOut": {
+        "description": "A cited source, by title and publisher, and how many answers cited it.",
+        "properties": {
+          "answers": {
+            "title": "Answers",
+            "type": "integer"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "publisher",
+          "answers"
+        ],
+        "title": "UsageSourceOut",
+        "type": "object"
+      },
       "UserChangeIn": {
         "additionalProperties": false,
         "description": "Change a user's role, or deactivate and reactivate them. Users are never deleted.",
@@ -4625,6 +4804,25 @@
           }
         },
         "summary": "Set Retention Days"
+      }
+    },
+    "/api/v1/admin/usage": {
+      "get": {
+        "description": "The tenant's usage over the last 30 days: counts only, no text or per-user figure.",
+        "operationId": "get_usage_api_v1_admin_usage_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Usage"
       }
     },
     "/api/v1/admin/users": {

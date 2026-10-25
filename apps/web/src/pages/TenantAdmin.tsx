@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 
 import { ApiError, adminApi, api } from "../api/client";
-import type { AdminUser, LoginPolicyOut, Me, ModelOption, Workspace } from "../api/types";
+import type { AdminUser, LoginPolicyOut, Me, ModelOption, UsageOut, Workspace } from "../api/types";
 import {
   MAX_INSTRUCTIONS_CHARS,
   MAX_RETENTION_DAYS,
@@ -15,6 +15,8 @@ import {
 } from "../lib/admin";
 import { UserActions } from "../components/UserActions";
 import { formatDate } from "../lib/format";
+import { count, euros } from "../lib/spend";
+import { USAGE_MODE_LABELS, usageDays, usageModes, usageTotals } from "../lib/usage";
 import { POLICY_ROWS, policySummary } from "../lib/sso";
 import { modelLabel } from "../lib/startPanel";
 import { Button } from "../ui/Button";
@@ -61,6 +63,7 @@ export function TenantAdmin() {
           <SectionNav />
           <div className="flex min-w-0 flex-col gap-6">
             <Users selfEmail={me.data?.email} />
+            <Usage />
             <Workspaces />
             <Retention />
             <SignInPolicy />
@@ -75,6 +78,7 @@ export function TenantAdmin() {
 // The page's sections, in page order, with the headings they link to.
 const SECTIONS = [
   ["users", "Users"],
+  ["usage", "Usage"],
   ["workspaces", "Workspaces"],
   ["retention", "Chat history retention"],
   ["sign-in", "Sign-in"],
@@ -604,6 +608,137 @@ function Retention() {
 }
 
 // P1b-10 (architecture §7.2): the tenant's sign-in, admin, operator and consent events.
+// P2A-05 (architecture §7.2): counts only. No question text, no conversation and no
+// per-user figure reaches this page; the API does not send any.
+function Usage() {
+  const usage = useQuery({ queryKey: ["admin", "usage"], queryFn: adminApi.usage });
+  return (
+    <Card
+      id="usage"
+      title="Usage"
+      description="The last 30 days, in UTC. Counts only: no question text and no per-person figures."
+      className={SECTION_CARD}
+    >
+      {usage.isError ? <Notice tone="danger">{refusal(usage.error)}</Notice> : null}
+      {usage.data ? <UsageView usage={usage.data} /> : null}
+    </Card>
+  );
+}
+
+export function UsageView({ usage }: { usage: UsageOut }) {
+  const totals = usageTotals(usage);
+  const modes = usageModes(usage);
+  const days = usageDays(usage).reverse();
+  return (
+    <div className="flex flex-col gap-4">
+      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div>
+          <dt className="text-fg-muted">Questions</dt>
+          <dd className="text-heading font-strong">{count(totals.questions)}</dd>
+        </div>
+        {modes.map((mode) => (
+          <div key={mode}>
+            <dt className="text-fg-muted">{USAGE_MODE_LABELS[mode] ?? mode}</dt>
+            <dd className="text-heading font-strong">{count(totals.byMode[mode] ?? 0)}</dd>
+          </div>
+        ))}
+        <div>
+          <dt className="text-fg-muted">Most active users in a day</dt>
+          <dd className="text-heading font-strong">{count(totals.busiestDayUsers)}</dd>
+        </div>
+      </dl>
+      {totals.questions === 0 ? (
+        <p className="text-fg-muted">No questions in this period.</p>
+      ) : (
+        <Disclosure summary="Questions and active users per day">
+          <Table>
+            <thead>
+              <tr>
+                <Th>Day</Th>
+                {modes.map((mode) => (
+                  <Th key={mode}>{USAGE_MODE_LABELS[mode] ?? mode}</Th>
+                ))}
+                <Th>Active users</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {days.map((day) => (
+                <tr key={day.day}>
+                  <Td label="Day">{formatDate(day.day)}</Td>
+                  {modes.map((mode) => (
+                    <Td key={mode} label={USAGE_MODE_LABELS[mode] ?? mode}>
+                      {count(day.byMode[mode] ?? 0)}
+                    </Td>
+                  ))}
+                  <Td label="Active users">{count(day.users)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Disclosure>
+      )}
+      <div className="flex flex-col gap-2">
+        <h3 className="font-strong">Most cited sources</h3>
+        {usage.top_sources.length === 0 ? (
+          <p className="text-fg-muted">No cited sources in this period.</p>
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Title</Th>
+                <Th>Publisher</Th>
+                <Th>Answers citing it</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {usage.top_sources.map((source, index) => (
+                <tr key={`${index}-${source.title}`}>
+                  <Td label="Title" className="[overflow-wrap:anywhere]">
+                    {source.title}
+                  </Td>
+                  <Td label="Publisher">{source.publisher}</Td>
+                  <Td label="Answers citing it">{count(source.answers)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </div>
+      {usage.costs ? (
+        <div className="flex flex-col gap-2">
+          <h3 className="font-strong">{`Cost this month (${usage.cost_month ?? ""})`}</h3>
+          {usage.costs.length === 0 ? (
+            <p className="text-fg-muted">No model usage this month.</p>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Model</Th>
+                  <Th>Tokens in</Th>
+                  <Th>Tokens out</Th>
+                  <Th>Cost</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {usage.costs.map((row) => (
+                  <tr key={row.model}>
+                    <Td label="Model">
+                      {row.external ? `${row.display_name} (external)` : row.display_name}
+                    </Td>
+                    <Td label="Tokens in">{count(row.tokens_in)}</Td>
+                    <Td label="Tokens out">{count(row.tokens_out)}</Td>
+                    <Td label="Cost">{euros(row.cost_cents)}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function AuditLog() {
   const download = useMutation({
     mutationFn: adminApi.auditLog,

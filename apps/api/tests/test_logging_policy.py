@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -222,3 +223,74 @@ def test_a_fetch_error_handler_may_use_the_code_and_status(handler: str) -> None
     # Other exceptions are not this rule's business.
     other = "try:\n    pass\nexcept IngestError as exc:\n    raise SystemExit(str(exc))\n"
     assert scan_fetch_errors(other, SOMEWHERE) == []
+
+
+# --- P2A-05, P2A-08: response schemas that must carry no body ------------------------------
+# As for log fields: every field name of these responses is on an allow-list, so a new
+# field fails here until it is classified; and none of them can carry a body or a
+# per-user identifier.
+
+BODY_FIELDS = frozenset(
+    {
+        "query",
+        "question",
+        "answer",
+        "prompt",
+        "message",
+        "messages",
+        "chunk_text",
+        "excerpt",
+        "content",
+        "text",
+        "body",
+        "conversation_id",
+        "message_id",
+        "user_id",
+        "actor_user_id",
+        "email",
+        "headers",
+        "token",
+    }
+)
+
+
+def schema_fields(model: type[Any]) -> set[str]:
+    """Every property name in a pydantic model's JSON schema, nested models included."""
+    schema = model.model_json_schema()
+    names: set[str] = set()
+    for part in [schema, *schema.get("$defs", {}).values()]:
+        names |= set(part.get("properties", {}))
+    return names
+
+
+USAGE_FIELDS = frozenset(
+    {
+        "since",
+        "until",
+        "questions",
+        "active_users",
+        "top_sources",
+        "cost_month",
+        "costs",
+        "day",
+        "mode",
+        "users",
+        "title",
+        "publisher",
+        "answers",
+        "model",
+        "display_name",
+        "external",
+        "tokens_in",
+        "tokens_out",
+        "cost_cents",
+    }
+)
+
+
+def test_the_usage_response_carries_counts_only() -> None:
+    from app.api.schemas import UsageOut
+
+    fields = schema_fields(UsageOut)
+    assert fields == USAGE_FIELDS, sorted(fields ^ USAGE_FIELDS)
+    assert not USAGE_FIELDS & BODY_FIELDS

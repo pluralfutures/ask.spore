@@ -82,6 +82,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/usage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Usage
+     * @description The tenant's usage over the last 30 days: counts only, no text or per-user figure.
+     */
+    get: operations["get_usage_api_v1_admin_usage_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/users": {
     parameters: {
       query?: never;
@@ -2973,6 +2993,87 @@ export interface components {
       text: string;
     };
     /**
+     * UsageActiveUsersOut
+     * @description How many distinct users asked at least one question on one UTC day.
+     */
+    UsageActiveUsersOut: {
+      /**
+       * Day
+       * Format: date
+       */
+      day: string;
+      /** Users */
+      users: number;
+    };
+    /**
+     * UsageModelCostOut
+     * @description One model's month-to-date usage from ``usage_ledger``, as the operator sees it.
+     */
+    UsageModelCostOut: {
+      /** Cost Cents */
+      cost_cents: string;
+      /** Display Name */
+      display_name: string;
+      /** External */
+      external: boolean;
+      /** Model */
+      model: string;
+      /** Tokens In */
+      tokens_in: number;
+      /** Tokens Out */
+      tokens_out: number;
+    };
+    /** UsageOut */
+    UsageOut: {
+      /** Active Users */
+      active_users: components["schemas"]["UsageActiveUsersOut"][];
+      /** Cost Month */
+      cost_month: string | null;
+      /** Costs */
+      costs: components["schemas"]["UsageModelCostOut"][] | null;
+      /** Questions */
+      questions: components["schemas"]["UsageQuestionsOut"][];
+      /**
+       * Since
+       * Format: date
+       */
+      since: string;
+      /** Top Sources */
+      top_sources: components["schemas"]["UsageSourceOut"][];
+      /**
+       * Until
+       * Format: date
+       */
+      until: string;
+    };
+    /**
+     * UsageQuestionsOut
+     * @description Questions asked on one UTC day in one answer mode (``chat.query`` events).
+     */
+    UsageQuestionsOut: {
+      /**
+       * Day
+       * Format: date
+       */
+      day: string;
+      /** Mode */
+      mode: string;
+      /** Questions */
+      questions: number;
+    };
+    /**
+     * UsageSourceOut
+     * @description A cited source, by title and publisher, and how many answers cited it.
+     */
+    UsageSourceOut: {
+      /** Answers */
+      answers: number;
+      /** Publisher */
+      publisher: string;
+      /** Title */
+      title: string;
+    };
+    /**
      * UserChangeIn
      * @description Change a user's role, or deactivate and reactivate them. Users are never deleted.
      */
@@ -3262,6 +3363,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_usage_api_v1_admin_usage_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageOut"];
         };
       };
     };

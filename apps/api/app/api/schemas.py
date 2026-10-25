@@ -704,3 +704,53 @@ class OperatorSourceOut(BaseModel):
 
 class SourceDownloadableIn(_In):
     downloadable: bool
+
+
+# --- tenant admin usage (P2A-05; architecture §7.2) --------------------------------------
+# Counts only: no query text, no conversation or message ID, no user ID or per-user
+# figure. ``test_logging_policy`` asserts the field names against an allow-list.
+
+
+class UsageQuestionsOut(BaseModel):
+    """Questions asked on one UTC day in one answer mode (``chat.query`` events)."""
+
+    day: date
+    mode: str
+    questions: int
+
+
+class UsageActiveUsersOut(BaseModel):
+    """How many distinct users asked at least one question on one UTC day."""
+
+    day: date
+    users: int
+
+
+class UsageSourceOut(BaseModel):
+    """A cited source, by title and publisher, and how many answers cited it."""
+
+    title: str
+    publisher: str
+    answers: int
+
+
+class UsageModelCostOut(BaseModel):
+    """One model's month-to-date usage from ``usage_ledger``, as the operator sees it."""
+
+    model: str
+    display_name: str
+    external: bool
+    tokens_in: int
+    tokens_out: int
+    cost_cents: Decimal
+
+
+class UsageOut(BaseModel):
+    since: date
+    until: date
+    questions: list[UsageQuestionsOut]
+    active_users: list[UsageActiveUsersOut]
+    top_sources: list[UsageSourceOut]
+    # Only for a tenant with the external-models entitlement; null otherwise.
+    cost_month: str | None
+    costs: list[UsageModelCostOut] | None

@@ -36,6 +36,8 @@ export type UserChangeIn = Schemas["UserChangeIn"];
 export type WorkspaceDefaultsIn = Schemas["WorkspaceDefaultsIn"];
 export type WorkspacePrompt = Schemas["WorkspacePromptOut"];
 export type TenantSettings = Schemas["TenantSettingsOut"];
+// P2A-05: the tenant admin's usage section (counts only).
+export type UsageOut = Schemas["UsageOut"];
 // Login policy and tenant discovery (P1b-06).
 export type DiscoverOut = Schemas["DiscoverOut"];
 export type LoginPolicyIn = Schemas["LoginPolicyIn"];

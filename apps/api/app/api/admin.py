@@ -19,6 +19,9 @@ and nothing here takes a tenant ID from the request.
 - Login policy (P1b-07): the tenant's sign-in methods and SSO source, read-only.
 - Retention: shorten chat-history retention to between 1 and 30 days
   (``app.tenancy.retention``); never above 30 (CLAUDE.md).
+- Usage (P2A-05): questions per day by mode, active users per day, the most cited
+  sources and, with external models, month-to-date cost per model; counts only
+  (``app.usage.dashboard``).
 - Audit log (architecture §7.2, P1b-10): a CSV download of the tenant's sign-in, admin,
   operator, consent and download events (``EXPORTED_EVENTS``), metadata only as recorded
   (owner decision 18, Oct 22, 2026, for downloads). Query and feedback events and the
@@ -51,6 +54,7 @@ from app.api.schemas import (
     LoginPolicyOut,
     RetentionIn,
     TenantSettingsOut,
+    UsageOut,
     UserChangeIn,
     UserInviteIn,
     WorkspaceDefaultsIn,
@@ -74,6 +78,7 @@ from app.tenancy.models import MAX_RETENTION_DAYS, Tenant, TenantEntitlements, U
 from app.tenancy.retention import retention_days, set_retention
 from app.tenancy.user_removal import RemovalRefused, remove_user
 from app.tenancy.workspaces import Workspace
+from app.usage.dashboard import tenant_usage
 
 NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, detail="not_found")
 
@@ -491,6 +496,19 @@ async def export_audit_log(
             "Cache-Control": "no-store",
         },
     )
+
+
+# --- usage (P2A-05) -----------------------------------------------------------------------
+
+
+@router.get("/usage", response_model=UsageOut)
+async def get_usage(
+    request: Request,
+    admin: RequestContext = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(db_session),
+) -> UsageOut:
+    """The tenant's usage over the last 30 days: counts only, no text or per-user figure."""
+    return await tenant_usage(session, request.app.state.settings, admin.tenant_id)
 
 
 @router.get("/settings", response_model=TenantSettingsOut)

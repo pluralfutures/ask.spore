@@ -46,6 +46,7 @@ import type {
   TenantCreateIn,
   TenantOut,
   TenantSettings,
+  UsageOut,
   TenantSpend,
   TerminatedTenant,
   UserChangeIn,
@@ -337,6 +338,8 @@ export const adminApi = {
     json<TenantSettings>("PUT", "/admin/settings/retention", { retention_days: days }),
   // P1b-10: the tenant's sign-in, admin, operator and consent events, as CSV.
   auditLog: async (): Promise<Blob> => (await send("GET", "/admin/audit-log")).blob(),
+  // P2A-05: questions, active users, cited sources and (with external models) cost.
+  usage: () => json<UsageOut>("GET", "/admin/usage"),
 };
 
 // Operator console (P1a-03). The API answers 403 to anyone who is not an operator.

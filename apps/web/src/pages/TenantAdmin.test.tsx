@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AdminUser, Me } from "../api/types";
 import { lastLogin, parseRetention, retentionSummary, userActions } from "../lib/admin";
-import { AdminGate, VersionHistory } from "./TenantAdmin";
+import { AdminGate, UsageView, VersionHistory } from "./TenantAdmin";
 
 // Synthetic people only (CLAUDE.md).
 const me = (role: Me["role"]): Me => ({
@@ -134,5 +134,57 @@ describe("VersionHistory", () => {
     expect(html).toContain("Synthetic second.");
     expect(html).not.toMatch(/<button/);
     expect(html.toLowerCase()).not.toContain("revert");
+  });
+});
+
+describe("usage section (P2A-05)", () => {
+  const base = {
+    since: "2026-09-26",
+    until: "2026-10-25",
+    questions: [{ day: "2026-10-25", mode: "corpus_only", questions: 4 }],
+    active_users: [{ day: "2026-10-25", users: 2 }],
+    top_sources: [{ title: "Synthetic Wind Report", publisher: "Synthetic Institute", answers: 3 }],
+    cost_month: null,
+    costs: null,
+  };
+
+  it("shows counts and cited sources, and no cost without external models", () => {
+    const html = renderToString(<UsageView usage={base} />);
+    expect(html).toContain("Synthetic Wind Report");
+    expect(html).toContain("Sources only");
+    expect(html).toContain("Most active users in a day");
+    expect(html).not.toContain("Cost this month");
+  });
+
+  it("shows the month's cost per model with external models", () => {
+    const html = renderToString(
+      <UsageView
+        usage={{
+          ...base,
+          cost_month: "2026-10",
+          costs: [
+            {
+              model: "openai/gpt-6.1-sol",
+              display_name: "Synthetic External",
+              external: true,
+              tokens_in: 100,
+              tokens_out: 50,
+              cost_cents: "1250.000000",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain("Cost this month (2026-10)");
+    expect(html).toContain("Synthetic External (external)");
+    expect(html).toContain("€12.50");
+  });
+
+  it("says when there were no questions", () => {
+    const html = renderToString(
+      <UsageView usage={{ ...base, questions: [], active_users: [], top_sources: [] }} />,
+    );
+    expect(html).toContain("No questions in this period.");
+    expect(html).toContain("No cited sources in this period.");
   });
 });

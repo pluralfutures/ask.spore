@@ -744,3 +744,34 @@ Concerns, none a blocker, for the owner:
   repeated comment in `audit/events.py`; the export rate limiter is per process.
 - **C5.** A pause holds the register row lock across the RAGFlow calls; a timeout blocks
   other changes to that source until it returns, then the pause is undone and reported.
+
+### 5.4 Step 4: pause drill
+
+Oct 25, 2026, internal tenant, workspace Research (tags `sample-reports`, `sample-analysis`,
+`sample-web`), in one sitting with the owner at the keyboard (chat window and content
+console); the owner confirmed `cc-team1-healthcare-gpo` had no active users. Target:
+"Buyers Edge Platform Environmental Responsibility" (Buyers Edge Platform, 2 chunks, the
+only source of that publisher), in `sample-reports` and `cc-team1-healthcare-gpo`. Checks
+from the database, the audit trail and the api log (metadata only; no question or answer
+text read).
+
+| Step (UTC) | Observed | Evidence |
+| --- | --- | --- |
+| Ask, 21:17:20 | Cited as [1], the answer's only citation | `chat.query` `answered`, `cache_hit` false; one citation, `source_id` the target |
+| Pause, 21:19:13 | Console shows paused | `source.paused`, `count` 2, `outcome` ok, roles editor and reviewer; row `paused`, `paused_at`/`paused_by` set, reason 38 characters; `content.source_paused` |
+| Toggle timings | 1127 ms (`sample-reports`), 114 ms (`cc-team1`); the pause about 1.3 s end to end | two `ragflow.set_document_enabled` lines, `status` `disabled`, fields status and latency_ms only |
+| Ask again, 21:20:19 (new conversation) | No citation of the target (no citation at all); a new answer | `chat.query` `answered`, `cache_hit` false; 0 citations |
+| File library | The file gone | owner |
+| Earlier conversation | Citation [1] labelled "currently unavailable", excerpt shown | owner |
+| Download, 21:24:46 | Refused, 404 | the owner's `POST …/files/{source}/download` from the browser console (the citation panel has no download control; the library no longer lists the file); `download.refused`, `error_code` `paused` |
+| Resume, 21:25:34 | Console shows ingested | `source.resumed`, `count` 2, `outcome` ok; `paused_at`/`paused_by` cleared, the reason kept (decision 18); toggles 1118 ms and 128 ms, `status` `enabled`; `content.source_resumed` |
+| Ask again, 21:25:53 | Cited again, label gone, file back | `chat.query` `answered`, `cache_hit` false; one citation of the target; `download` 21:26:15 |
+| `datasets sync` | No mismatch | every tag `ok`, no `datasets.status_mismatch`, exit 0 |
+
+"View at source" in the citation panel opens the publisher's page (`canonical_url`) while
+the source is paused: a public page we do not host, unaffected by a pause, as specified.
+One `content.refused` `not_platform` at 21:16:17, before the owner's sign-in completed (a
+console request from a session without platform roles); not a drill step.
+The first toggle of each run took about 1.1 s against about 0.1 s for the second, for a
+2-chunk document (the probe's 90 ms was for 1 chunk): a first-call cost on the API's
+RAGFlow connection, not the document size.

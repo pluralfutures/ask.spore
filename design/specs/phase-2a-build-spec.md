@@ -1,7 +1,7 @@
 # Phase 2A Build Spec — Document Pause, Tenant Assurance, Promises Kept
 
-Oct 25, 2026 · Status: **draft for owner approval** (decisions D1 to D7 below are proposed, not
-taken) · Target duration: 3–4 weeks · Starts after the UX refresh closed (UX-24, Oct 25, 2026)
+Oct 25, 2026 · Status: **draft for owner approval** (D2 taken on the probe's result; D1, D3 to D7
+proposed, not taken) · Target duration: 3–4 weeks · Starts after the UX refresh closed (UX-24, Oct 25, 2026)
 
 Source decisions: the owner's selection of Oct 25, 2026 from `Phase 2 spec - ideas only.md`
 (items 1, 2.4, 2.5, 2.8, 4.1, 4.2 and the logging follow-up of the Phase 1c independent
@@ -70,16 +70,21 @@ commit messages.
 
 ### Group A — Document pause (priority 1, critical)
 
-**P2A-00 RAGFlow probe (first task, half a day).** Against the running `v0.27.2`, establish
-which `/api/v1` call sets a document's status so that its chunks' `available_int` becomes 0,
-and that `/api/v1/retrieval` then returns none of its chunks (the retrieval path filters
-`available_int = 1`; confirmed in the v0.27.2 source, `rag/nlp/search.py`). Record the call,
-its response shape and the round trip in the findings. If `/api/v1` has no such call, the
-fallback is **(b)**: the retrieval call carries the live document IDs of the package as
-`document_ids`, built server-side from the register, and the RAGFlow document is left
-untouched; record the list size for the largest package (crawled sites) and the latency cost.
-The owner picks (a) toggle or (b) exclusion list from the probe's figures (D2). Everything
-below is written for (a); for (b) only the `RagflowClient` and `retrieve` steps change.
+**P2A-00 RAGFlow probe — done Oct 25, 2026** (`phase-2a-findings.md`, "P2A-00 probe").
+RAGFlow `v0.27.2` has the toggle on `/api/v1`, so **mechanism (a) is taken** (D2). The call
+is `PATCH /api/v1/datasets/<dataset_id>/documents/<document_id>` with `{"enabled": 0}` to
+pause and `{"enabled": 1}` to resume; `enabled` is an integer (a boolean is refused, code
+102), a `status` field is silently ignored, and the success envelope's `data.status` ("0" or
+"1") is the confirmation to check. Retrieval excluded the paused document from the first
+call after the toggle and returned it from the first call after resuming; no re-parse
+(document id, chunk count, token count, run state and parse timestamps unchanged). Cost: about
+1 s for a 1,128-chunk document, about 90 ms for a small one, paid once per pause or resume;
+the retrieval request and its latency are unchanged. **The toggle is per RAGFlow document,
+and a document belongs to one dataset**: a source tagged into two datasets has two document
+ids and needs one `PATCH` per entry of `ragflow_document_ids`. The response carries the file
+name and storage location, so the client logs only the code, the returned status and the
+latency. The chunk-list endpoint is not a reliable check (it listed 1,079 of 1,128 chunks
+before and after the probe); verify a pause by `data.status` and, at release, by retrieval.
 
 **P2A-01 Register: `paused` status.** Migration: `paused` added to `SOURCE_STATUSES`;
 `paused_at`, `paused_by`, `pause_reason` (required, like a withdrawal reason) with a check
@@ -90,16 +95,20 @@ only, by a content **reviewer** (the role that approves and withdraws), each aud
 withdrawn` is allowed through the existing withdrawal request, so a takedown on a paused
 document runs the full cascade; **a pause never satisfies a takedown** (the takedown queue
 shows the paused state but its due date and cascade are unchanged). The RAGFlow toggle is
-made inside the register action, not in a worker job: it is one idempotent call per dataset
-the row is mapped into; a RAGFlow failure leaves the row `ingested` with the error code
-returned to the console (no partial state), and `datasets sync` reports a document whose
-RAGFlow status disagrees with the register. The corpus fingerprint (`resolve_package`)
+made inside the register action, not in a worker job: `RagflowClient.set_document_enabled`
+(`PATCH`, integer `enabled`, result read from `data.status`) once per entry of
+`ragflow_document_ids`, idempotent (RAGFlow no-ops when the status already matches). If any
+call fails or returns the wrong status, the action re-enables the entries it already paused
+and leaves the row `ingested` with the error code returned to the console (no partial
+state); `datasets sync` reports a document whose RAGFlow status disagrees with the register. The corpus fingerprint (`resolve_package`)
 already includes status, so every answer-cache key of every workspace holding the source
 changes on pause and on resume; the old entries age out, and `purge_answer_cache` is run on
 pause as well so a cached answer never cites a paused source. Tests: pause then retrieve
 through a workspace that holds the tag returns no chunk of the source (fake RAGFlow honours
-the status); resume returns them again with no `start_parse` call; a failed toggle leaves the
-row `ingested` and no audit event of success; the cache key differs before and after;
+the status); resume returns them again with no `start_parse` call; a failed toggle on the
+second of two datasets re-enables the first and leaves the row `ingested` with no audit
+event of success; a boolean `enabled` or a `status` field is never sent (asserted on the fake's
+received payload); the cache key differs before and after;
 a non-reviewer is refused; `paused → approved` and `proposed → paused` are refused.
 
 **P2A-02 Pause in every tenant-facing surface.** The file list and download routes filter
@@ -262,7 +271,7 @@ review signed as in Phase 1c §5.2.
 | # | Proposal | Alternative | Applies to |
 | --- | --- | --- | --- |
 | D1 | **Pause is corpus-wide.** A paused source leaves retrieval and the library of every workspace of every tenant that holds its tag, because a tag is one RAGFlow dataset shared across tenants. | Per-workspace exclusion: a server-built document-ID exclusion per workspace. Larger, overlaps 2.2, and RAGFlow's toggle cannot do it. Not recommended now. | Group A |
-| D2 | **Mechanism (a): RAGFlow's document status toggle**, if the P2A-00 probe finds it on `/api/v1`. | (b) the retrieval call carries the package's live document IDs, built server-side. Works regardless of RAGFlow; costs long ID lists for crawled sites. Chosen only if (a) is unavailable or the probe shows the toggle unreliable. | P2A-00, P2A-01 |
+| D2 | **Taken, Oct 25, 2026: mechanism (a), RAGFlow's document status toggle** (`PATCH …/documents/<id>`, integer `enabled`), confirmed by the P2A-00 probe. | (b) a server-built document-ID exclusion list on the retrieval call; not needed. | P2A-00, P2A-01 |
 | D3 | **A pause keeps stored excerpts.** Citations of a paused source stay readable in history, labelled "currently unavailable". Only a withdrawal blanks (owner decision 3, Oct 23). | Blank on pause too. Rejected: a pause is reversible and not a rights event. | P2A-02 |
 | D4 | **Pause is a content reviewer action**, as withdrawal is; the operator console links to it. | An operator action on the tenant page. Rejected: it would be the first content decision made from a tenant's page and would blur the register's roles. | P2A-04 |
 | D5 | *(withdrawn)* Audit disposal moved to the backlog, "Enterprise requirements" (owner, Oct 25, 2026); its design proposal is recorded there. | — | P2A-09 |

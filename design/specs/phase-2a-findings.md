@@ -192,3 +192,36 @@ carry 59 ids; crawled sites would be larger. `document_ids` on `/retrieval` was 
 Every document in the three `sample-*` datasets is enabled: `sample-reports` 59 of 59
 with status "1" and run `DONE`, the other two empty. Before the probe the same 59 were
 enabled. The two probed documents read back with the fields above unchanged.
+
+## 3. Groups D and E
+
+Branch `claude/p2a-group-de`, from `claude/inspiring-wozniak-e48a12` at b5eb872 (the
+approved spec), Oct 25, 2026. Items P2A-11, P2A-12 (a) and (b), P2A-13. Built without the
+Instance or RAGFlow (RAGFlow faked, PostgreSQL 16 in the session container).
+
+### 3.1 P2A-11 Public files
+
+| Spec says | Built |
+| --- | --- |
+| Caddy serves `/.well-known/security.txt` (RFC 9116: contact, expiry, preferred languages, the disclosure page URL, signed if the owner holds a key) | `apps/web/public/.well-known/security.txt`, copied into `dist/` by Vite and served by its own `handle` in `infra/caddy/Caddyfile` with `Content-Type: text/plain; charset=utf-8` and `no-cache`. Fields: `Contact` (placeholder `mailto:security-contact@placeholder.invalid`), `Expires` 2027-10-01, `Preferred-Languages: en`, `Policy` (the disclosure page), `Canonical`; `Encryption` is a comment until the owner decides on a key. **Not signed**: no key exists (question 2). The web `Dockerfile` now copies `public/` |
+| `/security-disclosure`, drafted under `design/compliance/` and rendered as static HTML in the web build | Draft text and the `security.txt` content: `design/compliance/security-disclosure.md` (DRAFT, with the owner's to-do list). Page: `apps/web/public/security-disclosure.html`, plain HTML and one stylesheet (`public-page.css`; the CSP allows `'self'` only, so no inline style and no script). Caddy rewrites `/security-disclosure` to the file; the file's own name answers 404, so the page has one address |
+| Both outside the application and its consent gate | Both `handle`s sit before the web build's catch-all (the `index.html` fallback that loads the app), so the app, its sign-in and its consent gate never run for them, and neither page calls the API |
+| The trust page gets a route and is not published until the owner flips a config flag at deploy (the file stays a draft) | `handle /trust { import trust_page_{$ASKSPORE_TRUST_PAGE:unpublished} }` with two snippets: `unpublished` answers 404, `published` serves `trust.html` from the build. Compose passes `ASKSPORE_TRUST_PAGE` from `infra/.env` (default `unpublished`); any other value names no snippet and Caddy refuses to start (checked with `caddy validate`). **Not in the spec, decided here:** the build ships no `trust.html`, so even a flipped flag serves 404 until the owner adds the final page from `trust-page.md` (steps in that file's header). Putting the draft into the build behind the flag would publish its bracketed placeholders on the first flip |
+| Status page source decided (D6) and recorded; nothing built | Recommendation below; nothing built |
+| Tests: the Compose port test still passes; Playwright: the two files are served without sign-in and without a consent redirect; `security.txt` parses and its `Expires` is within a year | `test_compose_ports` passes unchanged (Caddy's ports did not change; the new `environment` key is not a port). `apps/web/e2e/publicFiles.spec.ts`: with the fake API set to "consent pending" and no signed-in user, `/.well-known/security.txt` answers 200 `text/plain` and parses with `Expires` within a year; `/security-disclosure` shows its heading at its own address, with no app root, no script, no consent button and **no API request**; `/trust`, `/trust.html` and `/security-disclosure.html` are 404. The Vite dev server (which Playwright drives) mirrors the Caddy routes with a small middleware in `vite.config.ts`; with the rewrite removed the disclosure test fails (checked). `apps/api/tests/test_public_files.py`: an RFC 9116 parser, negatives first (no `Contact`, a non-URI contact, `Expires` missing, twice, past, more than a year away, not RFC 3339, no time zone, an unknown field, `http` policy, a stray line, no final line break), then the real file; the file equals the block in the draft; the page loads no script, no inline style and no third-party resource; the routes come before the app's catch-all; the trust flag defaults to `unpublished` in the Caddyfile and Compose; the Dockerfile ships `public/`; the dev mirror names the same paths. One test runs the **real Caddyfile** over HTTP when a `caddy` binary is available (`CADDY_BIN` or `PATH`; skipped in CI, which has none): run here with Caddy 2.11.7 (the pinned version, release checksum verified), both flag states, every route as above |
+
+The `Expires` test fails once the date has passed, or if the file is
+edited to more than a year ahead; renewing `Expires` is part of the owner's yearly review
+(`security-disclosure.md`). Caddy's other routes are unchanged (`/api/*`, the SSO callbacks,
+the catch-all), checked with the local run.
+
+**D6, status page: recommendation.** Take the proposal: a hosted third-party status page,
+updated by hand by the operator, until the monitoring stack of idea 3.1 exists. A
+self-hosted page on the same host would go down with the service it reports on, and a
+monitoring stack is out of this phase. Pick an EU-hosted provider with a free or small plan
+that allows subscribers to be switched off (then the page holds no personal data and needs no
+DPA beyond the provider's terms; if subscribers are ever enabled, it becomes a sub-processor
+and goes into `sub-processors.md` first), publish it on its own subdomain (a CNAME, no change
+to Caddy or Compose), list the components the client sees (sign-in, chat answers, file
+downloads), and link it from the trust page when that is published. Revisit when 3.1 brings
+uptime checks that could post to it automatically.

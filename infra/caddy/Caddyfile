@@ -6,6 +6,19 @@
 	admin off
 }
 
+# P2A-11: the trust page's two states. The deploy-time flag ASKSPORE_TRUST_PAGE (Compose
+# passes it from infra/.env, default "unpublished") picks one when Caddy reads this file.
+# Any other value names no snippet and Caddy refuses to start.
+(trust_page_unpublished) {
+	respond 404
+}
+(trust_page_published) {
+	root * /srv/web
+	header Cache-Control "no-cache"
+	rewrite * /trust.html
+	file_server
+}
+
 askspore.myceliumgastronomy.com {
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -38,6 +51,30 @@ askspore.myceliumgastronomy.com {
 	handle @sso_saml {
 		rewrite * /api/v1/auth/sso/saml/{re.sso_saml.1}
 		reverse_proxy api:8000
+	}
+
+	# P2A-11: public files, served from the web build as plain files, outside the
+	# application, its sign-in and its consent gate (no index.html, no API call).
+	handle /.well-known/security.txt {
+		root * /srv/web
+		header Content-Type "text/plain; charset=utf-8"
+		header Cache-Control "no-cache"
+		file_server
+	}
+	handle /security-disclosure {
+		root * /srv/web
+		header Cache-Control "no-cache"
+		rewrite * /security-disclosure.html
+		file_server
+	}
+	# Not published until the owner clears paperwork item 4 and sets the flag (above).
+	handle /trust {
+		import trust_page_{$ASKSPORE_TRUST_PAGE:unpublished}
+	}
+	# One address per page: the files' own names are not served.
+	@public_page_files path /security-disclosure.html /trust.html
+	handle @public_page_files {
+		respond 404
 	}
 
 	# The production web build (apps/web/Dockerfile), including /auth/finish: client-side

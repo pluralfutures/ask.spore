@@ -651,3 +651,34 @@ access tab) and did **not** refresh their baselines (§2, notes); Group A refres
 operator-workspaces baselines on the Instance. CI's `web-visual` job will fail on the admin
 and operator-tenant baselines until they are regenerated in the pinned image, which is the
 first task of the release session (runbook, step 1).
+
+## 5. Release (P2A-14)
+
+By the release session on the Instance, following `phase-2a-release-runbook.md`.
+
+### 5.1 Step 1: visual baselines
+
+Run on `claude/inspiring-wozniak-e48a12` at `ebbf978` in the pinned Playwright image (the
+runner's arguments, bridge networking). First run: 118 passed, 6 failed, all on the tenant
+admin page (`11`, `11b`, `11c`, desktop and phone). Every diff read; the changes are Phase
+2A's only: the "notice v1" heading and Notice column (P2A-06), the Usage section and its
+sidebar entry (P2A-05), the Support access section and its sidebar entry (P2A-08), the audit
+log's wording and From/To dates (P2A-07). The full-page capture artefacts (sticky sidebar
+mid-page in `11b`, the dialog overlay covering the first viewport only in `11c`) were in the
+old baselines too.
+
+The operator tenant page's new "Support access" tab (P2A-08) did not fail: the label changes
+about 565 pixels, under the suite's `maxDiffPixelRatio` of 0.001 (about 1,300 pixels at
+1440 × 900). The five desktop baselines (`13` to `13e`) were rewritten so they show the tab;
+in each, the changed pixels are the label's box only. The phone baselines were unchanged
+byte for byte (the tab row scrolls). Group A had already refreshed `13c` for the "Sources in
+its tags" link.
+
+Final run: 124 passed. `pnpm lint` and `typecheck` clean.
+
+| # | Item | Fix | Why |
+| --- | --- | --- | --- |
+| F-1 | P2A-07, UX-05 | The visual suite fixes the browser clock (`page.clock.setFixedTime`, Oct 25, 2026 10:00 UTC) before every scenario. | The audit export's dates default to the last 90 days ending today, so the admin baselines would have failed in CI from the day after they were taken. Every other baseline passed unchanged with the clock fixed. |
+
+The tolerance that let a new tab label pass is left as it is (UX-05 chose it against
+anti-aliasing noise); noted for the owner in the close-out.

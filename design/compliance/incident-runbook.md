@@ -7,8 +7,8 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [security contact email], [takedown contact email], [incident lead phone], [counsel name and contact], [Client], [Client incident contact], [supervisory authority], [document store], [date] |
-| To finalise, the owner must | (1) name the incident lead and deputy and fill in the contacts; (2) confirm the DPA notification window (clause 9.1, [48] hours) with counsel; (3) identify our lead [supervisory authority] and its notification form; (4) collect each client's incident contact at onboarding (`onboarding-pack.md`); (5) run the first tabletop and record it; (6) have counsel review the templates in §7. |
+| Placeholders | [incident lead phone], [counsel name and contact], [Client], [Client incident contact], [document store], [date] |
+| To finalise, the owner must | (1) name the incident lead and deputy and fill in the contacts; (2) confirm the DPA notification window (clause 9.1, [48] hours) with counsel; (3) confirm the AEPD notification form and procedure; (4) collect each client's incident contact at onboarding (`onboarding-pack.md`); (5) run the first tabletop and record it; (6) have counsel review the templates in §7. |
 
 This runbook implements `policy-incident-response.md`.
 
@@ -44,7 +44,7 @@ A personal data breach (Art. 4(12)) is any SEV1, and some SEV2 (for example bodi
 
 ## 4. Steps for every incident
 
-1. **Detect.** Sources today: a report to [security contact email], a client or user, an operator notice, a failing test or eval, the owner noticing. There is no automated alerting yet (monitoring stack in backlog).
+1. **Detect.** Sources today: a report to security@myceliumgastronomy.com, a client or user, an operator notice, a failing test or eval, the owner noticing. There is no automated alerting yet (monitoring stack in backlog).
 2. **Triage** (within 1 hour for SEV1). What happened, which tenants, which data categories, since when. Set the severity. Start the log entry. Note the time we became aware: this starts the clocks in §5.
 3. **Contain.** Use the playbook in §8. Options available today: stop the API container (`docker compose stop api`), switch sign-in links off for a tenant in the operator console, disable a tenant's entitlements, revoke an operator (`ask-spore operators revoke`), rotate a secret, block a route in Caddy.
 4. **Preserve evidence.** Export the relevant `audit_events` rows (metadata) and container logs to [document store]/incidents/[date]/. The audit table is append-only; do not attempt to change it.
@@ -59,7 +59,7 @@ A personal data breach (Art. 4(12)) is any SEV1, and some SEV2 (for example bodi
 | --- | --- | --- | --- |
 | Processor (client user data: accounts, sign-in events, conversations, downloads, audit of its users) | The affected client's incident contact | Without undue delay and within **[48] hours** of becoming aware | Client DPA clause 9.1; Art. 33(2) |
 | Processor | Supervisory authority, data subjects | **We do not notify them.** The client, as controller, decides | Art. 33(1), 34 |
-| Controller (corpus, our logs, operator accounts, requests sent to us) | [supervisory authority] | Within **72 hours** of becoming aware, unless the breach is unlikely to result in a risk to people; give reasons for any delay; may be given in phases | Art. 33(1), (4) |
+| Controller (corpus, our logs, operator accounts, requests sent to us) | the AEPD (Spain) | Within **72 hours** of becoming aware, unless the breach is unlikely to result in a risk to people; give reasons for any delay; may be given in phases | Art. 33(1), (4) |
 | Controller | Affected people | Without undue delay where the breach is likely to result in a **high** risk to them | Art. 34 |
 | Either | Scaleway, OpenRouter | When their service is involved, so they can preserve their evidence | Their DPAs |
 
@@ -131,7 +131,7 @@ Kept at [document store]/incidents/log. One row per incident:
 > **What we have done:** [ ].
 > **What you can do:** [ ].
 >
-> If you have questions, contact privacyanddata@myceliumgastronomy.com. You also have the right to complain to [supervisory authority].
+> If you have questions, contact privacyanddata@myceliumgastronomy.com. You also have the right to complain to the AEPD (Spain).
 
 ## 8. Playbooks
 
@@ -199,7 +199,7 @@ A court order, a credible legal threat, or a licence breach we find ourselves.
 
 1. Withdraw the source at once: today, delete the document from every RAGFlow dataset it is in by hand, clear the answer caches of tenants whose workspaces include those tags, and set `downloadable` off; from Phase 1b, the `withdraw_source` job does this with an audit trail (P1b-03).
 2. Record the request, our decision and the time in the takedown log.
-3. Answer the requester from [takedown contact email] within the window (10 working days; immediate for licence breaches).
+3. Answer the requester from security@myceliumgastronomy.com within the window (10 working days; immediate for licence breaches).
 4. If a downloadable file was wrongly flagged, list the `download` audit events for it to know how many copies left the platform.
 
 ## 9. Tabletop

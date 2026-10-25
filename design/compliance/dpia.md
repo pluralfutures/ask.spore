@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15): scope note in §1, risks R12 to R14, review trigger |
-| Placeholders | [takedown contact email], [Client], [supervisory authority], [date] |
+| Placeholders | [Client], [date] |
 | To finalise, the owner must | (1) confirm the scope in §1 and the risk ratings in §5; (2) decide the open points in §8; (3) ask the DPO or privacy contact for advice and record it (Art. 35(2)); (4) have counsel review; (5) sign §9; (6) set the review date. |
 
 ---
@@ -106,7 +106,7 @@ Likelihood and severity on a 1 to 3 scale; risk = likelihood × severity, before
 
 ## 7. Prior consultation (Art. 36)
 
-Not required, in our view. After the measures in §5 no risk is rated high. The highest residual risks (R2, R8, R9) are medium only until named Phase 1b items ship, and the external-models transfer is not in use. The owner should repeat this conclusion after Phase 1b. Counsel to confirm against the [supervisory authority]'s DPIA list.
+Not required, in our view. After the measures in §5 no risk is rated high. The highest residual risks (R2, R8, R9) are medium only until named Phase 1b items ship, and the external-models transfer is not in use. The owner should repeat this conclusion after Phase 1b. Counsel to confirm against the the AEPD (Spain)'s DPIA list.
 
 ## 8. Open points for the owner
 

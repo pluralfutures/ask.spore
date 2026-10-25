@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: section 1.1 note and section 1.8 for clients that supply their own documents (P1b-19 step 1, architecture §15); not for the test client. Placeholders added: [max file size], [max files per batch], [secure transfer method], [5] (working days) |
-| Placeholders | [Client], [sending domain], [sender address], [support email], [security contact email], [client IT contact], [Entra redirect URI], [Google redirect URI], [OIDC redirect URI], [SAML ACS URL], [SAML entity ID], [secret transfer method], [recipient first name], [inviter name], [workspace name], [notice version], [notice summary], [notice path], [date] |
+| Placeholders | [Client], [sending domain], [sender address], [support email], [client IT contact], [Entra redirect URI], [Google redirect URI], [OIDC redirect URI], [SAML ACS URL], [SAML entity ID], [secret transfer method], [recipient first name], [inviter name], [workspace name], [notice version], [notice summary], [notice path], [date] |
 | To finalise, the owner must | (1) fill in the placeholders, using `askspore.myceliumgastronomy.com` for [app hostname] unless a client-facing host replaces it; (2) choose the [secret transfer method] for SSO client secrets and SAML keys (section 1.5); (3) check the email templates in section 2 against the copy that P1b-11 and the Authentik template ship with, and keep the two in step; (4) remove the "not yet built" notes once the matching spec items pass their tests; (5) run the live scanner test (P1b-13(a)) with [Client]'s IT contact before the first `[client domain]` user is invited, and record the result in the Phase 1b findings; (6) have counsel check section 2.3 (consent notice) against `privacy-notice.md` and `terms-of-service.md`. |
 
 Section 1 goes to [Client]'s IT contact. Sections 2 and 3 are templates and guidance used by us and by [Client]'s tenant administrator. Section 4 goes to the tenant administrator.
@@ -81,7 +81,7 @@ From Phase 1b (spec item P1b-08), SporeBot requires a second factor for your ten
 ### 1.7 Contacts
 
 - Support and setup: [support email]
-- Security reports: [security contact email]
+- Security reports: security@myceliumgastronomy.com
 - Privacy and data protection: privacyanddata@myceliumgastronomy.com
 
 ### 1.8 Supplying your own documents (only if your contract includes it)
@@ -202,7 +202,7 @@ For tenant administrators. Until P1b-08 ships, administrators sign in with an em
 
 - Ask you for a sign-in link, a one-time code or a recovery code, by any channel.
 - Ask you to install software or browser extensions.
-- Send a sign-in link you did not ask for. If you receive one, ignore it, and tell [security contact email] if it keeps happening.
+- Send a sign-in link you did not ask for. If you receive one, ignore it, and tell security@myceliumgastronomy.com if it keeps happening.
 
 **When you leave your role.** Ask another administrator to remove your administrator role, or tell us. Remove your security key or authenticator entry afterwards.
 
@@ -220,7 +220,7 @@ For tenant administrators. Until P1b-08 ships, administrators sign in with an em
 | 6 | Write the workspace instructions, if you want them | See the guidance below |
 | 7 | Check the file list of each workspace | Shows the sources each workspace searches. Files can be downloaded only where the source's licence allows; others link to the publisher. Each person can download at most 50 files a day |
 | 8 | Deactivate users who leave | Admin page → Users. Deactivation takes effect at their next request and is recorded in the audit log. See `offboarding-pack.md` for the notice template |
-| 9 | Tell us about anything odd | Unexpected sign-in emails, answers that seem to show another organisation's material, or anything else: [security contact email] |
+| 9 | Tell us about anything odd | Unexpected sign-in emails, answers that seem to show another organisation's material, or anything else: security@myceliumgastronomy.com |
 
 **Writing workspace instructions.** Each workspace has an "additional instructions" box. Its text is added, in a separate marked section, to the instructions the model receives with every question in that workspace. It can shape tone, focus and format. It cannot switch off citations, the rule that answers come from your sources, or the platform's other rules.
 

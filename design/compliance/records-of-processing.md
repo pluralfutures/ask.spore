@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1): C1 scope note, C9 (client declarations), and the Part 2 template row for clients that supply documents. Placeholders added: [limitation period]. Oct 25, 2026, **DRAFT** (P2A-10): time-boxed support access (P2A-08) in C4 and the Part 2 sheet |
-| Placeholders | [takedown contact email], [Client], [Client legal name], [Client address], [date], [SCC module], [document store], [representative, if any] |
+| Placeholders | [Client], [Client legal name], [Client address], [date], [SCC module], [document store], [representative, if any] |
 | To finalise, the owner must | (1) fill in the entity, contact and DPO placeholders; (2) decide whether a DPO is required (see open-questions.md) or name a privacy contact; (3) confirm the reasoning on the usage ledger in Part 1, row C5; (4) confirm the retention periods marked [confirm]; (5) add one Part 2 sheet per client at signature, starting with [Client]; (6) have counsel review; (7) review every six months and on every change to `sub-processors.md`. |
 
 ---
@@ -30,7 +30,7 @@ Where a measure is not built yet, the row says so and names the spec item.
 | --- | --- |
 | Controller | Estefania Simon-Sasyk y Otro CB, comunidad de bienes trading as Mycelium Gastronomy Network, NIF E19824093, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain |
 | Privacy contact / DPO | privacyanddata@myceliumgastronomy.com |
-| Takedown and data-subject requests about the corpus | [takedown contact email] |
+| Takedown and data-subject requests about the corpus | security@myceliumgastronomy.com |
 | Representative in the EU (Art. 27) | [representative, if any] — not needed if the entity is established in the EU |
 
 ---

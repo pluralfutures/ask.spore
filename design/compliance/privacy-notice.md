@@ -8,8 +8,8 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted. Oct 25, 2026, **DRAFT** (P2A-10): support access described in §2 and in the audit row, as built in P2A-08 (owner note 8) |
-| Placeholders | [security contact email], [takedown contact email], [website address], [supervisory authority], [Member State], [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
-| To finalise, the owner must | (1) fill in the entity, contacts and supervisory authority; (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) confirm the website and contact-form processing in §3 matches what the public website actually does (analytics, cookies); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records (the wording goes in `config/consent/<version>.md`, the version in `[consent] version` of `config/models.toml`; P1b-10, findings E1-5). |
+| Placeholders | [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
+| To finalise, the owner must | (1) confirm the entity, contacts and supervisory authority (AEPD); (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) confirm the contact-form processing in §3 matches what the public website actually does (analytics, cookies); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records (the wording goes in `config/consent/<version>.md`, the version in `[consent] version` of `config/models.toml`; P1b-10, findings E1-5). |
 
 Plain text below the line is the notice.
 
@@ -64,7 +64,7 @@ We do **not** use your questions or conversations to train or improve any AI mod
 | Keeping the service secure and working | Technical logs: request ID, time, status, latency, token counts, error codes, a pseudonymous user or customer ID. No question, answer or prompt text, no email content | Our legitimate interest in running a secure, reliable service (Art. 6(1)(f)) | [30 days for application logs — owner to confirm]; security-relevant audit records 12 months |
 | Aggregated service metrics | Counts per customer (questions per day, active users, cost per model). No text | Legitimate interest (Art. 6(1)(f)) | [24 months], aggregated |
 | Answering your messages to us | Your name, email address, the content of your message | Legitimate interest in responding; legal obligation where you exercise a GDPR right (Art. 6(1)(c)) | [2 years] after the matter is closed |
-| Our website | [describe: no analytics cookies / the analytics tool used — owner to confirm] | [consent / legitimate interest] | [ ] |
+| Our website (askspore.myceliumgastronomy.com only) | Strictly necessary cookies only (sign-in). No analytics, advertising or tracking cookies. | Legitimate interest (strictly necessary; no consent needed) | [ ] |
 
 ### 4. Where your data is processed and who receives it
 
@@ -82,7 +82,7 @@ The full list of companies that process data for us is at [link to sub-processor
 
 You can ask for access to, correction or deletion of your data, restriction of processing, data portability, and you can object to processing based on legitimate interests. For data we process for your employer, we pass your request to your employer and help it respond. For data we control, write to privacyanddata@myceliumgastronomy.com; we answer within one month.
 
-You can also complain to a data protection supervisory authority, in particular in the EU country where you live or work. Ours is [supervisory authority], [Member State].
+You can also complain to a data protection supervisory authority, in particular in the EU country where you live or work. Ours is the Agencia Española de Protección de Datos (AEPD), Spain.
 
 ### 6. Security
 
@@ -122,7 +122,7 @@ As long as the source stays licensed and relevant to our library. Each source ha
 
 You can ask what we hold about you, ask for correction, **object** to our use of it, or ask for its **erasure**. We assess each request and, where it succeeds, remove the document or replace it with a copy without your data **within 30 days**, and tell you what we decided and why.
 
-Write to [takedown contact email] (or privacyanddata@myceliumgastronomy.com), naming the document or web page if you can. We may ask for information to confirm the request concerns you.
+Write to security@myceliumgastronomy.com (or privacyanddata@myceliumgastronomy.com), naming the document or web page if you can. We may ask for information to confirm the request concerns you.
 
 Publishers who want their content removed can use the same address. We act on publisher takedown requests within 10 working days.
 
@@ -144,9 +144,10 @@ What happens to these documents: their text is split into passages and indexed, 
 
 Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain
 
+- Website: https://askspore.myceliumgastronomy.com
 - Privacy: privacyanddata@myceliumgastronomy.com
-- Removal of content or personal data from our library: [takedown contact email]
-- Security reports: [security contact email]
+- Removal of content or personal data from our library: security@myceliumgastronomy.com
+- Security reports: security@myceliumgastronomy.com
 
 ---
 

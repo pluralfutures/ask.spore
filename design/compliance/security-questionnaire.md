@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15): scope line and rows 4.2, 4.3, 14.1, 14.5, 15.1, 16.3 and new section 17. Use section 17 only for a client that supplies documents, and only once P1b-19 step 2 is built; until then answer "No" to 17.1. Placeholders added: [secure transfer method], [5] (working days) |
-| Placeholders | [Client], [security contact email], [support email], [number of staff], [insurance cover], [name], [30] and [48] (DPA notice periods), [date] |
+| Placeholders | [Client], [support email], [number of staff], [insurance cover], [name], [30] and [48] (DPA notice periods), [date] |
 | To finalise, the owner must | (1) fill in the placeholders; (2) re-check every "Partial" and "No" row against the build on the day the questionnaire is sent, and update the ones that Phase 1b items have closed (each names its spec item); (3) confirm row 6.3 (encryption at rest of the Instance volumes) with Scaleway and replace "[confirm]"; (4) answer the HR rows (section 3) yourself; they are about the company, not the system; (5) keep this file as the master and copy answers into a client's own questionnaire format, never the other way round; (6) have counsel check the privacy rows (section 14) against the signed DPA. |
 
 How to read the answers: **Yes** means built and verified, with the evidence named. **Partial** means part of the control is in place; the detail says which part. **No** means not in place; where it is planned, the spec item is named. **N/A** means it does not apply to this service. Status is as of Oct 21, 2026, after the Phase 1a release (findings §10 to §12).
@@ -136,7 +136,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | 12.1 | Documented incident response plan | Partial | `policy-incident-response.md` and `incident-runbook.md` (drafts) |
 | 12.2 | Breach notification to customers | Yes (contractual) | Without undue delay and within [48] hours of becoming aware (DPA clause 9.1, draft) |
 | 12.3 | Incident tabletop exercise in the last year | No | First tabletop planned before the SOC 2 observation window |
-| 12.4 | Security contact | Yes | [security contact email] |
+| 12.4 | Security contact | Yes | security@myceliumgastronomy.com |
 
 ## 13. Business continuity and disaster recovery
 

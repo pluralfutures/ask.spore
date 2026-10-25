@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [takedown contact email], [date] |
+| Placeholders | [date] |
 | To finalise, the owner must | (1) confirm the purpose description in §1; (2) confirm the safeguards marked "from Phase 1b" are acceptable as planned, or hold ingestion of new crawled sites until they ship; (3) have counsel review the balancing test and the Art. 14(5)(b) reasoning; (4) sign §7 and set the review date. |
 
 ---
@@ -73,7 +73,7 @@ We do not obtain the data from the people concerned, so Art. 14 applies. Writing
 
 Our measures:
 
-- the public privacy notice (`privacy-notice.md`, section "People named in our sources"), describing the kinds of sources, purposes, legal basis, retention, recipients and rights, and the takedown contact [takedown contact email];
+- the public privacy notice (`privacy-notice.md`, section "People named in our sources"), describing the kinds of sources, purposes, legal basis, retention, recipients and rights, and the takedown contact security@myceliumgastronomy.com;
 - the safeguards in §5, especially the objection route and the absence of profiling;
 - this assessment, kept on file as the record of the disproportionate-effort decision.
 

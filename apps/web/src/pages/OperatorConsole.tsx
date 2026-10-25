@@ -5,6 +5,17 @@ import { Link } from "react-router-dom";
 import { ApiError, operatorApi } from "../api/client";
 import { SaveStatus } from "../components/SaveStatus";
 import { formatDate } from "../lib/format";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
+import { Field } from "../ui/Field";
+import { Input } from "../ui/Input";
+import { Checkbox } from "../ui/Checkbox";
+import { Card } from "../ui/Card";
+import { cardClass } from "../ui/cardClass";
+import { PageHeader } from "../ui/PageHeader";
+import { StatusBadge } from "../ui/Badge";
+import { Table, Td, Th } from "../ui/Table";
+import { AccessDenied, EmptyState } from "../ui/States";
 
 // Operator console (P1a-03), one tenant per page (P1b-12): this page picks the tenant and
 // creates new ones; each tenant's settings are on its own page (OperatorTenant), so a
@@ -19,52 +30,87 @@ export function OperatorConsole() {
     return <OperatorsOnly />;
   }
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Operator console</h1>
-        {/* P1c-08: every operator is also a user of the internal tenant. */}
-        <Link to="/" className="text-sm underline">
-          Chat app
-        </Link>
-      </div>
-      <section className="rounded bg-white p-3 text-sm">
-        <h2 className="mb-2 font-semibold">Tenants</h2>
-        <ul className="flex flex-col gap-1">
-          {tenants.data?.map((tenant) => (
-            <li key={tenant.id}>
-              <Link to={`/operator/tenants/${tenant.id}`} className="underline">
-                {tenant.display_name}
-              </Link>{" "}
-              <span className="text-slate-500">
-                ({tenant.slug}) · {tenant.status} · admins: {tenant.admins}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-2">
-          <Link to="/operator/aggregates" className="underline">
+    <div className="mx-auto w-full flex max-w-4xl flex-col gap-6 p-4 md:px-8 md:py-6">
+      <PageHeader
+        title="Operator console"
+        actions={
+          // P1c-08: every operator is also a user of the internal tenant.
+          <Link to="/" className={`text-ui ${LINK}`}>
+            Chat app
+          </Link>
+        }
+      />
+      {/* UX-19: tenants, downloadable files and notices are tables. */}
+      <Card
+        title="Tenants"
+        className="text-ui"
+        actions={
+          <Link to="/operator/aggregates" className={LINK}>
             Totals across tenants
           </Link>
-        </p>
-      </section>
+        }
+      >
+        <Table>
+          <thead>
+            <tr>
+              <Th>Tenant</Th>
+              <Th>Slug</Th>
+              <Th>Status</Th>
+              <Th numeric>Admins</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {tenants.data?.map((tenant) => (
+              <tr key={tenant.id}>
+                <Td label="Tenant">
+                  <Link to={`/operator/tenants/${tenant.id}`} className={LINK}>
+                    {tenant.display_name}
+                  </Link>
+                </Td>
+                <Td label="Slug" className="font-mono text-meta">
+                  {tenant.slug}
+                </Td>
+                <Td label="Status">
+                  <StatusBadge kind="tenant" status={tenant.status} />
+                </Td>
+                <Td label="Admins" numeric>
+                  {tenant.admins}
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </Card>
       <TerminatedTenants />
       <CreateTenant />
       <Sources />
-      <section>
-        <h2 className="mb-2 font-semibold">Notices</h2>
+      <Card title="Notices" className="text-ui">
         {notices.data?.length ? (
-          <ul className="text-sm">
-            {notices.data.map((n) => (
-              <li key={n.id}>
-                {formatDate(n.created_at)} · {n.tenant_slug} · {n.kind}
-              </li>
-            ))}
-          </ul>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Date</Th>
+                <Th>Tenant</Th>
+                <Th>Kind</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {notices.data.map((n) => (
+                <tr key={n.id}>
+                  <Td label="Date">{formatDate(n.created_at)}</Td>
+                  <Td label="Tenant" className="font-mono text-meta">
+                    {n.tenant_slug}
+                  </Td>
+                  <Td label="Kind">{n.kind}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
         ) : (
-          <p className="text-sm text-slate-600">No notices.</p>
+          <EmptyState title="No notices." />
         )}
-      </section>
-    </main>
+      </Card>
+    </div>
   );
 }
 
@@ -80,28 +126,48 @@ function Sources() {
   });
   const files = sources.data?.filter((s) => ["pdf", "docx", "pptx"].includes(s.type)) ?? [];
   return (
-    <section className="rounded bg-white p-3 text-sm">
-      <h2 className="mb-2 font-semibold">Downloadable files</h2>
+    <Card title="Downloadable files" className="text-ui">
       <SaveStatus isSuccess={toggle.isSuccess} error={toggle.error} />
-      {files.length === 0 ? <p className="text-slate-600">No files in the register.</p> : null}
-      <ul className="flex flex-col gap-1">
-        {files.map((source) => (
-          <li key={source.id}>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={source.downloadable}
-                disabled={!source.stored || toggle.isPending}
-                onChange={(e) => toggle.mutate({ id: source.id, downloadable: e.target.checked })}
-              />
-              {source.title} · {source.publisher} · {source.licence_basis} ·{" "}
-              {source.tags.join(", ")}
-              {source.stored ? null : <span className="text-slate-600">(no stored copy)</span>}
-            </label>
-          </li>
-        ))}
-      </ul>
-    </section>
+      {files.length === 0 ? (
+        <EmptyState title="No files in the register." />
+      ) : (
+        <Table>
+          <thead>
+            <tr>
+              <Th>Downloadable</Th>
+              <Th>Title</Th>
+              <Th>Publisher</Th>
+              <Th>Licence basis</Th>
+              <Th>Tags</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {files.map((source) => (
+              <tr key={source.id} data-testid={`source-${source.id}`}>
+                <Td label="Downloadable">
+                  <Checkbox
+                    checked={source.downloadable}
+                    disabled={!source.stored || toggle.isPending}
+                    onChange={(e) =>
+                      toggle.mutate({ id: source.id, downloadable: e.target.checked })
+                    }
+                  >
+                    <span className="sr-only">{source.title}</span>
+                  </Checkbox>
+                </Td>
+                <Td label="Title">
+                  <span className="font-emphasis">{source.title}</span>
+                  {source.stored ? null : <span className="text-fg-muted"> (no stored copy)</span>}
+                </Td>
+                <Td label="Publisher">{source.publisher}</Td>
+                <Td label="Licence basis">{source.licence_basis}</Td>
+                <Td label="Tags">{source.tags.join(", ")}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </Card>
   );
 }
 
@@ -114,23 +180,22 @@ function TerminatedTenants() {
   });
   if (!terminated.data?.length) return null;
   return (
-    <section className="rounded bg-white p-3 text-sm">
-      <h2 className="mb-2 font-semibold">Terminated tenants</h2>
+    <Card title="Terminated tenants" className="text-ui">
       <ul className="flex flex-col gap-1">
         {terminated.data.map((t) => (
           <li key={t.id} data-testid={`terminated-${t.slug}`}>
-            {t.display_name} <span className="text-slate-500">({t.slug})</span> · {t.status} ·
+            {t.display_name} <span className="text-fg-subtle">({t.slug})</span> · {t.status} ·
             purged {t.purged_at ? formatDate(t.purged_at) : "date not recorded"} · certificate{" "}
             {t.certificate ?? "not recorded"}
           </li>
         ))}
       </ul>
-    </section>
+    </Card>
   );
 }
 
 export function OperatorsOnly() {
-  return <main className="mx-auto max-w-3xl p-4 text-sm">Operators only.</main>;
+  return <AccessDenied>Operators only.</AccessDenied>;
 }
 
 function CreateTenant() {
@@ -156,37 +221,20 @@ function CreateTenant() {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-wrap items-end gap-2 rounded bg-white p-3 text-sm">
-      <h2 className="w-full font-semibold">New tenant</h2>
-      <label className="flex flex-col">
-        Slug
-        <input
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-          required
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Display name
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Verified domains (comma-separated)
-        <input
-          value={domains}
-          onChange={(e) => setDomains(e.target.value)}
-          className="border px-1"
-        />
-      </label>
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+    <form onSubmit={submit} className={cardClass("flex flex-wrap items-end gap-2 text-ui")}>
+      <h2 className="w-full font-strong">New tenant</h2>
+      <Field label="Slug">
+        <Input value={slug} onChange={(e) => setSlug(e.target.value)} required />
+      </Field>
+      <Field label="Display name">
+        <Input value={name} onChange={(e) => setName(e.target.value)} required />
+      </Field>
+      <Field label="Verified domains (comma-separated)">
+        <Input value={domains} onChange={(e) => setDomains(e.target.value)} />
+      </Field>
+      <Button variant="primary" type="submit">
         Create
-      </button>
+      </Button>
       <SaveStatus isSuccess={create.isSuccess} error={create.error} savedText="Tenant created." />
     </form>
   );

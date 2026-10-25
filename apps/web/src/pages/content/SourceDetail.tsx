@@ -1,11 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 
 import { contentApi } from "../../api/client";
 import type { ContentSourceDetail, SourceRef } from "../../api/types";
 import { canEdit, canReview, errorMessage, historyLine, timerText } from "../../lib/content";
 import { formatDate } from "../../lib/format";
+import { Button } from "../../ui/Button";
+import { LINK } from "../../ui/link";
+import { Field } from "../../ui/Field";
+import { Input, Textarea } from "../../ui/Input";
+import { Checkbox, Radio } from "../../ui/Checkbox";
+import { Notice } from "../../ui/Notice";
+import { Skeleton } from "../../ui/States";
+import { cardClass } from "../../ui/cardClass";
+import { StatusBadge } from "../../ui/Badge";
+import { Card } from "../../ui/Card";
 
 // One source: its register metadata, history, jobs, ingestion status and errors, the
 // licence file, links to its documents in the private RAGFlow UI, and the reviewer's
@@ -16,8 +26,8 @@ export function SourceDetail({ roles }: { roles: string[] }) {
     queryKey: ["content", "source", id],
     queryFn: () => contentApi.source(id),
   });
-  if (source.error) return <p className="text-red-700">{errorMessage(source.error)}</p>;
-  if (!source.data) return <p>Loading…</p>;
+  if (source.error) return <Notice tone="danger">{errorMessage(source.error)}</Notice>;
+  if (!source.data) return <Skeleton />;
   return (
     <section className="flex flex-col gap-4">
       <SourceSummary source={source.data} />
@@ -30,89 +40,93 @@ export function SourceDetail({ roles }: { roles: string[] }) {
 
 export function SourceSummary({ source }: { source: ContentSourceDetail }) {
   return (
-    <div className="flex flex-col gap-1 rounded bg-white p-3">
-      <h2 className="text-lg font-semibold">{source.title}</h2>
-      <p>
-        {source.publisher} · {source.type.toUpperCase()} · {formatDate(source.published_on)} ·{" "}
-        {source.tags.join(", ")}
-      </p>
-      <p>
-        Status: <strong data-testid="source-status">{source.status}</strong>
-        {source.chunk_count !== null ? ` · ${source.chunk_count} chunks` : ""}
-        {source.downloadable ? " · downloadable" : ""}
-      </p>
-      <p>Licence basis: {source.licence_basis}</p>
-      {source.canonical_url ? (
-        <p>
-          Canonical link:{" "}
-          <a
-            href={source.canonical_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            {source.canonical_url}
-          </a>
-        </p>
-      ) : null}
-      {source.licence_file ? (
-        <p>
-          <a href={contentApi.licenceUrl(source.id)} className="underline">
-            Licence or permission letter
-          </a>
-        </p>
-      ) : (
-        <p className="text-slate-600">No licence file on record.</p>
-      )}
+    <Card title={source.title}>
+      {/* UX-21: the source's facts as a definition list. */}
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-[max-content_minmax(0,1fr)]">
+        <Fact label="Publisher">{source.publisher}</Fact>
+        <Fact label="Type">{source.type.toUpperCase()}</Fact>
+        <Fact label="Published">{formatDate(source.published_on)}</Fact>
+        <Fact label="Tags">{source.tags.join(", ")}</Fact>
+        <Fact label="Status">
+          <StatusBadge kind="source" status={source.status} data-testid="source-status" />
+          {source.chunk_count !== null ? ` · ${source.chunk_count} chunks` : ""}
+          {source.downloadable ? " · downloadable" : ""}
+        </Fact>
+        <Fact label="Licence basis">{source.licence_basis}</Fact>
+        {source.canonical_url ? (
+          <Fact label="Canonical link">
+            <a
+              href={source.canonical_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`[overflow-wrap:anywhere] ${LINK}`}
+            >
+              {source.canonical_url}
+            </a>
+          </Fact>
+        ) : null}
+        <Fact label="Licence file">
+          {source.licence_file ? (
+            <a href={contentApi.licenceUrl(source.id)} className={LINK}>
+              Licence or permission letter
+            </a>
+          ) : (
+            <span className="text-fg-muted">No licence file on record.</span>
+          )}
+        </Fact>
+        {source.review_note ? <Fact label="Reviewer's note">{source.review_note}</Fact> : null}
+        {source.withdrawal_reason ? (
+          <Fact label="Withdrawn">
+            {formatDate(source.withdrawn_at)}: {source.withdrawal_reason}
+          </Fact>
+        ) : null}
+        {source.supersedes ? <Fact label="Replaces">{source.supersedes.title}</Fact> : null}
+      </dl>
       {source.error ? (
-        <p data-testid="source-error" className="text-red-700">
+        <Notice tone="danger" data-testid="source-error">
           Ingestion error: {source.error}
-        </p>
+        </Notice>
       ) : null}
-      {source.review_note ? <p>Reviewer's note: {source.review_note}</p> : null}
-      {source.withdrawal_reason ? (
-        <p>
-          Withdrawn {formatDate(source.withdrawn_at)}: {source.withdrawal_reason}
-        </p>
-      ) : null}
-      {source.supersedes ? <p>Replaces: {source.supersedes.title}</p> : null}
       {source.possible_replacements.length ? (
-        <p data-testid="possible-replacement" className="text-amber-900">
+        <Notice tone="warning" data-testid="possible-replacement">
           Possible replacement of{" "}
           {source.possible_replacements.map((r) => `${r.title} (${r.publisher})`).join("; ")}
-        </p>
+        </Notice>
       ) : null}
       {source.takedown ? (
-        <p data-testid="takedown" className="text-red-700">
+        <Notice tone="danger" data-testid="takedown">
           Takedown {source.takedown.reference}, requested {formatDate(source.takedown.requested_on)}
           , due {formatDate(source.takedown.due_on)}
           {source.status === "withdrawn"
             ? ""
             : ` (${timerText(source.takedown.working_days_left)})`}
           {source.takedown.licence_grounds ? " · licence grounds" : ""}
-        </p>
+        </Notice>
       ) : null}
-    </div>
+    </Card>
+  );
+}
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="text-fg-muted">{label}</dt>
+      <dd className="mb-1 sm:mb-0">{children}</dd>
+    </>
   );
 }
 
 export function SourceRecord({ source }: { source: ContentSourceDetail }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <div className="rounded bg-white p-3">
-        <h3 className="font-semibold">Documents in RAGFlow</h3>
-        {source.documents.length === 0 ? <p className="text-slate-600">None.</p> : null}
+      <Card title="Documents in RAGFlow" level={3}>
+        {source.documents.length === 0 ? <p className="text-fg-muted">None.</p> : null}
         <ul>
           {source.documents.map((d) => (
             <li key={d.dataset_id}>
               {d.tag}:{" "}
               {d.ragflow_url ? (
-                <a
-                  href={d.ragflow_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
+                <a href={d.ragflow_url} target="_blank" rel="noopener noreferrer" className={LINK}>
                   chunks in the RAGFlow UI
                 </a>
               ) : (
@@ -122,22 +136,21 @@ export function SourceRecord({ source }: { source: ContentSourceDetail }) {
           ))}
         </ul>
         {source.documents.some((d) => d.ragflow_url) ? (
-          <p className="text-xs text-slate-600">
+          <p className="text-meta text-fg-muted">
             The RAGFlow UI is private: it opens over an SSH tunnel to the Instance (operators only).
           </p>
         ) : null}
-        <h3 className="mt-3 font-semibold">Jobs</h3>
+        <h3 className="text-heading font-strong">Jobs</h3>
         <ul>
           {source.jobs.map((job) => (
             <li key={job.id}>
-              {job.type} · {job.status}
+              {job.type} · <StatusBadge kind="job" status={job.status} />
               {job.error_code ? ` · ${job.error_code}` : ""} · {formatDate(job.created_at)}
             </li>
           ))}
         </ul>
-      </div>
-      <div className="rounded bg-white p-3">
-        <h3 className="font-semibold">History</h3>
+      </Card>
+      <Card title="History" level={3}>
         <ol>
           {source.history.map((entry, n) => (
             <li key={n}>
@@ -145,7 +158,7 @@ export function SourceRecord({ source }: { source: ContentSourceDetail }) {
             </li>
           ))}
         </ol>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -185,9 +198,8 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
     errorMessage(withdraw.error) ??
     errorMessage(restore.error);
   return (
-    <div className="flex flex-col gap-3 rounded bg-white p-3">
-      <h3 className="font-semibold">Review</h3>
-      {error ? <p className="text-red-700">{error}</p> : null}
+    <Card title="Review" level={3}>
+      {error ? <Notice tone="danger">{error}</Notice> : null}
       {source.status === "proposed" ? (
         <div className="flex flex-col gap-2">
           {source.possible_replacements.length ? (
@@ -197,74 +209,57 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
               onChange={setChoice}
             />
           ) : null}
-          <label className="flex flex-col">
-            Note (required to reject)
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="border p-1"
-            />
-          </label>
+          <Field label="Note (required to reject)">
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
           <div className="flex gap-2">
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={() => approve.mutate()}
               disabled={approve.isPending || (source.possible_replacements.length > 0 && !choice)}
-              className="rounded bg-slate-900 px-3 py-1 text-white disabled:opacity-50"
             >
               Approve
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => reject.mutate()}
               disabled={reject.isPending || !note.trim()}
-              className="rounded border px-3 py-1 disabled:opacity-50"
             >
               Reject
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
       {source.status === "failed" ? (
-        <button
-          type="button"
-          onClick={() => retry.mutate()}
-          className="w-fit rounded border px-3 py-1"
-        >
+        <Button variant="secondary" className="w-fit" onClick={() => retry.mutate()}>
           Retry ingestion
-        </button>
+        </Button>
       ) : null}
       {source.status === "ingested" || source.status === "failed" ? (
         <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col">
-            Withdrawal reason
-            <input
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="border px-1"
-            />
-          </label>
-          <button
-            type="button"
+          <Field label="Withdrawal reason">
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+          </Field>
+          <Button
+            variant="secondary-danger"
             onClick={() => withdraw.mutate()}
             disabled={withdraw.isPending || !reason.trim()}
-            className="rounded border border-red-700 px-3 py-1 text-red-700 disabled:opacity-50"
           >
             Withdraw everywhere
-          </button>
+          </Button>
         </div>
       ) : null}
       {source.status === "withdrawn" && source.site_id ? (
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            className="w-fit"
             onClick={() => restore.mutate()}
             disabled={restore.isPending || restore.isSuccess}
-            className="w-fit rounded border px-3 py-1 disabled:opacity-50"
           >
             Restore page
-          </button>
-          <span className="text-slate-600">
+          </Button>
+          <span className="text-fg-muted">
             {restore.isSuccess
               ? "Restored: the next crawl of the site takes it again."
               : "The next crawl of its site takes the page again as a new version."}
@@ -272,7 +267,7 @@ function ReviewActions({ source }: { source: ContentSourceDetail }) {
         </div>
       ) : null}
       {source.status !== "withdrawn" ? <TakedownForm id={source.id} /> : null}
-    </div>
+    </Card>
   );
 }
 
@@ -288,31 +283,28 @@ export function ReplacementChoice({
 }) {
   return (
     <fieldset className="flex flex-col gap-1">
-      <legend className="text-amber-900">
+      <legend className="text-warning">
         Possible replacement: this file is at the canonical link of an ingested source.
       </legend>
       {candidates.map((c) => (
-        <label key={c.id}>
-          <input
-            type="radio"
-            name="replacement"
-            value={c.id}
-            checked={value === c.id}
-            onChange={() => onChange(c.id)}
-          />{" "}
-          Replace {c.title} ({c.publisher})
-        </label>
-      ))}
-      <label>
-        <input
-          type="radio"
+        <Radio
+          key={c.id}
           name="replacement"
-          value="keep"
-          checked={value === "keep"}
-          onChange={() => onChange("keep")}
-        />{" "}
+          value={c.id}
+          checked={value === c.id}
+          onChange={() => onChange(c.id)}
+        >
+          Replace {c.title} ({c.publisher})
+        </Radio>
+      ))}
+      <Radio
+        name="replacement"
+        value="keep"
+        checked={value === "keep"}
+        onChange={() => onChange("keep")}
+      >
         Keep both
-      </label>
+      </Radio>
     </fieldset>
   );
 }
@@ -339,44 +331,35 @@ function TakedownForm({ id }: { id: string }) {
   }
   return (
     <form onSubmit={submit} className="flex flex-wrap items-end gap-2 border-t pt-2">
-      <span className="w-full font-semibold">Record a takedown request</span>
-      <label className="flex flex-col">
-        Reference
-        <input
-          value={reference}
-          onChange={(e) => setReference(e.target.value)}
-          required
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Requested on
-        <input
+      <span className="w-full font-strong">Record a takedown request</span>
+      <Field label="Reference">
+        <Input value={reference} onChange={(e) => setReference(e.target.value)} required />
+      </Field>
+      <Field label="Requested on">
+        <Input
           type="date"
           value={requestedOn}
           onChange={(e) => setRequestedOn(e.target.value)}
           required
-          className="border px-1"
         />
-      </label>
-      <label>
-        <input type="checkbox" checked={breach} onChange={(e) => setBreach(e.target.checked)} />{" "}
+      </Field>
+      <Checkbox checked={breach} onChange={(e) => setBreach(e.target.checked)}>
         Licence breach we found (due today)
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={grounds || breach}
-          disabled={breach}
-          onChange={(e) => setGrounds(e.target.checked)}
-        />{" "}
+      </Checkbox>
+      <Checkbox
+        checked={grounds || breach}
+        disabled={breach}
+        onChange={(e) => setGrounds(e.target.checked)}
+      >
         On licence grounds
-      </label>
-      <button type="submit" disabled={record.isPending} className="rounded border px-3 py-1">
+      </Checkbox>
+      <Button variant="secondary" type="submit" disabled={record.isPending}>
         Record
-      </button>
+      </Button>
       {errorMessage(record.error) ? (
-        <p className="w-full text-red-700">{errorMessage(record.error)}</p>
+        <Notice tone="danger" className="w-full">
+          {errorMessage(record.error)}
+        </Notice>
       ) : null}
     </form>
   );
@@ -394,21 +377,19 @@ function LicenceUpload({ id }: { id: string }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["content", "source", id] }),
   });
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded bg-white p-3">
-      <label className="flex flex-col">
-        Licence or permission letter (PDF, DOCX, TXT, EML, image)
-        <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      </label>
-      <button
-        type="button"
+    <div className={cardClass("flex flex-wrap items-end gap-2")}>
+      <Field label="Licence or permission letter (PDF, DOCX, TXT, EML, image)">
+        <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      </Field>
+      <Button
+        variant="secondary"
         onClick={() => upload.mutate()}
         disabled={!file || upload.isPending}
-        className="rounded border px-3 py-1 disabled:opacity-50"
       >
         Attach
-      </button>
+      </Button>
       {errorMessage(upload.error) ? (
-        <p className="text-red-700">{errorMessage(upload.error)}</p>
+        <Notice tone="danger">{errorMessage(upload.error)}</Notice>
       ) : null}
     </div>
   );

@@ -12,6 +12,17 @@ import {
   parsePatterns,
 } from "../../lib/content";
 import { formatDate } from "../../lib/format";
+import { Button } from "../../ui/Button";
+import { EmptyState, Skeleton } from "../../ui/States";
+import { LINK } from "../../ui/link";
+import { Field } from "../../ui/Field";
+import { Input, Select, Textarea } from "../../ui/Input";
+import { Checkbox } from "../../ui/Checkbox";
+import { Notice } from "../../ui/Notice";
+import { cardClass } from "../../ui/cardClass";
+import { Globe } from "lucide-react";
+import { StatusBadge } from "../../ui/Badge";
+import { Table, Td, Th } from "../../ui/Table";
 
 // Sites (P1b-04, P1b-05): registered websites, their crawl state, and the editor's form
 // to register one for a reviewer to approve.
@@ -20,52 +31,60 @@ export function Sites({ roles }: { roles: string[] }) {
   return (
     <section className="flex flex-col gap-4">
       {errorMessage(sites.error) ? (
-        <p className="text-red-700">{errorMessage(sites.error)}</p>
+        <Notice tone="danger">{errorMessage(sites.error)}</Notice>
       ) : null}
-      {sites.data ? <SiteTable sites={sites.data} /> : <p>Loading…</p>}
+      {sites.data ? <SiteTable sites={sites.data} /> : <Skeleton />}
       {canEdit(roles) ? <RegisterSite /> : null}
     </section>
   );
 }
 
 export function SiteTable({ sites }: { sites: ContentSite[] }) {
-  if (sites.length === 0) return <p className="text-slate-600">No sites registered.</p>;
+  if (sites.length === 0) return <EmptyState title="No sites registered." icon={Globe} />;
   return (
-    <table className="w-full rounded bg-white text-left">
+    <Table>
       <thead>
-        <tr className="border-b">
-          <th className="p-2">Site</th>
-          <th className="p-2">Status</th>
-          <th className="p-2">Allow decision</th>
-          <th className="p-2">Schedule</th>
-          <th className="p-2">Last crawl</th>
-          <th className="p-2">Pages</th>
-          <th className="p-2">Blocked</th>
+        <tr>
+          <Th>Site</Th>
+          <Th>Status</Th>
+          <Th>Allow decision</Th>
+          <Th>Schedule</Th>
+          <Th>Last crawl</Th>
+          <Th numeric>Pages</Th>
+          <Th numeric>Blocked</Th>
         </tr>
       </thead>
       <tbody>
         {sites.map((site) => (
-          <tr key={site.id} className="border-b">
-            <td className="p-2">
-              <Link to={`/content/sites/${site.id}`} className="underline">
+          <tr key={site.id}>
+            <Td label="Site">
+              <Link to={`/content/sites/${site.id}`} className={LINK}>
                 {site.name}
               </Link>{" "}
-              <span className="text-slate-500">{site.host}</span>
-            </td>
-            <td className="p-2">{site.status}</td>
-            <td className="p-2">{ALLOW_DECISIONS[site.allow_decision] ?? site.allow_decision}</td>
-            <td className="p-2">{site.schedule}</td>
-            <td className="p-2">
+              <span className="text-fg-subtle">{site.host}</span>
+            </Td>
+            <Td label="Status">
+              <StatusBadge kind="site" status={site.status} />
+            </Td>
+            <Td label="Allow decision">
+              {ALLOW_DECISIONS[site.allow_decision] ?? site.allow_decision}
+            </Td>
+            <Td label="Schedule">{site.schedule}</Td>
+            <Td label="Last crawl">
               {site.last_crawl_at
                 ? `${formatDate(site.last_crawl_at)} · ${site.last_crawl_status}`
                 : "never"}
-            </td>
-            <td className="p-2">{site.page_count}</td>
-            <td className="p-2">{site.blocked_count}</td>
+            </Td>
+            <Td label="Pages" numeric>
+              {site.page_count}
+            </Td>
+            <Td label="Blocked" numeric>
+              {site.blocked_count}
+            </Td>
           </tr>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 }
 
@@ -102,84 +121,73 @@ function RegisterSite() {
     });
   }
   const input = (key: "start_url" | "name" | "publisher" | "licence_basis" | "max_pages") => (
-    <input
+    <Input
       value={form[key]}
       onChange={(e) => setForm({ ...form, [key]: e.target.value })}
       required
-      className="border px-1"
     />
   );
   return (
-    <form onSubmit={submit} className="flex max-w-2xl flex-col gap-2 rounded bg-white p-3">
-      <h2 className="font-semibold">Register a site</h2>
-      <label className="flex flex-col">Start URL{input("start_url")}</label>
-      <label className="flex flex-col">Name{input("name")}</label>
-      <label className="flex flex-col">Publisher{input("publisher")}</label>
-      <label className="flex flex-col">Licence basis{input("licence_basis")}</label>
-      <fieldset className="flex flex-wrap gap-3">
-        <legend>Tags</legend>
+    <form onSubmit={submit} className={cardClass("flex max-w-2xl flex-col gap-4")}>
+      <h2 className="text-heading font-strong">Register a site</h2>
+      <Field label="Start URL">{input("start_url")}</Field>
+      <Field label="Name">{input("name")}</Field>
+      <Field label="Publisher">{input("publisher")}</Field>
+      <Field label="Licence basis">{input("licence_basis")}</Field>
+      <fieldset className="flex flex-wrap gap-x-4 gap-y-2">
+        <legend className="mb-2 text-ui font-strong">Tags</legend>
         {tags.data?.map((t) => (
-          <label key={t.tag}>
-            <input
-              type="checkbox"
-              checked={form.tags.includes(t.tag)}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  tags: e.target.checked
-                    ? [...form.tags, t.tag]
-                    : form.tags.filter((x) => x !== t.tag),
-                })
-              }
-            />{" "}
+          <Checkbox
+            key={t.tag}
+            checked={form.tags.includes(t.tag)}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                tags: e.target.checked
+                  ? [...form.tags, t.tag]
+                  : form.tags.filter((x) => x !== t.tag),
+              })
+            }
+          >
             {t.tag}
-          </label>
+          </Checkbox>
         ))}
       </fieldset>
-      <label className="flex flex-col">
-        Paths to crawl, one per line (e.g. /reports/*; empty: the whole site)
-        <textarea
+      <Field label="Paths to crawl, one per line (e.g. /reports/*; empty: the whole site)">
+        <Textarea
           value={form.allow}
           onChange={(e) => setForm({ ...form, allow: e.target.value })}
-          className="border p-1"
         />
-      </label>
-      <label className="flex flex-col">
-        Paths never to crawl, one per line
-        <textarea
-          value={form.deny}
-          onChange={(e) => setForm({ ...form, deny: e.target.value })}
-          className="border p-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Schedule
-        <select
+      </Field>
+      <Field label="Paths never to crawl, one per line">
+        <Textarea value={form.deny} onChange={(e) => setForm({ ...form, deny: e.target.value })} />
+      </Field>
+      <Field label="Schedule">
+        <Select
           value={form.schedule}
           onChange={(e) =>
             setForm({ ...form, schedule: e.target.value as SiteCreateIn["schedule"] })
           }
-          className="border"
         >
           {SCHEDULES.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="flex flex-col">Page budget{input("max_pages")}</label>
-      <button
-        type="submit"
-        disabled={create.isPending}
-        className="w-fit rounded bg-slate-900 px-3 py-1 text-white"
-      >
+        </Select>
+      </Field>
+      <Field label="Page budget">{input("max_pages")}</Field>
+      <Button variant="primary" className="w-fit" type="submit" disabled={create.isPending}>
         Register
-      </button>
+      </Button>
       {errorMessage(create.error) ? (
-        <p className="text-red-700">{errorMessage(create.error)}</p>
+        <Notice tone="danger">{errorMessage(create.error)}</Notice>
       ) : null}
-      {create.data ? <p>Registered: it waits for a reviewer.</p> : null}
+      {create.data ? (
+        <Notice tone="success" role="status">
+          Registered: it waits for a reviewer.
+        </Notice>
+      ) : null}
     </form>
   );
 }

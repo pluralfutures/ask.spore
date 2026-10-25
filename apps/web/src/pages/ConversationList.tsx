@@ -1,70 +1,37 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { api } from "../api/client";
-import { isTenantAdmin } from "../lib/admin";
-import { formatDate } from "../lib/format";
+import { ConversationLinks } from "../components/Conversations";
+import { ButtonLink } from "../ui/Button";
+import { LINK } from "../ui/link";
+import { PageHeader } from "../ui/PageHeader";
 
+// The home page: the conversation list (UX-13: the same rows as the chat's rail) and the
+// workspaces' files.
 export function ConversationList() {
-  const queryClient = useQueryClient();
-  const conversations = useQuery({ queryKey: ["conversations"], queryFn: api.listConversations });
-  const me = useQuery({ queryKey: ["me"], queryFn: api.me });
   const workspaces = useQuery({ queryKey: ["workspaces"], queryFn: api.workspaces });
-  const remove = useMutation({
-    mutationFn: api.deleteConversation,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["conversations"] }),
-  });
 
   return (
-    <main className="mx-auto max-w-3xl p-4">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Conversations</h1>
-        {isTenantAdmin(me.data) ? (
-          <Link to="/admin" className="text-sm underline">
-            Administration
-          </Link>
-        ) : null}
-        {/* P1c-08: operators reach their console from the chat app. */}
-        {me.data?.operator ? (
-          <Link to="/operator" className="text-sm underline">
-            Operator console
-          </Link>
-        ) : null}
-        <Link to="/new" className="rounded bg-slate-900 px-3 py-1.5 text-white">
-          New conversation
-        </Link>
-      </div>
-      {conversations.isPending ? <p>Loading…</p> : null}
-      {conversations.isError ? <p className="text-red-700">Could not load conversations.</p> : null}
-      {conversations.data?.length === 0 ? (
-        <p className="text-slate-600">No conversations yet.</p>
-      ) : null}
-      <ul className="divide-y rounded border bg-white">
-        {conversations.data?.map((c) => (
-          <li key={c.id} className="flex items-center justify-between gap-4 p-3">
-            <Link to={`/c/${c.id}`} className="min-w-0 flex-1">
-              <p className="truncate font-medium">{c.title ?? "Untitled conversation"}</p>
-              <p className="text-sm text-slate-600">Expires {formatDate(c.expires_at)}</p>
-            </Link>
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm("Delete this conversation permanently?")) remove.mutate(c.id);
-              }}
-              className="text-sm text-red-700 underline"
-            >
-              Delete
-            </button>
-          </li>
-        ))}
-      </ul>
+    <div className="mx-auto w-full flex max-w-3xl flex-col gap-6 p-4 md:px-8 md:py-6">
+      <PageHeader
+        title="Conversations"
+        // UX-10: Administration and the operator console (P1c-08) are in the top bar.
+        actions={
+          <ButtonLink to="/new" variant="primary" icon={Plus}>
+            New conversation
+          </ButtonLink>
+        }
+      />
+      <ConversationLinks variant="page" />
       {workspaces.data?.length ? (
-        <section className="mt-6 text-sm">
-          <h2 className="mb-1 font-semibold">Files behind each workspace</h2>
+        <section className="text-ui">
+          <h2 className="mb-1 font-strong">Files behind each workspace</h2>
           <ul className="flex flex-wrap gap-3">
             {workspaces.data.map((w) => (
               <li key={w.id}>
-                <Link to={`/w/${w.id}/files`} className="underline">
+                <Link to={`/w/${w.id}/files`} className={LINK}>
                   {w.name}
                 </Link>
               </li>
@@ -72,6 +39,6 @@ export function ConversationList() {
           </ul>
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }

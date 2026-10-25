@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ComponentProps, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api/client";
@@ -11,6 +11,11 @@ import { NO_HISTORY_NOTE, sameChoice } from "../lib/noHistory";
 import { CitationPanel } from "../components/CitationPanel";
 import { ConversationHeader } from "../components/ConversationHeader";
 import type { StartState } from "./NewConversation";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
+import { Textarea } from "../ui/Input";
+import { Notice } from "../ui/Notice";
+import { Loading } from "../ui/States";
 
 interface Live {
   question: string;
@@ -44,6 +49,10 @@ const ERRORS: Record<string, string> = {
 // After a stop or a failed answer, the server stores the partial turn when it notices the
 // closed stream: the conversation is reloaded until it holds the turn (or gives up).
 const SETTLE_TRIES = 6;
+
+// UX-15: the user's question as a bubble on the right, at most 80% wide.
+const QUESTION =
+  "max-w-[80%] self-end rounded-card bg-neutral-muted px-3.5 py-2.5 [overflow-wrap:anywhere]";
 const SETTLE_DELAY_MS = 400;
 
 export function Chat() {
@@ -165,31 +174,27 @@ export function Chat() {
   const persisted = live?.done ? messages.some((m) => m.id === live.done?.message_id) : false;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-      <main className="mx-auto flex w-full max-w-3xl min-w-0 flex-1 flex-col p-4">
-        <header className="mb-4">
-          <Link to="/" className="text-sm underline">
+    <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="mx-auto flex w-full max-w-[47.5rem] min-w-0 flex-1 flex-col px-4 pt-4 md:px-8 md:pt-6">
+        <header className="mb-6 flex flex-col gap-2 border-b pb-4">
+          <Link to="/" className={`w-fit text-ui ${LINK}`}>
             ← Conversations
           </Link>
-          <h1 className="text-lg font-semibold">
+          <h1 className="text-heading font-strong">
             {conversation.data?.title ?? "New conversation"}
           </h1>
           {conversation.data ? <ConversationHeader conversation={conversation.data} /> : null}
-          {noHistory ? (
-            <p data-testid="no-history" className="mt-2 text-sm text-slate-600">
-              {NO_HISTORY_NOTE}
-            </p>
-          ) : null}
+          {noHistory ? <Notice data-testid="no-history">{NO_HISTORY_NOTE}</Notice> : null}
           {start?.notice ? (
-            <p role="status" className="mt-2 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">
+            <Notice tone="warning" role="status">
               {start.notice}
-            </p>
+            </Notice>
           ) : null}
         </header>
         {conversation.isError && !noHistory ? (
-          <p className="text-red-700">Conversation not found.</p>
+          <Notice tone="danger">Conversation not found.</Notice>
         ) : null}
-        <ol className="flex flex-col gap-3">
+        <ol className="flex flex-col gap-6">
           {past.map((turn, i) => (
             <PastTurn
               key={`past-${i}`}
@@ -199,85 +204,83 @@ export function Chat() {
           ))}
           {messages.map((m) =>
             m.role === "user" ? (
-              <li key={m.id} className="self-end rounded bg-slate-200 px-3 py-2">
+              <li key={m.id} className={QUESTION}>
                 {m.content}
               </li>
             ) : (
               <li key={m.id}>
-                {hasBody(m.content, m) ? (
-                  <AssistantMessage
-                    text={m.content}
-                    citations={m.citations}
-                    unsupported={m.unsupported && !m.partial}
-                    abstained={m.abstained}
-                    messageId={m.id}
-                    onCite={(marker) => setSelection({ key: m.id, marker })}
-                  />
-                ) : null}
-                <AnswerNote note={answerNote(m)} />
-                <FailoverNote kind={m.failover} />
+                <Answer
+                  body={hasBody(m.content, m)}
+                  text={m.content}
+                  citations={m.citations}
+                  unsupported={m.unsupported && !m.partial}
+                  abstained={m.abstained}
+                  messageId={m.id}
+                  onCite={(marker) => setSelection({ key: m.id, marker })}
+                  note={answerNote(m)}
+                  failover={m.failover}
+                />
               </li>
             ),
           )}
           {live && !persisted ? (
             <>
-              <li className="self-end rounded bg-slate-200 px-3 py-2">{live.question}</li>
+              <li className={QUESTION}>{live.question}</li>
               <li aria-live="polite">
-                {live.text || live.done ? (
-                  <AssistantMessage
+                {live.text || live.done || live.stopped || live.error ? (
+                  <Answer
+                    body={!!(live.text || live.done)}
                     text={live.text}
                     citations={live.citations}
                     unsupported={live.done?.unsupported ?? false}
                     abstained={live.done?.abstained ?? false}
                     messageId={noHistory ? null : (live.done?.message_id ?? null)}
                     onCite={(marker) => setSelection({ key: "live", marker })}
+                    note={
+                      live.stopped ? PARTIAL_NOTE : answerNote({ truncated: live.done?.truncated })
+                    }
+                    failover={live.done?.failover}
                   />
-                ) : live.stopped || live.error ? null : (
-                  <p className="text-slate-600">Searching your research package…</p>
+                ) : (
+                  <Loading>Searching your research package…</Loading>
                 )}
-                <AnswerNote
-                  note={
-                    live.stopped ? PARTIAL_NOTE : answerNote({ truncated: live.done?.truncated })
-                  }
-                />
-                <FailoverNote kind={live.done?.failover} />
-                {live.error ? <p className="mt-2 text-red-700">{live.error}</p> : null}
+                {live.error ? (
+                  <Notice tone="danger" className="mt-2">
+                    {live.error}
+                  </Notice>
+                ) : null}
               </li>
             </>
           ) : null}
         </ol>
-        <form onSubmit={ask} className="mt-auto flex gap-2 pt-4">
+        {/* UX-15: the composer stays at the bottom of the screen while the thread scrolls. */}
+        <form
+          onSubmit={ask}
+          className="sticky bottom-0 -mx-4 mt-auto flex items-end gap-2 border-t bg-canvas px-4 pt-4 pb-4 md:-mx-8 md:px-8 md:pb-6"
+        >
           <label htmlFor="question" className="sr-only">
             Question
           </label>
-          <textarea
+          <Textarea
             id="question"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             maxLength={4000}
             rows={2}
             placeholder="Ask a question about your research package"
-            className="flex-1 rounded border px-2 py-1"
+            className="min-w-0 flex-1 bg-surface"
           />
           {busy ? (
-            <button
-              type="button"
-              onClick={stop}
-              className="rounded border border-slate-900 px-3 py-1.5 text-slate-900"
-            >
+            <Button variant="secondary" onClick={stop}>
               Stop
-            </button>
+            </Button>
           ) : (
-            <button
-              type="submit"
-              disabled={!question.trim()}
-              className="rounded bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50"
-            >
+            <Button variant="primary" type="submit" disabled={!question.trim()}>
               Ask
-            </button>
+            </Button>
           )}
         </form>
-      </main>
+      </div>
       {selection ? (
         <CitationPanel
           citations={citationsFor(selection.key)}
@@ -294,31 +297,54 @@ export function Chat() {
 function PastTurn({ turn, onCite }: { turn: Live; onCite: (marker: number) => void }) {
   return (
     <>
-      <li className="self-end rounded bg-slate-200 px-3 py-2">{turn.question}</li>
+      <li className={QUESTION}>{turn.question}</li>
       <li>
-        {turn.text || turn.done ? (
-          <AssistantMessage
-            text={turn.text}
-            citations={turn.citations}
-            unsupported={turn.done?.unsupported ?? false}
-            abstained={turn.done?.abstained ?? false}
-            messageId={null}
-            onCite={onCite}
-          />
-        ) : null}
-        <AnswerNote
+        <Answer
+          body={!!(turn.text || turn.done)}
+          text={turn.text}
+          citations={turn.citations}
+          unsupported={turn.done?.unsupported ?? false}
+          abstained={turn.done?.abstained ?? false}
+          messageId={null}
+          onCite={onCite}
           note={turn.stopped ? PARTIAL_NOTE : answerNote({ truncated: turn.done?.truncated })}
+          failover={turn.done?.failover}
         />
-        <FailoverNote kind={turn.done?.failover} />
-        {turn.error ? <p className="mt-2 text-red-700">{turn.error}</p> : null}
+        {turn.error ? (
+          <Notice tone="danger" className="mt-2">
+            {turn.error}
+          </Notice>
+        ) : null}
       </li>
     </>
   );
 }
 
+// An answer with its notes inside the block (UX-15); a turn with no text (stopped before
+// any token) shows the notes on their own.
+function Answer({
+  body,
+  note,
+  failover,
+  ...message
+}: Omit<ComponentProps<typeof AssistantMessage>, "notes"> & {
+  body: boolean;
+  note: string | null;
+  failover: "eu" | "external" | null | undefined;
+}) {
+  const notes =
+    note || failoverNote(failover) ? (
+      <div className="flex flex-col gap-1">
+        <AnswerNote note={note} />
+        <FailoverNote kind={failover} />
+      </div>
+    ) : null;
+  return body ? <AssistantMessage {...message} notes={notes} /> : notes;
+}
+
 function AnswerNote({ note }: { note: string | null }) {
   return note ? (
-    <p data-testid="answer-note" className="mt-1 text-sm text-amber-900">
+    <p data-testid="answer-note" className="text-ui text-warning">
       {note}
     </p>
   ) : null;
@@ -327,7 +353,7 @@ function AnswerNote({ note }: { note: string | null }) {
 function FailoverNote({ kind }: { kind: "eu" | "external" | null | undefined }) {
   const note = failoverNote(kind);
   return note ? (
-    <p data-testid="failover" className="mt-1 text-sm text-slate-600">
+    <p data-testid="failover" className="text-ui text-fg-muted">
       {note}
     </p>
   ) : null;

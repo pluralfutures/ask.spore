@@ -1,0 +1,56 @@
+- banner:
+    - note: AI-generated, verify against cited sources.
+    - link "Skip to content":
+        - /url: "#main"
+    - link "SporeBot":
+        - /url: /
+    - text: Synthetic Client
+    - navigation "Main":
+        - list:
+            - listitem:
+                - link "Conversations":
+                    - /url: /
+    - text: Synthetic Analyst
+- main:
+    - navigation "Conversations":
+        - link "New conversation":
+            - /url: /new
+        - paragraph: Recent
+        - list:
+            - listitem:
+                - link /What drove synthetic fertiliser prices in \d+\? Expires \d+ Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000001
+                - button /Actions for What drove synthetic fertiliser prices in \d+\?/
+            - listitem:
+                - link /Compare synthetic maize and wheat planted area across the three synthetic regions, with a focus on the policy measures announced since the last synthetic harvest and their expected effect on export volumes Expires \d+ Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000002
+                - button "Actions for Compare synthetic maize and wheat planted area across the three synthetic regions, with a focus on the policy measures announced since the last synthetic harvest and their expected effect on export volumes"
+            - listitem:
+                - link /Untitled conversation Expires \d+ Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000003
+                - button "Actions for Untitled conversation"
+            - listitem:
+                - link /Synthetic cocoa supply outlook Expires 2 Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000004
+                - button "Actions for Synthetic cocoa supply outlook"
+            - listitem:
+                - link /Summarise the synthetic trade observatory's latest note Expires \d+ Oct \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000005
+                - button "Actions for Summarise the synthetic trade observatory's latest note"
+    - link "← Conversations":
+        - /url: /
+    - heading "New conversation" [level=1]
+    - list:
+        - listitem: Synthetic Markets
+        - listitem: Synthetic EU Standard
+        - listitem: /Expires \d+ Nov \d+/
+    - list:
+        - listitem: /What drove synthetic capacity growth in \d+\?/
+        - listitem:
+            - article:
+                - paragraph: Synthetic capacity grew
+            - text: The research library is unavailable. Try again shortly.
+    - text: Question
+    - textbox "Question":
+        - /placeholder: Ask a question about your research package
+    - button "Ask" [disabled]

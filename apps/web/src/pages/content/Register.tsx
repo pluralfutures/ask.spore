@@ -6,6 +6,15 @@ import { contentApi, type SourceFilters } from "../../api/client";
 import type { ContentSource } from "../../api/types";
 import { SOURCE_STATUSES, SOURCE_TYPES, errorMessage } from "../../lib/content";
 import { formatDate } from "../../lib/format";
+import { LINK } from "../../ui/link";
+import { Field } from "../../ui/Field";
+import { Input, Select } from "../../ui/Input";
+import { Notice } from "../../ui/Notice";
+import { cardClass } from "../../ui/cardClass";
+import { SearchX } from "lucide-react";
+import { Badge, StatusBadge } from "../../ui/Badge";
+import { EmptyState, Skeleton } from "../../ui/States";
+import { Table, Td, Th } from "../../ui/Table";
 
 // The source register with filters by status, tag, type and publisher (P1b-05).
 export function Register() {
@@ -19,38 +28,42 @@ export function Register() {
     setFilters({ ...filters, [key]: value || undefined });
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-3 rounded bg-white p-3">
-        <Select
+      {/* UX-21: the filter bar on the form components, one row from 768 px. */}
+      <div role="search" className={cardClass("grid grid-cols-2 items-end gap-3 md:grid-cols-4")}>
+        <FilterSelect
           label="Status"
           value={filters.status}
           options={SOURCE_STATUSES}
           onChange={set("status")}
         />
-        <Select
+        <FilterSelect
           label="Tag"
           value={filters.tag}
           options={tags.data?.map((t) => t.tag) ?? []}
           onChange={set("tag")}
         />
-        <Select label="Type" value={filters.type} options={SOURCE_TYPES} onChange={set("type")} />
-        <label className="flex flex-col">
-          Publisher
-          <input
+        <FilterSelect
+          label="Type"
+          value={filters.type}
+          options={SOURCE_TYPES}
+          onChange={set("type")}
+        />
+        <Field label="Publisher">
+          <Input
             value={filters.publisher ?? ""}
             onChange={(e) => set("publisher")(e.target.value)}
-            className="border px-1"
           />
-        </label>
+        </Field>
       </div>
       {errorMessage(sources.error) ? (
-        <p className="text-red-700">{errorMessage(sources.error)}</p>
+        <Notice tone="danger">{errorMessage(sources.error)}</Notice>
       ) : null}
-      {sources.data ? <SourceTable sources={sources.data} /> : <p>Loading…</p>}
+      {sources.data ? <SourceTable sources={sources.data} /> : <Skeleton />}
     </section>
   );
 }
 
-function Select({
+function FilterSelect({
   label,
   value,
   options,
@@ -62,66 +75,66 @@ function Select({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex flex-col">
-      {label}
-      <select value={value ?? ""} onChange={(e) => onChange(e.target.value)} className="border">
+    <Field label={label}>
+      <Select value={value ?? ""} onChange={(e) => onChange(e.target.value)}>
         <option value="">any</option>
         {options.map((option) => (
           <option key={option} value={option}>
             {option}
           </option>
         ))}
-      </select>
-    </label>
+      </Select>
+    </Field>
   );
 }
 
 export function SourceTable({ sources }: { sources: ContentSource[] }) {
-  if (sources.length === 0) return <p className="text-slate-600">No sources match.</p>;
+  if (sources.length === 0) return <EmptyState title="No sources match." icon={SearchX} />;
   return (
-    <table className="w-full rounded bg-white text-left">
+    <Table>
       <thead>
-        <tr className="border-b">
-          <th className="p-2">Title</th>
-          <th className="p-2">Publisher</th>
-          <th className="p-2">Type</th>
-          <th className="p-2">Tags</th>
-          <th className="p-2">Status</th>
-          <th className="p-2">Updated</th>
+        <tr>
+          <Th>Title</Th>
+          <Th>Publisher</Th>
+          <Th>Type</Th>
+          <Th>Tags</Th>
+          <Th>Status</Th>
+          <Th>Updated</Th>
         </tr>
       </thead>
       <tbody>
         {sources.map((source) => (
-          <tr key={source.id} className="border-b align-top">
-            <td className="p-2">
-              <Link to={`/content/sources/${source.id}`} className="underline">
+          <tr key={source.id}>
+            <Td label="Title">
+              <Link to={`/content/sources/${source.id}`} className={LINK}>
                 {source.title}
               </Link>
               {source.possible_replacement ? (
-                <span
-                  data-testid={`replacement-${source.id}`}
-                  className="ml-2 rounded bg-amber-100 px-1 text-xs text-amber-900"
-                >
+                <Badge tone="warning" data-testid={`replacement-${source.id}`} className="ml-2">
                   possible replacement
-                </span>
+                </Badge>
               ) : null}
               {source.site_id ? (
-                <span className="ml-2 text-xs text-slate-500">web page</span>
+                <span className="ml-2 text-meta text-fg-subtle">web page</span>
               ) : null}
-            </td>
-            <td className="p-2">{source.publisher}</td>
-            <td className="p-2 uppercase">{source.type}</td>
-            <td className="p-2">{source.tags.join(", ")}</td>
-            <td className="p-2">
-              {source.status}
+            </Td>
+            <Td label="Publisher">{source.publisher}</Td>
+            <Td label="Type" className="uppercase">
+              {source.type}
+            </Td>
+            <Td label="Tags">{source.tags.join(", ")}</Td>
+            <Td label="Status">
+              <StatusBadge kind="source" status={source.status} />
               {source.takedown_due_on && source.status !== "withdrawn" ? (
-                <span className="ml-1 text-red-700">· takedown</span>
+                <Badge tone="danger" className="ml-1">
+                  takedown
+                </Badge>
               ) : null}
-            </td>
-            <td className="p-2">{formatDate(source.updated_at)}</td>
+            </Td>
+            <Td label="Updated">{formatDate(source.updated_at)}</Td>
           </tr>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 }

@@ -1,1 +1,307 @@
 @import "tailwindcss";
+
+/*
+ * Lato (SIL Open Font License 1.1, ./assets/fonts/lato/OFL.txt), served from our own origin:
+ * the production CSP allows fonts from 'self' only, and no request goes to a font CDN.
+ * Latin and Latin Extended subsets, 400 and 700, upright and italic.
+ */
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-ext-400-normal.woff2") format("woff2");
+  unicode-range:
+    U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-ext-400-italic.woff2") format("woff2");
+  unicode-range:
+    U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-ext-700-normal.woff2") format("woff2");
+  unicode-range:
+    U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-ext-700-italic.woff2") format("woff2");
+  unicode-range:
+    U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-400-normal.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-400-italic.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-700-normal.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/lato/lato-latin-700-italic.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/*
+ * Theme tokens (UX-04, design/specs/ux-refresh-spec.md). Components use these semantic
+ * names, never raw palette classes (src/theme.test.ts). Values from UX-05: the approved
+ * direction in design/ux/design-direction.md. Contrast on white is noted where it matters.
+ */
+@theme {
+  --font-sans:
+    "Lato", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+
+  /* Surfaces */
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f6f7f9;
+  --color-neutral-muted: #eef0f3;
+
+  /* Text */
+  --color-fg: #171b22; /* 17.3:1 */
+  --color-fg-secondary: #3b4250; /* 10.1:1 */
+  --color-fg-muted: #5d6573; /* 5.9:1, 5.5:1 on canvas */
+  --color-fg-subtle: #646c79; /* 5.3:1, 4.9:1 on canvas */
+
+  /* Actions and links: the one accent */
+  --color-primary: #2e5bba; /* 6.3:1; white on it 6.3:1 */
+  --color-primary-hover: #244a9a; /* white on it 8.3:1 */
+  --color-on-primary: #ffffff;
+  --color-link: #2e5bba;
+  --color-selected: #2e5bba;
+
+  /* Citation markers */
+  --color-cite: #244a9a; /* 7.4:1 on cite-bg */
+  --color-cite-bg: #edf2fc;
+  --color-cite-bg-hover: #dce6f9;
+
+  /* Status: colour is for state only */
+  --color-danger: #b42318; /* 6.6:1; white on it 6.6:1 */
+  --color-danger-strong: #a3271c;
+  --color-danger-subtle: #fdf0ee;
+  --color-on-danger: #ffffff;
+  --color-warning: #7a4b00; /* 6.8:1 on warning-subtle */
+  --color-attention: #8a5a00; /* 5.9:1 */
+  --color-warning-subtle: #fdf5e3;
+  --color-warning-muted: #fbebc7;
+  --color-warning-line: #f0ddb0;
+  --color-success: #17663f; /* 6.3:1 on success-subtle */
+  --color-success-subtle: #ebf6f0;
+  --color-info: #244a9a;
+  --color-info-subtle: #edf2fc;
+
+  /* Notice outlines */
+  --color-info-line: #c9d7f3;
+  --color-danger-line: #f3c8c2;
+  --color-success-line: #bfe0cd;
+
+  /* Lines: hairlines around surfaces; form controls get the stronger input line (3.3:1) */
+  --color-line: #e2e5ea;
+  --color-line-strong: #c9ced6;
+  --color-line-input: #868e9b;
+
+  /* Type: Lato has 400 and 700 only, so both emphasis steps are 700 */
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.125rem;
+  --text-ui: 0.875rem;
+  --text-ui--line-height: 1.25rem;
+  --text-reading: 1rem;
+  --text-reading--line-height: 1.625rem;
+  --text-heading: 1.0625rem;
+  --text-heading--line-height: 1.5rem;
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.75rem;
+  --text-display: 1.75rem;
+  --text-display--line-height: 2.25rem;
+  --font-weight-emphasis: 700;
+  --font-weight-strong: 700;
+
+  /* Shape: controls 6 px, badges 4 px, cards and tables 8 px, dialogs 10 px */
+  --radius-control: 0.375rem;
+  --radius-badge: 0.25rem;
+  --radius-card: 0.5rem;
+  --radius-dialog: 0.625rem;
+
+  /* Only floating layers cast a shadow; cards in the page flow have a border */
+  --shadow-popover: 0 1px 2px rgb(16 24 40 / 0.06), 0 4px 12px rgb(16 24 40 / 0.08);
+  --shadow-overlay: 0 8px 32px rgb(16 24 40 / 0.16);
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-line);
+  }
+
+  input,
+  select,
+  textarea {
+    border-color: var(--color-line-input);
+  }
+
+  :root {
+    accent-color: var(--color-primary);
+  }
+
+  /* UX-10: the app shell (src/components/AppShell.tsx): banner, then main, full height. */
+  body {
+    background: var(--color-canvas);
+    color: var(--color-fg);
+  }
+
+  /* A fieldset is as wide as its widest content by default; let it shrink like a div. */
+  fieldset {
+    min-width: 0;
+  }
+
+  #root {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+  }
+
+  ::placeholder {
+    color: var(--color-fg-subtle);
+  }
+
+  /* One visible focus ring everywhere (WCAG 2.4.7), drawn outside the element. */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Tables (UX-09, src/ui/Table.tsx). Under 640 px a stacked table drops its header row
+ * (kept for screen readers) and shows each cell with its column's name (data-label).
+ */
+@layer components {
+  .ui-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-ui);
+    line-height: var(--text-ui--line-height);
+    text-align: left;
+  }
+  .ui-table th {
+    background: var(--color-surface-subtle);
+    color: var(--color-fg-muted);
+    font-size: var(--text-meta);
+    line-height: var(--text-meta--line-height);
+    font-weight: var(--font-weight-strong);
+    padding: 0.5rem 1rem;
+    white-space: nowrap;
+  }
+  .ui-table td {
+    border-top: 1px solid var(--color-line);
+    padding: 0.75rem 1rem;
+    vertical-align: top;
+  }
+  .ui-table tbody tr:hover {
+    background: var(--color-surface-subtle);
+  }
+  .ui-table [data-numeric] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (width < 40rem) {
+    .ui-table-stacked thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .ui-table-stacked,
+    .ui-table-stacked tbody {
+      display: block;
+    }
+    .ui-table-stacked tr {
+      display: block;
+      border-top: 1px solid var(--color-line);
+      padding: 0.5rem 0;
+    }
+    .ui-table-stacked tbody tr:first-child {
+      border-top: 0;
+    }
+    .ui-table-stacked td {
+      display: grid;
+      grid-template-columns: minmax(6rem, 35%) minmax(0, 1fr);
+      overflow-wrap: anywhere;
+      gap: 0.75rem;
+      border-top: 0;
+      padding: 0.25rem 1rem;
+      text-align: left;
+    }
+    .ui-table-stacked td[data-label]::before {
+      content: attr(data-label);
+      color: var(--color-fg-muted);
+      font-family: var(--font-sans);
+      font-size: var(--text-ui);
+      font-weight: var(--font-weight-strong);
+    }
+    .ui-table-stacked td[data-numeric] {
+      text-align: left;
+    }
+    .ui-table-stacked td:not([data-label]) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .ui-table-stacked td:empty {
+      display: none;
+    }
+  }
+}

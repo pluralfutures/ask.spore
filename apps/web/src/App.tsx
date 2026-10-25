@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import {
@@ -12,13 +12,13 @@ import {
   type Credentials,
 } from "./api/client";
 import type { AuthMode } from "./api/types";
-import { AiNotice } from "./components/AiNotice";
 import { ConsentGate } from "./components/ConsentGate";
 import { EmailSignIn } from "./components/EmailSignIn";
 import { SignIn } from "./components/SignIn";
 import { Chat } from "./pages/Chat";
 import { ConversationList } from "./pages/ConversationList";
 import { renewalDelay } from "./lib/session";
+import { WithRail } from "./components/Conversations";
 import { FinishSignIn } from "./pages/FinishSignIn";
 import { NewConversation } from "./pages/NewConversation";
 import { OperatorAggregates } from "./pages/OperatorAggregates";
@@ -27,10 +27,17 @@ import { ContentConsole } from "./pages/content/ContentConsole";
 import { OperatorTenant } from "./pages/OperatorTenant";
 import { TenantAdmin } from "./pages/TenantAdmin";
 import { WorkspaceFiles } from "./pages/WorkspaceFiles";
+import { PageSkeleton } from "./ui/States";
+import { Shell, TopBar } from "./components/AppShell";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
+
+// UX-06: the development-only component gallery. `import.meta.env.DEV` is false in a
+// production build, so neither the route nor the gallery's code is included there.
+const Gallery = import.meta.env.DEV ? lazy(() => import("./ui/Gallery")) : null;
+export const GALLERY_PATH = "/_ui";
 
 // The emailed link's landing page (P1a-02); the token is in the fragment.
 export const FINISH_PATH = "/auth/finish";
@@ -51,25 +58,41 @@ function ssoReason(): string | null {
   return new URLSearchParams(window.location.search).get("reason");
 }
 
-function Signed({ children }: { children: React.ReactNode }) {
+// UX-10: a signed-in page: the shell with the top bar, then the page in the one <main>.
+function Signed({ onSignOut }: { onSignOut?: () => void }) {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <ConsentGate>
-          <Routes>
-            <Route path="/" element={<ConversationList />} />
-            <Route path="/new" element={<NewConversation />} />
-            <Route path="/c/:id" element={<Chat />} />
-            <Route path="/w/:id/files" element={<WorkspaceFiles />} />
-            <Route path="/admin" element={<TenantAdmin />} />
-            <Route path="/operator" element={<OperatorConsole />} />
-            <Route path="/content/*" element={<ContentConsole />} />
-            <Route path="/operator/tenants/:tenantId" element={<OperatorTenant />} />
-            <Route path="/operator/aggregates" element={<OperatorAggregates />} />
-          </Routes>
-        </ConsentGate>
+        <Shell topBar={<TopBar onSignOut={onSignOut} />}>
+          <ConsentGate>
+            <Routes>
+              <Route path="/" element={<ConversationList />} />
+              <Route
+                path="/new"
+                element={
+                  <WithRail>
+                    <NewConversation />
+                  </WithRail>
+                }
+              />
+              <Route
+                path="/c/:id"
+                element={
+                  <WithRail>
+                    <Chat />
+                  </WithRail>
+                }
+              />
+              <Route path="/w/:id/files" element={<WorkspaceFiles />} />
+              <Route path="/admin" element={<TenantAdmin />} />
+              <Route path="/operator" element={<OperatorConsole />} />
+              <Route path="/content/*" element={<ContentConsole />} />
+              <Route path="/operator/tenants/:tenantId" element={<OperatorTenant />} />
+              <Route path="/operator/aggregates" element={<OperatorAggregates />} />
+            </Routes>
+          </ConsentGate>
+        </Shell>
       </BrowserRouter>
-      {children}
     </QueryClientProvider>
   );
 }
@@ -119,32 +142,43 @@ export function App({ initialMode = null }: { initialMode?: AuthMode | null } = 
   }, []);
 
   let body: React.ReactNode;
-  if (path === FINISH_PATH) {
-    body = <FinishSignIn onSignedIn={() => window.location.assign("/")} />;
+  if (Gallery && path === GALLERY_PATH) {
+    body = (
+      <Shell>
+        <Suspense fallback={null}>
+          <Gallery />
+        </Suspense>
+      </Shell>
+    );
+  } else if (path === FINISH_PATH) {
+    body = (
+      <Shell>
+        <FinishSignIn onSignedIn={() => window.location.assign("/")} />
+      </Shell>
+    );
   } else if (mode === null || (mode === "oidc" && signedIn === null)) {
-    body = <p className="mx-auto mt-16 text-sm">Loading…</p>;
+    body = (
+      <Shell>
+        <PageSkeleton />
+      </Shell>
+    );
   } else if (mode === "oidc") {
     body = signedIn ? (
-      <Signed>
-        <button
-          type="button"
-          onClick={() => void signOut().then(() => setSignedIn(false))}
-          className="mx-auto mb-4 text-sm underline"
-        >
-          Sign out
-        </button>
-      </Signed>
+      <Signed onSignOut={() => void signOut().then(() => setSignedIn(false))} />
     ) : (
-      <EmailSignIn ssoFailed={ssoFailed()} ssoReason={ssoReason()} />
+      <Shell>
+        <EmailSignIn ssoFailed={ssoFailed()} ssoReason={ssoReason()} />
+      </Shell>
     );
   } else {
-    body = credentials ? <Signed>{null}</Signed> : <SignIn onSignedIn={setCredentials} />;
+    body = credentials ? (
+      <Signed />
+    ) : (
+      <Shell>
+        <SignIn onSignedIn={setCredentials} />
+      </Shell>
+    );
   }
 
-  return (
-    <div className="flex min-h-screen flex-col bg-slate-100 text-slate-900">
-      <AiNotice />
-      {body}
-    </div>
-  );
+  return body;
 }

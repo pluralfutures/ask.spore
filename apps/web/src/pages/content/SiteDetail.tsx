@@ -13,6 +13,15 @@ import {
   parsePatterns,
 } from "../../lib/content";
 import { formatDate } from "../../lib/format";
+import { Button } from "../../ui/Button";
+import { EmptyState, Skeleton } from "../../ui/States";
+import { LINK } from "../../ui/link";
+import { Field } from "../../ui/Field";
+import { Input, Select, Textarea } from "../../ui/Input";
+import { Notice } from "../../ui/Notice";
+import { StatusBadge } from "../../ui/Badge";
+import { Card } from "../../ui/Card";
+import { Table, Td, Th } from "../../ui/Table";
 
 // One site (P1b-04, P1b-05): its settings, allow decision and last crawl, every page a
 // crawl met (blocked ones with the reason), and the reviewer's actions: approve or
@@ -24,25 +33,20 @@ export function SiteDetail({ roles }: { roles: string[] }) {
   const site = useQuery({ queryKey: ["content", "site", id], queryFn: () => contentApi.site(id) });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["content"] });
   const crawl = useMutation({ mutationFn: () => contentApi.crawl(id), onSuccess: refresh });
-  if (site.error) return <p className="text-red-700">{errorMessage(site.error)}</p>;
-  if (!site.data) return <p>Loading…</p>;
+  if (site.error) return <Notice tone="danger">{errorMessage(site.error)}</Notice>;
+  if (!site.data) return <Skeleton />;
   const data = site.data;
   return (
     <section className="flex flex-col gap-4">
       <SiteSummary site={data} />
       {data.status === "approved" ? (
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => crawl.mutate()}
-            disabled={crawl.isPending}
-            className="rounded border px-3 py-1"
-          >
+          <Button variant="secondary" onClick={() => crawl.mutate()} disabled={crawl.isPending}>
             Crawl now
-          </button>
+          </Button>
           {crawl.data ? <span>Queued.</span> : null}
           {errorMessage(crawl.error) ? (
-            <span className="text-red-700">{errorMessage(crawl.error)}</span>
+            <Notice tone="danger">{errorMessage(crawl.error)}</Notice>
           ) : null}
         </div>
       ) : null}
@@ -54,13 +58,12 @@ export function SiteDetail({ roles }: { roles: string[] }) {
 
 export function SiteSummary({ site }: { site: ContentSiteDetail }) {
   return (
-    <div className="flex flex-col gap-1 rounded bg-white p-3">
-      <h2 className="text-lg font-semibold">{site.name}</h2>
+    <Card title={site.name} className="gap-1">
       <p>
         {site.start_url} · {site.publisher} · {site.licence_basis} · {site.tags.join(", ")}
       </p>
       <p>
-        Status: <strong>{site.status}</strong> · allow decision:{" "}
+        Status: <StatusBadge kind="site" status={site.status} /> · allow decision:{" "}
         <span data-testid="allow-decision">
           {ALLOW_DECISIONS[site.allow_decision] ?? site.allow_decision}
         </span>
@@ -82,48 +85,50 @@ export function SiteSummary({ site }: { site: ContentSiteDetail }) {
       </p>
       {site.review_note ? <p>Reviewer's note: {site.review_note}</p> : null}
       {site.status === "withdrawn" ? (
-        <p data-testid="site-withdrawn" className="text-red-800">
+        <Notice tone="danger" data-testid="site-withdrawn">
           Withdrawn {formatDate(site.withdrawn_at)}: {site.withdrawal_reason}. Never crawled again;
           every page is withdrawn.
-        </p>
+        </Notice>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
 export function PageTable({ pages }: { pages: SitePage[] }) {
-  if (pages.length === 0) return <p className="text-slate-600">No pages crawled yet.</p>;
+  if (pages.length === 0) return <EmptyState title="No pages crawled yet." />;
   return (
-    <table className="w-full rounded bg-white text-left">
+    <Table>
       <thead>
-        <tr className="border-b">
-          <th className="p-2">Page</th>
-          <th className="p-2">State</th>
-          <th className="p-2">Why</th>
-          <th className="p-2">Published</th>
-          <th className="p-2">Fetched</th>
+        <tr>
+          <Th>Page</Th>
+          <Th>State</Th>
+          <Th>Why</Th>
+          <Th>Published</Th>
+          <Th>Fetched</Th>
         </tr>
       </thead>
       <tbody>
         {pages.map((page) => (
-          <tr key={page.url} className="border-b">
-            <td className="p-2 break-all">
+          <tr key={page.url}>
+            <Td label="Page" className="break-all">
               {page.source_id ? (
-                <Link to={`/content/sources/${page.source_id}`} className="underline">
+                <Link to={`/content/sources/${page.source_id}`} className={LINK}>
                   {page.url}
                 </Link>
               ) : (
                 page.url
               )}
-            </td>
-            <td className="p-2">{page.state}</td>
-            <td className="p-2">{pageReason(page.reason, page.special_category)}</td>
-            <td className="p-2">{page.published_on ? formatDate(page.published_on) : "—"}</td>
-            <td className="p-2">{formatDate(page.fetched_at)}</td>
+            </Td>
+            <Td label="State">
+              <StatusBadge kind="page" status={page.state} />
+            </Td>
+            <Td label="Why">{pageReason(page.reason, page.special_category)}</Td>
+            <Td label="Published">{page.published_on ? formatDate(page.published_on) : "—"}</Td>
+            <Td label="Fetched">{formatDate(page.fetched_at)}</Td>
           </tr>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 }
 
@@ -170,30 +175,19 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
     errorMessage(saveWhitelist.error) ??
     errorMessage(withdraw.error);
   return (
-    <div className="flex flex-col gap-3 rounded bg-white p-3">
-      <h3 className="font-semibold">Review</h3>
-      {error ? <p className="text-red-700">{error}</p> : null}
+    <Card title="Review" level={3}>
+      {error ? <Notice tone="danger">{error}</Notice> : null}
       {site.status === "proposed" ? (
         <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col">
-            Note (required to reject)
-            <input value={note} onChange={(e) => setNote(e.target.value)} className="border px-1" />
-          </label>
-          <button
-            type="button"
-            onClick={() => approve.mutate()}
-            className="rounded bg-slate-900 px-3 py-1 text-white"
-          >
+          <Field label="Note (required to reject)">
+            <Input value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
+          <Button variant="primary" onClick={() => approve.mutate()}>
             Approve and crawl
-          </button>
-          <button
-            type="button"
-            onClick={() => reject.mutate()}
-            disabled={!note.trim()}
-            className="rounded border px-3 py-1 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="secondary" onClick={() => reject.mutate()} disabled={!note.trim()}>
             Reject
-          </button>
+          </Button>
         </div>
       ) : null}
       {site.status === "approved" ? (
@@ -206,70 +200,41 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
       ) : null}
       {site.status !== "rejected" && site.status !== "withdrawn" ? (
         <div className="grid gap-2 md:grid-cols-2">
-          <label className="flex flex-col">
-            Paths to crawl (one per line)
-            <textarea
-              value={allow}
-              onChange={(e) => setAllow(e.target.value)}
-              className="border p-1"
-            />
-          </label>
-          <label className="flex flex-col">
-            Paths never to crawl
-            <textarea
-              value={deny}
-              onChange={(e) => setDeny(e.target.value)}
-              className="border p-1"
-            />
-          </label>
-          <label className="flex flex-col">
-            Schedule
-            <select
-              value={schedule}
-              onChange={(e) => setSchedule(e.target.value)}
-              className="border"
-            >
+          <Field label="Paths to crawl (one per line)">
+            <Textarea value={allow} onChange={(e) => setAllow(e.target.value)} />
+          </Field>
+          <Field label="Paths never to crawl">
+            <Textarea value={deny} onChange={(e) => setDeny(e.target.value)} />
+          </Field>
+          <Field label="Schedule">
+            <Select value={schedule} onChange={(e) => setSchedule(e.target.value)}>
               {SCHEDULES.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="flex flex-col">
-            Page budget
-            <input
-              value={maxPages}
-              onChange={(e) => setMaxPages(e.target.value)}
-              className="border px-1"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => save.mutate()}
-            className="w-fit rounded border px-3 py-1"
-          >
+            </Select>
+          </Field>
+          <Field label="Page budget">
+            <Input value={maxPages} onChange={(e) => setMaxPages(e.target.value)} />
+          </Field>
+          <Button variant="secondary" className="w-fit" onClick={() => save.mutate()}>
             Save settings
-          </button>
+          </Button>
           <span />
-          <label className="flex flex-col">
-            Special-category whitelist (paths, one per line, e.g. /health/*)
-            <textarea
-              value={whitelist}
-              onChange={(e) => setWhitelist(e.target.value)}
-              className="border p-1"
-            />
-          </label>
-          <button
-            type="button"
+          <Field label="Special-category whitelist (paths, one per line, e.g. /health/*)">
+            <Textarea value={whitelist} onChange={(e) => setWhitelist(e.target.value)} />
+          </Field>
+          <Button
+            variant="secondary"
+            className="w-fit self-end"
             onClick={() => saveWhitelist.mutate()}
-            className="w-fit self-end rounded border px-3 py-1"
           >
             Save whitelist
-          </button>
+          </Button>
         </div>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
@@ -287,19 +252,13 @@ export function WithdrawSite({
 }) {
   return (
     <div data-testid="withdraw-site" className="flex flex-wrap items-end gap-2">
-      <label className="flex flex-col">
-        Reason for withdrawing the site
-        <input value={reason} onChange={(e) => onReason(e.target.value)} className="border px-1" />
-      </label>
-      <button
-        type="button"
-        onClick={onWithdraw}
-        disabled={pending || !reason.trim()}
-        className="rounded border border-red-700 px-3 py-1 text-red-700 disabled:opacity-50"
-      >
+      <Field label="Reason for withdrawing the site">
+        <Input value={reason} onChange={(e) => onReason(e.target.value)} />
+      </Field>
+      <Button variant="secondary-danger" onClick={onWithdraw} disabled={pending || !reason.trim()}>
         Withdraw site
-      </button>
-      <span className="text-slate-600">
+      </Button>
+      <span className="text-fg-muted">
         Every page leaves every dataset, and the site is never crawled again.
       </span>
     </div>

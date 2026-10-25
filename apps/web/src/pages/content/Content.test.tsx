@@ -126,6 +126,16 @@ describe("source detail", () => {
     expect(html).toContain("licence grounds");
   });
 
+  // UX-21: the facts are a definition list.
+  it("lists the source's facts as terms and values", () => {
+    const html = render(<SourceSummary source={detail({ licence_file: false })} />);
+    expect(html).toContain("<dl");
+    for (const term of ["Publisher", "Type", "Published", "Tags", "Status", "Licence basis"]) {
+      expect(html).toContain(`>${term}</dt>`);
+    }
+    expect(html).toMatch(/>Licence file<\/dt><dd[^>]*><span[^>]*>No licence file on record\.</);
+  });
+
   it("names possible replacements and offers replace or keep both", () => {
     const candidates = [
       {
@@ -189,7 +199,8 @@ describe("source detail", () => {
     );
     expect(html).toContain("SSH tunnel");
     expect(html).toContain("proposed (new → proposed) · editor@example.org");
-    expect(html).toContain("ingest_source · failed · parse_failed");
+    // UX-08: the job status is a badge; the words are unchanged.
+    expect(html.replace(/<[^>]+>/g, "")).toContain("ingest_source · failed · parse_failed");
   });
 });
 
@@ -265,10 +276,21 @@ describe("takedown queue", () => {
 
   it("shows the SLA timer per request", () => {
     expect(render(<TakedownTable items={[item(4)]} />)).toMatch(
-      new RegExp(`data-testid="timer-${ID}"[^>]*>4 working days left<`),
+      new RegExp(`data-testid="timer-${ID}"[^>]*>(?:<div[^>]*>)?4 working days left<`),
     );
-    expect(render(<TakedownTable items={[item(-1)]} />)).toContain("text-red-700");
+    expect(render(<TakedownTable items={[item(-1)]} />)).toContain("text-danger");
     expect(render(<TakedownTable items={[]} />)).toContain("No open takedown requests");
+  });
+
+  // UX-22: the urgency is the badge's colour; its words are the timer's.
+  it("shows the timer as a badge coloured by urgency", () => {
+    const badge = (days: number) =>
+      render(<TakedownTable items={[item(days)]} />).match(
+        new RegExp(`<span class="([^"]*)" data-testid="timer-${ID}"`),
+      )?.[1];
+    expect(badge(-1)).toContain("bg-danger-subtle");
+    expect(badge(1)).toContain("bg-warning-muted");
+    expect(badge(5)).toContain("bg-neutral-muted");
   });
 });
 

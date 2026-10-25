@@ -1,9 +1,15 @@
+import { MailCheck } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { ApiError, discoverMethods, requestSignInLink, startSso } from "../api/client";
 import type { DiscoverOut } from "../api/types";
 import { ssoButtonLabel } from "../lib/sso";
+import { AuthCard } from "./AuthCard";
 import { failureText, ssoRefusalText } from "./emailSignInText";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import { Field } from "../ui/Field";
+import { Notice } from "../ui/Notice";
 
 type Step = { kind: "email" } | { kind: "choose"; found: DiscoverOut } | { kind: "sent" };
 
@@ -70,58 +76,54 @@ export function EmailSignIn({
 
   if (step.kind === "sent") {
     return (
-      <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-        <h1 className="text-xl font-semibold">SporeBot</h1>
-        <p className="text-sm">
-          If this address can sign in, a link is on its way. Open it in this browser within 15
-          minutes.
-        </p>
-      </main>
+      <AuthCard step="Check your email">
+        <div className="flex items-start gap-3">
+          <MailCheck aria-hidden size={24} strokeWidth={1.5} className="shrink-0 text-primary" />
+          <p className="text-ui">
+            If this address can sign in, a link is on its way. Open it in this browser within 15
+            minutes.
+          </p>
+        </div>
+      </AuthCard>
     );
   }
   if (step.kind === "choose") {
     return (
-      <main className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-        <h1 className="text-xl font-semibold">SporeBot</h1>
-        <button
-          type="button"
-          onClick={() => void goToSso()}
-          className="rounded bg-slate-900 px-3 py-1.5 text-white"
-        >
+      <AuthCard step="Sign in" stepId="choose">
+        <Button variant="primary" size="lg" onClick={() => void goToSso()}>
           {ssoButtonLabel(step.found.sso_kind)}
-        </button>
+        </Button>
         {step.found.methods.includes("sign_in_link") && (
-          <button type="button" onClick={() => void sendLink()} className="text-sm underline">
+          <Button variant="ghost" onClick={() => void sendLink()}>
             Email me a sign-in link instead
-          </button>
+          </Button>
         )}
-        {failed && <p className="text-sm text-red-700">{failureText(limited)}</p>}
-      </main>
+        {failed && <Notice tone="danger">{failureText(limited)}</Notice>}
+      </AuthCard>
     );
   }
   return (
-    <form onSubmit={submit} className="mx-auto mt-16 flex max-w-sm flex-col gap-3 px-4">
-      <h1 className="text-xl font-semibold">SporeBot</h1>
-      <label className="flex flex-col gap-1 text-sm">
-        Email
-        <input
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="rounded border px-2 py-1"
-        />
-      </label>
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-white">
-        Continue
-      </button>
-      {ssoFailed && !failed && (
-        <p role="alert" className="text-sm text-red-700">
-          {ssoRefusalText(ssoReason)}
-        </p>
-      )}
-      {failed && <p className="text-sm text-red-700">{failureText(limited)}</p>}
-    </form>
+    <AuthCard step="Sign in">
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <Field label="Email">
+          <Input
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </Field>
+        <Button variant="primary" size="lg" type="submit">
+          Continue
+        </Button>
+        {ssoFailed && !failed && (
+          <Notice tone="danger" role="alert">
+            {ssoRefusalText(ssoReason)}
+          </Notice>
+        )}
+        {failed && <Notice tone="danger">{failureText(limited)}</Notice>}
+      </form>
+    </AuthCard>
   );
 }

@@ -35,6 +35,8 @@ describe("AdminGate", () => {
     );
     expect(html).toContain("Tenant admins only.");
     expect(html).not.toContain("Users");
+    // UX-23: the sentence is the page's h1, in an empty state.
+    expect(html).toMatch(/<h1[^>]*>Tenant admins only\.<\/h1>/);
   });
 
   it("does not open them without a signed-in user", () => {

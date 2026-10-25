@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { ApiError, api } from "../api/client";
@@ -7,6 +7,12 @@ import type { ConversationCreated } from "../api/types";
 import { StartPanel } from "../components/StartPanel";
 import { keepsNoHistory } from "../lib/noHistory";
 import { createBody, initialChoice, refusalText, type StartChoice } from "../lib/startPanel";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
+import { Field } from "../ui/Field";
+import { Textarea } from "../ui/Input";
+import { Notice } from "../ui/Notice";
+import { EmptyState, Skeleton } from "../ui/States";
 
 // What the chat page needs from the start: the first question, the spend-cap notice, and,
 // for a tenant that keeps no history (P1b-14), the conversation itself, which no read
@@ -38,10 +44,18 @@ export function NewConversation() {
   });
 
   if (workspaces.isPending || models.isPending) {
-    return <main className="mx-auto max-w-3xl p-4">Loading…</main>;
+    return (
+      <StartPage>
+        <Skeleton />
+      </StartPage>
+    );
   }
   if (!workspaces.data || !models.data) {
-    return <main className="mx-auto max-w-3xl p-4 text-red-700">Could not load the options.</main>;
+    return (
+      <StartPage>
+        <Notice tone="danger">Could not load the options.</Notice>
+      </StartPage>
+    );
   }
   const choice = edited ?? initialChoice(workspaces.data, models.data);
 
@@ -51,46 +65,57 @@ export function NewConversation() {
   }
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <Link to="/" className="text-sm underline">
-        ← Conversations
-      </Link>
+    <StartPage>
       {workspaces.data.length === 0 ? (
-        <p>No workspace has been set up for your organisation yet.</p>
+        <EmptyState title="No workspace has been set up for your organisation yet." />
       ) : (
-        <form onSubmit={submit} className="flex flex-col gap-3">
+        <form onSubmit={submit} className="flex flex-col gap-6">
+          {/* UX-14 (mockup 2): the question first, with a visible label, then the settings. */}
+          <Field label="Question">
+            <Textarea
+              id="first-question"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              maxLength={4000}
+              rows={5}
+              placeholder="Ask a question about this workspace's sources"
+            />
+          </Field>
           <StartPanel
             workspaces={workspaces.data}
             models={models.data}
             choice={choice}
             onChange={setEdited}
           />
-          <label htmlFor="first-question" className="sr-only">
-            Question
-          </label>
-          <textarea
-            id="first-question"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            maxLength={4000}
-            rows={3}
-            placeholder="Ask a question about this workspace's sources"
-            className="rounded border px-2 py-1"
-          />
           {create.error ? (
-            <p role="alert" className="text-red-700">
+            <Notice tone="danger" role="alert">
               {refusalText(create.error instanceof ApiError ? create.error.code : null)}
-            </p>
+            </Notice>
           ) : null}
-          <button
+          <Button
+            variant="primary"
+            className="self-end"
             type="submit"
             disabled={create.isPending || !question.trim() || !choice.model}
-            className="self-end rounded bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50"
           >
             Start
-          </button>
+          </Button>
         </form>
       )}
-    </main>
+    </StartPage>
+  );
+}
+
+// Every state of the start page (loading, error, no workspace, the form) has the back link
+// and the page's h1, the former legend of the panel.
+function StartPage({ children }: { children: ReactNode }) {
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 md:px-8 md:py-6">
+      <Link to="/" className={`w-fit text-ui ${LINK}`}>
+        ← Conversations
+      </Link>
+      <h1 className="text-title font-strong">New conversation</h1>
+      {children}
+    </div>
   );
 }

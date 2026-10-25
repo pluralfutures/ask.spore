@@ -10,7 +10,7 @@ Fixes the technology choices left open in the Platform Architecture & Functional
 | --- | --- | --- | --- |
 | Repository | Single monorepo `ask.spore` | n/a | One design, one CI, one deploy unit at this scale |
 | API and workers | Python 3.12, FastAPI, SQLAlchemy 2 (async), Alembic, Pydantic v2 | Pin minor versions in `pyproject.toml`; `uv` for dependency management | RAGFlow SDK, Mistral SDK and document tooling are Python-first |
-| Web app | React 18, TypeScript, Vite, TanStack Query, Tailwind CSS | Pin in `package.json`; `pnpm` | Common, well-understood by coding models, small bundle |
+| Web app | React 18, TypeScript, Vite, TanStack Query, Tailwind CSS; typeface Lato (SIL OFL 1.1), vendored `woff2` files in `apps/web/src/assets/fonts/lato/` and served from our own origin (UX-05, Oct 24, 2026); icons `lucide-react` (ISC), bundled and tree-shaken (UX-06, Oct 24, 2026) | Pin in `package.json`; `pnpm`; Lato files from the Google Fonts build as packaged by Fontsource 5.1.0 (Latin and Latin Extended); `lucide-react` 1.53.0 | Common, well-understood by coding models, small bundle; no font CDN (the CSP is `font-src 'self'`); icons are inline SVG in the bundle, so nothing is fetched at run time |
 | App database | PostgreSQL 16 | Major pinned in Compose | Row-level security, JSONB for citation sets |
 | Cache, sessions, rate limits | Redis 7 | Major pinned | Simple; already part of the RAGFlow stack skill set |
 | Retrieval | RAGFlow, official Docker Compose, Elasticsearch backend, bundled embedding model | Pin RAGFlow image tag; record it in `infra/ragflow/VERSION` | Per the architecture document |
@@ -25,7 +25,7 @@ Fixes the technology choices left open in the Platform Architecture & Functional
 | Reverse proxy | Caddy | Pin image tag | Automatic TLS, minimal config |
 | Containers | Docker Compose, one file per environment under `infra/` | Compose v2 | Matches RAGFlow's own distribution |
 | Observability | Structured JSON logs to stdout; Prometheus metrics endpoint; Grafana + Loki in `infra/monitoring` (Phase 1+) | n/a | Stays on the VPS |
-| Testing | `pytest` + `pytest-asyncio` + `httpx` test client; `vitest` + Playwright for web | n/a | Standard |
+| Testing | `pytest` + `pytest-asyncio` + `httpx` test client; `vitest` + Playwright for web; `@axe-core/playwright` for the web accessibility baseline (UX-02, Oct 24, 2026); the web visual-regression suite runs in the official Playwright image (UX-05) | axe 4.13.0, dev only; `mcr.microsoft.com/playwright:v1.63.0-noble` pinned by digest, matching `@playwright/test` | Standard; axe is the common WCAG rule engine and never ships to users; one image makes snapshots identical on every machine and in CI |
 | Lint and format | `ruff` (lint + format), `mypy --strict` on `app/`, `eslint` + `prettier` | n/a | Custom ruff rules enforce the logging and cache controls |
 | CI | GitHub Actions: lint, typecheck, unit tests, integration tests against Compose services, eval gate | n/a | Branch protection on `main` |
 | Secrets | `.env` files locally (git-ignored); Scaleway Secret Manager in staging/production, injected as environment variables at deploy | n/a | Per the architecture document |

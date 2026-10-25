@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState, type FormEvent, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 
 import { ApiError, adminApi, api } from "../api/client";
 import type { AdminUser, LoginPolicyOut, Me, ModelOption, Workspace } from "../api/types";
@@ -16,8 +15,19 @@ import {
 } from "../lib/admin";
 import { UserActions } from "../components/UserActions";
 import { formatDate } from "../lib/format";
-import { policySummary } from "../lib/sso";
+import { POLICY_ROWS, policySummary } from "../lib/sso";
 import { modelLabel } from "../lib/startPanel";
+import { Button } from "../ui/Button";
+import { Field } from "../ui/Field";
+import { Input, Select, Textarea } from "../ui/Input";
+import { Switch } from "../ui/Switch";
+import { Notice } from "../ui/Notice";
+import { AccessDenied, PageSkeleton } from "../ui/States";
+import { Card } from "../ui/Card";
+import { PageHeader } from "../ui/PageHeader";
+import { StatusBadge } from "../ui/Badge";
+import { ActionsTh, Table, Td, Th } from "../ui/Table";
+import { Disclosure } from "../ui/Disclosure";
 
 function refusal(error: unknown): string | null {
   if (error === null || error === undefined) return null;
@@ -32,7 +42,7 @@ const MODE_LABELS: Record<string, string> = {
 // Only tenant admins see the pages; the API refuses everyone else anyway (403).
 export function AdminGate({ me, children }: { me: Me | null | undefined; children: ReactNode }) {
   if (!isTenantAdmin(me)) {
-    return <main className="mx-auto max-w-3xl p-4 text-sm">Tenant admins only.</main>;
+    return <AccessDenied>Tenant admins only.</AccessDenied>;
   }
   return <>{children}</>;
 }
@@ -40,21 +50,60 @@ export function AdminGate({ me, children }: { me: Me | null | undefined; childre
 // Tenant admin pages (P1a-13): users, workspaces (instructions and defaults), retention.
 export function TenantAdmin() {
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
-  if (me.isPending) return <main className="mx-auto max-w-3xl p-4">Loading…</main>;
+  if (me.isPending) return <PageSkeleton />;
   return (
     <AdminGate me={me.data}>
-      <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
-        <Link to="/" className="text-sm underline">
-          ← Conversations
-        </Link>
-        <h1 className="text-xl font-semibold">Administration</h1>
-        <Users selfEmail={me.data?.email} />
-        <Workspaces />
-        <Retention />
-        <SignInPolicy />
-        <AuditLog />
-      </main>
+      <div className="mx-auto flex w-full max-w-[70rem] flex-col gap-6 p-4 md:px-8 md:py-6">
+        <PageHeader back={{ to: "/", label: "← Conversations" }} title="Administration" />
+        {/* UX-18 (mockup 3): a section sub-nav beside the cards from 1024 px, above them
+            on smaller screens. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[12rem_minmax(0,1fr)]">
+          <SectionNav />
+          <div className="flex min-w-0 flex-col gap-6">
+            <Users selfEmail={me.data?.email} />
+            <Workspaces />
+            <Retention />
+            <SignInPolicy />
+            <AuditLog />
+          </div>
+        </div>
+      </div>
     </AdminGate>
+  );
+}
+
+// The page's sections, in page order, with the headings they link to.
+const SECTIONS = [
+  ["users", "Users"],
+  ["workspaces", "Workspaces"],
+  ["retention", "Chat history retention"],
+  ["sign-in", "Sign-in"],
+  ["audit", "Audit log"],
+] as const;
+const SECTION_CARD = "scroll-mt-4 text-ui";
+
+function SectionNav() {
+  const [current, setCurrent] = useState(() => {
+    const hash = typeof window === "undefined" ? "" : window.location.hash.slice(1);
+    return SECTIONS.some(([id]) => id === hash) ? hash : "users";
+  });
+  return (
+    <nav aria-label="Administration sections" className="lg:sticky lg:top-4 lg:self-start">
+      <ul className="flex w-0 min-w-full gap-1 overflow-x-auto lg:w-auto lg:flex-col">
+        {SECTIONS.map(([id, label]) => (
+          <li key={id} className="shrink-0">
+            <a
+              href={`#${id}`}
+              aria-current={current === id ? "true" : undefined}
+              onClick={() => setCurrent(id)}
+              className="flex min-h-9 items-center rounded-control px-3 text-ui whitespace-nowrap text-fg-secondary hover:bg-surface-subtle aria-[current=true]:bg-info-subtle aria-[current=true]:font-strong aria-[current=true]:text-info max-sm:min-h-11"
+            >
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 
@@ -84,8 +133,7 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
   const failed = refusal(change.error) ?? refusal(resend.error) ?? refusal(remove.error);
 
   return (
-    <section className="flex flex-col gap-2 rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">Users</h2>
+    <Card id="users" title="Users" className={SECTION_CARD}>
       {/* Release F4: each action shows its own outcome only. An invite clears the list's
           last status; a resend or removal remounts the form, clearing its last refusal. */}
       <Invite
@@ -98,21 +146,21 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
           change.reset();
         }}
       />
-      {failed ? <p className="text-red-700">{failed}</p> : null}
+      {failed ? <Notice tone="danger">{failed}</Notice> : null}
       {done && !failed ? (
-        <p role="status" className="text-slate-700">
+        <Notice tone="success" role="status">
           {done}
-        </p>
+        </Notice>
       ) : null}
-      <table className="w-full text-left">
+      <Table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Last login</th>
-            <th />
+            <Th>Name</Th>
+            <Th>Email</Th>
+            <Th>Role</Th>
+            <Th>Status</Th>
+            <Th>Last login</Th>
+            <ActionsTh />
           </tr>
         </thead>
         <tbody>
@@ -138,8 +186,8 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
             />
           ))}
         </tbody>
-      </table>
-    </section>
+      </Table>
+    </Card>
   );
 }
 
@@ -161,46 +209,44 @@ function UserRow({
   const actions = userActions(user, selfEmail);
   return (
     <tr data-testid={`user-${user.email}`}>
-      <td>{user.display_name}</td>
-      <td>{user.email}</td>
-      <td>
+      <Td label="Name" className="[overflow-wrap:anywhere] sm:min-w-32">
+        {user.display_name}
+      </Td>
+      <Td label="Email" className="[overflow-wrap:anywhere] sm:min-w-48">
+        {user.email}
+      </Td>
+      <Td label="Role">
         {actions.canChangeRole ? (
-          <select
+          <Select
             aria-label={`Role of ${user.email}`}
             value={user.role}
             onChange={(e) => onChange({ role: e.target.value as "user" | "tenant_admin" })}
           >
             <option value="user">User</option>
             <option value="tenant_admin">Admin</option>
-          </select>
+          </Select>
         ) : user.role === "tenant_admin" ? (
           "Admin"
         ) : (
           "User"
         )}
-      </td>
-      <td>{user.status}</td>
-      <td>{lastLogin(user)}</td>
-      <td>
-        {actions.canDeactivate ? (
-          <button
-            type="button"
-            className="underline"
-            onClick={() => onChange({ status: "deactivated" })}
-          >
-            Deactivate
-          </button>
-        ) : null}
-        {actions.canReactivate ? (
-          <button
-            type="button"
-            className="underline"
-            onClick={() => onChange({ status: "active" })}
-          >
-            Reactivate
-          </button>
-        ) : null}
+      </Td>
+      <Td label="Status">
+        <StatusBadge kind="user" status={user.status} />
+      </Td>
+      <Td label="Last login" className="sm:min-w-32">
+        {lastLogin(user)}
+      </Td>
+      <Td className="text-right">
         <UserActions
+          before={[
+            ...(actions.canDeactivate
+              ? [{ label: "Deactivate", onSelect: () => onChange({ status: "deactivated" }) }]
+              : []),
+            ...(actions.canReactivate
+              ? [{ label: "Reactivate", onSelect: () => onChange({ status: "active" }) }]
+              : []),
+          ]}
           user={user}
           canResend={actions.canResend}
           canRemove={actions.canRemove}
@@ -208,7 +254,7 @@ function UserRow({
           onRemove={onRemove}
           busy={busy}
         />
-      </td>
+      </Td>
     </tr>
   );
 }
@@ -234,43 +280,34 @@ function Invite({ onInvited, onStart }: { onInvited: () => void; onStart: () => 
 
   return (
     <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
-      <label className="flex flex-col">
-        Email
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="rounded border px-2"
-        />
-      </label>
-      <label className="flex flex-col">
-        Name
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="rounded border px-2"
-        />
-      </label>
-      <label className="flex flex-col">
-        Role
-        <select value={role} onChange={(e) => setRole(e.target.value as "user" | "tenant_admin")}>
+      <Field label="Email">
+        <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+      </Field>
+      <Field label="Name">
+        <Input value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="Role">
+        <Select value={role} onChange={(e) => setRole(e.target.value as "user" | "tenant_admin")}>
           <option value="user">User</option>
           <option value="tenant_admin">Admin</option>
-        </select>
-      </label>
-      <button
+        </Select>
+      </Field>
+      <Button
+        variant="primary"
         type="submit"
         disabled={invite.isPending || !email.trim() || !name.trim()}
-        className="rounded bg-slate-900 px-3 py-1 text-white disabled:opacity-50"
       >
         Invite
-      </button>
+      </Button>
       {invite.isSuccess ? (
-        <p className="w-full text-slate-600">
+        <p className="w-full text-fg-muted">
           Invited. They sign in by requesting a link on the sign-in page.
         </p>
       ) : null}
       {refusal(invite.error) ? (
-        <p className="w-full text-red-700">{refusal(invite.error)}</p>
+        <Notice tone="danger" className="w-full">
+          {refusal(invite.error)}
+        </Notice>
       ) : null}
     </form>
   );
@@ -281,8 +318,8 @@ function Workspaces() {
   const models = useQuery({ queryKey: ["models"], queryFn: api.models });
   const settings = useQuery({ queryKey: ["admin", "settings"], queryFn: adminApi.settings });
   return (
-    <section className="flex flex-col gap-3 text-sm">
-      <h2 className="font-semibold">Workspaces</h2>
+    <section id="workspaces" className={`flex flex-col gap-3 ${SECTION_CARD}`}>
+      <h2 className="text-heading font-strong">Workspaces</h2>
       {workspaces.data && models.data && settings.data
         ? workspaces.data.map((w) => (
             <WorkspacePanel
@@ -307,14 +344,10 @@ function WorkspacePanel({
   modes: string[];
 }) {
   return (
-    <div
-      className="flex flex-col gap-3 rounded bg-white p-3"
-      data-testid={`workspace-${workspace.slug}`}
-    >
-      <h3 className="font-semibold">{workspace.name}</h3>
+    <Card title={workspace.name} level={3} group data-testid={`workspace-${workspace.slug}`}>
       <Defaults workspace={workspace} models={models} modes={modes} />
       <Instructions workspace={workspace} />
-    </div>
+    </Card>
   );
 }
 
@@ -350,19 +383,17 @@ function Defaults({
       }}
       className="flex flex-wrap items-end gap-2"
     >
-      <label className="flex flex-col">
-        Default mode
-        <select value={mode} onChange={(e) => setMode(e.target.value)}>
+      <Field label="Default mode">
+        <Select value={mode} onChange={(e) => setMode(e.target.value)}>
           {modes.map((m) => (
             <option key={m} value={m}>
               {MODE_LABELS[m] ?? m}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="flex flex-col">
-        Default model
-        <select
+        </Select>
+      </Field>
+      <Field label="Default model">
+        <Select
           value={model}
           onChange={(e) => {
             setModel(e.target.value);
@@ -375,26 +406,24 @@ function Defaults({
               {modelLabel(m)}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="flex items-center gap-1">
-        <input
-          type="checkbox"
-          checked={reasoning}
-          disabled={!switchable}
-          onChange={(e) => setReasoning(e.target.checked)}
-        />
-        Reasoning by default
-      </label>
-      <button
-        type="submit"
-        disabled={save.isPending}
-        className="rounded bg-slate-900 px-3 py-1 text-white"
+        </Select>
+      </Field>
+      <Switch
+        checked={reasoning}
+        disabled={!switchable}
+        onChange={(e) => setReasoning(e.target.checked)}
       >
+        Reasoning by default
+      </Switch>
+      <Button variant="primary" type="submit" disabled={save.isPending}>
         Save defaults
-      </button>
-      {save.isSuccess ? <span className="text-slate-600">Saved.</span> : null}
-      {refusal(save.error) ? <p className="w-full text-red-700">{refusal(save.error)}</p> : null}
+      </Button>
+      {save.isSuccess ? <span className="text-fg-muted">Saved.</span> : null}
+      {refusal(save.error) ? (
+        <Notice tone="danger" className="w-full">
+          {refusal(save.error)}
+        </Notice>
+      ) : null}
     </form>
   );
 }
@@ -422,14 +451,14 @@ function Instructions({ workspace }: { workspace: Workspace }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={`instructions-${workspace.id}`} className="font-medium">
+      <label htmlFor={`instructions-${workspace.id}`} className="font-emphasis">
         Additional instructions
       </label>
-      <p className="text-slate-600">
+      <p className="text-fg-muted">
         Added to the assistant&apos;s instructions for this workspace. They cannot change how it
         cites sources or when it declines to answer.
       </p>
-      <textarea
+      <Textarea
         id={`instructions-${workspace.id}`}
         value={text}
         onChange={(e) => {
@@ -438,27 +467,25 @@ function Instructions({ workspace }: { workspace: Workspace }) {
         }}
         maxLength={MAX_INSTRUCTIONS_CHARS}
         rows={4}
-        className="rounded border px-2 py-1"
       />
       <div className="flex items-center gap-2">
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={() => save.mutate(text)}
           disabled={save.isPending || draft === null}
-          className="rounded bg-slate-900 px-3 py-1 text-white disabled:opacity-50"
         >
           Save as new version
-        </button>
-        <span className="text-slate-600">
+        </Button>
+        <span className="text-fg-muted">
           {text.length} / {MAX_INSTRUCTIONS_CHARS}
         </span>
         {savedVersion !== null && !save.isPending ? (
-          <span role="status" className="text-slate-600">
+          <span role="status" className="text-fg-muted">
             Saved as version {savedVersion}.
           </span>
         ) : null}
       </div>
-      {refusal(save.error) ? <p className="text-red-700">{refusal(save.error)}</p> : null}
+      {refusal(save.error) ? <Notice tone="danger">{refusal(save.error)}</Notice> : null}
       <VersionHistory versions={history.data ?? []} />
     </div>
   );
@@ -470,21 +497,20 @@ export function VersionHistory({
 }: {
   versions: { version: number; text: string; created_at: string }[];
 }) {
-  if (versions.length === 0) return <p className="text-slate-600">No versions saved yet.</p>;
+  if (versions.length === 0) return <p className="text-fg-muted">No versions saved yet.</p>;
   return (
-    <details>
-      <summary>Version history ({versions.length})</summary>
+    <Disclosure summary={`Version history (${versions.length})`}>
       <ol className="flex flex-col gap-2">
         {versions.map((v) => (
           <li key={v.version} data-testid={`version-${v.version}`}>
-            <p className="font-medium">
+            <p className="font-emphasis">
               Version {v.version} · {formatDate(v.created_at)}
             </p>
-            <pre className="whitespace-pre-wrap text-slate-700">{v.text || "(empty)"}</pre>
+            <pre className="whitespace-pre-wrap text-fg-secondary">{v.text || "(empty)"}</pre>
           </li>
         ))}
       </ol>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -493,21 +519,26 @@ export function VersionHistory({
 function SignInPolicy() {
   const policy = useQuery({ queryKey: ["admin", "login-policy"], queryFn: adminApi.loginPolicy });
   return (
-    <section className="flex flex-col gap-2 rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">Sign-in</h2>
+    <Card id="sign-in" title="Sign-in" className={SECTION_CARD}>
       {policy.data ? <PolicySummary policy={policy.data} /> : null}
-      <p className="text-slate-600">To change single sign-on, contact the platform operator.</p>
-    </section>
+      <p className="text-fg-muted">To change single sign-on, contact the platform operator.</p>
+    </Card>
   );
 }
 
 export function PolicySummary({ policy }: { policy: LoginPolicyOut }) {
   return (
-    <dl className="grid grid-cols-[max-content_1fr] gap-x-3">
-      {policySummary(policy).map(([label, value]) => (
+    // UX-18: the SSO source's own settings (after the fixed rows) are configuration keys
+    // and values, shown in monospace.
+    <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1">
+      {policySummary(policy).map(([label, value], i) => (
         <Fragment key={label}>
-          <dt className="text-slate-600">{label}</dt>
-          <dd className="break-all">{value}</dd>
+          <dt className={i < POLICY_ROWS ? "text-fg-muted" : "font-mono text-meta text-fg-muted"}>
+            {label}
+          </dt>
+          <dd className={i < POLICY_ROWS ? "break-all" : "font-mono text-meta break-all"}>
+            {value}
+          </dd>
         </Fragment>
       ))}
     </dl>
@@ -540,41 +571,35 @@ function Retention() {
   }
 
   return (
-    <section className="rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">Chat history retention</h2>
-      <p className="text-slate-600">
+    <Card id="retention" title="Chat history retention" className={SECTION_CARD}>
+      <p className="text-fg-muted">
         Conversations are deleted after this many days, at most {MAX_RETENTION_DAYS}. Shortening it
         also removes existing conversations older than the new limit. 0 keeps no history: each
         conversation is deleted as soon as its answer ends.
       </p>
       {settings.data ? (
-        <p className="text-slate-600" data-testid="retention-summary">
+        <p className="text-fg-muted" data-testid="retention-summary">
           {retentionSummary(settings.data.retention_days)}
         </p>
       ) : null}
-      <form onSubmit={submit} noValidate className="mt-2 flex items-end gap-2">
-        <label className="flex flex-col">
-          Days
-          <input
+      <form onSubmit={submit} noValidate className="mt-2 flex items-start gap-2">
+        <Field label="Days" error={error}>
+          <Input
             type="number"
             min={0}
             max={MAX_RETENTION_DAYS}
             value={current}
             onChange={(e) => setValue(e.target.value)}
-            className="w-20 rounded border px-2"
+            className="w-20"
           />
-        </label>
-        <button
-          type="submit"
-          disabled={save.isPending}
-          className="rounded bg-slate-900 px-3 py-1 text-white"
-        >
+        </Field>
+        {/* mt-6: level with the input, below the field's label */}
+        <Button variant="primary" type="submit" disabled={save.isPending} className="mt-6">
           Save retention
-        </button>
+        </Button>
       </form>
-      {error ? <p className="text-red-700">{error}</p> : null}
-      {refusal(save.error) ? <p className="text-red-700">{refusal(save.error)}</p> : null}
-    </section>
+      {refusal(save.error) ? <Notice tone="danger">{refusal(save.error)}</Notice> : null}
+    </Card>
   );
 }
 
@@ -592,20 +617,19 @@ function AuditLog() {
     },
   });
   return (
-    <section className="rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">Audit log</h2>
-      <p className="text-slate-600">
+    <Card id="audit" title="Audit log" className={SECTION_CARD}>
+      <p className="text-fg-muted">
         Sign-in, administration, operator and notice-acceptance events of the last 90 days, as CSV.
       </p>
-      <button
-        type="button"
+      <Button
+        variant="primary"
+        className="w-fit"
         disabled={download.isPending}
         onClick={() => download.mutate()}
-        className="mt-2 rounded bg-slate-900 px-3 py-1 text-white"
       >
         Download audit log
-      </button>
-      {refusal(download.error) ? <p className="text-red-700">{refusal(download.error)}</p> : null}
-    </section>
+      </Button>
+      {refusal(download.error) ? <Notice tone="danger">{refusal(download.error)}</Notice> : null}
+    </Card>
   );
 }

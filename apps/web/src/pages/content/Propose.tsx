@@ -12,6 +12,13 @@ import {
   proposalForm,
   type ProposalFields,
 } from "../../lib/content";
+import { Button } from "../../ui/Button";
+import { LINK } from "../../ui/link";
+import { Field } from "../../ui/Field";
+import { Input } from "../../ui/Input";
+import { Checkbox } from "../../ui/Checkbox";
+import { Notice } from "../../ui/Notice";
+import { cardClass } from "../../ui/cardClass";
 
 // The propose form (P1b-05): a file upload or a URL, with the manifest's metadata and
 // tags. The licence basis is always required; a licence or permission letter is optional,
@@ -40,108 +47,73 @@ export function Propose({ roles }: { roles: string[] }) {
   const set = (key: keyof ProposalFields) => (value: string | boolean | string[]) =>
     setFields({ ...fields, [key]: value });
   return (
-    <form onSubmit={submit} className="flex max-w-2xl flex-col gap-2 rounded bg-white p-3">
-      <h2 className="font-semibold">Propose a source</h2>
-      <label className="flex flex-col">
-        File (PDF, DOCX, PPTX, HTML, Markdown)
-        <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      </label>
-      <label className="flex flex-col">
-        or URL
-        <input
-          value={fields.url}
-          onChange={(e) => set("url")(e.target.value)}
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Title
-        <input
-          value={fields.title}
-          onChange={(e) => set("title")(e.target.value)}
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Publisher
-        <input
-          value={fields.publisher}
-          onChange={(e) => set("publisher")(e.target.value)}
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Publication date
-        <input
+    <form onSubmit={submit} className={cardClass("flex max-w-2xl flex-col gap-4")}>
+      <h2 className="text-heading font-strong">Propose a source</h2>
+      <Field label="File (PDF, DOCX, PPTX, HTML, Markdown)">
+        <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      </Field>
+      <Field label="or URL">
+        <Input value={fields.url} onChange={(e) => set("url")(e.target.value)} />
+      </Field>
+      <Field label="Title">
+        <Input value={fields.title} onChange={(e) => set("title")(e.target.value)} />
+      </Field>
+      <Field label="Publisher">
+        <Input value={fields.publisher} onChange={(e) => set("publisher")(e.target.value)} />
+      </Field>
+      <Field label="Publication date">
+        <Input
           type="date"
           value={fields.publishedOn}
           onChange={(e) => set("publishedOn")(e.target.value)}
-          className="border px-1"
         />
-      </label>
-      <label className="flex flex-col">
-        Canonical link (the publisher's page; the URL itself for a URL)
-        <input
-          value={fields.canonicalUrl}
-          onChange={(e) => set("canonicalUrl")(e.target.value)}
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Licence basis
-        <input
+      </Field>
+      <Field label="Canonical link (the publisher's page; the URL itself for a URL)">
+        <Input value={fields.canonicalUrl} onChange={(e) => set("canonicalUrl")(e.target.value)} />
+      </Field>
+      <Field label="Licence basis">
+        <Input
           list="licence-bases"
           value={fields.licenceBasis}
           onChange={(e) => set("licenceBasis")(e.target.value)}
-          className="border px-1"
         />
-        <datalist id="licence-bases">
-          {LICENCE_BASES.map((basis) => (
-            <option key={basis} value={basis} />
-          ))}
-        </datalist>
-      </label>
-      <fieldset className="flex flex-wrap gap-3">
-        <legend>Tags</legend>
+      </Field>
+      <datalist id="licence-bases">
+        {LICENCE_BASES.map((basis) => (
+          <option key={basis} value={basis} />
+        ))}
+      </datalist>
+      <fieldset className="flex flex-wrap gap-x-4 gap-y-2">
+        <legend className="mb-2 text-ui font-strong">Tags</legend>
         {tags.data?.map((t) => (
-          <label key={t.tag}>
-            <input
-              type="checkbox"
-              checked={fields.tags.includes(t.tag)}
-              onChange={(e) =>
-                set("tags")(
-                  e.target.checked
-                    ? [...fields.tags, t.tag]
-                    : fields.tags.filter((x) => x !== t.tag),
-                )
-              }
-            />{" "}
+          <Checkbox
+            key={t.tag}
+            checked={fields.tags.includes(t.tag)}
+            onChange={(e) =>
+              set("tags")(
+                e.target.checked ? [...fields.tags, t.tag] : fields.tags.filter((x) => x !== t.tag),
+              )
+            }
+          >
             {t.tag}
-          </label>
+          </Checkbox>
         ))}
       </fieldset>
-      <label>
-        <input
-          type="checkbox"
-          checked={fields.downloadable}
-          onChange={(e) => set("downloadable")(e.target.checked)}
-        />{" "}
-        Users may download the file (only where the licence permits redistribution)
-      </label>
-      <label className="flex flex-col">
-        Licence or permission letter (optional)
-        <input type="file" onChange={(e) => setLicence(e.target.files?.[0] ?? null)} />
-      </label>
-      <button
-        type="submit"
-        disabled={propose.isPending}
-        className="w-fit rounded bg-slate-900 px-3 py-1 text-white"
+      <Checkbox
+        checked={fields.downloadable}
+        onChange={(e) => set("downloadable")(e.target.checked)}
       >
+        Users may download the file (only where the licence permits redistribution)
+      </Checkbox>
+      <Field label="Licence or permission letter (optional)">
+        <Input type="file" onChange={(e) => setLicence(e.target.files?.[0] ?? null)} />
+      </Field>
+      <Button variant="primary" className="w-fit" type="submit" disabled={propose.isPending}>
         Propose
-      </button>
-      {problem ? <p className="text-red-700">{problem}</p> : null}
+      </Button>
+      {problem ? <Notice tone="danger">{problem}</Notice> : null}
       {errorMessage(propose.error) ? (
-        <p className="text-red-700">{errorMessage(propose.error)}</p>
+        <Notice tone="danger">{errorMessage(propose.error)}</Notice>
       ) : null}
       {propose.data ? <ProposeResult result={propose.data} /> : null}
     </form>
@@ -158,10 +130,10 @@ const OUTCOMES: Record<ProposeOut["outcome"], string> = {
 
 export function ProposeResult({ result }: { result: ProposeOut }) {
   return (
-    <div data-testid="propose-result" className="rounded bg-slate-50 p-2">
+    <Notice tone="success" data-testid="propose-result">
       <p>
         {OUTCOMES[result.outcome]}{" "}
-        <Link to={`/content/sources/${result.source_id}`} className="underline">
+        <Link to={`/content/sources/${result.source_id}`} className={LINK}>
           Open the source
         </Link>
       </p>
@@ -172,12 +144,12 @@ export function ProposeResult({ result }: { result: ProposeOut }) {
         </p>
       ) : null}
       {result.possible_replacements.length ? (
-        <p className="text-amber-900">
+        <p className="text-warning">
           Possible replacement of{" "}
           {result.possible_replacements.map((r) => `${r.title} (${r.publisher})`).join("; ")}: the
           reviewer chooses replace or keep both.
         </p>
       ) : null}
-    </div>
+    </Notice>
   );
 }

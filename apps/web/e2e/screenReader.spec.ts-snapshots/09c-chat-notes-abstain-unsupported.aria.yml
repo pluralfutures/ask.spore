@@ -1,0 +1,83 @@
+- banner:
+    - note: AI-generated, verify against cited sources.
+    - link "Skip to content":
+        - /url: "#main"
+    - link "SporeBot":
+        - /url: /
+    - text: Synthetic Client
+    - navigation "Main":
+        - list:
+            - listitem:
+                - link "Conversations":
+                    - /url: /
+    - text: Synthetic Analyst
+- main:
+    - navigation "Conversations":
+        - link "New conversation":
+            - /url: /new
+        - paragraph: Recent
+        - list:
+            - listitem:
+                - link /What drove synthetic fertiliser prices in \d+\? Expires \d+ Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000001
+                - button /Actions for What drove synthetic fertiliser prices in \d+\?/
+            - listitem:
+                - link /Compare synthetic maize and wheat planted area across the three synthetic regions, with a focus on the policy measures announced since the last synthetic harvest and their expected effect on export volumes Expires \d+ Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000002
+                - button "Actions for Compare synthetic maize and wheat planted area across the three synthetic regions, with a focus on the policy measures announced since the last synthetic harvest and their expected effect on export volumes"
+            - listitem:
+                - link /Untitled conversation Expires \d+ Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000003
+                - button "Actions for Untitled conversation"
+            - listitem:
+                - link /Synthetic cocoa supply outlook Expires 2 Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000004
+                - button "Actions for Synthetic cocoa supply outlook"
+            - listitem:
+                - link /Summarise the synthetic trade observatory's latest note Expires \d+ Oct \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000005
+                - button "Actions for Summarise the synthetic trade observatory's latest note"
+    - link "← Conversations":
+        - /url: /
+    - heading "Synthetic cocoa in the synthetic west" [level=1]
+    - list:
+        - listitem: Synthetic Markets
+        - listitem: Synthetic EU Standard
+        - listitem: General knowledge
+        - listitem: /Expires \d+ Nov \d+/
+    - list:
+        - listitem: Synthetic cocoa in the synthetic west
+        - listitem:
+            - paragraph: Nothing relevant found
+            - paragraph: None of your sources covers synthetic cocoa production in the synthetic west region. Try a broader question or ask your administrator which sources this workspace includes.
+            - button "Helpful"
+            - button "Not helpful"
+        - listitem: What about general synthetic cocoa prices?
+        - listitem:
+            - article:
+                - text: "Unsupported answer: no citations to your sources"
+                - paragraph: /Synthetic cocoa prices rose sharply in \d+, but none of your sources supports this statement directly\./
+                - button "Helpful"
+                - button "Not helpful"
+        - listitem: Give me the full synthetic regional breakdown
+        - listitem:
+            - article:
+                - paragraph: The synthetic regional breakdown starts with the north region, where
+                - paragraph: This answer was stopped before it finished.
+                - button "Helpful"
+                - button "Not helpful"
+        - listitem: And the synthetic export figures?
+        - listitem:
+            - article:
+                - paragraph:
+                    - text: Synthetic exports rose by 3%
+                    - button "Citation 1"
+                    - text: .
+                - paragraph: This answer was cut off at the length limit.
+                - paragraph: This conversation's model was unavailable, so a backup model served outside the EU answered, as your organisation allows.
+                - button "Helpful"
+                - button "Not helpful"
+    - text: Question
+    - textbox "Question":
+        - /placeholder: Ask a question about your research package
+    - button "Ask" [disabled]

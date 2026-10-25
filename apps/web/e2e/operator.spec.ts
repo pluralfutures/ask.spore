@@ -149,7 +149,7 @@ test("every console save says it was saved, or why not", async ({ page }) => {
     `/operator/tenants/${TENANT_ID}/login-policy`,
   ]);
 
-  await page.getByRole("button", { name: "Workspaces" }).click();
+  await page.getByRole("link", { name: "Workspaces" }).click();
   await page.getByLabel("alpha-reports").check();
   await page.getByRole("button", { name: "Save tags" }).click();
   await expect(page.getByText("Refused (422: tag_not_in_package).")).toBeVisible();
@@ -162,7 +162,8 @@ test("the users tab shows the latest action's outcome only", async ({ page }) =>
   await fakeConsole(page, calls);
   await page.goto(`/operator/tenants/${TENANT_ID}?tab=users`);
 
-  await page.getByRole("button", { name: "Resend invitation" }).click();
+  await page.getByRole("button", { name: "Actions for invited@alpha.example" }).click();
+  await page.getByRole("menuitem", { name: "Resend invitation" }).click();
   await expect(page.getByRole("status")).toHaveText(
     "Invitation sent again to invited@alpha.example.",
   );
@@ -172,7 +173,8 @@ test("the users tab shows the latest action's outcome only", async ({ page }) =>
   await expect(page.getByText("already has an account")).toBeVisible();
   await expect(page.getByText("Invitation sent again")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Resend invitation" }).click();
+  await page.getByRole("button", { name: "Actions for invited@alpha.example" }).click();
+  await page.getByRole("menuitem", { name: "Resend invitation" }).click();
   await expect(page.getByRole("status")).toHaveText(
     "Invitation sent again to invited@alpha.example.",
   );

@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 
 import { ApiError, operatorApi } from "../api/client";
 import { errorText } from "../lib/operator";
 import { count, euros } from "../lib/spend";
 import { OperatorsOnly } from "./OperatorConsole";
+import { Notice } from "../ui/Notice";
+import { Skeleton } from "../ui/States";
+import { PageHeader } from "../ui/PageHeader";
+import { Table, Td, Th } from "../ui/Table";
 
 // Cross-tenant totals for the month (P1b-12, architecture §7.4): tokens and cost per
 // model and per provider, and how many tenants used each. No tenant is named here and
@@ -17,68 +20,84 @@ export function OperatorAggregates() {
   if (totals.error instanceof ApiError && totals.error.status === 403) return <OperatorsOnly />;
   const data = totals.data;
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-sm">
-      <p>
-        <Link to="/operator" className="underline">
-          Operator console
-        </Link>
-      </p>
-      <h1 className="text-xl font-semibold">Totals across tenants</h1>
+    <div className="mx-auto w-full flex max-w-4xl flex-col gap-4 p-4 md:px-8 md:py-6 text-ui">
+      <PageHeader
+        back={{ to: "/operator", label: "Operator console" }}
+        title="Totals across tenants"
+      />
       {!data ? (
-        <p>{errorText(totals.error) ?? "Loading…"}</p>
+        errorText(totals.error) ? (
+          <Notice tone="danger">{errorText(totals.error)}</Notice>
+        ) : (
+          <Skeleton />
+        )
       ) : (
         <>
           <p>
             {data.month} (UTC) · {data.tenants_with_usage} of {data.tenants} tenants used a model
             this month.
           </p>
-          <table className="rounded bg-white text-left">
+          <Table>
             <thead>
               <tr>
-                <th>Provider</th>
-                <th>Tokens in</th>
-                <th>Tokens out</th>
-                <th>Cost</th>
+                <Th>Provider</Th>
+                <Th numeric>Tokens in</Th>
+                <Th numeric>Tokens out</Th>
+                <Th numeric>Cost</Th>
               </tr>
             </thead>
             <tbody>
               {data.providers.map((p) => (
                 <tr key={p.provider}>
-                  <td>{p.provider}</td>
-                  <td>{count(p.tokens_in)}</td>
-                  <td>{count(p.tokens_out)}</td>
-                  <td>{euros(p.cost_cents)}</td>
+                  <Td label="Provider">{p.provider}</Td>
+                  <Td label="Tokens in" numeric>
+                    {count(p.tokens_in)}
+                  </Td>
+                  <Td label="Tokens out" numeric>
+                    {count(p.tokens_out)}
+                  </Td>
+                  <Td label="Cost" numeric>
+                    {euros(p.cost_cents)}
+                  </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
-          <table className="rounded bg-white text-left">
+          </Table>
+          <Table>
             <thead>
               <tr>
-                <th>Model</th>
-                <th>Tenants</th>
-                <th>Tokens in</th>
-                <th>Tokens out</th>
-                <th>Cost</th>
+                <Th>Model</Th>
+                <Th numeric>Tenants</Th>
+                <Th numeric>Tokens in</Th>
+                <Th numeric>Tokens out</Th>
+                <Th numeric>Cost</Th>
               </tr>
             </thead>
             <tbody>
               {data.models.map((m) => (
                 <tr key={m.model}>
-                  <td>
+                  <Td label="Model">
                     {m.display_name}
-                    {m.external ? <span className="text-slate-500"> (outside the EU)</span> : null}
-                  </td>
-                  <td>{m.tenants}</td>
-                  <td>{count(m.tokens_in)}</td>
-                  <td>{count(m.tokens_out)}</td>
-                  <td>{euros(m.cost_cents)}</td>
+                    {m.external ? <span className="text-fg-subtle"> (outside the EU)</span> : null}
+                  </Td>
+                  <Td label="Tenants" numeric>
+                    {m.tenants}
+                  </Td>
+                  <Td label="Tokens in" numeric>
+                    {count(m.tokens_in)}
+                  </Td>
+                  <Td label="Tokens out" numeric>
+                    {count(m.tokens_out)}
+                  </Td>
+                  <Td label="Cost" numeric>
+                    {euros(m.cost_cents)}
+                  </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </>
       )}
-    </main>
+    </div>
   );
 }

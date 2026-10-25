@@ -3,6 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { contentApi } from "../../api/client";
 import type { ContentTag } from "../../api/types";
 import { canReview, errorMessage } from "../../lib/content";
+import { Button } from "../../ui/Button";
+import { LINK } from "../../ui/link";
+import { Notice } from "../../ui/Notice";
+import { Skeleton } from "../../ui/States";
+import { Badge } from "../../ui/Badge";
+import { Table, Td, Th } from "../../ui/Table";
 
 // Tag management (P1b-05): the tags of config/tags.toml and their RAGFlow datasets.
 // Tags are edited in that file (a reviewed change); the page shows the mapping and a
@@ -16,70 +22,72 @@ export function Tags({ roles }: { roles: string[] }) {
   });
   return (
     <section className="flex flex-col gap-3">
-      <p className="text-slate-600">
+      <p className="text-fg-muted">
         Tags live in config/tags.toml; change them there. A sync creates the dataset of a new tag in
         RAGFlow.
       </p>
       {canReview(roles) ? (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          className="w-fit"
           onClick={() => sync.mutate()}
           disabled={sync.isPending}
-          className="w-fit rounded border px-3 py-1"
         >
           Sync datasets
-        </button>
+        </Button>
       ) : null}
       {sync.data ? (
         <p data-testid="sync-result">{sync.data.map((r) => `${r.tag}: ${r.status}`).join(" · ")}</p>
       ) : null}
-      {errorMessage(sync.error) ? <p className="text-red-700">{errorMessage(sync.error)}</p> : null}
-      {tags.data ? <TagTable tags={tags.data} /> : <p>Loading…</p>}
+      {errorMessage(sync.error) ? <Notice tone="danger">{errorMessage(sync.error)}</Notice> : null}
+      {tags.data ? <TagTable tags={tags.data} /> : <Skeleton />}
     </section>
   );
 }
 
 export function TagTable({ tags }: { tags: ContentTag[] }) {
   return (
-    <table className="w-full rounded bg-white text-left">
+    <Table>
       <thead>
-        <tr className="border-b">
-          <th className="p-2">Tag</th>
-          <th className="p-2">Chunking</th>
-          <th className="p-2">Dataset</th>
-          <th className="p-2">Ingested sources</th>
+        <tr>
+          <Th>Tag</Th>
+          <Th>Chunking</Th>
+          <Th>Dataset</Th>
+          <Th numeric>Ingested sources</Th>
         </tr>
       </thead>
       <tbody>
         {tags.map((tag) => (
-          <tr key={tag.tag} className="border-b">
-            <td className="p-2">{tag.tag}</td>
-            <td className="p-2">
+          <tr key={tag.tag}>
+            <Td label="Tag">{tag.tag}</Td>
+            <Td label="Chunking">
               {tag.chunk_method}
               {Object.entries(tag.chunk_method_by_type).map(
                 ([type, method]) => ` · ${type}: ${method}`,
               )}
-            </td>
-            <td className="p-2">
+            </Td>
+            <Td label="Dataset">
               {tag.dataset_id === null ? (
-                <span className="text-amber-900">not synced</span>
+                <Badge tone="warning">not synced</Badge>
               ) : tag.ragflow_url ? (
                 <a
                   href={tag.ragflow_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline"
+                  className={LINK}
                 >
                   {tag.dataset_id}
                 </a>
               ) : (
                 tag.dataset_id
               )}
-            </td>
-            <td className="p-2">{tag.sources}</td>
+            </Td>
+            <Td label="Ingested sources" numeric>
+              {tag.sources}
+            </Td>
           </tr>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 }

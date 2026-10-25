@@ -24,6 +24,9 @@ describe("product name", () => {
   it("the page title and sign-in heading read SporeBot", () => {
     expect(indexHtml).toContain("<title>SporeBot</title>");
     expect(OLD_NAME.test(indexHtml)).toBe(false);
-    expect(sources["./components/EmailSignIn.tsx"]).toContain(">SporeBot</h1>");
+    // UX-11: every sign-in page shows its heading through the shared card.
+    expect(sources["./components/AuthCard.tsx"]).toContain('PRODUCT = "SporeBot"');
+    expect(sources["./components/AuthCard.tsx"]).toContain("{PRODUCT}</h1>");
+    expect(sources["./components/EmailSignIn.tsx"]).toContain("<AuthCard step=");
   });
 });

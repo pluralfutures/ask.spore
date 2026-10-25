@@ -30,6 +30,21 @@ import {
 } from "../lib/sso";
 import { OperatorsOnly } from "./OperatorConsole";
 import { PolicySummary } from "./TenantAdmin";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
+import { Field } from "../ui/Field";
+import { Input, Select, Textarea } from "../ui/Input";
+import { Checkbox } from "../ui/Checkbox";
+import { Switch } from "../ui/Switch";
+import { Notice } from "../ui/Notice";
+import { cardClass } from "../ui/cardClass";
+import { PageHeader } from "../ui/PageHeader";
+import { Badge, StatusBadge } from "../ui/Badge";
+import { cx } from "../ui/controlClass";
+import { Card } from "../ui/Card";
+import { EmptyState, Skeleton } from "../ui/States";
+import { Tabs } from "../ui/Tabs";
+import { ActionsTh, Table, Td, Th } from "../ui/Table";
 
 const TAB_LABELS: Record<TenantTab, string> = {
   entitlements: "Entitlements",
@@ -49,7 +64,7 @@ export function OperatorTenant() {
 }
 
 function TenantPage({ tenantId }: { tenantId: string }) {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const tab = tabFrom(params.get("tab"));
   const tenant = useQuery({
     queryKey: ["operator", "tenant", tenantId],
@@ -58,43 +73,53 @@ function TenantPage({ tenantId }: { tenantId: string }) {
   const options = useQuery({ queryKey: ["operator", "options"], queryFn: operatorApi.options });
 
   if (tenant.error instanceof ApiError && tenant.error.status === 403) return <OperatorsOnly />;
-  if (tenant.error) return <main className="mx-auto max-w-3xl p-4 text-sm">No such tenant.</main>;
+  if (tenant.error)
+    return (
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
+        <Notice tone="danger">No such tenant.</Notice>
+      </div>
+    );
   if (!tenant.data || !options.data) {
-    return <main className="mx-auto max-w-3xl p-4 text-sm">Loading…</main>;
+    return (
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">
+        <Skeleton />
+      </div>
+    );
   }
   const current = tenant.data;
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 text-sm">
+    <div className="mx-auto w-full flex max-w-4xl flex-col gap-4 p-4 md:px-8 md:py-6 text-ui">
       <p className="flex gap-4">
-        <Link to="/operator" className="underline">
+        <Link to="/operator" className={LINK}>
           Operator console
         </Link>
-        <Link to="/" className="underline">
+        <Link to="/" className={LINK}>
           Chat app
         </Link>
       </p>
-      <header>
-        <h1 className="text-xl font-semibold">
-          {current.display_name} <span className="text-slate-500">({current.slug})</span>
-        </h1>
-        <p className="text-slate-600">
-          {current.status} · admins: {current.admins} · domains:{" "}
-          {current.verified_domains.join(", ") || "none"}
-        </p>
-      </header>
-      <nav className="flex gap-3 border-b" aria-label="Tenant settings">
-        {TENANT_TABS.map((name) => (
-          <button
-            key={name}
-            type="button"
-            aria-current={name === tab ? "page" : undefined}
-            onClick={() => setParams({ tab: name })}
-            className={name === tab ? "border-b-2 border-slate-900 font-semibold" : ""}
-          >
-            {TAB_LABELS[name]}
-          </button>
-        ))}
-      </nav>
+      <PageHeader
+        title={
+          <>
+            {current.display_name} <span className="text-fg-subtle">({current.slug})</span>
+          </>
+        }
+        meta={
+          <>
+            <StatusBadge kind="tenant" status={current.status} />
+            <span className="text-fg-muted">
+              admins: {current.admins} · domains: {current.verified_domains.join(", ") || "none"}
+            </span>
+          </>
+        }
+      />
+      <Tabs
+        label="Tenant settings"
+        tabs={TENANT_TABS.map((name) => ({
+          label: TAB_LABELS[name],
+          to: `?tab=${name}`,
+          current: name === tab,
+        }))}
+      />
       {tab === "entitlements" && <Entitlements tenant={current} options={options.data} />}
       {tab === "login" && (
         <>
@@ -105,7 +130,7 @@ function TenantPage({ tenantId }: { tenantId: string }) {
       {tab === "workspaces" && <Workspaces tenant={current} />}
       {tab === "users" && <Users tenant={current} />}
       {tab === "spend" && <Spend tenant={current} />}
-    </main>
+    </div>
   );
 }
 
@@ -140,94 +165,89 @@ function Entitlements({ tenant, options }: { tenant: TenantOut; options: Operato
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2 rounded bg-white p-3">
-      <fieldset className="flex gap-3">
-        <legend>Answer modes</legend>
+    <form onSubmit={submit} className={cardClass("flex flex-col gap-5")}>
+      <fieldset className={FIELDSET}>
+        <legend className={LEGEND}>Answer modes</legend>
         {options.answer_modes.map((mode) => (
-          <label key={mode}>
-            <input
-              type="checkbox"
-              checked={form.answerModes.includes(mode)}
-              disabled={mode === "corpus_only"}
-              onChange={(e) =>
-                setForm({ ...form, answerModes: toggle(form.answerModes, mode, e.target.checked) })
-              }
-            />{" "}
+          <Checkbox
+            key={mode}
+            checked={form.answerModes.includes(mode)}
+            disabled={mode === "corpus_only"}
+            onChange={(e) =>
+              setForm({ ...form, answerModes: toggle(form.answerModes, mode, e.target.checked) })
+            }
+          >
             {mode}
-          </label>
+          </Checkbox>
         ))}
       </fieldset>
-      <fieldset className="flex gap-3">
-        <legend>Enabled models</legend>
+      <fieldset className={FIELDSET}>
+        <legend className={LEGEND}>Enabled models</legend>
         {options.models.map((model) => (
-          <label key={model}>
-            <input
-              type="checkbox"
-              checked={form.enabledModels.includes(model)}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  enabledModels: toggle(form.enabledModels, model, e.target.checked),
-                })
-              }
-            />{" "}
+          <Checkbox
+            key={model}
+            checked={form.enabledModels.includes(model)}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                enabledModels: toggle(form.enabledModels, model, e.target.checked),
+              })
+            }
+          >
             {model}
-          </label>
+          </Checkbox>
         ))}
       </fieldset>
-      <fieldset className="flex flex-wrap items-end gap-2">
-        <legend>External models (served outside the EU)</legend>
-        <label>
-          <input
-            type="checkbox"
-            checked={form.externalModelsEnabled}
-            onChange={(e) => setForm({ ...form, externalModelsEnabled: e.target.checked })}
-          />{" "}
+      <fieldset className="grid grid-cols-1 items-end gap-4 sm:grid-cols-3">
+        <legend className={LEGEND}>External models (served outside the EU)</legend>
+        <Checkbox
+          className="sm:col-span-3"
+          checked={form.externalModelsEnabled}
+          onChange={(e) => setForm({ ...form, externalModelsEnabled: e.target.checked })}
+        >
           Enabled
-        </label>
-        <label className="flex flex-col">
-          Monthly spend cap (EUR)
-          <input
+        </Checkbox>
+        <Field label="Monthly spend cap (EUR)">
+          <Input
             inputMode="decimal"
             value={form.spendCapEuros}
             onChange={(e) => setForm({ ...form, spendCapEuros: e.target.value })}
-            className="border px-1"
           />
-        </label>
-        <label className="flex flex-col">
-          Client acceptance: DPA document
-          <input
+        </Field>
+        <Field label="Client acceptance: DPA document">
+          <Input
             value={form.acceptanceReference}
             onChange={(e) => setForm({ ...form, acceptanceReference: e.target.value })}
-            className="border px-1"
           />
-        </label>
-        <label className="flex flex-col">
-          Accepted on
-          <input
+        </Field>
+        <Field label="Accepted on">
+          <Input
             type="date"
             value={form.acceptanceDate}
             onChange={(e) => setForm({ ...form, acceptanceDate: e.target.value })}
-            className="border px-1"
           />
-        </label>
+        </Field>
         {ent.external_acceptance_reference && (
-          <p className="w-full text-slate-600">
+          <p className="text-meta text-fg-muted sm:col-span-3">
             On file: {ent.external_acceptance_reference}, {ent.external_acceptance_date}
           </p>
         )}
       </fieldset>
-      <button type="submit" className="self-start rounded bg-slate-900 px-3 py-1 text-white">
+      <Button variant="primary" className="self-start" type="submit">
         Save entitlements for {tenant.display_name}
-      </button>
+      </Button>
       {problem ? (
-        <p className="text-red-700">{problem}</p>
+        <Notice tone="danger">{problem}</Notice>
       ) : (
         <SaveStatus isSuccess={save.isSuccess} error={save.error} />
       )}
     </form>
   );
 }
+
+// UX-20: the operator forms' groups: a strong legend over wrapping options.
+const FIELDSET = "flex flex-wrap gap-x-5 gap-y-2";
+const LEGEND = "mb-2 text-ui font-strong";
 
 // P1b-06: how the tenant's users sign in. Sign-in links are on by default; the operator
 // switches them off once the client's SSO is live and their IT asks for it.
@@ -244,14 +264,9 @@ function LoginPolicy({ tenant }: { tenant: TenantOut }) {
     onSuccess: refresh,
   });
   const box = (key: keyof LoginPolicyIn, label: string) => (
-    <label>
-      <input
-        type="checkbox"
-        checked={form[key]}
-        onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
-      />{" "}
+    <Switch checked={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.checked })}>
       {label}
-    </label>
+    </Switch>
   );
   return (
     <form
@@ -259,15 +274,15 @@ function LoginPolicy({ tenant }: { tenant: TenantOut }) {
         e.preventDefault();
         save.mutate();
       }}
-      className="flex flex-wrap items-center gap-3 rounded bg-white p-3"
+      className={cardClass("flex flex-col items-start gap-3")}
     >
-      <h2 className="w-full font-semibold">Login policy</h2>
+      <h2 className="text-heading font-strong">Login policy</h2>
       {box("sign_in_links_enabled", "Sign-in links")}
       {box("jit_provisioning_enabled", "Create users on first SSO sign-in (verified domains)")}
       {box("admin_mfa_required", "Second factor for tenant admins")}
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+      <Button variant="primary" type="submit">
         Save login policy
-      </button>
+      </Button>
       <SaveStatus isSuccess={save.isSuccess} error={save.error} />
     </form>
   );
@@ -298,16 +313,14 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
     },
   });
   const field = (key: keyof SourceForm, label: string, type = "text") => (
-    <label className="flex flex-col">
-      {label}
-      <input
+    <Field label={label}>
+      <Input
         type={type}
         autoComplete="off"
         value={form[key]}
         onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-        className="border px-1"
       />
-    </label>
+    </Field>
   );
 
   function submit(event: FormEvent) {
@@ -322,22 +335,20 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2 rounded bg-white p-3">
-      <h2 className="font-semibold">Single sign-on source</h2>
+    <form onSubmit={submit} className={cardClass("flex flex-col gap-3")}>
+      <h2 className="text-heading font-strong">Single sign-on source</h2>
       <PolicySummary policy={current} />
-      <label className="flex gap-2">
-        Kind
-        <select
+      <Field label="Kind" className="w-fit">
+        <Select
           value={form.kind}
           onChange={(e) => setForm({ ...form, kind: e.target.value as SsoKind })}
-          className="border"
         >
           <option value="entra">Microsoft Entra ID</option>
           <option value="google">Google Workspace</option>
           <option value="oidc">OpenID Connect</option>
           <option value="saml">SAML 2.0</option>
-        </select>
-      </label>
+        </Select>
+      </Field>
       <div className="flex flex-wrap items-end gap-2">
         {form.kind === "entra" && field("entraTenantId", "Entra tenant ID")}
         {form.kind === "oidc" && field("issuer", "Issuer (https)")}
@@ -347,28 +358,27 @@ function SsoSource({ tenant }: { tenant: TenantOut }) {
           field("adminGroupIds", "Admin group object IDs (comma-separated, optional)")}
       </div>
       {form.kind === "saml" && (
-        <label className="flex flex-col">
-          IdP metadata (XML)
-          <textarea
+        <Field label="IdP metadata (XML)">
+          <Textarea
             value={form.metadataXml}
             onChange={(e) => setForm({ ...form, metadataXml: e.target.value })}
             rows={4}
-            className="border px-1 font-mono text-xs"
+            className="font-mono text-meta"
           />
-        </label>
+        </Field>
       )}
       <div className="flex gap-2">
-        <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+        <Button variant="primary" type="submit">
           Save SSO source
-        </button>
+        </Button>
         {current.sso_source_kind !== "none" && (
-          <button type="button" onClick={() => remove.mutate()} className="underline">
+          <Button variant="ghost-danger" onClick={() => remove.mutate()}>
             Remove SSO source
-          </button>
+          </Button>
         )}
       </div>
       {problem ? (
-        <p className="text-red-700">{problem}</p>
+        <Notice tone="danger">{problem}</Notice>
       ) : (
         <SaveStatus {...latestSourceAction(save, remove)} />
       )}
@@ -402,7 +412,7 @@ function Workspaces({ tenant }: { tenant: TenantOut }) {
   });
 
   return (
-    <div className="flex flex-col gap-2 rounded bg-white p-3">
+    <div className={cardClass("flex flex-col gap-2")}>
       {workspaces.data?.map((workspace) => (
         <WorkspaceTags
           key={workspace.id}
@@ -418,27 +428,15 @@ function Workspaces({ tenant }: { tenant: TenantOut }) {
         }}
         className="flex flex-wrap items-end gap-2"
       >
-        <label className="flex flex-col">
-          New workspace: slug
-          <input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
-        <label className="flex flex-col">
-          Name
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
-        <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+        <Field label="New workspace: slug">
+          <Input value={slug} onChange={(e) => setSlug(e.target.value)} required />
+        </Field>
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </Field>
+        <Button variant="primary" type="submit">
           Add workspace
-        </button>
+        </Button>
         <SaveStatus
           isSuccess={create.isSuccess}
           error={create.error}
@@ -475,22 +473,21 @@ function WorkspaceTags({
       className="flex flex-wrap items-center gap-3"
     >
       <span>
-        {workspace.name} <span className="text-slate-500">({workspace.slug})</span>
+        {workspace.name} <span className="text-fg-subtle">({workspace.slug})</span>
       </span>
       {tags.map(({ tag, shared }) => (
-        <label key={tag}>
-          <input
-            type="checkbox"
-            checked={selected.includes(tag)}
-            onChange={(e) => setSelected(toggle(selected, tag, e.target.checked))}
-          />{" "}
+        <Checkbox
+          key={tag}
+          checked={selected.includes(tag)}
+          onChange={(e) => setSelected(toggle(selected, tag, e.target.checked))}
+        >
           {tag}
-          {shared ? <span className="text-slate-500"> (shared)</span> : null}
-        </label>
+          {shared ? <span className="text-fg-subtle"> (shared)</span> : null}
+        </Checkbox>
       ))}
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+      <Button variant="primary" type="submit">
         Save tags
-      </button>
+      </Button>
       <SaveStatus isSuccess={save.isSuccess} error={save.error} />
     </form>
   );
@@ -528,27 +525,31 @@ function Users({ tenant }: { tenant: TenantOut }) {
   const failed = errorText(resend.error) ?? errorText(remove.error);
 
   return (
-    <div className="flex flex-col gap-3 rounded bg-white p-3">
-      <table className="text-left">
+    <div className={cardClass("flex flex-col gap-3")}>
+      <Table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Last sign-in</th>
-            <th />
+            <Th>Name</Th>
+            <Th>Email</Th>
+            <Th>Role</Th>
+            <Th>Status</Th>
+            <Th>Last sign-in</Th>
+            <ActionsTh />
           </tr>
         </thead>
         <tbody>
           {users.data?.map((user) => (
             <tr key={user.id}>
-              <td>{user.display_name}</td>
-              <td>{user.email}</td>
-              <td>{user.role}</td>
-              <td>{user.status}</td>
-              <td>{lastLogin(user)}</td>
-              <td>
+              <Td label="Name">{user.display_name}</Td>
+              <Td label="Email" className="break-all">
+                {user.email}
+              </Td>
+              <Td label="Role">{user.role}</Td>
+              <Td label="Status">
+                <StatusBadge kind="user" status={user.status} />
+              </Td>
+              <Td label="Last sign-in">{lastLogin(user)}</Td>
+              <Td className="text-right">
                 <UserActions
                   user={user}
                   canResend={user.status === "invited"}
@@ -567,12 +568,12 @@ function Users({ tenant }: { tenant: TenantOut }) {
                   }}
                   busy={resend.isPending || remove.isPending}
                 />
-              </td>
+              </Td>
             </tr>
           ))}
         </tbody>
-      </table>
-      {failed && <p className="text-red-700">{failed}</p>}
+      </Table>
+      {failed && <Notice tone="danger">{failed}</Notice>}
       {done && !failed && <p role="status">{done}</p>}
       <form
         onSubmit={(e) => {
@@ -585,35 +586,24 @@ function Users({ tenant }: { tenant: TenantOut }) {
         }}
         className="flex flex-wrap items-end gap-2"
       >
-        <label className="flex flex-col">
-          Invite admin: email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
-        <label className="flex flex-col">
-          Name
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
-        <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+        <Field label="Invite admin: email">
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </Field>
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </Field>
+        <Button variant="primary" type="submit">
           Invite
-        </button>
+        </Button>
         {invite.isSuccess && (
           <p className="w-full">
             Invited. An invitation email is on its way; they sign in from their own browser.
           </p>
         )}
         {errorText(invite.error) && (
-          <p className="w-full text-red-700">{errorText(invite.error)}</p>
+          <Notice tone="danger" className="w-full">
+            {errorText(invite.error)}
+          </Notice>
         )}
       </form>
     </div>
@@ -627,56 +617,104 @@ function Spend({ tenant }: { tenant: TenantOut }) {
     queryKey: ["operator", "spend", tenant.id],
     queryFn: () => operatorApi.tenantSpend(tenant.id),
   });
-  if (!spend.data) return <p>{errorText(spend.error) ?? "Loading…"}</p>;
+  if (!spend.data) {
+    const problem = errorText(spend.error);
+    return problem ? <Notice tone="danger">{problem}</Notice> : <Skeleton />;
+  }
   const data = spend.data;
   const share = capShare(data.external_spent_cents, data.external_spend_cap_cents ?? null);
   return (
-    <div className="flex flex-col gap-3 rounded bg-white p-3">
-      <h2 className="font-semibold">Month to date ({data.month}, UTC)</h2>
-      <p>
+    <Card title={`Month to date (${data.month}, UTC)`}>
+      <p id="spend-line">
         External models: {data.external_models_enabled ? "enabled" : "off"} · spent{" "}
         {euros(data.external_spent_cents)}
         {data.external_spend_cap_cents === null || data.external_spend_cap_cents === undefined
           ? " · no cap"
           : ` of ${euros(data.external_spend_cap_cents)} (${share}%)`}
       </p>
-      {data.thresholds.length > 0 && (
-        <ul>
+      {/* UX-20: the cap as a meter, with the notice thresholds marked on it. */}
+      {share !== null ? (
+        <div
+          role="meter"
+          aria-labelledby="spend-line"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.min(share, 100)}
+          className="relative h-2 w-full overflow-hidden rounded-badge bg-neutral-muted"
+        >
+          <div
+            className={cx(
+              "h-full",
+              share >= 100 ? "bg-danger" : share >= 80 ? "bg-attention" : "bg-primary",
+            )}
+            style={{ width: `${Math.min(share, 100)}%` }}
+          />
           {data.thresholds.map((t) => (
-            <li key={t.percent}>
-              {t.percent}% at {euros(t.cents)}: {t.reached ? "reached" : "not reached"}
-              {t.notified_at ? `, operators notified ${formatDate(t.notified_at)}` : ""}
+            <span
+              key={t.percent}
+              aria-hidden="true"
+              className="absolute inset-y-0 w-0.5 bg-fg-secondary"
+              style={{ left: `calc(${Math.min(t.percent, 100)}% - 1px)` }}
+            />
+          ))}
+        </div>
+      ) : null}
+      {data.thresholds.length > 0 && (
+        <ul className="divide-y rounded-card border">
+          {data.thresholds.map((t) => (
+            <li
+              key={t.percent}
+              data-testid={`threshold-${t.percent}`}
+              className="flex flex-wrap items-center gap-2 px-3 py-2"
+            >
+              <span className="tabular-nums">
+                {t.percent}% at {euros(t.cents)}:
+              </span>
+              <Badge tone={t.reached ? (t.percent >= 100 ? "danger" : "warning") : "neutral"}>
+                {t.reached ? "reached" : "not reached"}
+              </Badge>
+              {t.notified_at ? (
+                <span className="text-fg-muted">
+                  operators notified {formatDate(t.notified_at)}
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>
       )}
       {data.models.length === 0 ? (
-        <p className="text-slate-600">No usage this month.</p>
+        <EmptyState title="No usage this month." />
       ) : (
-        <table className="text-left">
+        <Table>
           <thead>
             <tr>
-              <th>Model</th>
-              <th>Tokens in</th>
-              <th>Tokens out</th>
-              <th>Cost</th>
+              <Th>Model</Th>
+              <Th numeric>Tokens in</Th>
+              <Th numeric>Tokens out</Th>
+              <Th numeric>Cost</Th>
             </tr>
           </thead>
           <tbody>
             {data.models.map((m) => (
               <tr key={m.model}>
-                <td>
+                <Td label="Model">
                   {m.display_name}
-                  {m.external ? <span className="text-slate-500"> (outside the EU)</span> : null}
-                </td>
-                <td>{count(m.tokens_in)}</td>
-                <td>{count(m.tokens_out)}</td>
-                <td>{euros(m.cost_cents)}</td>
+                  {m.external ? <span className="text-fg-subtle"> (outside the EU)</span> : null}
+                </Td>
+                <Td label="Tokens in" numeric>
+                  {count(m.tokens_in)}
+                </Td>
+                <Td label="Tokens out" numeric>
+                  {count(m.tokens_out)}
+                </Td>
+                <Td label="Cost" numeric>
+                  {euros(m.cost_cents)}
+                </Td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       )}
-    </div>
+    </Card>
   );
 }

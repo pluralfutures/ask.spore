@@ -5,56 +5,66 @@ import { contentApi } from "../../api/client";
 import type { Takedown } from "../../api/types";
 import { errorMessage, timerText, timerTone } from "../../lib/content";
 import { formatDate } from "../../lib/format";
+import { EmptyState, Skeleton } from "../../ui/States";
+import { LINK } from "../../ui/link";
+import { Notice } from "../../ui/Notice";
+import { Badge, StatusBadge } from "../../ui/Badge";
+import { Table, Td, Th } from "../../ui/Table";
 
 // The takedown queue with its SLA timer (P1b-03, P1b-05): 10 working days from the
 // request, the same day for a licence breach we find ourselves. Withdrawal is a separate
 // reviewer step on the source's page.
 export function Takedowns() {
   const queue = useQuery({ queryKey: ["content", "takedowns"], queryFn: contentApi.takedowns });
-  if (queue.error) return <p className="text-red-700">{errorMessage(queue.error)}</p>;
-  return queue.data ? <TakedownTable items={queue.data} /> : <p>Loading…</p>;
+  if (queue.error) return <Notice tone="danger">{errorMessage(queue.error)}</Notice>;
+  return queue.data ? <TakedownTable items={queue.data} /> : <Skeleton />;
 }
 
-const TONE = { overdue: "text-red-700 font-semibold", due: "text-amber-800", ok: "" };
+// UX-22: the timer's urgency as a badge colour, with the timer's own words.
+const TONE = { overdue: "danger", due: "warning", ok: "neutral" } as const;
 
 export function TakedownTable({ items }: { items: Takedown[] }) {
-  if (items.length === 0) return <p className="text-slate-600">No open takedown requests.</p>;
+  if (items.length === 0) return <EmptyState title="No open takedown requests." />;
   return (
-    <table className="w-full rounded bg-white text-left">
+    <Table>
       <thead>
-        <tr className="border-b">
-          <th className="p-2">Source</th>
-          <th className="p-2">Reference</th>
-          <th className="p-2">Requested</th>
-          <th className="p-2">Due</th>
-          <th className="p-2">Timer</th>
-          <th className="p-2">Status</th>
+        <tr>
+          <Th>Source</Th>
+          <Th>Reference</Th>
+          <Th>Requested</Th>
+          <Th>Due</Th>
+          <Th>Timer</Th>
+          <Th>Status</Th>
         </tr>
       </thead>
       <tbody>
         {items.map((item) => (
-          <tr key={item.source_id} className="border-b">
-            <td className="p-2">
-              <Link to={`/content/sources/${item.source_id}`} className="underline">
+          <tr key={item.source_id}>
+            <Td label="Source">
+              <Link to={`/content/sources/${item.source_id}`} className={LINK}>
                 {item.title}
               </Link>
               {item.licence_grounds ? (
-                <span className="ml-1 text-xs">(licence grounds)</span>
+                <span className="ml-1 text-meta text-fg-muted">(licence grounds)</span>
               ) : null}
-            </td>
-            <td className="p-2">{item.reference}</td>
-            <td className="p-2">{formatDate(item.requested_on)}</td>
-            <td className="p-2">{formatDate(item.due_on)}</td>
-            <td
-              data-testid={`timer-${item.source_id}`}
-              className={`p-2 ${TONE[timerTone(item.working_days_left)]}`}
-            >
-              {timerText(item.working_days_left)}
-            </td>
-            <td className="p-2">{item.status}</td>
+            </Td>
+            <Td label="Reference">{item.reference}</Td>
+            <Td label="Requested">{formatDate(item.requested_on)}</Td>
+            <Td label="Due">{formatDate(item.due_on)}</Td>
+            <Td label="Timer">
+              <Badge
+                tone={TONE[timerTone(item.working_days_left)]}
+                data-testid={`timer-${item.source_id}`}
+              >
+                {timerText(item.working_days_left)}
+              </Badge>
+            </Td>
+            <Td label="Status">
+              <StatusBadge kind="takedown" status={item.status} />
+            </Td>
           </tr>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 }

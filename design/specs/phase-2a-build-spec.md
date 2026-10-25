@@ -1,7 +1,7 @@
 # Phase 2A Build Spec — Document Pause, Tenant Assurance, Promises Kept
 
-Oct 25, 2026 · Status: **draft for owner approval** (D2 taken on the probe's result; D1, D3 to D7
-proposed, not taken) · Target duration: 3–4 weeks · Starts after the UX refresh closed (UX-24, Oct 25, 2026)
+Oct 25, 2026 · Status: **Group A approved** (owner go-ahead of Oct 25, 2026: D1 to D4 taken; D5 withdrawn;
+D6 and D7 still proposed; Groups B to F await approval) · Target duration: 3–4 weeks · Starts after the UX refresh closed (UX-24, Oct 25, 2026)
 
 Source decisions: the owner's selection of Oct 25, 2026 from `Phase 2 spec - ideas only.md`
 (items 1, 2.4, 2.5, 2.8, 4.1, 4.2 and the logging follow-up of the Phase 1c independent
@@ -270,19 +270,20 @@ review signed as in Phase 1c §5.2.
 
 | # | Proposal | Alternative | Applies to |
 | --- | --- | --- | --- |
-| D1 | **Pause is corpus-wide.** A paused source leaves retrieval and the library of every workspace of every tenant that holds its tag, because a tag is one RAGFlow dataset shared across tenants. | Per-workspace exclusion: a server-built document-ID exclusion per workspace. Larger, overlaps 2.2, and RAGFlow's toggle cannot do it. Not recommended now. | Group A |
+| D1 | **Taken, Oct 25, 2026 (go-ahead for Group A). Pause is corpus-wide.** A paused source leaves retrieval and the library of every workspace of every tenant that holds its tag, because a tag is one RAGFlow dataset shared across tenants. | Per-workspace exclusion: a server-built document-ID exclusion per workspace. Larger, overlaps 2.2, and RAGFlow's toggle cannot do it. Not recommended now. | Group A |
 | D2 | **Taken, Oct 25, 2026: mechanism (a), RAGFlow's document status toggle** (`PATCH …/documents/<id>`, integer `enabled`), confirmed by the P2A-00 probe. | (b) a server-built document-ID exclusion list on the retrieval call; not needed. | P2A-00, P2A-01 |
-| D3 | **A pause keeps stored excerpts.** Citations of a paused source stay readable in history, labelled "currently unavailable". Only a withdrawal blanks (owner decision 3, Oct 23). | Blank on pause too. Rejected: a pause is reversible and not a rights event. | P2A-02 |
-| D4 | **Pause is a content reviewer action**, as withdrawal is; the operator console links to it. | An operator action on the tenant page. Rejected: it would be the first content decision made from a tenant's page and would blur the register's roles. | P2A-04 |
+| D3 | **Taken, Oct 25, 2026. A pause keeps stored excerpts.** Citations of a paused source stay readable in history, labelled "currently unavailable". Only a withdrawal blanks (owner decision 3, Oct 23). | Blank on pause too. Rejected: a pause is reversible and not a rights event. | P2A-02 |
+| D4 | **Taken, Oct 25, 2026. Pause is a content reviewer action**, as withdrawal is; the operator console links to it. | An operator action on the tenant page. Rejected: it would be the first content decision made from a tenant's page and would blur the register's roles. | P2A-04 |
 | D5 | *(withdrawn)* Audit disposal moved to the backlog, "Enterprise requirements" (owner, Oct 25, 2026); its design proposal is recorded there. | — | P2A-09 |
 | D6 | **Status page source: a third-party status page** fed by hand until a monitoring stack exists (3.1); it receives no personal data unless subscribers are enabled, which stays off. Recorded, not built. | A self-hosted status page from a monitoring stack, with 3.1. | P2A-11 |
 | D7 | **Soften the operator MFA policy line to TOTP** with hardware keys as a Phase 2 item. | Build passkeys now (3.4): a browser-run Authentik flow or a WebAuthn relay; a session on its own. | P2A-10 |
 
 ## Open items for the owner
 
-- **Scope of pause** (D1): confirm corpus-wide. If the real ask is "this file in this
-  workspace only", stop Group A and spec the exclusion item instead; the rest of the phase is
-  unaffected.
+- **Scope of pause** (D1): taken as corpus-wide with the Group A go-ahead. Note from the
+  probe: every `sample-reports` source is also in a client dataset, so pausing one pauses it
+  for that client too.
+- **Chunk count gap** seen in the probe: `bugs-to-investigate.md` B-1; not a Phase 2A item.
 - **Support access scope** (P2A-08): confirm that a tenant admin may grant a view of one
   conversation, as the consent notice says, or limit grants to settings only until counsel
   reviews the notice wording.

@@ -523,6 +523,34 @@ async def test_reject_withdraw_and_the_takedown_queue(console: Console) -> None:
     assert (await client.get(f"{API}/sources/{uuid.uuid4()}")).status_code == 404
 
 
+async def test_the_console_shows_a_failure_as_a_code_never_ragflows_text(
+    console: Console,
+) -> None:
+    """P2A-13: a parse failure shows its code; a row written before P2A-13 with
+    RAGFlow's text shows the audited code instead."""
+    from tests.ragflow_fake import Outcome
+
+    await console.roles("content_editor", "content_reviewer")
+    client = console.editor()
+    console.e.fake.outcomes[".pdf"] = Outcome(
+        run="FAIL", chunk_count=0, progress_msg="[ERROR] Synthetic secret body text"
+    )
+    source_id = (await console.propose(client, PDF.read_bytes())).json()["source_id"]
+    await client.post(f"{API}/sources/{source_id}/approve", json={})
+    await console.run_jobs()
+    detail = (await client.get(f"{API}/sources/{source_id}")).json()
+    assert detail["status"] == "failed"
+    assert detail["error"] == "parse_failed: sample-reports FAIL"
+    # A row from before P2A-13 still holding RAGFlow's message text.
+    legacy = "RAGFlow get_document failed (code 102): Synthetic secret body text"
+    await console.auth.admin.execute(
+        "UPDATE sources SET error = $2 WHERE id = $1", UUID(source_id), legacy
+    )
+    shown = (await client.get(f"{API}/sources/{source_id}")).json()["error"]
+    assert shown == "parse_failed"
+    assert "secret" not in json.dumps((await client.get(f"{API}/sources/{source_id}")).json())
+
+
 async def test_the_takedown_clock_follows_the_configured_calendar(console: Console) -> None:
     """P2A-12 (b): the route takes the due date and the SLA timer from the startup
     calendar (``Settings.holidays``), not from a default."""

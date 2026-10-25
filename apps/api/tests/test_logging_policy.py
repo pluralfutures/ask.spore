@@ -7,7 +7,10 @@ Fails on, anywhere under app/:
 - importing ``redis`` (except app/core/cache.py);
 - (P1c-04) using a caught ``FetchError`` other than through ``.code`` or ``.status``
   (or handing it to ``_refused``, which answers with the code): its message names the
-  URL, so it must never reach a log line, an error text or another exception.
+  URL, so it must never reach a log line, an error text or another exception;
+- (P2A-13) using a caught ``RagflowError`` other than through ``.code`` or
+  ``.error_code``: its message carries RAGFlow's own text (the detail), so it must never
+  reach a log line, an exit message, a source row's error or another exception.
 """
 
 from __future__ import annotations
@@ -92,59 +95,81 @@ def scan_source(source: str, path: Path) -> list[str]:
     return violations
 
 
-# P1c-04 (independent review, Oct 22, 2026): what a FetchError handler may read.
-FETCH_ERROR_FIELDS = frozenset({"code", "status"})
-FETCH_ERROR_SINKS = frozenset({"_refused"})  # returns HTTPException(detail=exc.code)
+# P1c-04 (independent review, Oct 22, 2026) and P2A-13 (Phase 1c independent review,
+# item 3): what a handler of an error whose message must not travel may read, and the
+# calls it may hand the error to. A FetchError's message names the URL; a RagflowError's
+# carries RAGFlow's own message text.
+CODED_ERRORS: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+    # _refused returns HTTPException(detail=exc.code).
+    "FetchError": (frozenset({"code", "status"}), frozenset({"_refused"})),
+    "RagflowError": (frozenset({"code", "error_code"}), frozenset()),
+}
+FETCH_ERROR_FIELDS, FETCH_ERROR_SINKS = CODED_ERRORS["FetchError"]
 
 
-def _catches_fetch_error(handler: ast.ExceptHandler) -> bool:
+def _caught(handler: ast.ExceptHandler) -> set[str]:
+    """The coded error classes ``handler`` catches."""
+    if handler.type is None:
+        return set()
     kinds = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
-    return any(
-        (isinstance(k, ast.Name) and k.id == "FetchError")
-        or (isinstance(k, ast.Attribute) and k.attr == "FetchError")
+    names = {
+        k.id if isinstance(k, ast.Name) else k.attr
         for k in kinds
-    )
+        if isinstance(k, ast.Name | ast.Attribute)
+    }
+    return names & set(CODED_ERRORS)
 
 
-def scan_fetch_errors(source: str, path: Path) -> list[str]:
-    """Uses of a caught FetchError other than ``.code``, ``.status`` or ``_refused(exc)``."""
+def scan_coded_errors(source: str, path: Path) -> list[str]:
+    """Uses of a caught FetchError or RagflowError other than through their allowed
+    attributes or sinks (for a handler catching both, only what both allow)."""
     tree = ast.parse(source, filename=str(path))
     violations: list[str] = []
     for handler in ast.walk(tree):
         if not (isinstance(handler, ast.ExceptHandler) and handler.name):
             continue
-        if not _catches_fetch_error(handler):
+        caught = _caught(handler)
+        if not caught:
             continue
+        fields = frozenset.intersection(*(CODED_ERRORS[c][0] for c in caught))
+        sinks = frozenset.intersection(*(CODED_ERRORS[c][1] for c in caught))
         name = handler.name
         allowed: set[int] = set()
-        for node in ast.walk(ast.Module(body=handler.body, type_ignores=[])):
+        body = ast.Module(body=handler.body, type_ignores=[])
+        for node in ast.walk(body):
             if (
                 isinstance(node, ast.Attribute)
                 and isinstance(node.value, ast.Name)
                 and node.value.id == name
-                and node.attr in FETCH_ERROR_FIELDS
+                and node.attr in fields
             ):
                 allowed.add(id(node.value))
             if (
                 isinstance(node, ast.Call)
                 and isinstance(node.func, ast.Name)
-                and node.func.id in FETCH_ERROR_SINKS
+                and node.func.id in sinks
             ):
                 allowed.update(id(a) for a in node.args if isinstance(a, ast.Name) and a.id == name)
-        for node in ast.walk(ast.Module(body=handler.body, type_ignores=[])):
+        for node in ast.walk(body):
             if isinstance(node, ast.Name) and node.id == name and id(node) not in allowed:
+                kind = " or ".join(sorted(caught))
                 violations.append(
-                    f"{path}:{node.lineno}: FetchError {name!r} used other than "
-                    "through .code or .status (its message names the URL)"
+                    f"{path}:{node.lineno}: {kind} {name!r} used other than through "
+                    f"{', '.join('.' + f for f in sorted(fields))} (its message must not travel)"
                 )
     return violations
+
+
+def scan_fetch_errors(source: str, path: Path) -> list[str]:
+    """The P1c-04 rule, now part of ``scan_coded_errors``."""
+    return scan_coded_errors(source, path)
 
 
 def scan_tree(root: Path) -> list[str]:
     violations: list[str] = []
     for path in sorted(root.rglob("*.py")):
         text = path.read_text(encoding="utf-8")
-        violations += scan_source(text, path) + scan_fetch_errors(text, path)
+        violations += scan_source(text, path) + scan_coded_errors(text, path)
     return violations
 
 
@@ -222,3 +247,67 @@ def test_a_fetch_error_handler_may_use_the_code_and_status(handler: str) -> None
     # Other exceptions are not this rule's business.
     other = "try:\n    pass\nexcept IngestError as exc:\n    raise SystemExit(str(exc))\n"
     assert scan_fetch_errors(other, SOMEWHERE) == []
+
+
+# --- P2A-13: RagflowError handlers -------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        "log('ingest.failed', error_code=str(exc))",
+        "log('ingest.failed', error_code=f'{exc}')",
+        "log('ingest.failed', status=exc.args[0])",
+        "log('ingest.failed', error_code=exc)",
+        "failure = _Failure(exc.error_code, str(exc))",
+        "raise _Failure(exc.error_code, f'clean-up failed: {exc}') from None",
+        "error += f'documents left in RAGFlow: {exc}'",
+        "raise SystemExit(f'ask-spore ingest: {exc}') from None",
+        "return IngestResult(source_id, 'failed', error=repr(exc))",
+        "detail = exc.detail",
+        "raise _refused(exc) from None",
+    ],
+)
+def test_a_ragflow_error_message_never_leaves_its_handler(handler: str) -> None:
+    for caught in ("RagflowError", "(RagflowError, OSError)", "ragflow.RagflowError"):
+        source = f"try:\n    pass\nexcept {caught} as exc:\n    {handler}\n"
+        assert scan_coded_errors(source, SOMEWHERE), (caught, handler)
+
+
+def test_a_handler_of_both_coded_errors_may_use_only_what_both_allow() -> None:
+    both = "try:\n    pass\nexcept (FetchError, RagflowError) as exc:\n    {}\n"
+    assert scan_coded_errors(both.format("log('x', status=exc.status)"), SOMEWHERE)
+    assert scan_coded_errors(both.format("log('x', error_code=exc.error_code)"), SOMEWHERE)
+    assert scan_coded_errors(both.format("log('x', error_code=exc.code)"), SOMEWHERE) == []
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        "log('ingest.failed', error_code=exc.error_code)",
+        "failure = _Failure(exc.error_code)",
+        "raise _Failure(exc.error_code, 'clean-up of an interrupted run') from None",
+        "return exc.code in ('not_found', 404)",
+        "raise",
+        "raise HTTPException(502, detail='ragflow_unavailable') from None",
+    ],
+)
+def test_a_ragflow_error_handler_may_use_the_code(handler: str) -> None:
+    source = f"try:\n    pass\nexcept RagflowError as exc:\n    {handler}\n"
+    assert scan_coded_errors(source, SOMEWHERE) == []
+
+
+def test_every_ragflow_error_handler_in_the_app_is_scanned() -> None:
+    """Every RagflowError handler in the app (ingest, withdraw, the content API,
+    retrieval: nine today) is found by the scan, and none is a violation."""
+    seen = 0
+    for path in sorted(APP_DIR.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        handlers = [
+            h
+            for h in ast.walk(tree)
+            if isinstance(h, ast.ExceptHandler) and "RagflowError" in _caught(h)
+        ]
+        seen += len(handlers)
+        assert scan_coded_errors(path.read_text(encoding="utf-8"), path) == [], path
+    assert seen >= 9

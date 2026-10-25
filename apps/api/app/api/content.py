@@ -424,6 +424,31 @@ async def _history(session: AsyncSession, source_id: UUID) -> list[HistoryEntry]
     ]
 
 
+async def _shown_error(session: AsyncSession, row: Source) -> str | None:
+    """The failure as the console shows it: a code (P2A-13).
+
+    Since P2A-13 a row's ``error`` is ``<code>`` or ``<code>: <our context>`` and never
+    carries RAGFlow's message text. A row that failed before then may still hold
+    RAGFlow's text; for it the console shows the code of the ``source.failed`` audit
+    event instead, so no RAGFlow message is ever shown.
+    """
+    if not row.error:
+        return None
+    code = await session.scalar(
+        select(AuditEvent.metadata_["error_code"].astext)
+        .where(
+            AuditEvent.tenant_id == INTERNAL_TENANT_ID,
+            AuditEvent.event == "source.failed",
+            AuditEvent.metadata_["source_id"].astext == str(row.id),
+        )
+        .order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc())
+        .limit(1)
+    )
+    if code and (row.error == code or row.error.startswith(f"{code}: ")):
+        return row.error[:MAX_ERROR_SHOWN]
+    return code or "error_not_shown"
+
+
 @router.get("/sources/{source_id}", response_model=ContentSourceDetail)
 async def source_detail(
     source_id: UUID, request: Request, session: AsyncSession = Depends(content_session)
@@ -471,7 +496,7 @@ async def source_detail(
         withdrawn_at=row.withdrawn_at,
         withdrawal_reason=row.withdrawal_reason,
         chunk_count=row.chunk_count,
-        error=(row.error or "")[:MAX_ERROR_SHOWN] or None,
+        error=await _shown_error(session, row),
         licence_file=row.licence_file_path is not None,
         stored=row.stored_path is not None,
         fetched_at=row.fetched_at,

@@ -126,9 +126,19 @@ class IngestResult:
 
 
 class _Failure(Exception):
-    def __init__(self, code: str, message: str) -> None:
+    """An ingestion failure. Its message, which becomes ``IngestResult.error`` and the
+    source row's ``error`` (shown in the content console), is the code, optionally
+    followed by context of our own: ``<code>`` or ``<code>: <context>``.
+
+    P2A-13 (Phase 1c independent review, item 3): the context is built from our own
+    codes, tags and names only. A ``RagflowError`` contributes its ``error_code``, never
+    its text (the detail is RAGFlow's own message), and a parse no ``progress_msg``.
+    """
+
+    def __init__(self, code: str, context: str | None = None) -> None:
         self.code = code
-        super().__init__(message)
+        self.context = context
+        super().__init__(f"{code}: {context}" if context else code)
 
 
 def load_path(path: Path) -> SourceFile:
@@ -194,7 +204,7 @@ async def _wait(
 ) -> RagflowDocument:
     while not document.finished:
         if clock() >= deadline:
-            raise _Failure("parse_timeout", "parsing did not finish before the timeout")
+            raise _Failure("parse_timeout")
         await sleep(poll_interval)
         document = await client.get_document(document.dataset_id, document.id)
     return document
@@ -248,34 +258,37 @@ async def _upload_and_parse(
                 clock=clock,
             )
             if done.run != RUN_DONE:
-                raise _Failure("parse_failed", f"{tag}: parse {done.run}: {done.progress_msg}")
+                # RAGFlow's progress_msg is its own text: never kept (P2A-13). The run
+                # is one of our TERMINAL_RUNS constants (FAIL or CANCEL) here.
+                raise _Failure("parse_failed", f"{tag} {done.run}")
             if done.chunk_count == 0:
-                raise _Failure("no_chunks", f"{tag}: parsed into 0 chunks")
+                raise _Failure("no_chunks", tag)
             chunk_count += done.chunk_count
     except RagflowError as exc:
-        failure = _Failure(exc.error_code, str(exc))
+        failure = _Failure(exc.error_code)
     except _Failure as exc:
         failure = exc
     except Exception as exc:  # recorded on the row; never leave it "ingesting"
-        failure = _Failure("internal_error", f"unexpected {type(exc).__name__}")
+        failure = _Failure("internal_error", type(exc).__name__)
 
     if failure is None:
         return uploaded, chunk_count, None
-    error = str(failure)
     try:
         for dataset_id, document_id in uploaded.items():
             await client.delete_documents(dataset_id, [document_id])
         uploaded = {}
     except RagflowError as exc:
-        error += f"\nclean-up failed, documents left in RAGFlow: {exc}"
-    return uploaded, 0, _Failure(failure.code, error)
+        left = f"clean-up failed ({exc.error_code}), documents left in RAGFlow"
+        context = f"{failure.context}; {left}" if failure.context else left
+        return uploaded, 0, _Failure(failure.code, context)
+    return uploaded, 0, failure
 
 
 async def _staged_content(content_root: Path, sha256: str, source_type: str) -> bytes:
     try:
         return read(content_root, relative_path(sha256, source_type), sha256)
     except StoredFileError as exc:
-        raise _Failure(f"staged_{exc.code}", f"the staged file is unusable: {exc.code}") from None
+        raise _Failure(f"staged_{exc.code}") from None
 
 
 async def ingest_source(
@@ -340,17 +353,16 @@ async def ingest_source(
                     await client.delete_documents(dataset_id, [document_id])
                     del uploaded[dataset_id]
             except RagflowError as exc:
-                message = f"clean-up of an interrupted run failed: {exc}"
-                raise _Failure(exc.error_code, message) from None
+                raise _Failure(exc.error_code, "clean-up of an interrupted run") from None
             await record_uploads({})
         if row.file_sha256 is None:
-            raise _Failure("no_file", "the source has no file")
+            raise _Failure("no_file")
         content = await _staged_content(content_root, row.file_sha256, row.type)
         async with factory() as session:
             datasets = await _datasets_for(session, tags)
         missing = [tag for tag in tags if tag not in datasets or tag not in tags_config]
         if missing:
-            raise _Failure("no_dataset", f"no dataset or tag config for {', '.join(missing)}")
+            raise _Failure("no_dataset", ", ".join(missing))
         uploaded, chunk_count, failure = await _upload_and_parse(
             client,
             tags_config,
@@ -494,8 +506,7 @@ async def _clean_unfinished_retag(
             await client.delete_documents(dataset_id, [document_id])
             del remaining[dataset_id]
     except RagflowError as exc:
-        message = f"clean-up of an interrupted re-tag failed: {exc}"
-        raise _Failure(exc.error_code, message) from None
+        raise _Failure(exc.error_code, "clean-up of an interrupted re-tag") from None
     finally:
         await _map_retag(factory, source_id, remaining, set(leftover))
 
@@ -558,7 +569,7 @@ async def add_tags(
             datasets = await _datasets_for(session, new_tags)
         missing = [tag for tag in new_tags if tag not in datasets or tag not in tags_config]
         if missing:
-            raise _Failure("no_dataset", f"no dataset or tag config for {', '.join(missing)}")
+            raise _Failure("no_dataset", ", ".join(missing))
     except _Failure as exc:
         return IngestResult(
             source_id=source_id, status="failed", error_code=exc.code, error=_short(str(exc))

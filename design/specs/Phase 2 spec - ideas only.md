@@ -12,6 +12,12 @@ Phase 1a, 1b and 1c specs, architecture §11 (phasing table) and the open rows o
 `design/compliance/`. Where an idea came from a release finding, the finding is named so the
 planning conversation can read the evidence.
 
+**Oct 25, 2026:** the owner chose a first cut, **Phase 2A**, from this list: item 1 (document
+pause, added Oct 25 and not in the Oct 23 text), 2.4, 2.5, 2.8, 4.1 (the two static files
+only), 4.2's two build items and the logging follow-up. Its spec is
+`phase-2a-build-spec.md` (draft for approval). The rest of this file stays the reading aid for
+what comes after.
+
 ## 0. What Phase 2 is for
 
 Architecture §11 calls Phase 2 "Scale and assurance": web-search mode, a tenant admin

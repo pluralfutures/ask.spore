@@ -765,6 +765,63 @@ def test_cli_site_withdrawal_and_restore_flags() -> None:
             cli.build_parser().parse_args(missing)
 
 
+def test_cli_site_reinstatement_needs_a_note_and_logs_no_note(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P2A-12 (a): ``sites reinstate <id> --as <email> --note``; the note never reaches
+    the log line, and a refusal exits 1 with the code."""
+    from app.content.register import RegisterError
+    from app.core.config import load_settings
+    from tests.test_datasets_sync import ENV
+
+    site = str(uuid.UUID(int=9))
+    with pytest.raises(SystemExit):  # the note is required
+        cli.build_parser().parse_args(["sites", "reinstate", site, "--as", "r@example.org"])
+    args = cli.build_parser().parse_args(
+        ["sites", "reinstate", site, "--as", "r@example.org", "--note", "publisher agreed"]
+    )
+    assert (args.sites_command, str(args.site_id), args.note) == (
+        "reinstate",
+        site,
+        "publisher agreed",
+    )
+    calls: list[tuple[UUID, str]] = []
+    outcome: list[BaseException] = []
+
+    async def fake_reinstate(_f: Any, site_id: UUID, _r: UUID, *, note: str) -> tuple[int, int]:
+        calls.append((site_id, note))
+        if outcome:
+            raise outcome[0]
+        return 2, 1
+
+    async def reviewer(*_: Any) -> UUID:
+        return uuid.UUID(int=1)
+
+    monkeypatch.setattr(cli, "get_settings", lambda: load_settings(environ=ENV))
+    monkeypatch.setattr(cli, "user_by_email", reviewer)
+    monkeypatch.setattr(cli, "reinstate_site", fake_reinstate)
+    command = ["sites", "reinstate", site, "--as", "r@example.org", "--note", "publisher agreed"]
+    assert cli.main(command) == 0
+    assert calls == [(uuid.UUID(site), "publisher agreed")]
+    [line] = [json.loads(x) for x in capsys.readouterr().out.splitlines()]
+    assert (line["event"], line["site_id"], line["count"], line["status"]) == (
+        "sites.reinstate",
+        site,
+        2,
+        "proposed",
+    )
+    outcome.append(RegisterError("withdrawal_running"))
+    assert cli.main(command) == 1
+    output = capsys.readouterr().out
+    [line] = [json.loads(x) for x in output.splitlines()]
+    assert (line["event"], line["status"], line["error_code"]) == (
+        "sites.reinstate",
+        "refused",
+        "withdrawal_running",
+    )
+    assert "agreed" not in output
+
+
 def test_cli_withdraw_and_takedown_flags() -> None:
     source = str(uuid.UUID(int=5))
     args = cli.build_parser().parse_args(

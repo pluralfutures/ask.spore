@@ -159,6 +159,14 @@ class SiteWithdrawnOut(BaseModel):
     job_ids: list[UUID]
 
 
+class SiteReinstatedOut(BaseModel):
+    """P2A-12 (a): pages released for the next crawl, and pages kept blocked for a
+    takedown. The site is ``proposed`` and needs a fresh approval."""
+
+    released: int
+    kept_blocked: int
+
+
 class SiteOut(BaseModel):
     id: UUID
     name: str

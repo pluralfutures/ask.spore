@@ -450,6 +450,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/content/sites/{site_id}/reinstate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reinstate Site
+     * @description P2A-12 (a): a reviewer reinstates a withdrawn site: back to ``proposed`` with the
+     *     note, for a fresh approval; pages under a takedown stay blocked, the site's other
+     *     withdrawn pages are released for the first crawl after approval.
+     */
+    post: operations["reinstate_site_api_v1_content_sites__site_id__reinstate_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/content/sites/{site_id}/reject": {
     parameters: {
       query?: never;
@@ -2721,6 +2743,17 @@ export interface components {
       /** Url */
       url: string;
     };
+    /**
+     * SiteReinstatedOut
+     * @description P2A-12 (a): pages released for the next crawl, and pages kept blocked for a
+     *     takedown. The site is ``proposed`` and needs a fresh approval.
+     */
+    SiteReinstatedOut: {
+      /** Kept Blocked */
+      kept_blocked: number;
+      /** Released */
+      released: number;
+    };
     /** SiteSettingsIn */
     SiteSettingsIn: {
       /** Allow Patterns */
@@ -3894,6 +3927,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["JobQueuedOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reinstate_site_api_v1_content_sites__site_id__reinstate_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NoteIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SiteReinstatedOut"];
         };
       };
       /** @description Validation Error */

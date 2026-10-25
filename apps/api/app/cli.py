@@ -63,7 +63,13 @@ from app.content.register import (
     retry,
 )
 from app.content.roles import RoleError, grant_role, revoke_role, user_by_email
-from app.content.sites import SiteSpec, restore_page, schedule_due_crawls, withdraw_site
+from app.content.sites import (
+    SiteSpec,
+    reinstate_site,
+    restore_page,
+    schedule_due_crawls,
+    withdraw_site,
+)
 from app.content.submit import settle, settle_site, submit, submit_site
 from app.content.tags import TagConfig, load_tags
 from app.core import cache
@@ -513,13 +519,18 @@ async def _sources(args: argparse.Namespace) -> int:
 
 async def _sites(args: argparse.Namespace) -> int:
     """A reviewer withdraws a whole site (P1c-14): retired, never crawled again, every
-    page withdrawn by its own ``withdraw_source`` job."""
+    page withdrawn by its own ``withdraw_source`` job; or reinstates a withdrawn one
+    (P2A-12 a): back to proposed, for a fresh approval."""
     settings = get_settings()
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     site_id: UUID = args.site_id
     try:
         factory = session_factory(engine)
         reviewer_id = await user_by_email(factory, args.reviewer)
+        if args.sites_command == "reinstate":
+            released, _ = await reinstate_site(factory, site_id, reviewer_id, note=args.note)
+            log("sites.reinstate", site_id=str(site_id), count=released, status="proposed")
+            return 0
         job_ids = await withdraw_site(factory, site_id, reviewer_id, reason=args.reason)
         status = "queued"
         if args.wait and job_ids:
@@ -528,7 +539,7 @@ async def _sites(args: argparse.Namespace) -> int:
             status = "failed" if failed else "succeeded"
     except (RoleError, RegisterError) as exc:
         log(
-            "sites.withdraw",
+            "sites." + args.sites_command,
             level="error",
             site_id=str(site_id),
             status="refused",
@@ -940,6 +951,15 @@ def build_parser() -> argparse.ArgumentParser:
     site_withdraw.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
     site_withdraw.add_argument("--reason", required=True, help="kept on the site and its rows")
     _wait_flag(site_withdraw)
+    site_reinstate = sites_commands.add_parser(
+        "reinstate",
+        help="reinstate a withdrawn site (P2A-12): back to proposed, so it needs a fresh "
+        "approval before any crawl; pages under a takedown stay blocked, its other "
+        "withdrawn pages come back as new rows at the first crawl after approval",
+    )
+    site_reinstate.add_argument("site_id", type=UUID)
+    site_reinstate.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+    site_reinstate.add_argument("--note", required=True, help="kept as the site's review note")
 
     takedown_cmd = sources_commands.add_parser(
         "takedown",

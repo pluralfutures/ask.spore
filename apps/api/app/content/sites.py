@@ -21,6 +21,12 @@ P1c-14: a reviewer may withdraw a whole site (``withdraw_site``): the site is re
 row is withdrawn by the per-page ``withdraw_source`` job. A reviewer may also restore a
 withdrawn crawled page (``restore_page``), so the next crawl takes it again. Both are
 audited.
+
+P2A-12 (a): a reviewer may reinstate a withdrawn site (``reinstate_site``): it goes back
+to ``proposed`` with a required note and needs a fresh approval before anything is
+crawled; its start URL is unchanged. Its withdrawn register rows stay withdrawn; every
+page held out by a takedown stays blocked, and the other withdrawn pages are released,
+so the first crawl after the approval admits them as new rows.
 """
 
 from __future__ import annotations
@@ -52,6 +58,12 @@ SCHEDULE_DAYS: Final[Mapping[str, int]] = {"weekly": 7, "monthly": 30}
 # restored a page they had withdrawn (the next crawl takes it again).
 SITE_WITHDRAWN: Final = "site_withdrawn"
 RESTORED: Final = "restored"
+# P2A-12 (a): a page released when its site was reinstated; a page of a reinstated site
+# kept out because a takedown was recorded on a version of it.
+REINSTATED: Final = "reinstated"
+TAKEN_DOWN: Final = "taken_down"
+# Page reasons a reinstatement releases: held out by the site's or a reviewer's withdrawal.
+_RELEASED_ON_REINSTATEMENT: Final = (SITE_WITHDRAWN, "withdrawn")
 MAX_PATTERNS: Final = 50
 MAX_PATTERN_LENGTH: Final = 128  # an audit value's limit
 MAX_FIELD_LENGTH: Final = 300
@@ -257,7 +269,9 @@ async def approve_site(
                 status="approved",
                 approved_by=reviewer_id,
                 approved_at=func.now(),
-                review_note=note,
+                # A reinstated site keeps the reinstatement note unless the approver
+                # writes one (P2A-12 a); a new proposal has none.
+                review_note=func.coalesce(note, Site.review_note),
                 next_crawl_at=next_crawl(site.schedule, datetime.now(UTC)),
                 updated_at=func.now(),
             )
@@ -587,3 +601,95 @@ async def restore_page(
         )
         restored: UUID = site.id
     return restored
+
+
+async def reinstate_site(
+    factory: async_sessionmaker[AsyncSession], site_id: UUID, reviewer_id: UUID, *, note: str
+) -> tuple[int, int]:
+    """A reviewer reinstates a withdrawn site (P2A-12 a); returns the number of pages
+    released and the number kept blocked for a takedown.
+
+    ``withdrawn -> proposed``, with the reviewer's note (required) as the site's review
+    note. Never approved here: the site needs a fresh approval (``approve_site``), which
+    queues its first crawl; until then nothing crawls it. The start URL is unchanged (it
+    stays the site's unique key), the earlier approval is cleared, and the withdrawal's
+    date and reason stay on the row as history. The site's register rows stay withdrawn,
+    with their history and citations. Pages: every page a takedown was recorded on (any
+    version, matched by URL, as ``restore_page`` checks) stays ``blocked`` with reason
+    ``taken_down``; every other page held out by the site's or a reviewer's withdrawal
+    becomes ``removed`` (``reinstated``), which the crawler treats as a page it has not
+    got, so the first crawl after approval admits it as a new row. Pages blocked for any
+    other reason (robots, scope, special category) keep it; the crawl decides them again.
+
+    Refused for a site that is not withdrawn (``not_withdrawn``) and while a withdrawal
+    of one of its rows is still running (``withdrawal_running``). Audited
+    ``site.reinstated`` with the number of pages released (``count``); the note is never
+    in the audit trail.
+    """
+    checked = _note(note, required=True)
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        roles = await require(session, reviewer_id, REVIEWER)
+        site = await _locked(session, site_id)
+        if site.status != "withdrawn":
+            raise RegisterError("not_withdrawn")
+        running = await session.scalar(
+            select(func.count())
+            .select_from(Source)
+            .where(Source.site_id == site_id, Source.status.in_(("approved", "ingested", "failed")))
+        )
+        if running:
+            raise RegisterError("withdrawal_running")
+        held = SitePage.reason.in_(_RELEASED_ON_REINSTATEMENT)
+        taken_down = (
+            select(Source.id)
+            .where(
+                Source.site_id == site_id,
+                Source.canonical_url == SitePage.url,
+                Source.takedown_reference.is_not(None),
+            )
+            .exists()
+        )
+        kept = (
+            await session.execute(
+                update(SitePage)
+                .where(
+                    SitePage.site_id == site_id,
+                    SitePage.state == "blocked",
+                    held | (SitePage.reason == TAKEN_DOWN),
+                    taken_down,
+                )
+                .values(reason=TAKEN_DOWN, special_category=None)
+                .returning(SitePage.url)
+            )
+        ).all()
+        released = (
+            await session.execute(
+                update(SitePage)
+                .where(SitePage.site_id == site_id, SitePage.state == "blocked", held, ~taken_down)
+                .values(state="removed", reason=REINSTATED, special_category=None)
+                .returning(SitePage.url)
+            )
+        ).all()
+        await session.execute(
+            update(Site)
+            .where(Site.id == site_id)
+            .values(
+                status="proposed",
+                review_note=checked,
+                approved_by=None,
+                approved_at=None,
+                next_crawl_at=None,
+                updated_at=func.now(),
+            )
+        )
+        await _audit(
+            session,
+            reviewer_id,
+            "site.reinstated",
+            site_id,
+            {"status": "withdrawn"},
+            {"status": "proposed"},
+            roles=sorted(roles),
+            count=len(released),
+        )
+    return len(released), len(kept)

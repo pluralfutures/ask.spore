@@ -60,6 +60,7 @@ from app.api.content_schemas import (
     SiteDetail,
     SiteOut,
     SitePageOut,
+    SiteReinstatedOut,
     SiteSettingsIn,
     SiteWithdrawnOut,
     SourceRef,
@@ -935,6 +936,23 @@ async def withdraw_site(
         count=len(job_ids),
     )
     return SiteWithdrawnOut(job_ids=job_ids)
+
+
+@router.post("/sites/{site_id}/reinstate", response_model=SiteReinstatedOut)
+async def reinstate_site(
+    site_id: UUID,
+    body: NoteIn,
+    request: Request,
+    user: ContentUser = Depends(require_content_user),
+) -> SiteReinstatedOut:
+    """P2A-12 (a): a reviewer reinstates a withdrawn site: back to ``proposed`` with the
+    note, for a fresh approval; pages under a takedown stay blocked, the site's other
+    withdrawn pages are released for the first crawl after approval."""
+    released, kept = await _decide(
+        sites.reinstate_site(_factory(request), site_id, user.user_id, note=body.note)
+    )
+    log("content.site_reinstated", user_id=str(user.user_id), site_id=str(site_id), count=released)
+    return SiteReinstatedOut(released=released, kept_blocked=kept)
 
 
 @router.post("/sites/{site_id}/crawl", response_model=JobQueuedOut)

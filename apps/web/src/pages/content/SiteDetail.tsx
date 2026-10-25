@@ -26,7 +26,8 @@ import { Table, Td, Th } from "../../ui/Table";
 // One site (P1b-04, P1b-05): its settings, allow decision and last crawl, every page a
 // crawl met (blocked ones with the reason), and the reviewer's actions: approve or
 // reject, scope rules, schedule and page budget, the special-category whitelist, and
-// withdrawing the whole site (P1c-14). Any content role may ask for a crawl now.
+// withdrawing the whole site (P1c-14) and reinstating a withdrawn one (P2A-12). Any
+// content role may ask for a crawl now.
 export function SiteDetail({ roles }: { roles: string[] }) {
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
@@ -86,8 +87,14 @@ export function SiteSummary({ site }: { site: ContentSiteDetail }) {
       {site.review_note ? <p>Reviewer's note: {site.review_note}</p> : null}
       {site.status === "withdrawn" ? (
         <Notice tone="danger" data-testid="site-withdrawn">
-          Withdrawn {formatDate(site.withdrawn_at)}: {site.withdrawal_reason}. Never crawled again;
-          every page is withdrawn.
+          Withdrawn {formatDate(site.withdrawn_at)}: {site.withdrawal_reason}. Never crawled again
+          unless a reviewer reinstates it; every page is withdrawn.
+        </Notice>
+      ) : null}
+      {site.status === "proposed" && site.withdrawn_at ? (
+        <Notice tone="warning" data-testid="site-reinstated">
+          Reinstated after a withdrawal on {formatDate(site.withdrawn_at)} ({site.withdrawal_reason}
+          ). Not crawled until a reviewer approves it again; pages taken down stay out.
         </Notice>
       ) : null}
     </Card>
@@ -168,7 +175,13 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
     mutationFn: () => contentApi.withdrawSite(site.id, reason),
     onSuccess: refresh,
   });
+  const [reinstateNote, setReinstateNote] = useState("");
+  const reinstate = useMutation({
+    mutationFn: () => contentApi.reinstateSite(site.id, reinstateNote),
+    onSuccess: refresh,
+  });
   const error =
+    errorMessage(reinstate.error) ??
     errorMessage(approve.error) ??
     errorMessage(reject.error) ??
     errorMessage(save.error) ??
@@ -196,6 +209,14 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
           onReason={setReason}
           onWithdraw={() => withdraw.mutate()}
           pending={withdraw.isPending}
+        />
+      ) : null}
+      {site.status === "withdrawn" ? (
+        <ReinstateSite
+          note={reinstateNote}
+          onNote={setReinstateNote}
+          onReinstate={() => reinstate.mutate()}
+          pending={reinstate.isPending}
         />
       ) : null}
       {site.status !== "rejected" && site.status !== "withdrawn" ? (
@@ -260,6 +281,35 @@ export function WithdrawSite({
       </Button>
       <span className="text-fg-muted">
         Every page leaves every dataset, and the site is never crawled again.
+      </span>
+    </div>
+  );
+}
+
+// P2A-12 (a): back to proposed with the reviewer's note. Never approved here: the site
+// needs a fresh approval before any crawl, and pages taken down stay out.
+export function ReinstateSite({
+  note,
+  onNote,
+  onReinstate,
+  pending,
+}: {
+  note: string;
+  onNote: (value: string) => void;
+  onReinstate: () => void;
+  pending: boolean;
+}) {
+  return (
+    <div data-testid="reinstate-site" className="flex flex-wrap items-end gap-2">
+      <Field label="Note for reinstating the site">
+        <Input value={note} onChange={(e) => onNote(e.target.value)} />
+      </Field>
+      <Button variant="secondary" onClick={onReinstate} disabled={pending || !note.trim()}>
+        Reinstate site
+      </Button>
+      <span className="text-fg-muted">
+        The site goes back to proposed and needs a fresh approval before any crawl. Pages taken down
+        stay out; its other pages come back as new versions.
       </span>
     </div>
   );

@@ -70,6 +70,7 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     ("PUT", f"{API}/sites/{SITE}/special-category-allow", {"patterns": []}),
     ("POST", f"{API}/sites/{SITE}/crawl", None),
     ("POST", f"{API}/sites/{SITE}/withdraw", {"reason": "r"}),
+    ("POST", f"{API}/sites/{SITE}/reinstate", {"note": "n"}),
     ("POST", f"{API}/sources/{SOURCE}/restore", None),
     ("GET", f"{API}/tags", None),
     ("POST", f"{API}/tags/sync", None),
@@ -675,6 +676,60 @@ async def test_a_reviewer_withdraws_a_site_and_restores_a_page_from_the_console(
     assert (twice.status_code, twice.json()["detail"]) == (409, "already_withdrawn")
     assert await console.events("site.withdrawn", "site_id", site_id)
     assert await console.events("source.restored", "source_id", page["id"])
+
+
+async def test_a_reviewer_reinstates_a_withdrawn_site_from_the_console(console: Console) -> None:
+    """P2A-12 (a): "reinstate" is a reviewer action with a required note; the site comes
+    back proposed, for a fresh approval, never approved."""
+    await console.roles("content_editor", "content_reviewer")
+    editor = console.editor()
+    created = await editor.post(
+        f"{API}/sites",
+        json={
+            "start_url": ROOT + "/",
+            "name": "Synthetic Energy Institute",
+            "publisher": "Synthetic Energy Institute",
+            "licence_basis": "publisher-terms",
+            "tags": ["sample-web"],
+        },
+    )
+    site_id = created.json()["id"]
+    assert (await editor.post(f"{API}/sites/{site_id}/approve", json={})).status_code == 200
+    await console.run_jobs()
+    early = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": "back"})
+    assert (early.status_code, early.json()["detail"]) == (409, "not_withdrawn")
+    withdrawn = await editor.post(f"{API}/sites/{site_id}/withdraw", json={"reason": "retired"})
+    assert withdrawn.status_code == 200
+    running = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": "back"})
+    assert (running.status_code, running.json()["detail"]) == (409, "withdrawal_running")
+    await console.run_jobs()
+
+    await console.roles("content_editor")
+    refused = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": "back"})
+    assert refused.status_code == 403
+    await console.roles("content_editor", "content_reviewer")
+    assert (await editor.post(f"{API}/sites/{site_id}/reinstate", json={})).status_code == 422
+    blank = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": " "})
+    assert (blank.status_code, blank.json()["detail"]) == (422, "note_required")
+    unknown = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": "b", "x": 1})
+    assert unknown.status_code == 422  # no other field is accepted
+    done = await editor.post(f"{API}/sites/{site_id}/reinstate", json={"note": "agreed again"})
+    assert done.status_code == 200, done.text
+    assert done.json() == {"released": 3, "kept_blocked": 0}
+    detail = (await editor.get(f"{API}/sites/{site_id}")).json()
+    assert (detail["status"], detail["approved_by"], detail["next_crawl_at"]) == (
+        "proposed",
+        None,
+        None,
+    )
+    assert (detail["start_url"], detail["review_note"]) == (ROOT + "/", "agreed again")
+    crawl = await editor.post(f"{API}/sites/{site_id}/crawl")
+    assert (crawl.status_code, crawl.json()["detail"]) == (409, "not_approved")
+    assert await console.events("site.reinstated", "site_id", site_id)
+    assert (await editor.post(f"{API}/sites/{site_id}/approve", json={})).status_code == 200
+    await console.run_jobs()
+    sources = (await editor.get(f"{API}/sources", params={"site_id": site_id})).json()
+    assert sorted(s["status"] for s in sources) == ["ingested"] * 3 + ["withdrawn"] * 3
 
 
 # --- tags ----------------------------------------------------------------------------------

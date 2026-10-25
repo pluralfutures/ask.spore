@@ -642,7 +642,7 @@ Checks on the integrated head, in this container (PostgreSQL 16 started locally,
 | `packages/eval` ruff and pytest | clean, 94 passed |
 | `pnpm lint`, `typecheck`, `test` | Prettier clean, `tsc -b` clean, 190 passed |
 | `pnpm gen:api` | no diff in `openapi.json` or `schema.d.ts` |
-| `pnpm test:e2e` | see the line recorded below this table at push time |
+| `pnpm test:e2e` (Chromium, two workers, Vite started separately) | 552 passed (10.3 min). A first run with Playwright's own `webServer` lost the Vite process about 135 tests in and 417 failed with connection refused; not a code failure, re-run clean |
 
 **Not run here, for the release session:** the visual-regression suite (`pnpm test:visual`
 needs Docker, unavailable in this container). Groups B and C changed the tenant admin page

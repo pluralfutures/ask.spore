@@ -608,6 +608,46 @@ async def test_superseded_and_withdrawn_citations_are_flagged_in_the_read_route(
     assert (citation["superseded"], citation["withdrawn"]) == (True, True)
 
 
+async def test_a_paused_sources_citation_is_labelled_unavailable_until_resumed(
+    api: Harness, admin_conn: asyncpg.Connection
+) -> None:
+    """P2A-02 (D3): a pause keeps the excerpt and provenance; the label is read live."""
+    conversation = await api.conversation()
+    await api.ask(conversation, "How did capacity change?", "Capacity grew [1].")
+
+    async def citation() -> dict[str, Any]:
+        body = (await api.request("GET", f"/conversations/{conversation}")).json()
+        [found] = body["messages"][1]["citations"]
+        return dict(found)
+
+    before = await citation()
+    assert before["unavailable"] is False
+    source_id = UUID(before["source_id"])
+    await admin_conn.execute(
+        "UPDATE sources SET status = 'paused', paused_at = now(), paused_by = gen_random_uuid(), "
+        "pause_reason = 'synthetic' WHERE id = $1",
+        source_id,
+    )
+    try:
+        during = await citation()
+        assert (during["unavailable"], during["superseded"], during["withdrawn"]) == (
+            True,
+            False,
+            False,
+        )
+        # Nothing else changes: excerpt, provenance and link stay (a pause is not a
+        # withdrawal).
+        assert during | {"unavailable": False} == before
+        assert during["excerpt"]
+    finally:
+        await admin_conn.execute(
+            "UPDATE sources SET status = 'ingested', paused_at = NULL, paused_by = NULL, "
+            "pause_reason = NULL WHERE id = $1",
+            source_id,
+        )
+    assert await citation() == before  # resumed: the label is gone
+
+
 async def test_answer_cache_values_record_their_source_ids_and_are_purged(
     api: Harness, redis: FakeRedis
 ) -> None:

@@ -130,6 +130,9 @@ class CitationOut(BaseModel):
     # withdrawn. A citation in a live answer has neither.
     superseded: bool = False
     withdrawn: bool = False
+    # P2A-02, history only: the source is paused now (D3: the excerpt and provenance are
+    # kept); read live from the register, so the label goes when the source is resumed.
+    unavailable: bool = False
 
 
 class MessageOut(BaseModel):

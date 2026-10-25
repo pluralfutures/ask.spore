@@ -14,6 +14,10 @@ token's SHA-256 is stored (``downloads``), and redeeming it checks the user, the
 expiry and that it was not used, then reads our stored copy. RAGFlow is never asked
 for a file. Links are capped per user per UTC day (``downloads_per_user_per_day``).
 
+A paused source (P2A-02) is neither listed nor downloadable, for every tenant (D1). Asked
+for directly, it is refused with the internal code ``paused``, which the route answers
+exactly as ``not_found`` and audits as ``download.refused``.
+
 Everything here runs in the caller's tenant-scoped transaction.
 """
 
@@ -41,11 +45,14 @@ UTC_MIDNIGHT = text("date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'U
 
 
 class FileRefused(Exception):
-    """The file cannot be listed or downloaded. ``code`` is safe to log and to return."""
+    """The file cannot be listed or downloaded. ``code`` is safe to log; the route
+    answers ``paused`` as ``not_found``. ``paused`` (redeem only) names the workspace
+    and source of a link refused because its source was paused, for the audit."""
 
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, paused: tuple[uuid.UUID, uuid.UUID] | None = None) -> None:
         super().__init__(code)
         self.code = code
+        self.paused = paused
 
 
 @dataclass(frozen=True)
@@ -125,7 +132,15 @@ async def _file_in_workspace(
         )
     )
     if source is None:
-        raise FileRefused("not_found")
+        paused = await session.scalar(
+            select(Source.id).where(
+                Source.id == source_id,
+                Source.tags.overlap(tags),
+                Source.status == "paused",
+                Source.type.in_(STORABLE_TYPES),
+            )
+        )
+        raise FileRefused("not_found" if paused is None else "paused")
     return source
 
 
@@ -200,7 +215,12 @@ async def redeem(session: AsyncSession, *, user_id: uuid.UUID, token: str) -> So
     )
     if download is None:
         raise FileRefused("not_found")
-    source = await _file_in_workspace(session, download.workspace_id, download.source_id)
+    try:
+        source = await _file_in_workspace(session, download.workspace_id, download.source_id)
+    except FileRefused as exc:
+        if exc.code == "paused":
+            raise FileRefused("paused", (download.workspace_id, download.source_id)) from None
+        raise
     if not is_downloadable(source):
         raise FileRefused("not_found")
     await session.execute(

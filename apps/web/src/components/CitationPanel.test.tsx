@@ -19,6 +19,7 @@ const citation = (marker: number, extra: Partial<Citation> = {}): Citation => ({
   type: "pdf",
   superseded: false,
   withdrawn: false,
+  unavailable: false,
   ...extra,
 });
 
@@ -54,5 +55,26 @@ describe("citation status (P1b-03)", () => {
     expect(html).not.toContain('data-testid="citation-no-excerpt-1"');
     expect(html).toContain("The quoted passage was removed because the source was withdrawn.");
     expect(html).not.toContain("licence grounds");
+  });
+
+  it("labels a paused source currently unavailable and keeps its excerpt and link (P2A-02)", () => {
+    expect(citationStatus({ unavailable: true })).toBe("unavailable");
+    expect(citationStatus({ unavailable: true, withdrawn: true })).toBe("withdrawn");
+    const html = render([
+      citation(1, { unavailable: true, canonical_url: "https://example.org/synthetic" }),
+      citation(2),
+    ]);
+    expect(html).toMatch(/data-testid="citation-status-1"[^>]*>currently unavailable</);
+    expect(html).toContain("currently unavailable in the research package");
+    expect(html).toContain("Synthetic excerpt."); // D3: a pause keeps the excerpt
+    expect(html).not.toContain('data-testid="citation-no-excerpt-1"');
+    expect(html).toContain("View at source");
+    expect(html).not.toContain('data-testid="citation-status-2"');
+  });
+
+  it("drops the label once the source is resumed", () => {
+    const html = render([citation(1, { unavailable: false })]);
+    expect(html).not.toContain('data-testid="citation-status-1"');
+    expect(html).not.toContain("currently unavailable");
   });
 });

@@ -1645,6 +1645,11 @@ export interface components {
       /** Type */
       type: string;
       /**
+       * Unavailable
+       * @default false
+       */
+      unavailable: boolean;
+      /**
        * Withdrawn
        * @default false
        */

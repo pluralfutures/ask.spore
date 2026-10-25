@@ -87,7 +87,10 @@ async def resolve_package(session: AsyncSession, tags: tuple[str, ...]) -> Packa
 async def provenance_by_document(
     session: AsyncSession, document_ids: list[str]
 ) -> dict[str, Provenance]:
-    """Map RAGFlow document IDs to their source register row (withdrawn sources excluded).
+    """Map RAGFlow document IDs to their source register row, live sources only.
+
+    Withdrawn and paused sources (P2A-02) have no provenance, so ``select_context`` drops
+    their chunks even if RAGFlow returned one: a paused source never reaches a prompt.
 
     ``sources.ragflow_document_ids`` is matched on any string value it contains,
     whether it is stored as ``{dataset_or_tag: document_id}`` or as a list.
@@ -102,7 +105,7 @@ async def provenance_by_document(
             "CROSS JOIN LATERAL jsonb_path_query(s.ragflow_document_ids, 'strict $.**') AS d(doc) "
             "WHERE jsonb_typeof(d.doc) = 'string' "
             "AND d.doc #>> '{}' = ANY(CAST(:ids AS text[])) "
-            "AND s.status <> 'withdrawn'"
+            "AND s.status NOT IN ('withdrawn', 'paused')"
         ),
         {"ids": document_ids},
     )

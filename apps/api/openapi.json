@@ -501,6 +501,11 @@
             "title": "Type",
             "type": "string"
           },
+          "unavailable": {
+            "default": false,
+            "title": "Unavailable",
+            "type": "boolean"
+          },
           "withdrawn": {
             "default": false,
             "title": "Withdrawn",

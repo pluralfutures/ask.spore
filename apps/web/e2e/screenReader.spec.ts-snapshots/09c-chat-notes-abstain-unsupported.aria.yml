@@ -8,7 +8,7 @@
     - navigation "Main":
         - list:
             - listitem:
-                - link "Conversations":
+                - link "Home":
                     - /url: /
     - text: Synthetic Analyst
 - main:

@@ -46,7 +46,14 @@ async function open(page: Page, name: string, url?: string) {
 }
 
 test.describe("1. consent gate", () => {
-  const gated = ["/", "/new", "/admin", `/c/${LONG_CONVERSATION}`, `/w/${F.WS_MARKETS.id}/files`];
+  const gated = [
+    "/",
+    "/conversations",
+    "/new",
+    "/admin",
+    `/c/${LONG_CONVERSATION}`,
+    `/w/${F.WS_MARKETS.id}/files`,
+  ];
   for (const url of gated) {
     test(`replaces ${url} until the notice is accepted`, async ({ page }) => {
       await openScenario(page, {

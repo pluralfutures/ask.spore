@@ -68,7 +68,7 @@ interface NavItem {
   current: (path: string) => boolean;
 }
 
-const CHAT_PATHS = /^\/($|new$|c\/|w\/)/;
+const CHAT_PATHS = /^\/($|conversations$|new$|c\/|w\/)/;
 
 // The product name, the tenant, a nav that depends on the user's roles, and the user menu
 // (sign-out in OIDC mode, the same action as the former button below the page). While the

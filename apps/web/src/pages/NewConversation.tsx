@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { StartForm } from "../components/StartForm";
 import { LINK } from "../ui/link";
+import { CONVERSATIONS_PATH } from "./ConversationList";
 
 // P1a-12: the start page. HP-01: the form is shared with the home page.
 export function NewConversation() {
@@ -18,7 +19,7 @@ export function NewConversation() {
 function StartPage({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 md:px-8 md:py-6">
-      <Link to="/" className={`w-fit text-ui ${LINK}`}>
+      <Link to={CONVERSATIONS_PATH} className={`w-fit text-ui ${LINK}`}>
         ← Conversations
       </Link>
       <h1 className="text-title font-strong">New conversation</h1>

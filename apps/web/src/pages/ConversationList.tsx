@@ -8,8 +8,11 @@ import { ButtonLink } from "../ui/Button";
 import { LINK } from "../ui/link";
 import { PageHeader } from "../ui/PageHeader";
 
-// The home page: the conversation list (UX-13: the same rows as the chat's rail) and the
-// workspaces' files.
+// HP-02: the full list's own route; the chat and start pages' back links lead here.
+export const CONVERSATIONS_PATH = "/conversations";
+
+// The conversation list (UX-13: the same rows as the chat's rail) and the workspaces'
+// files. At /conversations, and at / until the home page replaces it (HP-04).
 export function ConversationList() {
   const workspaces = useQuery({ queryKey: ["workspaces"], queryFn: api.workspaces });
 

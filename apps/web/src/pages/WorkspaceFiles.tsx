@@ -11,6 +11,7 @@ import { Notice } from "../ui/Notice";
 import { EmptyState, Skeleton } from "../ui/States";
 import { Download, FileText } from "lucide-react";
 import { PageHeader } from "../ui/PageHeader";
+import { CONVERSATIONS_PATH } from "./ConversationList";
 import { ActionsTh, Table, Td, Th } from "../ui/Table";
 
 function save(blob: Blob, name: string): void {
@@ -40,7 +41,7 @@ export function WorkspaceFiles() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4 md:px-8 md:py-6">
       <PageHeader
-        back={{ to: "/", label: "← Conversations" }}
+        back={{ to: CONVERSATIONS_PATH, label: "← Conversations" }}
         title={`Files${name ? ` in ${name}` : ""}`}
       />
       {files.isPending ? <Skeleton /> : null}

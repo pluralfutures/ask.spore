@@ -13,7 +13,7 @@
     - text: Synthetic Analyst
 - main:
     - link "← Conversations":
-        - /url: /
+        - /url: /conversations
     - heading /What drove synthetic capacity growth in \d+\?/ [level=1]
     - list:
         - listitem: Synthetic Markets

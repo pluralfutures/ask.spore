@@ -79,6 +79,13 @@ test.describe("UX-17 states", () => {
     await expect(page.getByText("No files in this workspace.")).toBeVisible();
   });
 
+  test("the back link leads to the full list (HP-02)", async ({ page }) => {
+    await openScenario(page, named("10-files"));
+    await page.getByRole("link", { name: "← Conversations" }).click();
+    await expect(page).toHaveURL(/\/conversations$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Conversations");
+  });
+
   test("loading shows a skeleton", async ({ page }) => {
     await openScenario(page, named("10c-files-loading"));
     await expect(page.getByRole("status")).toHaveText("Loading…");

@@ -38,7 +38,7 @@
                     - /url: /c/11111111-0000-4000-8000-000000000005
                 - button "Actions for Summarise the synthetic trade observatory's latest note"
     - link "← Conversations":
-        - /url: /
+        - /url: /conversations
     - heading /What drove synthetic capacity growth in \d+\?/ [level=1]
     - list:
         - listitem: Synthetic Markets

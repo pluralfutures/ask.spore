@@ -128,7 +128,7 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 
 13.2 This DPA lasts as long as the Processor processes Client Personal Data. In case of conflict, this DPA prevails over the Agreement on data protection matters.
 
-13.3 Governing law and jurisdiction: [as in the Agreement / law of [Member State]].
+13.3 Governing law and jurisdiction: as in the Agreement (Spanish law; the courts of San Sebastián (Donostia), Spain).
 
 Signed for [Client]: name [ ], title [ ], date [ ]
 

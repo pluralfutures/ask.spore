@@ -91,7 +91,7 @@ Build in this order. Each item is one PR, references its ID in commits (`HP-02: 
 - `components/Welcome.tsx`: a `Card` with the `h1`, lead, steps (an ordered list, step 1 only when there is more than one workspace), footer line and the Hide button, with the wording approved under open item 2.
 - Hide removes the card and moves focus to the question box's heading, so keyboard focus is not lost.
 - How Hide is remembered is open item 3. For option (a), the recommendation:
-  - one browser-storage key: a fixed name plus the user ID from `/me`, value `"1"`. No other data.
+  - one browser-storage key, `sporebot.welcome-hidden`, value `"1"`. No other data. *Changed in the HP-03 build, Oct 26, 2026:* the key was to include the user ID, but `/me` gives the web app no user ID and the email is personal data, so the key holds no identifier. Two people sharing one browser profile share the flag.
   - every read and write is wrapped in `try`/`catch`. If storage is unavailable or throws, the card shows and Hide works for the current page view only.
 - Tests (vitest and Playwright):
   - the card shows on first visit and stays hidden after Hide and a reload;
@@ -131,6 +131,6 @@ All four were decided by the owner on Oct 26, 2026.
 1. ~~**Which phase this belongs to.**~~ Decided: its own small phase, as the UX refresh was, built HP-01 to HP-05 in order (it is not in the Phase 2A spec).
 2. ~~**Wording.**~~ Decided: the wording table as proposed, with "Ask" on the home page's submit button.
 3. ~~**How "Hide" is remembered.**~~ Decided: (a), browser storage.
-   - (a) **Browser storage** (recommended for now): no API or database change. The card comes back on another browser or device, or after site data is cleared. The value is a UI preference the user set themselves, holds no personal data beyond the user ID, and is never sent to the server.
+   - (a) **Browser storage** (recommended for now): no API or database change. The card comes back on another browser or device, or after site data is cleared. The value is a UI preference the user set themselves, holds no personal data, and is never sent to the server.
    - (b) **On the server**, per user: a nullable `welcome_hidden_at` on the user row and a `PATCH /me/preferences` route. That is an Alembic migration on a tenant-scoped table, plus an API change, audit and tests. It is out of this spec unless chosen.
 4. ~~**Showing the welcome again after Hide.**~~ Decided: as proposed (backlog line). Proposal: nothing in this spec. With (a) it returns when site data is cleared. A "Show the welcome" item in the user menu would be new copy and can follow if users ask for it.

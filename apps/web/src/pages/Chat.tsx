@@ -10,7 +10,7 @@ import { failoverNote } from "../lib/failover";
 import { NO_HISTORY_NOTE, sameChoice } from "../lib/noHistory";
 import { CitationPanel } from "../components/CitationPanel";
 import { ConversationHeader } from "../components/ConversationHeader";
-import type { StartState } from "./NewConversation";
+import type { StartState } from "../components/StartForm";
 import { Button } from "../ui/Button";
 import { LINK } from "../ui/link";
 import { Textarea } from "../ui/Input";

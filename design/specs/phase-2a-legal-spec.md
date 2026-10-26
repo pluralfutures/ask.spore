@@ -106,8 +106,11 @@ Tests (for the chosen option): an enrolled user signs in with email and code and
 
 ## Open items for the owner
 
-1. **Keeping the gate's text and the public privacy notice in step.** The gate shows `config/consent/v2.md`; `/legal/privacy` is generated from `privacy-notice.md`. Recommended: the release-runbook check that the version strings match (added to the runbook, Oct 26, 2026); confirm.
-2. **Operator reset of an authenticator (decision 7).** The operator console has no action for it today. L6 adds one: an operator removes a user's TOTP device and trusted-browser marks through the Authentik API, audited (`auth.mfa_reset`, no code in the log), after the user asks through support and the operator has checked who they are (the support checklist, `staff-access-checklist.md`, gets a line). Confirm the operator may do this for tenant admins as well as users.
+None open. Settled Oct 26, 2026: the version-match check is built (below) and stays; operators may reset the authenticator of tenant admins as well as users.
+
+**Version-match check (built).** `node scripts/render-legal.mjs --final` fails unless the privacy notice's "Version N," equals the version line of the consent notice the gate shows (`config/consent/<[consent] version>.md`). It is a release-runbook step. It currently fails by design: the privacy notice still says `[version]`, and `v2.md` ends "Version 1, Oct 22, 2026" although it is the v2 file. A released consent version is never edited, so the owner decides which number the public notice carries when it is finalised (the next consent version is the natural point to align them).
+
+**Operator reset (decided).** L6 adds an operator console action: remove a user's or tenant admin's TOTP device and trusted-browser marks through the Authentik API, audited (`auth.mfa_reset`, no code in the log), after the user asks through support and the operator has checked who they are (`staff-access-checklist.md` gets a line).
 
 ## L6 build order (decided)
 

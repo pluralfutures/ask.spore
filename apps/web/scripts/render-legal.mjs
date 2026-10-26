@@ -5,7 +5,9 @@
 //                                           unpublished until ASKSPORE_LEGAL=published)
 //   node scripts/render-legal.mjs --check   exit 1 if a page is out of date with its source
 //   node scripts/render-legal.mjs --final   also refuse a source that still has a placeholder
-//                                           or a DRAFT marker (run before publishing)
+//                                           or a DRAFT marker, or a privacy notice whose
+//                                           version differs from the consent notice the gate
+//                                           shows (run before publishing)
 //
 // The text is what follows the first "---" line of each source (the notice itself, not the
 // owner's front matter). Only the markdown the three sources use is supported: headings,
@@ -122,6 +124,20 @@ export function leftovers(text) {
   return found;
 }
 
+// "Version 3, ..." in the notice text; the token after "Version".
+export function versionOf(text) {
+  return /^Version\s+(\S+?),/m.exec(text)?.[1] ?? null;
+}
+
+// The version of the use and privacy notice the gate shows (config/models.toml [consent]).
+export function consentVersionLine() {
+  const config = readFileSync(join(here, "../../../config/models.toml"), "utf8");
+  const active = /^\[consent\][^[]*?^version\s*=\s*"([^"]+)"/ms.exec(config)?.[1];
+  if (!active) throw new Error("no [consent] version in config/models.toml");
+  const notice = readFileSync(join(here, `../../../config/consent/${active}.md`), "utf8");
+  return { file: `${active}.md`, version: versionOf(notice) };
+}
+
 async function page({ title }, text) {
   const html = `<!doctype html>
 <html lang="en">
@@ -163,6 +179,16 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   for (const [doc, { text, html }] of pages) {
     const target = join(OUT_DIR, `${doc.slug}.html`);
     if (args.has("--final")) {
+      if (doc.slug === "privacy") {
+        const consent = consentVersionLine();
+        const published = versionOf(text);
+        if (published !== consent.version) {
+          console.error(
+            `${doc.source}: version ${published} differs from the consent notice ${consent.file} (version ${consent.version})`,
+          );
+          failed = true;
+        }
+      }
       const left = leftovers(text);
       if (left.length) {
         console.error(`${doc.source}: not final: ${[...new Set(left)].join(", ")}`);

@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { DOCUMENTS, render } from "./render-legal.mjs";
+import { DOCUMENTS, consentVersionLine, render, versionOf } from "./render-legal.mjs";
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "../public/legal");
 
@@ -30,5 +30,19 @@ describe("legal pages (P2A-L2)", () => {
     for (const path of ["/legal/privacy", "/legal/ai", "/legal/terms"]) {
       expect(html).toContain(`href="${path}"`);
     }
+  });
+});
+
+describe("version match (P2A-L2, release check)", () => {
+  it("reads the version token of a notice", () => {
+    expect(versionOf("Intro\n\nVersion 3, Oct 26, 2026.")).toBe("3");
+    expect(versionOf("Version [version], last updated [date].")).toBe("[version]");
+    expect(versionOf("no version here")).toBeNull();
+  });
+
+  it("finds the notice the gate shows", () => {
+    const { file, version } = consentVersionLine();
+    expect(file).toMatch(/^v\d+\.md$/);
+    expect(version).not.toBeNull();
   });
 });

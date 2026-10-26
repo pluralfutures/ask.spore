@@ -1,23 +1,15 @@
 {% load i18n %}
-{% comment %}
-  Sign-in link email for the ask-spore-sign-in-link flow (P1a-02, shortened in P2A-L5).
+{# Sign-in link email for the ask-spore-sign-in-link flow (P1a-02).
 
-  This is a multi-line comment on purpose: Django's single-brace comment tag is single-line
-  only and would print its text into the email. Keep it a comment block, and keep any
-  double-brace variable out of it.
+   The link opens OUR landing page with the flow token in the URL FRAGMENT. A fragment
+   is never sent to a server by a fetch, so a mail security scanner that opens the
+   link spends nothing; only the page's "Click to finish logging in" button POSTs the
+   token, from the browser that requested the link. Never link to {{ url }} (Authentik's
+   own flow URL with ?flow_token=): that would put the token in a query string.
 
-  The link opens OUR landing page with the flow token in the URL FRAGMENT. A fragment is
-  never sent to a server by a fetch, so a mail security scanner that opens the link spends
-  nothing; only the page's "Click to finish logging in" button POSTs the token, from the
-  browser that requested the link. Never link to Authentik's own flow URL, the url
-  variable (it carries the token in a query string).
-
-  The link host is the public hostname of the single Phase 1a host
-  (infra/authentik/README.md, "Email template"). The user-facing product name is SporeBot
-  (P1b-17, owner decision 1 of Oct 22, 2026); internal names stay ask.spore.
-
-  The email carries nothing but the link: no name, tenant or other identifier.
-{% endcomment %}
+   The link host is the public hostname of the single Phase 1a host
+   (infra/authentik/README.md, "Email template"). The user-facing product name is
+   SporeBot (P1b-17, owner decision 1 of Oct 22, 2026); internal names stay ask.spore. #}
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -25,10 +17,10 @@
     <title>{% trans "Sign in to SporeBot" %}</title>
   </head>
   <body style="font-family: sans-serif; color: #0f172a;">
-    <p style="font-size: 18px;"><strong>{% trans "Sign in to SporeBot" %}</strong></p>
+    <p>{% trans "Use this link to sign in to SporeBot. It works once, in the browser where you asked for it, and expires in 15 minutes." %}</p>
     <p>
-      <a href="https://askspore.myceliumgastronomy.com/auth/finish#token={{ token }}" style="display: inline-block; padding: 10px 20px; background: #2e5bba; color: #ffffff; text-decoration: none; border-radius: 6px;">{% trans "Sign in" %}</a>
+      <a href="https://askspore.myceliumgastronomy.com/auth/finish#token={{ token }}">{% trans "Sign in to SporeBot" %}</a>
     </p>
-    <p style="color: #475569; font-size: 14px;">{% trans "The link works once and expires in 15 minutes. If you didn't ask for it, you can ignore this email." %}</p>
+    <p style="color: #475569; font-size: 12px;">{% trans "If you did not ask to sign in, ignore this email." %}</p>
   </body>
 </html>

@@ -134,11 +134,11 @@ The invitation carries no sign-in link, on purpose: a link only works in the bro
 
 Subject: Sign in to SporeBot
 
-> **Sign in to SporeBot**
+> Use this link to sign in to SporeBot. It works once, in the browser where you asked for it, and expires in 15 minutes.
 >
-> [Sign in] → `https://askspore.myceliumgastronomy.com/auth/finish#token=…`
+> [Sign in to SporeBot] → `https://askspore.myceliumgastronomy.com/auth/finish#token=…`
 >
-> The link works once and expires in 15 minutes. If you didn't ask for it, you can ignore this email.
+> If you did not ask to sign in, ignore this email.
 
 Notes: the token sits in the fragment (after `#`), never in a query string. The template and the Authentik email stage's subject read "Sign in to SporeBot" since P1b-17 (Oct 22, 2026); the hostname stays `askspore.myceliumgastronomy.com`.
 

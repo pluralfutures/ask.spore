@@ -1,8 +1,8 @@
-# Phase 2A-Legal Spec — Legal Link in the Page Footer, Terms of Use, Sign-in Email and Repeat Sign-in
+# Phase 2A-Legal Spec — Legal Link in the Page Footer and Terms of Use
 
-Oct 26, 2026 · Status: **Owner decisions of Oct 26, 2026 taken (table below); P2A-L1 to L5 built; L6 decided, waits on its Authentik probe** · Target duration: L1–L4 1–2 days, L5 half a day, L6 2–3 days · Part of Phase 2A; built after P2A-11 (static trust and disclosure files), before the release item P2A-13
+Oct 26, 2026 · Status: **built and merged (PR 76); the texts approved by counsel; waits on `ASKSPORE_LEGAL=published` on the Instance** · Target duration: 1–2 days · Part of Phase 2A; built after P2A-11 (static trust and disclosure files), before the release item P2A-13
 
-Source: the owner's messages of Oct 26, 2026, the compliance guide (transparency, GDPR Arts. 12–14, EU AI Act Art. 50; "MFA for tenant admins" and the Oct 22 addendum on the admin second factor), `design/compliance/privacy-notice.md`, `ai-transparency-note.md`, `terms-of-service.md`, `terms-of-use.md` (new), `trust-page.md` (publishing mechanism), `ux-refresh-spec.md` (binding list items 1 and 2), `infra/authentik/` (template and blueprint) and `home-page-spec.md`.
+Source: the owner's messages of Oct 26, 2026, the compliance guide (transparency, GDPR Arts. 12–14, EU AI Act Art. 50; "MFA for tenant admins" and the Oct 22 addendum on the admin second factor), `design/compliance/privacy-notice.md`, `ai-transparency-note.md`, `terms-of-service.md`, `terms-of-use.md` (new), `trust-page.md` (publishing mechanism), `ux-refresh-spec.md` (binding list items 1 and 2) and `home-page-spec.md`.
 
 ## Owner decisions of Oct 26, 2026
 
@@ -12,21 +12,15 @@ Source: the owner's messages of Oct 26, 2026, the compliance guide (transparency
 | 2 | Users read a short **Terms of Use**, written for this purpose (`design/compliance/terms-of-use.md`, drafted Oct 26, 2026 from the MSA's clauses; counsel to review). The client MSA (`terms-of-service.md`) stays a signed contract and is not shown to users. |
 | 3 | The footer **also shows on the consent gate**. This changes the UX-03 contract ("the consent page shows no links at all") and binding list item 1 of `ux-refresh-spec.md`, which this phase amends (L4). |
 | 4 | Go ahead and build. |
-| 5 | Add two sign-in items (L5, L6) to this spec: a shorter sign-in email, and no emailed link on repeat sign-ins for a user who has an authenticator app. |
-| 6 | **L6 follows the recommendation: option C (trusted browser: link and code the first time on a browser, then email and code), and option B (admins keep link and code; email and code only for enrolled non-admins) if the probe shows C is not cheap.** Option A (one factor for admins) is not taken. |
-| 7 | **Lost phone: operator-only reset.** No "use an emailed link instead" on the code page. |
-| 8 | The new sign-in email wording of L5 is approved as written. |
 
 ## Goal
 
-A signed-in user, tenant admin or end user, can read the three minimum notices at any time, not only at the consent gate. The sign-in email is short and clean. A user who has set up an authenticator app signs in with their email address and the app's code.
+A signed-in user, tenant admin or end user, can read the three minimum notices at any time, not only at the consent gate. 
 
 Exit criteria (all must hold):
 
 - Every page that shows the app shell, signed in or not, the consent gate included, ends with a footer carrying the "Legal" link (L1).
 - `/legal` and the three documents are static files served by Caddy, with no API call, no cookie and no tenant or user identifier in the request (L2).
-- The sign-in email contains only the short text of L5 and one link, and no template comment.
-- Repeat sign-in for an enrolled user follows L6 as the owner decides it.
 
 ## Not in this phase
 
@@ -38,7 +32,6 @@ Binding. Record ideas in `backlog.md`.
 - Per-tenant legal documents, per-tenant footer text, translations, a document version history page.
 - Any new tracking, analytics, cookie or third-party request. The footer is one plain link.
 - Any change to the AI notice strip (it stays the first element of every page), to prompts, models, retrieval, retention or the consent gate's content.
-- Passkeys and hardware keys (backlog, ideas 3.4). L6 stays with TOTP.
 
 ## Work items
 
@@ -63,62 +56,16 @@ Tests: Playwright (the dev server mirrors the routes, as for P2A-11): `/legal` a
 
 **P2A-L4 Documentation.** Amend `ux-refresh-spec.md` (binding item 1: the gate shows the footer's Legal link and no other navigation; the UX-03 contract test), `privacy-notice.md` and `ai-transparency-note.md` finalise lists (the in-app link is met by the footer), `terms-of-service.md` (note: users read `terms-of-use.md`), `infra/caddy/README.md`, the architecture's UI section, and `phase-2a-release-runbook.md` (the flag, the `--final` check, publish only texts counsel signed).
 
-### Sign-in changes (added Oct 26, 2026)
-
-**P2A-L5 A short sign-in email. Built Oct 26, 2026 (copy approved, decision 8).** Today the email shows, above or instead of its content, the template's own comment. Cause (found by reading `infra/authentik/templates/ask-spore-sign-in.html`): the file documents itself in a multi-line `{# … #}` comment, and Django's `{# #}` is single-line only, so Authentik prints the whole comment as text. It also contains `{{ url }}`, which the comment is meant to forbid linking to and which therefore expands to Authentik's own flow URL with the live `?flow_token=` in the query string. That is the exact thing the comment says must never reach a mail. The fix is in the file, not in the copy:
-
-- Replace the comment with `{% comment %}…{% endcomment %}` (multi-line, never rendered, its `{{ url }}` not evaluated) and write the explanation without the template variable.
-- New copy (new user-facing text, owner to approve; subject stays "Sign in to SporeBot"):
-
-  > **Sign in to SporeBot**
-  >
-  > [Sign in] (the one link, a button-style link to `https://askspore.myceliumgastronomy.com/auth/finish#token=…`)
-  >
-  > The link works once and expires in 15 minutes. If you didn't ask for it, you can ignore this email.
-
-  It drops "in the browser where you asked for it" from the email: the landing page already says what to do when opened in another browser. If the link opens in a different browser, `/auth/finish` shows the existing message.
-- The email carries nothing but the recipient's own address and the link (compliance addendum, "Platform mail"): no tenant, user, notice or job identifier.
-
-Tests (API or infra): a test reads the template and asserts it has no `{#`, that every `{{ … }}` outside a `{% comment %}` block is `{{ token }}`, and that it holds exactly one `href`; a render with Django's template engine (a dev-only dependency, or `jinja2`-free regex if the engine is not already available) asserts the output contains neither `flow_token` nor `{#` nor `authentik-server`. `infra/authentik/README.md` ("Email template") updated.
-
-**P2A-L6 Repeat sign-in with an authenticator app: email address, then code, no emailed link. Decided Oct 26, 2026 (decisions 6 and 7); not built: the probe comes first.** Today every sign-in is: email address → emailed link → (tenant admins only) authenticator code → signed in. The owner wants a user who has set up an authenticator app to enter their email address and then the code, with no link.
-
-How it would work: the flow `ask-spore-sign-in-link` gets a branch after the identification stage. If the identified user has a TOTP device, skip the email stage and go to the code stage, then login. If not, today's path: email link, and for tenant admins the setup of the app. Authentik does this with a policy on the email stage's binding (skip it when `ak_user_has_authenticator(pending_user, "totp")`) and the code stage placed before login (`not_configured_action: configure` stays for admins who have no device). The API relays the flow (`AuthentikProvider.send_sign_in_link`, `redeem_sign_in_link`, `answer_mfa`): a new request shape is needed, "email, then code" without the link redemption, and the sign-in page needs a code step after the email step. **A probe is the first task, as P2A-00 was**: confirm on the pinned Authentik version that the identification stage exposes the pending user to the policy without a leak, that the code stage works with no email stage before it, and what the unauthenticated response looks like for an unknown address, an enrolled address and an unenrolled address.
-
-**Decisions this needs from the owner (decisions 6 and 7).** This change has a security consequence that the compliance guide's wording makes the owner's call, not ours:
-
-- *It turns a two-factor sign-in into a one-factor sign-in for tenant admins.* Today an admin proves control of their inbox (the link) **and** of their phone (the code). With the owner's proposal an email address, which is not secret, plus the code is the only check. The compliance guide says "MFA for … tenant admins" (§ access control; Oct 22 addendum), and SOC 2 CC6.1 is mapped to it. One factor plus a non-secret identifier is not MFA in the usual audit reading.
-- *It reveals which addresses have an app.* Unknown and unenrolled addresses would see the "check your email" page, enrolled addresses the code page. That is an account-enumeration signal for exactly the accounts worth attacking. The identification stage's "pretend user exists" protection no longer hides it. Mitigations to build whichever option is chosen: a rate limit and lockout on code attempts per address and per network, the same code page for an unknown address (it rejects every code), and code replay refused.
-- *Lost phone.* With no link, a user who has lost the device has no self-service path. Today the link plus operator reset covers it. The fall-back needs deciding: a visible "Use an emailed link instead" on the code page (which keeps the link as the fallback factor), or an operator-only reset.
-
-Options for the owner:
-
-| Option | What the user does | Factors for a tenant admin |
-| --- | --- | --- |
-| A. As asked | Email → code, for every enrolled user | One (code). Needs the compliance guide's MFA line changed for admins and counsel's agreement |
-| B. **Recommended** | Email → code for enrolled **non-admin** users only; tenant admins keep link + code | Admins stay at two. Non-admins who enrol are a voluntary extra, not a control. Today only admins can enrol, so this needs an opt-in enrolment for others and is the larger build |
-| C. Trusted browser | Link + code the first time on a browser (and at most every 30 days); email → code afterwards on that browser | Two (browser holds a device-bound trusted cookie, plus the code). Probe whether Authentik supports it without a custom stage; if not, a small API change |
-| D. Keep as is | No change | Two |
-
-Recommendation: **C if the probe shows it is cheap, else B.** C gives the owner the request (no link on the usual device) without dropping the admin to one factor. If the owner chooses A knowingly, record the decision and the compliance-guide amendment in the same PR, and ship the rate limit, lockout and "same page for unknown address" with it.
-
-Tests (for the chosen option): an enrolled user signs in with email and code and never triggers an email send (fake provider counts sends); an unenrolled user still gets the link; the response for an unknown address cannot be told from an enrolled one (same status, same body shape, comparable timing within a stated bound); five wrong codes lock the address for a stated period with the audit event `auth.lockout` and no code in the log; a replayed code is refused; the admin MFA negative test still holds (an admin without a device cannot reach the app).
-
 ## Open items for the owner
 
-None open. Settled Oct 26, 2026: the version-match check is built (below) and stays; operators may reset the authenticator of tenant admins as well as users.
+None open. Settled Oct 26, 2026: the version-match check is built (below) and stays.
 
 **Version-match check (built).** `node scripts/render-legal.mjs --final` fails unless the privacy notice's "Version N," equals the version line of the consent notice the gate shows (`config/consent/<[consent] version>.md`). It is a release-runbook step. It currently fails by design: the privacy notice still says `[version]`, and `v2.md` ends "Version 1, Oct 22, 2026" although it is the v2 file. A released consent version is never edited, so the owner decides which number the public notice carries when it is finalised (the next consent version is the natural point to align them).
 
-**Operator reset (decided).** L6 adds an operator console action: remove a user's or tenant admin's TOTP device and trusted-browser marks through the Authentik API, audited (`auth.mfa_reset`, no code in the log), after the user asks through support and the operator has checked who they are (`staff-access-checklist.md` gets a line).
+## Set aside (Oct 26, 2026)
 
-## L6 build order (decided)
-
-1. **Probe** on the pinned Authentik version, written to `phase-2a-findings.md`: (a) whether a "remember this browser" mechanism exists that is bound to the browser and expires (the authenticator validate stage's `last_auth_threshold` is the candidate), without a custom stage; (b) whether the email stage can be skipped by a policy on the identified user's TOTP device; (c) the unauthenticated responses for an unknown, an unenrolled and an enrolled address, and whether they can be made the same.
-2. **If (a) and (b) hold: option C.** Flow: identification; if the browser is trusted and the user has a device → code → login; else email link → (admins without a device: setup) → code → login. The trust lasts at most 30 days and is marked on sign-in, not renewed by use, and is dropped when the user's device is reset or the user is disabled.
-3. **Otherwise option B**, plus an opt-in enrolment for non-admins, as specified in the options table.
-4. Operator reset (open item 2), lockout, the same response for every address, and the tests listed under L6.
+Two sign-in changes were specified, partly built and then **withdrawn by the owner for now**; the code and the spec text for them were reverted from `main`: a shorter sign-in email (the template change and its test), and no emailed link on repeat sign-ins for a user with an authenticator app (never built). Nothing in the sign-in flow, the Authentik blueprint or the email template differs from before PR 76. What remains known: the email template's multi-line `{# #}` comment is printed into the email by Authentik, with a live flow link; and an Authentik probe for the repeat sign-in idea was run and written up on the unmerged branch `claude/p2a-l6-probe` (`phase-2a-findings.md` section 7, commit `16fd357`; recommendation: trusted-browser option, with a mandatory guard policy). Either can be taken up again as a new spec item.
 
 ## Decisions to record in the findings file when built
 
-The flag's value on the Instance and the date counsel signed each published text; the L6 option chosen, the probe results and, for option A, the compliance-guide amendment.
+The flag's value on the Instance and the date counsel signed each published text.

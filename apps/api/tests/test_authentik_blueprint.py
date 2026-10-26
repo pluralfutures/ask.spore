@@ -168,14 +168,7 @@ def test_what_users_see_reads_sporebot(blueprint: dict[str, Any]) -> None:
         assert "SporeBot" in flow["attrs"]["title"]
         assert "ask.spore" not in flow["attrs"]["title"]
     template = REPO / "infra" / "authentik" / "templates" / email["attrs"]["template"]
-    # P2A-L5: the template's comment is a comment block (a multi-line single-brace comment
-    # would be printed into the email).
-    shown = re.sub(
-        r"\{% comment %\}.*?\{% endcomment %\}",
-        "",
-        template.read_text(encoding="utf-8"),
-        flags=re.S,
-    )
+    shown = re.sub(r"\{#.*?#\}", "", template.read_text(encoding="utf-8"), flags=re.S)
     assert "SporeBot" in shown and "ask.spore" not in shown
 
 

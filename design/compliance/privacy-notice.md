@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted. Oct 25, 2026, **DRAFT** (P2A-10): support access described in §2 and in the audit row, as built in P2A-08 (owner note 8) |
-| Placeholders | none (the owner's values of Oct 26, 2026 are filled in; the cookie row states the built lifetimes, to change if the trusted-browser cookie of P2A-L6 is built) |
+| Placeholders | none (the owner's values of Oct 26, 2026 are filled in; the cookie row states the built lifetimes) |
 | To finalise, the owner must | (1) confirm the entity, contacts and supervisory authority (AEPD); (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) website facts given by the owner on Oct 22, 2026 (contact form, no cookies) are in §3; fill in [website host] and its log retention, and keep the no-cookie statement true (no third-party fonts, maps, videos or analytics loaded from other servers); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records (the wording goes in `config/consent/<version>.md`, the version in `[consent] version` of `config/models.toml`; P1b-10, findings E1-5). |
 
 ## Notes for the owner (delete before publishing)

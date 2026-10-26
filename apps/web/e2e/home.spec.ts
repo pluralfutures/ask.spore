@@ -191,10 +191,3 @@ test("keeps no history when asked from the home page with a retention of 0", asy
   await expect(page.getByTestId("no-history")).toContainText("keeps no chat history");
   await expect(page.getByRole("button", { name: "Helpful" })).toHaveCount(0);
 });
-
-test("no text on the home page names a retention longer than 30 days", async ({ page }) => {
-  await openScenario(page, home({ workspaces: [F.WS_MARKETS, F.WS_POLICY] }));
-  const text = await page.locator("body").innerText();
-  for (const [, days] of text.matchAll(/(\d+)\s*days/g))
-    expect(Number(days)).toBeLessThanOrEqual(30);
-});

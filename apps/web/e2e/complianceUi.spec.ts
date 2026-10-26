@@ -330,3 +330,34 @@ test.describe("5. feedback", () => {
     await expect(page.getByRole("button", { name: "Helpful", exact: true })).toHaveCount(0);
   });
 });
+
+// HP-05 (design/specs/home-page-spec.md): the binding elements the home page carries.
+test.describe("home page", () => {
+  const home = { workspaces: [F.WS_MARKETS, F.WS_POLICY], models: [F.MODEL_EU, F.MODEL_EXT] };
+
+  test("each recent conversation shows its expiry", async ({ page }) => {
+    await openScenario(page, { name: "home", url: "/", options: home });
+    const rows = page.getByRole("region", { name: "Recent conversations" }).getByRole("listitem");
+    await expect(rows).toHaveCount(3);
+    for (const row of await rows.all()) await expect(row).toContainText(/Expires \d+ \w+ \d{4}/);
+  });
+
+  test("the start panel's external-model disclosures keep their text", async ({ page }) => {
+    await openScenario(page, { name: "home", url: "/", options: home });
+    const model = page.getByLabel("Model");
+    await expect(model.locator("option", { hasText: "served outside the EU" })).toHaveText(
+      `${F.MODEL_EXT.display_name} (served outside the EU)`,
+    );
+    await model.selectOption(F.MODEL_EXT.id);
+    await expect(page.getByTestId("external-note")).toHaveText(EXTERNAL_NOTE);
+  });
+
+  test("no text names a retention longer than 30 days", async ({ page }) => {
+    await openScenario(page, { name: "home", url: "/", options: home });
+    const text = await page.locator("body").innerText();
+    expect(text).toContain("after 30 days at most");
+    for (const [, days] of text.matchAll(/(\d+)\s*days/g)) {
+      expect(Number(days)).toBeLessThanOrEqual(30);
+    }
+  });
+});

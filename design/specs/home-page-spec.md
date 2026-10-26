@@ -1,6 +1,6 @@
 # Home Page Build Spec
 
-Oct 26, 2026 · Status: **approved by the owner on Oct 26, 2026 as its own phase** (open item 1 below), built HP-01 to HP-05 in order. All four open items were decided the same day: the wording table as proposed with "Ask" on the submit button, "Hide" remembered in the browser, and nothing to show the welcome again for now.
+Oct 26, 2026 · Status: **approved by the owner on Oct 26, 2026 as its own phase** (open item 1 below), built HP-01 to HP-05 in order. **HP-01 to HP-05 were built on Oct 26, 2026; the phase is complete.** All four open items were decided the same day: the wording table as proposed with "Ask" on the submit button, "Hide" remembered in the browser, and nothing to show the welcome again for now.
 
 Source: the owner's choice of mock-up **D** ("Welcome (A) + question box (B) + recent (B)") on the design canvas https://claude.ai/artifact/TZUsymQSMPvcyDCh36QfVf (private to the owner until shared). Mock-ups A to C on the same canvas are the alternatives that were not chosen. After the owner's edits of Oct 26, 2026, D has no subtitle under the question heading and no example-question chips.
 
@@ -78,6 +78,7 @@ Build in this order. Each item is one PR, references its ID in commits (`HP-02: 
 - `NewConversation` renders `StartForm` inside its existing `StartPage`.
 - The visual, axe and screen-reader diffs of `/new` must be zero.
 - Tests: the existing `start.spec.ts` and `startPanel.spec.ts` pass unchanged. A vitest test renders `StartForm` with both heading props.
+- Built Oct 26, 2026. The heading stays with each page instead of being a prop: `StartForm` takes only `submitLabel` ("Start" on `/new`, "Ask" on `/`) and has no heading of its own, so each page names its own section. `StartState` moved with the form. `/new`'s screen-reader trees and screenshots are unchanged apart from HP-02's back-link target and HP-04's nav label.
 
 **HP-02 Move the full list to `/conversations`.**
 - Add the route `/conversations`, rendering today's `ConversationList` page with its `PageHeader` "Conversations" and the **New conversation** button.
@@ -86,6 +87,7 @@ Build in this order. Each item is one PR, references its ID in commits (`HP-02: 
 - Deleting the open conversation still goes to `/`.
 - `/` keeps rendering the list until HP-04, so this PR changes no pixels on `/`.
 - Tests: `/conversations` lists every conversation with "Expires" on each row. The back links lead there. The consent gate blocks `/conversations` (added to the gated list in `complianceUi.spec.ts`).
+- Built Oct 26, 2026 (`CONVERSATIONS_PATH` in `pages/ConversationList.tsx`). The only screen-reader change is the seven back links' target.
 
 **HP-03 Welcome card.**
 - `components/Welcome.tsx`: a `Card` with the `h1`, lead, steps (an ordered list, step 1 only when there is more than one workspace), footer line and the Hide button, with the wording approved under open item 2.
@@ -99,6 +101,7 @@ Build in this order. Each item is one PR, references its ID in commits (`HP-02: 
   - step 1 is absent for a tenant with one workspace;
   - the key holds no data other than the flag;
   - the card is never shown on the consent gate (negative case).
+- Built Oct 26, 2026: `components/Welcome.tsx` and `lib/welcome.ts`, with tests in `Welcome.test.tsx` and `e2e/home.spec.ts`. The card is a section in the card style rather than the `Card` component, whose title is an `h2` or `h3`. On the page it appears once the workspaces have loaded, so the steps do not change while someone reads them.
 
 **HP-04 Compose the home page at `/`.**
 - `pages/Home.tsx` at `/`, replacing `ConversationList` there. It shows the welcome card (HP-03), the start form with the `h2` (HP-01), then "Recent conversations".
@@ -108,6 +111,10 @@ Build in this order. Each item is one PR, references its ID in commits (`HP-02: 
 - Layout: content width 50rem (800 px), sections 32 px apart, the page gutter of the design direction (32 px desktop, 16 px phone). At 390 px the settings row wraps and the submit button keeps its 44 px target. No new tokens.
 - The chat rail's "New conversation" still goes to `/new`; `/new` stays as is.
 - Tests: on `/`, the order is AI notice, top bar, welcome, question box, recent. A question asked on `/` reaches `/c/:id` with a cited answer (the `start.spec.ts` flow, run from `/`). The spend-cap notice and no-history flow work from `/`. The external-model note shows on `/` when an external model is chosen. With five conversations, exactly three rows show, each with "Expires", and the link leads to all five.
+- Built Oct 26, 2026 (`pages/Home.tsx`, tests in `e2e/home.spec.ts`). Three choices made in the build:
+  - once the welcome is hidden, "What would you like to research?" becomes the page's `h1`, so the page always has one (axe `page-has-heading-one`);
+  - the question box is today's start form as it stands (labelled question, the Settings card, then the button), not mock-up D's single combined box, so it keeps every binding element without restyling the start panel;
+  - tests that used `/` as the list now open `/conversations`; the existing scenarios 06 to 06e moved there, and 06f to 06j are the home states.
 
 **HP-05 Contract, snapshots and documents.**
 - `complianceUi.spec.ts`:
@@ -123,6 +130,9 @@ Build in this order. Each item is one PR, references its ID in commits (`HP-02: 
   - architecture §7.1: the analyst features gain a "Home page" line;
   - the UX refresh spec's binding list: point item 4 at both the home rows and `/conversations`;
   - this spec: mark each item built.
+- Built Oct 26, 2026, in a single branch rather than one PR per item, so the UX-03 rule was not kept to the letter. The contract strings did not change; the edits were the gated route list (HP-02), the heading expected after accepting the notice (HP-04), and the new "home page" block of three tests (HP-05).
+  - Screen-reader trees added for 06f and 06g. Visual snapshots were regenerated in the pinned Playwright image: on existing scenarios the only change is the nav label, and the suite passes on a second run (134 screenshots).
+  - Not built: a screen-reader tree for `/conversations`. It is the former home page's tree with the "Home" label, already covered by the visual scenarios 06 to 06e.
 
 ## Open items for the owner
 

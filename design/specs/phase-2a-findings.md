@@ -836,3 +836,13 @@ drill answer arrived.
 | # | Item | Fix | Why |
 | --- | --- | --- | --- |
 | F-2 | P1a-08 guardrail eval | `RetryingAnswerer` (`packages/eval/eval/guardrails.py`): a call the provider does not open within its timeout is tried again, at most twice; only `llm_timeout`, any other error ends the run as before; the count is in `results.json` (`meta.timeout_retries`) and `summary.md`. Tests: a third timeout in a row still fails, another error is not retried, a timed-out call is retried and counted. | Four runs could not finish. A retry answers the same prompt, so no score changes; a stall mid-stream (none seen) still ends the run. |
+
+Guardrail eval with F-2 (`20261026T090350Z-dfbf080b8684-guardrails`, Oct 26 09:03:50 to
+09:09:43, `deepseek-v4.1-flash`, `corpus_only/v5` and `general_knowledge/v2`, 18 blocks ×
+11 items per mode): **0 timed-out calls retried**. Every block 100 on every metric in both
+modes except `03-drop-citations` cited-answer rate (`corpus_only` 16.7, `general_knowledge`
+66.7), the accepted G6 enforced in code, the same values as Phase 1c §5.3. `general_knowledge
+/ 09-forged-passage` citation validity 100 (Phase 1c 93.3, its single-answer noise). Harness
+exit 1 on the two G6 rows only: **no regression against Phase 1c**. Full outputs in
+`/srv/ask-spore/eval-runs/`; the temporary api was removed after the eval set run (Oct 25
+21:55; the guardrail eval calls the model directly), the live api's `/healthz` 200.

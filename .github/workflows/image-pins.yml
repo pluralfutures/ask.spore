@@ -1,0 +1,43 @@
+# Nightly image-pin check (P1c-10): the digest check of infra/scripts/deploy.sh --dry-run against
+# the registries. A moved upstream tag (Docker Hub re-pushes tags) fails here and opens one issue,
+# instead of failing whichever pull request happens to run next. ci.yml still runs the same check
+# on pull requests that change infra/.
+
+name: Image pins
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: image-pins
+  cancel-in-progress: false
+
+jobs:
+  pins:
+    name: Image digests (dry run)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: cp infra/ragflow/.env.example infra/ragflow/.env
+      - name: Deploy script dry run
+        run: bash infra/scripts/deploy.sh --dry-run 2>&1 | tee "$RUNNER_TEMP/pins.log"
+      - name: Open an issue when a pin has moved
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: Image pin check failed (a tag moved or a registry is unreachable)
+        run: |
+          if [ -z "$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[0].number')" ]; then
+            {
+              echo "The nightly image-pin check failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+              echo
+              echo "Re-pin the moved image (see the P1c-06 re-pin commits) in one small pull request."
+            } > "$RUNNER_TEMP/body.md"
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
+          fi

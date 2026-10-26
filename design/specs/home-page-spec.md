@@ -1,6 +1,6 @@
 # Home Page Build Spec
 
-Oct 26, 2026 · Status: **draft for the owner's approval.** Nothing in it is built. The phase it belongs to, the new wording and how "Hide" is remembered are open items 1 to 3 below. Build nothing until they are decided.
+Oct 26, 2026 · Status: **approved by the owner on Oct 26, 2026 as its own phase** (open item 1 below), built HP-01 to HP-05 in order. All four open items were decided the same day: the wording table as proposed with "Ask" on the submit button, "Hide" remembered in the browser, and nothing to show the welcome again for now.
 
 Source: the owner's choice of mock-up **D** ("Welcome (A) + question box (B) + recent (B)") on the design canvas https://claude.ai/artifact/TZUsymQSMPvcyDCh36QfVf (private to the owner until shared). Mock-ups A to C on the same canvas are the alternatives that were not chosen. After the owner's edits of Oct 26, 2026, D has no subtitle under the question heading and no example-question chips.
 
@@ -63,7 +63,7 @@ New copy needs the owner's approval before it is built (open item 2). Mock-up D'
 | Hide button | Hide | Hide (accessible name "Hide the welcome") | The visible word alone is ambiguous to a screen reader. |
 | Question heading (`h2`) | What would you like to research? | same | — |
 | Question placeholder | For example: Which plant-based proteins grew fastest on European menus in 2025? | Ask a question about this workspace's sources (today's text) | An example would differ by workspace and tenant. That is the example-questions feature, which is not in this spec. |
-| Submit button | Ask | Ask, or keep "Start" | Owner's choice. "Ask" fits the page; "Start" is today's label and is used by the e2e tests. |
+| Submit button (home page) | Ask | Ask (owner, Oct 26, 2026) | `/new` keeps "Start", so HP-01 changes nothing there. |
 | Top-bar nav item | Home | Home | "Conversations" now names the `/conversations` page. |
 | Recent heading | Recent conversations | same | — |
 | Link under the list | All conversations | same | — |
@@ -126,9 +126,11 @@ Build in this order. Each item is one PR, references its ID in commits (`HP-02: 
 
 ## Open items for the owner
 
-1. **Which phase this belongs to.** It is not in the Phase 2A spec, and CLAUDE.md does not allow starting it without a phase. Proposal: its own small phase, as the UX refresh was, built HP-01 to HP-05 in order.
-2. **Wording.** Approve or change each line of the wording table, including "Ask" versus "Start".
-3. **How "Hide" is remembered.**
+All four were decided by the owner on Oct 26, 2026.
+
+1. ~~**Which phase this belongs to.**~~ Decided: its own small phase, as the UX refresh was, built HP-01 to HP-05 in order (it is not in the Phase 2A spec).
+2. ~~**Wording.**~~ Decided: the wording table as proposed, with "Ask" on the home page's submit button.
+3. ~~**How "Hide" is remembered.**~~ Decided: (a), browser storage.
    - (a) **Browser storage** (recommended for now): no API or database change. The card comes back on another browser or device, or after site data is cleared. The value is a UI preference the user set themselves, holds no personal data beyond the user ID, and is never sent to the server.
    - (b) **On the server**, per user: a nullable `welcome_hidden_at` on the user row and a `PATCH /me/preferences` route. That is an Alembic migration on a tenant-scoped table, plus an API change, audit and tests. It is out of this spec unless chosen.
-4. **Showing the welcome again after Hide.** Proposal: nothing in this spec. With (a) it returns when site data is cleared. A "Show the welcome" item in the user menu would be new copy and can follow if users ask for it.
+4. ~~**Showing the welcome again after Hide.**~~ Decided: as proposed (backlog line). Proposal: nothing in this spec. With (a) it returns when site data is cleared. A "Show the welcome" item in the user menu would be new copy and can follow if users ask for it.

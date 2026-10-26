@@ -114,6 +114,7 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 - Unscheduled (home page spec, Oct 26, 2026; not in that spec): example questions for each workspace on the home page, written by the content team or tenant admin and stored with the workspace, a click filling in the question box. Shown in mock-ups A to C, removed from the chosen mock-up D by the owner.
 - Unscheduled (home page spec, Oct 26, 2026; not in that spec): a "what this workspace knows" summary on the home page (document count, publishers, years covered, last updated, link to the files page), read from the source register; the package page of architecture §7.1.
 - Unscheduled (home page spec, Oct 26, 2026; not in that spec): suggested questions generated from each workspace's sources (architecture §7.1), by a worker from source text only, reviewed before they are shown, cached tenant-prefixed; only after the written examples above have been tried.
+- Unscheduled (home page spec open item 4, owner, Oct 26, 2026): a "Show the welcome" item in the user menu, so a user who hid the home page's welcome card can bring it back without clearing site data. New copy; only if users ask for it.
 
 - Phase 2B or later, the next phase that touches the operator console (owner decision Oct 25, 2026, open question C5): an audited operator-console action to suspend and reactivate a tenant (`operator.tenant_suspended`, `operator.tenant_reactivated`, before and after values); until then a suspension on its own is a schema-owner `UPDATE` recorded by hand.
 

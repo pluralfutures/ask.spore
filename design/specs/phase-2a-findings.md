@@ -846,3 +846,24 @@ modes except `03-drop-citations` cited-answer rate (`corpus_only` 16.7, `general
 exit 1 on the two G6 rows only: **no regression against Phase 1c**. Full outputs in
 `/srv/ask-spore/eval-runs/`; the temporary api was removed after the eval set run (Oct 25
 21:55; the guardrail eval calls the model directly), the live api's `/healthz` 200.
+
+### 5.7 Close-out
+
+**Released.** The Instance runs `main` at **`8f5396b`** (release commit `b2b5beb`, PR #67, plus
+two owner commits to compliance documents only). Every runbook step done: baselines (5.1),
+deploy (5.2), tests and the independent review with no blocker (5.3), pause drill (5.4),
+support access drill (5.5), evals with no regression against Phase 1c (5.6). Fixes: F-1
+(visual suite clock), F-2 (guardrail eval retries a timed-out call). Eval baseline unchanged
+(`20261023T085603Z-c06e9e99bae9`); the eval set v1 run's redacted copy is kept outside the
+repository with the full outputs (`/srv/ask-spore/eval-runs/p2a14-redacted/`); `eval gate`
+passes.
+
+Everything still open went to `backlog.md` under "Phase 2A remaining" (owner decision, Oct
+26, 2026): the purge closing the drill's expired grant, the restore test and nightly backup,
+the trust page's text and flag, the legal entity on the disclosure page, the first quarterly
+access review date (H2), the review's C1 to C5, guardrail per-item errors, the visual suite
+tolerance, B-1. The spec's status line says "Phase 2A closed" once the owner confirms.
+
+Left on the Instance: the internal tenant's new admin account (kept for later drills);
+`/srv/ask-spore/eval-config/` (rebuilt for 8f5396b) and `eval-config-1c/`; `/root/eval-2a.sh`;
+the pinned Playwright image.

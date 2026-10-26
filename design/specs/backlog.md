@@ -114,6 +114,57 @@ Ideas and deferred items raised during a phase that belong to a later phase. One
 
 - Phase 2B or later, the next phase that touches the operator console (owner decision Oct 25, 2026, open question C5): an audited operator-console action to suspend and reactivate a tenant (`operator.tenant_suspended`, `operator.tenant_reactivated`, before and after values); until then a suspension on its own is a schema-owner `UPDATE` recorded by hand.
 
+## Phase 2A remaining
+
+Left open at the Phase 2A release (P2A-14, findings §5), moved here by the owner on
+Oct 26, 2026 so `phase-2a/release` can merge. Each line names where it is recorded.
+
+- **Expired support grant closed by the purge** (Oct 26, 2026; findings §5.5). The
+  drill's conversation grant expired at Oct 25 21:50:57 UTC and is refused (404,
+  `operator.support_refused`); `closed_at` and `support.grant_expired` are set by the daily
+  retention purge (last run before the drill Oct 25 13:58 UTC). Check both after the next
+  run and add the line to §5.5.
+- **Restore test and nightly backup** (Oct 26, 2026; Phase 1c §6.1, still open). No volume
+  backup on the Instance; the content-store copy waits for it. Prerequisite of audit
+  disposal (above).
+- **Trust page text and flag** (Oct 26, 2026; findings §5.2). `ASKSPORE_TRUST_PAGE` stays
+  `unpublished`. Before publishing, the owner's edits of Oct 25 to
+  `design/compliance/trust-page.md` need three fixes: "deleted from the database during
+  monthly routine maintenance" (the purge runs daily, `PURGE_INTERVAL`); "outside the EU,
+  including EEA, UK, and Switzerland" (the EEA contains the EU; the alternative in the draft
+  named the United States); the administrators' second factor line was replaced by an SSO
+  sentence (the second factor is required for tenant admins by default).
+- **Legal entity on the disclosure page** (Oct 26, 2026; findings §3.6,
+  §5.2). The owner added the entity to `security-disclosure.md` on Oct 25; the served
+  `apps/web/public/security-disclosure.html` has no entity line, as decided until counsel
+  confirms. Copy it to the served page once confirmed.
+- **First quarterly access review date** (Oct 26, 2026; decision 26, H2). Set by the owner
+  in `policy-access-control.md`.
+- **C1: export metadata keys** (Oct 26, 2026; findings §5.3). The tenant audit export
+  filters events, not metadata keys. A test that fixes the keys each exported event may
+  carry, so a content-bearing key added later to an exported event fails CI.
+- **C2: operator ID in the tenant export** (Oct 26, 2026; findings §5.3).
+  `operator.support_viewed` carries `operator_id` to the tenant's export; the spec names
+  grant ID and scope. Owner to confirm (recommendation: keep).
+- **C3: workspace name blank in the support view** (Oct 26, 2026; findings §5.3). Under a
+  conversation grant with no settings grant open, the restrictive policy on `workspaces`
+  hides the row. A migration that lets `askspore_support` read `workspaces.name` for the
+  granted conversation's workspace, with a test; the next phase that touches support access.
+- **C4: cosmetics** (Oct 26, 2026; findings §5.3). `0065`'s docstring "Revises: 0060";
+  a repeated comment in `audit/events.py`; the export rate limiter is per process (one
+  export a minute per API worker).
+- **C5: pause lock across RAGFlow calls** (Oct 26, 2026; findings §5.3). A RAGFlow timeout
+  blocks other changes to that source until it returns; then the pause is undone and
+  reported. Acceptable for a reviewer action; revisit if pauses become frequent.
+- **Guardrail eval, per-item errors** (Oct 26, 2026; findings §5.6, F-2). The harness
+  retries a timed-out call twice but still stops at any other error; record an error per
+  item and continue, as eval set v1 does.
+- **Visual suite tolerance** (Oct 26, 2026; findings §5.1). `maxDiffPixelRatio` 0.001 let
+  the new "Support access" tab label (about 565 pixels) pass unflagged at 1440 × 900. A
+  per-scenario pixel count, or a lower ratio on short pages, if anti-aliasing noise allows.
+- **B-1, chunk list short of the chunk count** (Oct 26, 2026; `bugs-to-investigate.md`).
+  Still open.
+
 ## Enterprise requirements
 
 Items a client's security or procurement contact asks for at contract or renewal time, kept

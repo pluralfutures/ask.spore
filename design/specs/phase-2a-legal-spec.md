@@ -1,8 +1,8 @@
-# Phase 2A-Legal Spec — Legal Link in the Page Footer and Terms of Use
+# Phase 2A-Legal Spec — Legal Link in the Page Footer, Terms of Use and Sign-in Email
 
-Oct 26, 2026 · Status: **built and merged (PR 76); the texts approved by counsel; waits on `ASKSPORE_LEGAL=published` on the Instance** · Target duration: 1–2 days · Part of Phase 2A; built after P2A-11 (static trust and disclosure files), before the release item P2A-13
+Oct 26, 2026 · Status: **P2A-L1 to L5 built and merged (PR 76; L5 kept after a revert, below); the texts approved by counsel; waits on `ASKSPORE_LEGAL=published` on the Instance** · Target duration: 1–2 days · Part of Phase 2A; built after P2A-11 (static trust and disclosure files), before the release item P2A-13
 
-Source: the owner's messages of Oct 26, 2026, the compliance guide (transparency, GDPR Arts. 12–14, EU AI Act Art. 50; "MFA for tenant admins" and the Oct 22 addendum on the admin second factor), `design/compliance/privacy-notice.md`, `ai-transparency-note.md`, `terms-of-service.md`, `terms-of-use.md` (new), `trust-page.md` (publishing mechanism), `ux-refresh-spec.md` (binding list items 1 and 2) and `home-page-spec.md`.
+Source: the owner's messages of Oct 26, 2026, the compliance guide (transparency, GDPR Arts. 12–14, EU AI Act Art. 50; "MFA for tenant admins" and the Oct 22 addendum on the admin second factor), `design/compliance/privacy-notice.md`, `ai-transparency-note.md`, `terms-of-service.md`, `terms-of-use.md` (new), `infra/authentik/templates/` (the sign-in email), `trust-page.md` (publishing mechanism), `ux-refresh-spec.md` (binding list items 1 and 2) and `home-page-spec.md`.
 
 ## Owner decisions of Oct 26, 2026
 
@@ -12,15 +12,17 @@ Source: the owner's messages of Oct 26, 2026, the compliance guide (transparency
 | 2 | Users read a short **Terms of Use**, written for this purpose (`design/compliance/terms-of-use.md`, drafted Oct 26, 2026 from the MSA's clauses; counsel to review). The client MSA (`terms-of-service.md`) stays a signed contract and is not shown to users. |
 | 3 | The footer **also shows on the consent gate**. This changes the UX-03 contract ("the consent page shows no links at all") and binding list item 1 of `ux-refresh-spec.md`, which this phase amends (L4). |
 | 4 | Go ahead and build. |
+| 5 | A shorter sign-in email (L5); the new wording is approved as written. |
 
 ## Goal
 
-A signed-in user, tenant admin or end user, can read the three minimum notices at any time, not only at the consent gate. 
+A signed-in user, tenant admin or end user, can read the three minimum notices at any time, not only at the consent gate. The sign-in email is short and clean.
 
 Exit criteria (all must hold):
 
 - Every page that shows the app shell, signed in or not, the consent gate included, ends with a footer carrying the "Legal" link (L1).
 - `/legal` and the three documents are static files served by Caddy, with no API call, no cookie and no tenant or user identifier in the request (L2).
+- The sign-in email contains only the short text of L5 and one link, and no template comment.
 
 ## Not in this phase
 
@@ -56,6 +58,24 @@ Tests: Playwright (the dev server mirrors the routes, as for P2A-11): `/legal` a
 
 **P2A-L4 Documentation.** Amend `ux-refresh-spec.md` (binding item 1: the gate shows the footer's Legal link and no other navigation; the UX-03 contract test), `privacy-notice.md` and `ai-transparency-note.md` finalise lists (the in-app link is met by the footer), `terms-of-service.md` (note: users read `terms-of-use.md`), `infra/caddy/README.md`, the architecture's UI section, and `phase-2a-release-runbook.md` (the flag, the `--final` check, publish only texts counsel signed).
 
+### Sign-in email (added Oct 26, 2026)
+
+**P2A-L5 A short sign-in email. Built Oct 26, 2026 (copy approved, decision 5).** Today the email shows, above or instead of its content, the template's own comment. Cause (found by reading `infra/authentik/templates/ask-spore-sign-in.html`): the file documents itself in a multi-line `{# … #}` comment, and Django's `{# #}` is single-line only, so Authentik prints the whole comment as text. It also contains `{{ url }}`, which the comment is meant to forbid linking to and which therefore expands to Authentik's own flow URL with the live `?flow_token=` in the query string. That is the exact thing the comment says must never reach a mail. The fix is in the file, not in the copy:
+
+- Replace the comment with `{% comment %}…{% endcomment %}` (multi-line, never rendered, its `{{ url }}` not evaluated) and write the explanation without the template variable.
+- New copy (new user-facing text, owner to approve; subject stays "Sign in to SporeBot"):
+
+  > **Sign in to SporeBot**
+  >
+  > [Sign in] (the one link, a button-style link to `https://askspore.myceliumgastronomy.com/auth/finish#token=…`)
+  >
+  > The link works once and expires in 15 minutes. If you didn't ask for it, you can ignore this email.
+
+  It drops "in the browser where you asked for it" from the email: the landing page already says what to do when opened in another browser. If the link opens in a different browser, `/auth/finish` shows the existing message.
+- The email carries nothing but the recipient's own address and the link (compliance addendum, "Platform mail"): no tenant, user, notice or job identifier.
+
+Tests (API or infra): a test reads the template and asserts it has no `{#`, that every `{{ … }}` outside a `{% comment %}` block is `{{ token }}`, and that it holds exactly one `href`; a render with Django's template engine (a dev-only dependency, or `jinja2`-free regex if the engine is not already available) asserts the output contains neither `flow_token` nor `{#` nor `authentik-server`. `infra/authentik/README.md` ("Email template") updated.
+
 ## Open items for the owner
 
 None open. Settled Oct 26, 2026: the version-match check is built (below) and stays.
@@ -64,7 +84,7 @@ None open. Settled Oct 26, 2026: the version-match check is built (below) and st
 
 ## Set aside (Oct 26, 2026)
 
-Two sign-in changes were specified, partly built and then **withdrawn by the owner for now**; the code and the spec text for them were reverted from `main`: a shorter sign-in email (the template change and its test), and no emailed link on repeat sign-ins for a user with an authenticator app (never built). Nothing in the sign-in flow, the Authentik blueprint or the email template differs from before PR 76. What remains known: the email template's multi-line `{# #}` comment is printed into the email by Authentik, with a live flow link; and an Authentik probe for the repeat sign-in idea was run and written up on the unmerged branch `claude/p2a-l6-probe` (`phase-2a-findings.md` section 7, commit `16fd357`; recommendation: trusted-browser option, with a mandatory guard policy). Either can be taken up again as a new spec item.
+**P2A-L6, no emailed link on repeat sign-ins for a user with an authenticator app, was specified and probed and then withdrawn by the owner for now.** It was never built, and its spec text was removed. The Authentik probe is written up on the unmerged branch `claude/p2a-l6-probe` (`phase-2a-findings.md` section 7, commit `16fd357`; recommendation: the trusted-browser option, with a mandatory guard policy against Authentik failing open). It can be taken up again as a new spec item. The sign-in flow and the Authentik blueprint are unchanged from before PR 76; only the email template (L5) differs.
 
 ## Decisions to record in the findings file when built
 

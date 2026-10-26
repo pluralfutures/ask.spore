@@ -1,6 +1,6 @@
 # Phase 1c Build Spec — Hardening Before the First Client User
 
-Oct 23, 2026 · Status: approved by the owner Oct 23, 2026 (decisions below) · Target duration: 3–4 weeks · Starts after Phase 1b closed (findings 1b §8, Oct 23, 2026)
+Oct 23, 2026 · Status: approved by the owner Oct 23, 2026 (decisions below) · Target duration: 3–4 weeks · Starts after Phase 1b closed (findings 1b §8, Oct 23, 2026) · **Phase 1c closed on Oct 25, 2026** (findings §5; released Oct 23 at `80ac763`; owner open items listed there: DMARC `rua=` and the clean week, volume backup and restore test, the before-first-client-user backlog lines, the paperwork gate)
 
 Source decisions: the Phase 1b release record (`phase-1b-findings.md` §8, F1 to F5, the
 independent review of Oct 22, 2026 and its five items), every `backlog.md` line marked

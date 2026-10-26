@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Revision | Oct 22, 2026, **DRAFT**: section 1.1 note and section 1.8 for clients that supply their own documents (P1b-19 step 1, architecture §15); not for the test client. Placeholders added: [max file size], [max files per batch], [secure transfer method], [5] (working days) |
+| Revision | Oct 22, 2026, **DRAFT**: section 1.1 note and section 1.8 for clients that supply their own documents (P1b-19 step 1, architecture §15); not for the test client. Withdrawal window, limits and channel filled in by the owner, Oct 22, 2026 |
 | Placeholders | [Client], [sending domain], [sender address], [support email], [client IT contact], [Entra redirect URI], [Google redirect URI], [OIDC redirect URI], [SAML ACS URL], [SAML entity ID], [secret transfer method], [recipient first name], [inviter name], [workspace name], [notice version], [notice summary], [notice path], [date] |
 | To finalise, the owner must | (1) fill in the placeholders, using `askspore.myceliumgastronomy.com` for [app hostname] unless a client-facing host replaces it; (2) choose the [secret transfer method] for SSO client secrets and SAML keys (section 1.5); (3) check the email templates in section 2 against the copy that P1b-11 and the Authentik template ship with, and keep the two in step; (4) remove the "not yet built" notes once the matching spec items pass their tests; (5) run the live scanner test (P1b-13(a)) with [Client]'s IT contact before the first `[client domain]` user is invited, and record the result in the Phase 1b findings; (6) have counsel check section 2.3 (consent notice) against `privacy-notice.md` and `terms-of-service.md`. |
 
@@ -90,12 +90,12 @@ From Phase 1b (spec item P1b-08), SporeBot requires a second factor for your ten
 
 If your organisation supplies documents for its workspaces:
 
-1. **What to send.** PDF, DOCX or PPTX files, up to [max file size] MB each and [max files per batch] per batch, by [secure transfer method]. Do not send email attachments.
-2. **With each batch, a declaration** signed by a person who can bind your organisation, naming the files and stating for each: that you have the right to supply it for SporeBot as described in the terms (§6A); whether your users may download it; whether it contains personal data of people other than your staff. Do not send special-category personal data (health, political opinions, religion and similar) unless agreed in writing first.
+1. **What to send.** PDF, DOCX, PPTX, Markdown or HTML files (Markdown and HTML are searchable but cannot be downloaded from SporeBot), up to 500 MB each and 100 files per batch, by email or as a link to a file share you control (for example SharePoint). For a file over 500 MB, tell us first: we agree with you how to ingest it, possibly by converting it (OCR or text) to make it smaller.
+2. **With each batch, a declaration** signed by a person who can bind your organisation, naming the files and stating for each: that you have the right to supply it for SporeBot as described in the terms (§6A); whether your users may download it; whether it contains personal data of people other than your staff. Special-category personal data (racial or ethnic origin, political opinions, religion or beliefs, trade-union membership, genetic or biometric data, health, sex life or sexual orientation) and criminal-record data: say in the declaration if a file contains any. (a) If the person made it public themselves, such as an autobiography, it is fine. (b) If someone else revealed it about them, such as a biography or press article, confirm your legal basis in writing and we decide with you, or send a redacted copy. (c) Never send non-public records such as personnel, medical or union files. Figures that identify no one are fine.
 3. **Which workspaces.** Tell us which workspace each file belongs to. Your files go only into content collections that belong to your organisation; no other customer can search or download them.
 4. **Review.** Our content team checks format, the declaration and the workspace, not your rights; a file may be refused with a reason. You will be told when the batch is searchable.
-5. **Withdrawal.** Ask privacyanddata@myceliumgastronomy.com or [support email] in writing; we withdraw a file within [5] working days.
-6. **At the end of the contract** your files are deleted and listed in the certificate of deletion; ask before the end date if you want the copies we hold back.
+5. **Withdrawal.** Ask privacyanddata@myceliumgastronomy.com or [support email] in writing; we withdraw a file within 10 working days.
+6. **At the end of the contract** your files are deleted within 30 days, including the copies we received by email or link, and listed in the certificate of deletion; ask before the end date if you want the copies we hold back.
 
 ---
 

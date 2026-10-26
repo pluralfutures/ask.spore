@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1): C1 scope note, C9 (client declarations), and the Part 2 template row for clients that supply documents. Placeholders added: [limitation period]. Oct 25, 2026, **DRAFT** (P2A-10): time-boxed support access (P2A-08) in C4 and the Part 2 sheet |
+| Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1): C1 scope note, C9 (client declarations), and the Part 2 template row for clients that supply documents. [limitation period] for C9 filled in by the owner (5 years), Oct 22, 2026. Oct 25, 2026, **DRAFT** (P2A-10): time-boxed support access (P2A-08) in C4 and the Part 2 sheet |
 | Placeholders | [Client], [Client legal name], [Client address], [date], [SCC module], [document store], [representative, if any] |
 | To finalise, the owner must | (1) fill in the entity, contact and DPO placeholders; (2) decide whether a DPO is required (see open-questions.md) or name a privacy contact; (3) confirm the reasoning on the usage ledger in Part 1, row C5; (4) confirm the retention periods marked [confirm]; (5) add one Part 2 sheet per client at signature, starting with [Client]; (6) have counsel review; (7) review every six months and on every change to `sub-processors.md`. |
 
@@ -165,8 +165,23 @@ Note: the audit rows used here are part of the client's audit trail (Part 2). We
 | Recipients | Our operators; counsel where needed |
 | Transfers | None |
 | Storage | [document store]; reference in the source register (`client_declaration_ref`) |
-| Retention | Term of the contract plus [limitation period] |
+| Retention | Term of the contract plus 5 years (general limitation period for contract claims under Spanish law; owner decision Oct 22, 2026, counsel to confirm), then destroyed |
 | TOMs | `policy-access-control.md` |
+
+### C10. Website contact form and server logs
+
+*DRAFT addition, Oct 22, 2026 (owner: the public website has a contact form and sets no cookies).*
+
+| Field | Entry |
+| --- | --- |
+| Purpose | Answering enquiries from prospects and others; keeping the website secure |
+| Legal basis | Legitimate interests, Art. 6(1)(f); pre-contract steps at the person's request, Art. 6(1)(b) |
+| Data subjects | People who write to us through the form; website visitors (server logs) |
+| Categories | Name, email address, organisation if given, message; IP address, time, page, browser type |
+| Recipients | Our staff; [website host] and [form provider] as our processors [confirm whether the same company] |
+| Transfers | [confirm the location of the website host and form provider; a DPA is needed with each] |
+| Retention | Messages [2 years] after the matter is closed, or moved to C7 if it leads to a contract; server logs per [website host] [confirm] |
+| TOMs | No cookies, analytics or tracking on the website; HTTPS; form submissions not stored in the SporeBot platform |
 
 ---
 

@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15): scope line and rows 4.2, 4.3, 14.1, 14.5, 15.1, 16.3 and new section 17. Use section 17 only for a client that supplies documents, and only once P1b-19 step 2 is built; until then answer "No" to 17.1. Placeholders added: [secure transfer method], [5] (working days) |
+| Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15): scope line and rows 4.2, 4.3, 14.1, 14.5, 15.1, 16.3 and new section 17. Use section 17 only for a client that supplies documents, and only once P1b-19 step 2 is built; until then answer "No" to 17.1. Withdrawal window, limits and channel filled in by the owner, Oct 22, 2026 |
 | Placeholders | [Client], [support email], [number of staff], [insurance cover], [name], [30] and [48] (DPA notice periods), [date] |
 | To finalise, the owner must | (1) fill in the placeholders; (2) re-check every "Partial" and "No" row against the build on the day the questionnaire is sent, and update the ones that Phase 1b items have closed (each names its spec item); (3) confirm row 6.3 (encryption at rest of the Instance volumes) with Scaleway and replace "[confirm]"; (4) answer the HR rows (section 3) yourself; they are about the company, not the system; (5) keep this file as the master and copy answers into a client's own questionnaire format, never the other way round; (6) have counsel check the privacy rows (section 14) against the signed DPA. |
 
@@ -85,7 +85,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | # | Question | Answer | Detail and evidence |
 | --- | --- | --- | --- |
 | 7.1 | Data centre physical controls | N/A (inherited) | Scaleway data centres in the Paris region. We rely on Scaleway's certifications; reports kept per `policy-vendor-management.md` |
-| 7.2 | Provider offices hold customer data? | No | No customer data on staff devices; never debug with real queries (repository rule) |
+| 7.2 | Provider offices hold customer data? | No (Yes, encrypted, for clients that supply documents) | No customer data on staff devices; never debug with real queries (repository rule). *DRAFT, Oct 22, 2026:* for a client that supplies documents, files received by email or link and a local working copy are kept only on encrypted devices (owner decision) until 30 days after the contract ends |
 
 ## 8. Operations and logging
 
@@ -113,7 +113,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | # | Question | Answer | Detail and evidence |
 | --- | --- | --- | --- |
 | 10.1 | Tenant isolation | Yes | Row-level security, forced, on all 18 customer tables, set per request from the authenticated user; tenant-first indexes; tenant-prefixed cache keys. Tests prove a cross-tenant read returns nothing; independent review signed Oct 21, 2026 (findings §12) |
-| 10.2 | Customer cannot choose which corpus is searched | Yes | Datasets are resolved on the server from the workspace; any request body carrying dataset or document IDs is refused (tested) |
+| 10.2 | Customer cannot choose which corpus is searched | Yes | Datasets are resolved on the server from the workspace; any request body carrying dataset or document IDs is refused (tested). *DRAFT, Oct 22, 2026:* every content collection will belong to one customer and never be shared between customers (P1b-19 step 2) |
 | 10.3 | Code review and CI | Yes | Changes by pull request; CI runs lint, strict type checks, unit and database tests, evaluation and guardrail checks |
 | 10.4 | Branch protection enforcing CI | No — planned Phase 1b (P1b-13(c)) | Six merges were made on red CI in the Phase 1a release (findings §10, F9); branch protection is the fix |
 | 10.5 | Separate test environment with no customer data | Partial | Tests use synthetic fixtures only (repository rule). Staging host not yet set up; one production Instance |
@@ -192,13 +192,13 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 
 | # | Question | Answer | Detail and evidence |
 | --- | --- | --- | --- |
-| 17.1 | Can we upload or supply our own documents? | [Planned / Yes] | By arrangement: you send files (PDF, DOCX, PPTX) with a declaration per file or batch by [secure transfer method]; our content team registers them. No self-service upload |
-| 17.2 | Who can see our documents? | Your users only | Each file is recorded with your organisation as its supplier and placed only in content collections owned by your organisation; the application, the ingestion worker and the database each refuse to place it in a collection of another customer or a shared one. Identical files from two customers are kept separately. Tests prove another customer's workspace never retrieves, lists or downloads it |
-| 17.3 | Are our documents used to train models or for other customers? | No | Used only to answer your users' questions. Model providers receive excerpts in prompts under zero-retention terms |
+| 17.1 | Can we upload or supply our own documents? | [Planned / Yes] | By arrangement: you send files (PDF, DOCX, PPTX, Markdown, HTML) with a declaration per file or batch, by email or a link to a file share you control; up to 500 MB per file (larger after consultation) and 100 per batch; our content team registers them. No self-service upload |
+| 17.2 | Who can see our documents? | Your users only | Each file is recorded with your organisation as its supplier and placed only in content collections owned by your organisation; the application, the ingestion worker and the database each refuse to place it in a collection of another customer; no collection is ever shared between customers, for any content. Identical files from two customers are kept separately. Tests prove another customer's workspace never retrieves, lists or downloads it |
+| 17.3 | Are our documents used to train models or for other customers? | No | Used only to answer your users' questions, and, unless your contract excludes it, to test answer quality in your own workspaces, keeping only scores. Model providers receive excerpts in prompts under zero-retention terms |
 | 17.4 | Where are our documents processed? | Paris | Stored, parsed and indexed on our Scaleway Instance in Paris; the parser runs on an internal network with no public access. Excerpts go to the EU model provider, and outside the EU only if you have accepted external models (DPA clause 6) |
 | 17.5 | Can our users download our documents? | As you declare | Only your users, only files your declaration marks downloadable; single-use links, daily cap, audited |
-| 17.6 | Can we withdraw a document? | Yes | On written request within [5] working days: file, text and index entries deleted; passages cited in past answers marked withdrawn |
-| 17.7 | What happens at termination? | Deleted | Every supplied document, its text, index and stored copy is deleted and listed in the certificate of deletion; on request before the end we return the copies we hold |
+| 17.6 | Can we withdraw a document? | Yes | On written request within 10 working days: file, text, index entries and our copies outside the platform deleted; passages cited in past answers marked withdrawn |
+| 17.7 | What happens at termination? | Deleted (your signed declarations kept 5 years as contract evidence) | Every supplied document, its text, index and stored copy is deleted and listed in the certificate of deletion; on request before the end we return the copies we hold |
 | 17.8 | Who is responsible for rights in the documents and for people named in them? | You | You warrant your rights and indemnify us for third-party claims (terms §6A); you are controller for personal data in them and we are your processor (DPA clause 7A) |
 | 17.9 | Are document contents treated as instructions to the model? | No | Document text is passed as untrusted data; the model has no tools, so text in a document cannot make it act |
-| 17.10 | Is our content malware-scanned? | [owner] | Files are accepted only in the listed formats and parsed on an isolated internal network. [Whether a malware scan is added: open-questions J] |
+| 17.10 | Is our content malware-scanned? | No — planned (backlog) | Files are accepted only in the listed formats, checked by our content team and parsed on an isolated internal network with no outbound access. A malware scan before parsing is in the backlog (owner decision Oct 22, 2026) |

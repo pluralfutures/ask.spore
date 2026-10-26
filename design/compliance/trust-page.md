@@ -52,6 +52,10 @@ You can see the list of files behind each workspace. You can download a file onl
 
 Some organisations send us their own documents to be searched in their workspaces. Those documents are searchable and downloadable only by that organisation's users, stored in Paris, used only to answer that organisation's questions, never used for training, withdrawn on request and deleted at the end of the contract with a certificate. The organisation decides what it sends and is responsible for its rights in it.
 
+### Reporting content
+
+*DRAFT, Oct 22, 2026 (from `policy-content-sourcing.md` §6).* If you believe content in our library infringes your rights, or you are named in it and want it removed or corrected, write to security@myceliumgastronomy.com. Please identify the document or page, explain the right or concern, and give a way to reach you. We act on publisher takedowns within 10 working days and on personal-data requests within 30 days. For documents a customer supplied, we may suspend the document at once and pass personal-data requests to that customer, who decides on them.
+
 ### What we never do
 
 - Train or fine-tune any model on your questions or conversations.

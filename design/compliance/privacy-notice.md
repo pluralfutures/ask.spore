@@ -8,8 +8,8 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted. Oct 25, 2026, **DRAFT** (P2A-10): support access described in §2 and in the audit row, as built in P2A-08 (owner note 8) |
-| Placeholders | [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
-| To finalise, the owner must | (1) confirm the entity, contacts and supervisory authority (AEPD); (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) confirm the contact-form processing in §3 matches what the public website actually does (analytics, cookies); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records (the wording goes in `config/consent/<version>.md`, the version in `[consent] version` of `config/models.toml`; P1b-10, findings E1-5). |
+| Placeholders | [website host], [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
+| To finalise, the owner must | (1) confirm the entity, contacts and supervisory authority (AEPD); (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) website facts given by the owner on Oct 22, 2026 (contact form, no cookies) are in §3; fill in [website host] and its log retention, and keep the no-cookie statement true (no third-party fonts, maps, videos or analytics loaded from other servers); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records (the wording goes in `config/consent/<version>.md`, the version in `[consent] version` of `config/models.toml`; P1b-10, findings E1-5). |
 
 Plain text below the line is the notice.
 
@@ -64,7 +64,11 @@ We do **not** use your questions or conversations to train or improve any AI mod
 | Keeping the service secure and working | Technical logs: request ID, time, status, latency, token counts, error codes, a pseudonymous user or customer ID. No question, answer or prompt text, no email content | Our legitimate interest in running a secure, reliable service (Art. 6(1)(f)) | [30 days for application logs — owner to confirm]; security-relevant audit records 12 months |
 | Aggregated service metrics | Counts per customer (questions per day, active users, cost per model). No text | Legitimate interest (Art. 6(1)(f)) | [24 months], aggregated |
 | Answering your messages to us | Your name, email address, the content of your message | Legitimate interest in responding; legal obligation where you exercise a GDPR right (Art. 6(1)(c)) | [2 years] after the matter is closed |
-| Our website (askspore.myceliumgastronomy.com only) | Strictly necessary cookies only (sign-in). No analytics, advertising or tracking cookies. | Legitimate interest (strictly necessary; no consent needed) | [ ] |
+| Our website's contact form | Your name, email address, organisation if you give it, and your message | Our legitimate interest in answering enquiries (Art. 6(1)(f)); steps you ask for before a contract (Art. 6(1)(b)) | [2 years] after the matter is closed; if it leads to a contract, as a business contact for the contract's term |
+| Our website's server logs | IP address, time, page requested and browser type, kept by [website host] | Our legitimate interest in running a secure website (Art. 6(1)(f)) | [website host's log retention, owner to confirm] |
+| The SporeBot app (askspore.myceliumgastronomy.com) | Strictly necessary cookies only (sign-in). No analytics, advertising or tracking cookies. | Legitimate interest (strictly necessary; no consent needed) | [ ] |
+
+**Cookies.** Our public website sets no cookies and uses no analytics or tracking tools. The SporeBot app, which you use after signing in, uses only cookies that are strictly necessary to sign you in and keep you signed in; they need no consent and are not used for anything else.
 
 ### 4. Where your data is processed and who receives it
 
@@ -99,7 +103,7 @@ Our library contains published third-party material (research reports, industry 
 | | |
 | --- | --- |
 | Categories | Names, job titles, employers, professional statements and quotes, and other information that appears in the published text about a person in a professional or public capacity |
-| Not intended | Special categories (health, political opinions, religion and similar). We do not seek them out. An automatic filter that skips web pages likely to contain them is added from Phase 1b (P1b-04); until then sources are chosen by hand |
+| Not intended | Special categories (health, political opinions, religion and similar). We do not seek them out. Where a source contains such information that the person made public themselves (for example in their own autobiography), we may keep it as published; where someone else revealed it, we review it and remove or redact it unless there is a clear legal basis. We never search or profile people by these traits. An automatic filter that skips web pages likely to contain them is added from Phase 1b (P1b-04); until then sources are chosen by hand |
 | Sources | Publicly available reports and documents from their publishers, and public websites that do not opt out of text and data mining (we respect robots.txt and the machine-readable reservation under EU copyright law). A summary of the publishers in our library is available on request at privacyanddata@myceliumgastronomy.com |
 | What we do with it | Split the text into short passages, index them for search, show passages with their source (publisher, title, date, page) to our customers' users when relevant to a question, and offer downloads of a file only where its licence allows |
 | Who sees it | Users of our business customers, through answers and citations. The text is also sent, as excerpts, to the AI model answering a question (section 4) |
@@ -136,7 +140,7 @@ Some customers send us documents to be searched in their own workspaces: their r
 
 If you are named in such a document, **the customer that supplied it is the controller** of your personal data in it. We process it on that customer's behalf and on its instructions, under a data processing agreement. The customer decides what it supplies and why, and is responsible for having a lawful basis for it and for informing you; Part B sections 7 to 12 do not apply to these documents.
 
-If you write to us about a document a customer supplied, we pass your request to that customer without undue delay and help it respond. We will tell you that we have done so, but we cannot tell you which customer supplied a document without its agreement. [*Counsel: confirm this wording; see open-questions J.*]
+If you write to us about a document a customer supplied, we pass your request to that customer without undue delay and help it respond. We will tell you that we have done so, but we do not tell you which customer supplied a document unless that customer agrees, or a court or a data protection authority requires us to. [*Counsel: confirm this wording; see open-questions J.*]
 
 What happens to these documents: their text is split into passages and indexed, shown with citations to the customer's own users, and sent as excerpts to the AI model answering their questions (section 4), under the same rules as the rest of the library: no names or account identifiers are added, and providers keep nothing. Documents are deleted when the customer withdraws them or stops using the service.
 

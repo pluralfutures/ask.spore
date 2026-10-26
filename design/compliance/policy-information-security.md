@@ -14,7 +14,7 @@
 
 ## 1. Purpose and scope
 
-This policy sets the security rules for SporeBot, the research assistant run by Estefania Simon-Sasyk y Otro CB. It covers the platform (web app, API, workers, PostgreSQL, Redis, Authentik, RAGFlow, Caddy) on the Scaleway Instance in Paris, the code repository and CI, the people who operate it, and the vendors listed in `sub-processors.md`. The other six policies (`policy-access-control.md`, `policy-change-management.md`, `policy-incident-response.md`, `policy-vendor-management.md`, `policy-data-retention-disposal.md`, `policy-business-continuity.md`) sit under this one.
+This policy sets the security rules for SporeBot, the research assistant run by Estefania Simon-Sasyk y Otro CB. It covers the platform (web app, API, workers, PostgreSQL, Redis, Authentik, RAGFlow, Caddy) on the Scaleway Instance in Paris, the code repository and CI, the people who operate it, and the vendors listed in `sub-processors.md`. The other six policies (`policy-access-control.md`, `policy-change-management.md`, `policy-incident-response.md`, `policy-vendor-management.md`, `policy-data-retention-disposal.md`, `policy-business-continuity.md`, and, drafted Oct 22, 2026, `policy-content-sourcing.md` and `policy-acceptable-use.md`) sit under this one.
 
 The asset we protect above all is what each client asks: questions, answers and conversation history. The second is the integrity of the corpus and its licence terms.
 

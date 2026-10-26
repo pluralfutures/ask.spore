@@ -22,7 +22,7 @@ for (const s of SCENARIOS) {
 
 test("a user sees the product, the tenant and Conversations only", async ({ page }) => {
   await openScenario(page, scenario("06-conversations"));
-  await expect(page.getByRole("link", { name: "SporeBot" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Mycelium SporeBot" })).toBeVisible();
   await expect(page.getByTestId("tenant-name")).toHaveText("Synthetic Client");
   expect(await navLinks(page)).toEqual(["Conversations"]);
   await expect(nav(page).getByRole("link", { name: "Conversations" })).toHaveAttribute(
@@ -59,7 +59,7 @@ test("while the notice waits, the consoles stay but no gated page is linked", as
   };
   await openScenario(page, console);
   expect(await navLinks(page)).toEqual(["Operator console"]);
-  await expect(page.getByRole("link", { name: "SporeBot" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Mycelium SporeBot" })).toHaveCount(0);
 });
 
 test("the skip link is the first stop and moves focus to the page", async ({ page }) => {

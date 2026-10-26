@@ -80,9 +80,9 @@ Staff and anyone operating the system on our behalf need sufficient AI literacy.
 
 | Model | Provider | Endpoint | Use | Notes |
 | --- | --- | --- | --- | --- |
-| `deepseek-v4.1-flash` | Scaleway Generative APIs | `api.scaleway.ai` (Paris) | Default answers, query rewrite, eval and judge | Reasoning off only (findings §10 F7) |
-| `qwen3.8-27b` | Scaleway Generative APIs | Paris | Answers, user choice | Reasoning on or off (F8) |
-| `anthropic/claude-opus-5.5` | OpenRouter → Amazon Bedrock | `eu.openrouter.ai` | Answers, only with the external-models entitlement | Off for every tenant; region pending (C32) |
+| `deepseek-v4.1-flash` | Scaleway Generative APIs | `api.scaleway.ai` (EU) | Default answers, query rewrite, eval and judge | Reasoning off only (findings §10 F7) |
+| `qwen3.8-27b` | Scaleway Generative APIs | `api.scaleway.ai` (EU) | Answers, user choice | Reasoning on or off (F8) |
+| `anthropic/claude-opus-5.5` | OpenRouter → Amazon Bedrock | `eu.openrouter.ai` | Answers, only with the external-models entitlement | Off for every tenant; region constrained to EU, EEA, UK or Switzerland by the request (C32 to verify) |
 | `openai/gpt-6.1-sol` | OpenRouter → Microsoft Azure | `eu.openrouter.ai` | Same | Same |
 
 Model names are pinned in `config/models.toml`; `-latest` aliases are refused at startup; hosts are checked against an allow-list split into EU and external hosts. External requests carry zero-data-retention routing and `data_collection: deny`, asserted by tests. Prompts carry no tenant, user or package identifiers (tests listed in `phase-1a-findings.md` §10).

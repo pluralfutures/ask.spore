@@ -28,7 +28,7 @@ for (const [width, viewport] of Object.entries(VIEWPORTS)) {
         await openScenario(page, s);
         const card = page.getByRole("main").getByTestId("auth-card");
         await expect(card).toHaveCount(1);
-        await expect(page.getByRole("heading", { level: 1 })).toHaveText("SporeBot");
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText("Mycelium SporeBot");
         await expect(card.getByRole("heading", { level: 1 })).toHaveCount(1);
         const box = (await card.boundingBox())!;
         const centre = box.x + box.width / 2;

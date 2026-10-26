@@ -69,7 +69,7 @@ We do not offer payment for reports at this time.
 
 ### Safe harbour
 
-[*Draft, for counsel:*] If you act in good faith and follow this policy, we will consider
+If you act in good faith and follow this policy, we will consider
 your research authorised, we will not pursue or support legal action against you for it, and
 we will not report you to law enforcement. If a third party brings action against you for
 research done under this policy, we will make it known that you acted with our
@@ -85,6 +85,6 @@ hosting and model providers, whose own policies apply.
 - Content in our library: to ask for the removal of content or personal data, write to
   security@myceliumgastronomy.com (the security mailbox until a separate takedown address exists).
 
-[Legal entity name, address]
+Mycelium Gastronomy Network (trade name) for Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain
 
-Last updated: Oct 25, 2026
+Last updated: 26 October 2026

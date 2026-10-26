@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1): C1 scope note, C9 (client declarations), and the Part 2 template row for clients that supply documents. Placeholders added: [limitation period]. Oct 25, 2026, **DRAFT** (P2A-10): time-boxed support access (P2A-08) in C4 and the Part 2 sheet |
-| Placeholders | [registered address], [DPO or privacy contact name], [privacy contact email], [takedown contact email], [Client], [Client legal name], [Client address], [date], [SCC module], [document store], [representative, if any] |
+| Placeholders | [Client], [Client legal name], [Client address], [date], [SCC module], [document store], [representative, if any] |
 | To finalise, the owner must | (1) fill in the entity, contact and DPO placeholders; (2) decide whether a DPO is required (see open-questions.md) or name a privacy contact; (3) confirm the reasoning on the usage ledger in Part 1, row C5; (4) confirm the retention periods marked [confirm]; (5) add one Part 2 sheet per client at signature, starting with [Client]; (6) have counsel review; (7) review every six months and on every change to `sub-processors.md`. |
 
 ---
@@ -28,9 +28,9 @@ Where a measure is not built yet, the row says so and names the spec item.
 
 | | |
 | --- | --- |
-| Controller | Estefania Simon-Sasyk y Otro CB, comunidad de bienes trading as Mycelium Gastronomy Network, NIF E19824093, [registered address] |
-| Privacy contact / DPO | [DPO or privacy contact name], [privacy contact email] |
-| Takedown and data-subject requests about the corpus | [takedown contact email] |
+| Controller | Estefania Simon-Sasyk y Otro CB, comunidad de bienes trading as Mycelium Gastronomy Network, NIF E19824093, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain |
+| Privacy contact / DPO | privacyanddata@myceliumgastronomy.com |
+| Takedown and data-subject requests about the corpus | security@myceliumgastronomy.com |
 | Representative in the EU (Art. 27) | [representative, if any] — not needed if the entity is established in the EU |
 
 ---
@@ -121,7 +121,7 @@ Note: operator actions on a client tenant are audited **under that client's tena
 | Data subjects | Requesters (publishers' staff, people named in sources, researchers) |
 | Categories | Name, email, the request, our decision and its date |
 | Recipients | Our operators; counsel where needed |
-| Transfers | None intended; the mailbox provider for [privacy contact email] is [confirm provider and location] |
+| Transfers | None intended; the mailbox provider for privacyanddata@myceliumgastronomy.com is [confirm provider and location] |
 | Retention | 3 years after the request is closed [confirm], to evidence handling |
 | TOMs | Request log kept in [document store]; takedown queue in the content console from Phase 1b (P1b-03) |
 
@@ -179,13 +179,13 @@ One sheet per client. The first is [Client].
 | Field | Entry |
 | --- | --- |
 | Controller | [Client legal name], [Client address]; privacy contact [ ] |
-| Processor | Estefania Simon-Sasyk y Otro CB; [DPO or privacy contact name], [privacy contact email] |
+| Processor | Estefania Simon-Sasyk y Otro CB; privacyanddata@myceliumgastronomy.com |
 | Contract | Client DPA (`client-dpa-draft.md`), dated [date]; part of the agreement in `terms-of-service.md` |
 | Categories of processing | (1) Authenticating users with emailed sign-in links (SSO from Phase 1b, P1b-07); (2) storing questions, answers, citations and feedback for the retention period; (3) sending prompts to language models to answer; (4) serving the workspace file list and licence-gated downloads; (5) recording the audit trail of [Client]'s users and administrators; (6) applying administrators' settings (users, retention, workspace defaults, additional instructions); (7) time-boxed support access (P2A-08): on a grant by one of [Client]'s administrators, for 15 minutes to 4 hours, our operator reads the granted settings or one of that administrator's own conversations, read only; each grant and read is an audit event shown to [Client]'s administrators |
 | Data subjects | [Client]'s employees and contractors invited as users; [Client]'s administrators |
 | Categories of personal data | Account data (email, name if given, role, status, last sign-in time and method); content (questions, conversation turns, answers, citations, feedback comments, model and reasoning choice, any personal data typed into a question); workspace additional instructions; downloads (user, file, time); audit metadata (user UUID, event, time, workspace, model; no text); technical (session tokens, IP address at sign-in) |
 | Special categories | None intended; users are instructed not to enter them (`terms-of-service.md`, acceptable use) |
-| Sub-processors | `sub-processors.md`: Scaleway SAS (hosting, Generative APIs, Transactional Email), all Paris. Mailgun EU listed as optional backup, not active. OpenRouter, AWS Bedrock, Microsoft Azure only if external models are enabled |
+| Sub-processors | `sub-processors.md`: Scaleway SAS (hosting and Transactional Email in Paris; Generative APIs in the European Union). Mailgun EU listed as optional backup, not active. OpenRouter, AWS Bedrock, Microsoft Azure only if external models are enabled |
 | Transfers outside the EEA | None by default. Only in the external-models mode, which is **off for [Client]** today; when enabled, under the SCCs ([SCC module]) in OpenRouter's DPA and `transfer-impact-assessment.md`, after [Client]'s signed acceptance (DPA Annex 4) and the checklist in `paperwork-checklist.md` |
 | Retention | Conversations at most 30 days, settable 1 to 30 by [Client]'s administrators; Phase 1a hides expired conversations at read time and the purge job deletes them from Phase 1b (P1b-14), which also brings a 0-day "no history" setting. Accounts for the term. Audit 12 months; no disposal path yet (open question C1, backlog "Enterprise requirements"). Download records 90 days from Phase 1b (P1b-14). Support grants (scope, duration, note; no user identifier) for the term, closed by the daily purge when expired. On termination, deletion within [30] days with a certificate (P1b-14, `offboarding-pack.md`), support grants included |
 | TOMs | `client-dpa-draft.md` Annex 2, with the "not yet built" list in its owner note 7; `policy-information-security.md` |

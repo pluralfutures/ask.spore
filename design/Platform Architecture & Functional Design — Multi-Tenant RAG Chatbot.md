@@ -8,6 +8,8 @@ This is a design, not an implementation plan. Scoping decisions are recorded in 
 
 **Product name (owner decision, Oct 22, 2026).** What users see is called **SporeBot**: the web app, the sign-in and platform emails, the operator and tenant admin pages. The repository, packages, hostnames, CLI and internal names stay `ask.spore`, which this document keeps using for the platform.
 
+**Brand lock-up (owner decision, Oct 25, 2026).** In the page heading and the signed-in top bar the name is shown as **Mycelium SporeBot**: "Mycelium" in the Mycelium Gastronomy logo typeface (Poppins 700, self-hosted beside Lato) and "SporeBot" in the app's Lato 700. Browser tab titles, emails, the consent notice, the authenticator issuer and other copy still say "SporeBot" until the owner decides otherwise.
+
 ---
 
 ## 1. Summary
@@ -491,7 +493,7 @@ Phase 1 is split. **Phase 1a** (the first test client) ships multi-tenancy with 
 | Tenant names in prompts | Permitted; matches flagged to the operator console and audit log, not to the user |
 | Downloads (superseded Oct 19, 2026, see the row above) | PDF, DOCX and PPTX in the workspace corpus; single-use 60-second links, audited, capped; only sources flagged `downloadable` |
 | Eval | Default model only (`deepseek-v4.1-flash`) |
-| Product name | "SporeBot" for everything users see; `ask.spore` stays the repository, hostname and internal name (owner decision Oct 22, 2026) |
+| Product name | "SporeBot" for everything users see, shown as "Mycelium SporeBot" in the page heading and top bar (Oct 25, 2026); `ask.spore` stays the repository, hostname and internal name (owner decision Oct 22, 2026) |
 | Inference failover | To the other EU provider for every tenant; to OpenRouter only for a tenant with the external-models entitlement (acceptance reference, ZDR routing, spend cap not reached), counted against its cap; every other tenant stays EU-only (owner decision Oct 22, 2026; §5.2 step 9) |
 | Tenant admin second factor | TOTP in Phase 1b; passkeys and hardware keys are in the backlog, because the API-run sign-in flow cannot relay WebAuthn (owner decision Oct 22, 2026; compliance guide, Oct 22 update) |
 | Email provider | Scaleway Transactional Email (fr-par) for every outbound email: sign-in links (Authentik's email stage over its SMTP relay) and the API's own mail (invitations, operator notices) over its HTTP API from `app.core.mail`. Mailgun EU region is an optional backup, switched on only by configuration after its DPA is filed; exactly one provider is active at a time (owner decision Oct 20, 2026, replacing the Oct 19 decision that made Mailgun the sole provider) |
@@ -573,7 +575,7 @@ A client-supplied file is downloadable only when the client's declaration says s
 
 ### 15.7 Withdrawal and takedown
 
-- **On the client's request.** A tenant admin asks in writing ([privacy contact email] or support) to withdraw one or more of its files; the operator records the request and runs the existing `withdraw_source` job (P1b-03): documents deleted from every dataset, answer caches citing them purged, register row withdrawn with reason and date, stored citations flagged. Target: within [5] working days of the request. A tenant admin action in the app is a later feature (backlog).
+- **On the client's request.** A tenant admin asks in writing (privacyanddata@myceliumgastronomy.com or support) to withdraw one or more of its files; the operator records the request and runs the existing `withdraw_source` job (P1b-03): documents deleted from every dataset, answer caches citing them purged, register row withdrawn with reason and date, stored citations flagged. Target: within [5] working days of the request. A tenant admin action in the app is a later feature (backlog).
 - **On a third party's claim** (a publisher or a person named in a client file, or a data subject's request we receive directly): we tell the client without undue delay and act on its instruction, since the file is the client's data (§15.10); where the claim is manifestly well founded or the client does not answer within [5] working days, we may withdraw the file to protect the service (terms §6A) and tell the client.
 - **Stored excerpts.** Decision 3 of Oct 23, 2026 applies: excerpts are blanked in stored citations on every withdrawal, the citation kept, labelled "withdrawn" (it replaced decision 5 of Oct 22, which blanked them only for withdrawals on licence or rights grounds). For client-supplied files the stored citations sit only in the supplying tenant's own conversations.
 - Copies in the content store (§15.4 item 5) are deleted with the withdrawal.

@@ -3,5 +3,5 @@
     - link "Skip to content":
         - /url: "#main"
 - main:
-    - heading "SporeBot" [level=1]
+    - heading "Mycelium SporeBot" [level=1]
     - paragraph: /If this address can sign in, a link is on its way\. Open it in this browser within \d+ minutes\./

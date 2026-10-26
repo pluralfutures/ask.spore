@@ -39,6 +39,9 @@ from tests.test_tenancy import Tenant, make_tenant
 from tests.test_tenant_admin import add_user, as_user
 
 REFUSED = (403, "consent_required")
+# Notice versions after the active one, so a new active version does not break these tests.
+_ACTIVE = int(CONSENT_VERSION.removeprefix("v"))
+NEWER, LATER, NEWEST = (f"v{_ACTIVE + n}" for n in (1, 2, 3))
 
 
 async def unconsented(harness: Auth, role: str = "user") -> tuple[Tenant, httpx.AsyncClient]:
@@ -172,7 +175,7 @@ async def test_acceptance_is_the_callers_own(auth: Auth) -> None:  # noqa: F811
         )
 
 
-def new_version_config(tmp_path: Path, version: str = "v2") -> Path:
+def new_version_config(tmp_path: Path, version: str = NEWER) -> Path:
     config = tmp_path / "config"
     shutil.copytree(DEFAULT_CONFIG_DIR, config)
     (config / "consent" / f"{version}.md").write_text(SYNTHETIC_NOTICE, encoding="utf-8")
@@ -192,23 +195,23 @@ async def test_a_new_notice_version_re_prompts(auth: Auth, tmp_path: Path) -> No
     browser = as_user(auth, tenant.email, tenant.id)
     assert (await browser.get("/api/v1/conversations")).status_code == 200
 
-    activate(auth, new_version_config(tmp_path), "v2")
+    activate(auth, new_version_config(tmp_path), NEWER)
     assert result(await browser.get("/api/v1/conversations")) == REFUSED
     me = (await browser.get("/api/v1/me")).json()
     assert me["consent_required"] is True
     notice = (await browser.get("/api/v1/consent")).json()
     assert (notice["version"], notice["accepted_version"], notice["required"]) == (
-        "v2",
+        NEWER,
         CONSENT_VERSION,
         True,
     )
     assert notice["summary"] == "Synthetic summary."
     old = await browser.post("/api/v1/consent", json={"version": CONSENT_VERSION})
     assert result(old) == (409, "consent_version_stale")
-    assert (await browser.post("/api/v1/consent", json={"version": "v2"})).is_success
+    assert (await browser.post("/api/v1/consent", json={"version": NEWER})).is_success
     assert (await browser.get("/api/v1/conversations")).status_code == 200
     events = await auth.audit("consent.accepted", tenant.id)
-    assert events == [{"actor": tenant.user_id, "version": "v2"}]
+    assert events == [{"actor": tenant.user_id, "version": NEWER}]
 
 
 async def test_tenant_admin_pages_are_gated_like_users(auth: Auth) -> None:  # noqa: F811
@@ -335,14 +338,14 @@ async def test_a_user_on_an_older_notice_is_not_current(
     tenant, browser = await unconsented(auth, role="tenant_admin")
     older = await add_user(auth.admin, tenant)  # accepted v1
     never = await add_user(auth.admin, tenant, consent_version=None)
-    activate(auth, new_version_config(tmp_path), "v2")
-    assert (await browser.post("/api/v1/consent", json={"version": "v2"})).is_success
+    activate(auth, new_version_config(tmp_path), NEWER)
+    assert (await browser.post("/api/v1/consent", json={"version": NEWER})).is_success
     response = await browser.get("/api/v1/admin/users")
     assert response.status_code == 200, response.text
     rows = {u["email"]: (u["consent_version"], u["consent_current"]) for u in response.json()}
     assert rows[older.email] == (CONSENT_VERSION, False)
     assert rows[never.email] == (None, False)
-    assert rows[tenant.email] == ("v2", True)
+    assert rows[tenant.email] == (NEWER, True)
 
 
 async def test_consent_status_is_not_in_the_me_body(auth: Auth) -> None:  # noqa: F811
@@ -384,7 +387,7 @@ async def test_a_version_change_queues_one_notice_email_per_user(
         for j in await mail_jobs(admin_conn, "consent_notice")
     )
     await admin_conn.execute("DELETE FROM jobs WHERE type = 'send_mail'")
-    queued = await queue_consent_notices(factory, "v2")
+    queued = await queue_consent_notices(factory, NEWER)
     jobs = await mail_jobs(admin_conn, "consent_notice")
     recipients = {(j["tenant_id"], j["user_id"]) for j in jobs}
     mine = {(str(tenant.id), str(u)) for u in (tenant.user_id, second.user_id)}
@@ -395,19 +398,20 @@ async def test_a_version_change_queues_one_notice_email_per_user(
     assert all(set(j) == {"template", "tenant_id", "user_id"} for j in jobs)  # IDs only
 
     # Once per user per version, however often the tick runs; a later version mails again.
-    assert await queue_consent_notices(factory, "v2") == 0
+    assert await queue_consent_notices(factory, NEWER) == 0
     await admin_conn.execute("UPDATE jobs SET status = 'succeeded' WHERE type = 'send_mail'")
     await admin_conn.execute("DELETE FROM jobs WHERE type = 'send_mail'")
-    await queue_consent_notices(factory, "v3")
+    await queue_consent_notices(factory, LATER)
     again = {(j["tenant_id"], j["user_id"]) for j in await mail_jobs(admin_conn, "consent_notice")}
     assert mine <= again
     # A user who accepts the new version is not mailed about it.
     await admin_conn.execute(
-        "UPDATE users SET consent_version = 'v4', consented_at = now() WHERE id = $1",
+        "UPDATE users SET consent_version = $2, consented_at = now() WHERE id = $1",
         second.user_id,
+        NEWEST,
     )
     await admin_conn.execute("UPDATE jobs SET status = 'succeeded' WHERE type = 'send_mail'")
-    await queue_consent_notices(factory, "v4")
+    await queue_consent_notices(factory, NEWEST)
     latest = await admin_conn.fetch(
         "SELECT payload->>'user_id' AS user_id FROM jobs WHERE type = 'send_mail' "
         "AND status = 'queued'"
@@ -419,7 +423,7 @@ async def test_the_tick_runs_at_most_once_an_interval(
     engine: AsyncEngine, admin_conn: asyncpg.Connection
 ) -> None:
     now = [0.0]
-    tick = ConsentNoticeTick(session_factory(engine), "v2", interval=60, clock=lambda: now[0])
+    tick = ConsentNoticeTick(session_factory(engine), NEWER, interval=60, clock=lambda: now[0])
     await make_tenant(admin_conn)
     assert await tick() >= 1
     await make_tenant(admin_conn)
@@ -440,10 +444,10 @@ def test_the_repository_notice_v1_is_released() -> None:
     assert not notice.is_placeholder
     assert PLACEHOLDER_MARKER not in notice.summary and PLACEHOLDER_MARKER not in notice.text
     assert "Estefania Simon-Sasyk y Otro CB" in notice.text
-    assert "daniel@myceliumgastronomy.com" in notice.summary
+    assert "privacyanddata@myceliumgastronomy.com" in notice.summary
     assert "### Part A" in notice.text and "### Part B" in notice.text
     # A released version is never edited: a change is a new version file.
-    assert CONSENT_VERSION == "v1"
+    assert CONSENT_VERSION == "v2"
 
 
 @pytest.mark.parametrize(

@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15): scope line and rows 4.2, 4.3, 14.1, 14.5, 15.1, 16.3 and new section 17. Use section 17 only for a client that supplies documents, and only once P1b-19 step 2 is built; until then answer "No" to 17.1. Placeholders added: [secure transfer method], [5] (working days) |
-| Placeholders | [Client], [security contact email], [privacy contact email], [support email], [number of staff], [DPO or privacy contact name], [insurance cover], [address], [name], [30] and [48] (DPA notice periods), [date] |
+| Placeholders | [Client], [support email], [number of staff], [insurance cover], [name], [30] and [48] (DPA notice periods), [date] |
 | To finalise, the owner must | (1) fill in the placeholders; (2) re-check every "Partial" and "No" row against the build on the day the questionnaire is sent, and update the ones that Phase 1b items have closed (each names its spec item); (3) confirm row 6.3 (encryption at rest of the Instance volumes) with Scaleway and replace "[confirm]"; (4) answer the HR rows (section 3) yourself; they are about the company, not the system; (5) keep this file as the master and copy answers into a client's own questionnaire format, never the other way round; (6) have counsel check the privacy rows (section 14) against the signed DPA. |
 
 How to read the answers: **Yes** means built and verified, with the evidence named. **Partial** means part of the control is in place; the detail says which part. **No** means not in place; where it is planned, the spec item is named. **N/A** means it does not apply to this service. Status is as of Oct 21, 2026, after the Phase 1a release (findings §10 to §12).
@@ -21,7 +21,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 
 | # | Question | Answer | Detail and evidence |
 | --- | --- | --- | --- |
-| 1.1 | Legal entity and address | — | Estefania Simon-Sasyk y Otro CB, [address] |
+| 1.1 | Legal entity and address | — | Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain |
 | 1.2 | Number of staff with access to production | — | [number of staff]. Today one person (the owner) holds the operator and content roles |
 | 1.3 | SOC 2 report available? | No | Target: SOC 2 Type II, Security and Confidentiality criteria. Observation window not yet started. Until then we provide this questionnaire, the DPA annexes and the policy set |
 | 1.4 | ISO 27001 certified? | No | Not pursued (decision Oct 17, 2026) |
@@ -136,7 +136,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | 12.1 | Documented incident response plan | Partial | `policy-incident-response.md` and `incident-runbook.md` (drafts) |
 | 12.2 | Breach notification to customers | Yes (contractual) | Without undue delay and within [48] hours of becoming aware (DPA clause 9.1, draft) |
 | 12.3 | Incident tabletop exercise in the last year | No | First tabletop planned before the SOC 2 observation window |
-| 12.4 | Security contact | Yes | [security contact email] |
+| 12.4 | Security contact | Yes | security@myceliumgastronomy.com |
 
 ## 13. Business continuity and disaster recovery
 
@@ -144,7 +144,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | --- | --- | --- | --- |
 | 13.1 | Documented BCP/DR plan | Partial | `policy-business-continuity.md` (draft) |
 | 13.2 | Backups, encrypted, off-host | Partial | Nightly encrypted backup of the database and RAGFlow volumes to Scaleway Object Storage in Paris with object lock and 30-day retention, run by the owner outside the build spec; restore test pending (to be recorded in the Phase 1b findings) |
-| 13.3 | High availability | No | One Instance. A second host is in the backlog. A model-provider failure falls back to another Paris-hosted model |
+| 13.3 | High availability | No | One Instance. A second host is in the backlog. A model-provider failure falls back to another model hosted in the European Union |
 | 13.4 | RTO / RPO | — | [owner: set targets in `policy-business-continuity.md`] |
 
 ## 14. Privacy and GDPR
@@ -160,14 +160,14 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | 14.7 | Data subject request handling | Yes (process) | Forwarded to the customer as controller; we assist within [30] days (DPA clause 8) |
 | 14.8 | DPIA performed | Partial | `dpia.md` (draft) |
 | 14.9 | Privacy notice | Partial | `privacy-notice.md` (draft); shown and accepted at first sign-in from Phase 1b (P1b-10) |
-| 14.10 | DPO or privacy contact | — | [DPO or privacy contact name], [privacy contact email] |
+| 14.10 | DPO or privacy contact | — | privacyanddata@myceliumgastronomy.com |
 
 ## 15. Data residency and transfers
 
 | # | Question | Answer | Detail and evidence |
 | --- | --- | --- | --- |
 | 15.1 | Where is customer data stored? | Yes | Paris, France (Scaleway fr-par): application, database, index, files (including any documents the customer supplies), logs, backups |
-| 15.2 | Where is it processed by AI models? | Yes | By default Scaleway Generative APIs in Paris (DeepSeek V4.1 Flash, Qwen 3.8 27B) |
+| 15.2 | Where is it processed by AI models? | Yes | By default Scaleway Generative APIs in the European Union (DeepSeek V4.1 Flash, Qwen 3.8 27B) |
 | 15.3 | Any transfer outside the EEA? | No by default | Only if the customer opts in to external models (DPA clause 6 and Annex 4): prompts go through OpenRouter's EU endpoint to AWS Bedrock (Claude) or Microsoft Azure (GPT), which may process outside the EEA. Off for every customer today; SCCs and a transfer impact assessment (`transfer-impact-assessment.md`) are required first |
 | 15.4 | Email provider location | Yes | Scaleway Transactional Email, Paris; receives the recipient address and the email only |
 

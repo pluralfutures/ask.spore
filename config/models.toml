@@ -195,8 +195,8 @@ judge = "v1"
 # The use and privacy notice every user accepts before their first conversation
 # (P1b-10): config/consent/<version>.md. A new version re-prompts every user and queues
 # one consent_notice email per user who accepted an earlier one. Never edit a released
-# version. v1 is a placeholder until the owner supplies the final wording.
-version = "v1"
+# version. v2 replaced v1 (contact and address) on Oct 25, 2026; the wording stays provisional.
+version = "v2"
 
 [files]
 # Workspace file list and downloads (P1a-14). content_root holds our own copies of the

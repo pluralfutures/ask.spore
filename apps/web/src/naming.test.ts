@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import indexHtml from "../index.html?raw";
 
-// P1b-17 (owner decision 1 of Oct 22, 2026): the product users see is SporeBot. The
+// P1b-17 (owner decision 1 of Oct 22, 2026): the product users see is SporeBot, shown as
+// "Mycelium SporeBot" in the page heading and top bar (owner decision, Oct 25, 2026). The
 // repository, packages, hostnames and internal names (such as storage keys) stay
 // ask.spore / askspore; nothing the web app shows says "ask.spore".
 const sources = import.meta.glob<string>(["./**/*.{ts,tsx}", "!./**/*.test.{ts,tsx}"], {
@@ -26,7 +27,7 @@ describe("product name", () => {
     expect(OLD_NAME.test(indexHtml)).toBe(false);
     // UX-11: every sign-in page shows its heading through the shared card.
     expect(sources["./components/AuthCard.tsx"]).toContain('PRODUCT = "SporeBot"');
-    expect(sources["./components/AuthCard.tsx"]).toContain("{PRODUCT}</h1>");
+    expect(sources["./components/AuthCard.tsx"]).toMatch(/<h1[^>]*>\s*<ProductName \/>\s*<\/h1>/);
     expect(sources["./components/EmailSignIn.tsx"]).toContain("<AuthCard step=");
   });
 });

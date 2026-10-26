@@ -8,6 +8,7 @@ import { cx } from "../ui/controlClass";
 import { Menu } from "../ui/Menu";
 import { mustAccept } from "../lib/consent";
 import { AiNotice } from "./AiNotice";
+import { ProductName } from "./ProductName";
 
 // UX-10 (design/ux/design-direction.md, "App shell"): every page is a banner landmark
 // holding the AI notice (its first element, unchanged), the skip link and, signed in, the
@@ -110,10 +111,12 @@ export function TopBar({ onSignOut }: { onSignOut?: () => void }) {
         <div className="mx-auto flex min-h-14 w-full max-w-[70rem] flex-wrap items-center gap-x-6 px-4 pt-2 md:px-8 md:pt-0">
           <div className="flex min-w-0 items-baseline gap-2">
             {gated ? (
-              <span className="text-heading font-strong">SporeBot</span>
+              <span className="text-heading font-strong">
+                <ProductName />
+              </span>
             ) : (
               <Link to="/" className="text-heading font-strong">
-                SporeBot
+                <ProductName />
               </Link>
             )}
             {me.data ? (

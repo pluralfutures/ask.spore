@@ -870,8 +870,8 @@ the pinned Playwright image.
 
 ## 6. Legal pages (P2A-L1 to L5, Phase 2A-Legal)
 
-Oct 26, 2026. Built and pushed on `claude/relaxed-newton-okb0a1`: the footer's "Legal" link on every page including the consent gate (L1), the static `/legal`, `/legal/privacy`, `/legal/ai` and `/legal/terms` generated from `design/compliance` (L2), no tracking path (L3), documentation (L4), the short sign-in email (L5). Checks run: web lint, typecheck, 206 unit tests and 602 Playwright tests pass; the API template tests pass; the visual baselines (`pnpm test:visual`) and the Caddyfile routes were **not** run.
+Oct 26, 2026. Built and pushed on `claude/relaxed-newton-okb0a1`: the footer's "Legal" link on every page including the consent gate (L1), the static `/legal`, `/legal/privacy`, `/legal/ai` and `/legal/terms` generated from `design/compliance` (L2), no tracking path (L3), documentation (L4), and the short sign-in email (L5). Checks run: web lint, typecheck, 206 unit tests and 602 Playwright tests pass; the visual baselines (`pnpm test:visual`) and the Caddyfile routes were **not** run.
 
 - **Counsel sign-off:** the privacy notice, the AI transparency note and the Terms of Use (version 1) were signed off by counsel, reported by the owner on Oct 26, 2026. The three sources are marked approved; the placeholders are filled in and `node scripts/render-legal.mjs --final` passes (version match with `config/consent/v2.md`: both Version 1).
-- **Cookie row:** states the built lifetimes (8 hours session, 24 hours renewal); update it if the trusted-browser cookie of L6 (up to 30 days) is built.
-- **Not yet done:** `ASKSPORE_LEGAL=published` in `infra/.env` on the Instance and a deploy (`infra/scripts/deploy.sh`), then a check that the four routes answer 200 and the `.html` names 404; the visual baselines; L6 (waits on its Authentik probe).
+- **Cookie row:** states the built lifetimes (8 hours session, 24 hours renewal); update it if a longer-lived sign-in cookie is ever added.
+- **Not yet done:** `ASKSPORE_LEGAL=published` in `infra/.env` on the Instance and a deploy (`infra/scripts/deploy.sh`), then a check that the four routes answer 200 and the `.html` names 404; delete the throwaway branch `visual-baselines/40319966304`.

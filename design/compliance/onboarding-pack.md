@@ -229,6 +229,6 @@ For tenant administrators. Until P1b-08 ships, administrators sign in with an em
 - Keep it short (at most 2,000 characters). Every saved version is kept and audited.
 - Do not paste confidential material into it; it is sent to the model with every question.
 
-**Models.** Your users can choose, per conversation, among the models our operator enabled for you. By default these are models run by Scaleway in Paris. **External models** (Claude Opus 5.5 and GPT-6.1 Sol, served outside the EU through OpenRouter) are off. They are switched on only after your organisation signs the acceptance in Annex 4 of the data processing agreement, with a monthly spend cap, and after we have completed our own checks. When they are on, the model picker tells users that these models are served outside the EU.
+**Models.** Your users can choose, per conversation, among the models our operator enabled for you. By default these are models run by Scaleway in the European Union. **External models** (Claude Opus 5.5 and GPT-6.1 Sol, served outside the EU through OpenRouter) are off. They are switched on only after your organisation signs the acceptance in Annex 4 of the data processing agreement, with a monthly spend cap, and after we have completed our own checks. When they are on, the model picker tells users that these models are served outside the EU.
 
 **Where to look things up.** How we handle data: `privacy-notice.md` (a public trust page follows in Phase 2). Terms: `terms-of-service.md`. How answers are produced and their limits: `ai-transparency-note.md`.

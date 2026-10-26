@@ -144,7 +144,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | --- | --- | --- | --- |
 | 13.1 | Documented BCP/DR plan | Partial | `policy-business-continuity.md` (draft) |
 | 13.2 | Backups, encrypted, off-host | Partial | Nightly encrypted backup of the database and RAGFlow volumes to Scaleway Object Storage in Paris with object lock and 30-day retention, run by the owner outside the build spec; restore test pending (to be recorded in the Phase 1b findings) |
-| 13.3 | High availability | No | One Instance. A second host is in the backlog. A model-provider failure falls back to another Paris-hosted model |
+| 13.3 | High availability | No | One Instance. A second host is in the backlog. A model-provider failure falls back to another model hosted in the European Union |
 | 13.4 | RTO / RPO | — | [owner: set targets in `policy-business-continuity.md`] |
 
 ## 14. Privacy and GDPR
@@ -167,7 +167,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | # | Question | Answer | Detail and evidence |
 | --- | --- | --- | --- |
 | 15.1 | Where is customer data stored? | Yes | Paris, France (Scaleway fr-par): application, database, index, files (including any documents the customer supplies), logs, backups |
-| 15.2 | Where is it processed by AI models? | Yes | By default Scaleway Generative APIs in Paris (DeepSeek V4.1 Flash, Qwen 3.8 27B) |
+| 15.2 | Where is it processed by AI models? | Yes | By default Scaleway Generative APIs in the European Union (DeepSeek V4.1 Flash, Qwen 3.8 27B) |
 | 15.3 | Any transfer outside the EEA? | No by default | Only if the customer opts in to external models (DPA clause 6 and Annex 4): prompts go through OpenRouter's EU endpoint to AWS Bedrock (Claude) or Microsoft Azure (GPT), which may process outside the EEA. Off for every customer today; SCCs and a transfer impact assessment (`transfer-impact-assessment.md`) are required first |
 | 15.4 | Email provider location | Yes | Scaleway Transactional Email, Paris; receives the recipient address and the email only |
 

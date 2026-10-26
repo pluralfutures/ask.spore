@@ -21,7 +21,7 @@ Everything we store is hosted by Scaleway in Paris, France: the application, the
 
 ### Which models answer your questions
 
-By default, questions are answered by models run by Scaleway in Paris (DeepSeek V4.1 Flash and Qwen 3.8 27B). Nothing leaves the EU.
+By default, questions are answered by models run by Scaleway in the European Union (DeepSeek V4.1 Flash and Qwen 3.8 27B). Nothing leaves the EU.
 
 ### When data leaves the EU
 

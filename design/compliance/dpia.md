@@ -30,7 +30,7 @@ Scope: the platform as built on Oct 21, 2026 (Phase 1a, single Instance in Paris
 | --- | --- | --- |
 | Corpus building | Our team registers published PDFs, crawled public pages and our own analysis; files are parsed, chunked and embedded in RAGFlow | Scaleway Instance, Paris |
 | Sign-in | A user asks for a link; Authentik emails a single-use link through Scaleway Transactional Email (fr-par); SSO from Phase 1b (P1b-07) | Paris |
-| Question | The API retrieves passages from the workspace's datasets (chosen server-side), builds a prompt with no identifiers and calls a model | Scaleway Generative APIs, Paris; external models only if enabled |
+| Question | The API retrieves passages from the workspace's datasets (chosen server-side), builds a prompt with no identifiers and calls a model | Scaleway Generative APIs, European Union; external models only if enabled |
 | Answer | Streamed with citations; stored with the conversation for at most 30 days | PostgreSQL, Paris |
 | Downloads | Only files flagged `downloadable`; single-use 60-second link; 50 per user per day; audited | Paris |
 | Audit | Append-only events with metadata, never text, 12 months | Paris |

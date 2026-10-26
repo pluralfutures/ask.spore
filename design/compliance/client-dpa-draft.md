@@ -54,7 +54,7 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 
 ## 6. Optional mode: external models
 
-6.1 By default the Service sends prompts only to language models hosted in the European Union (Annex 3, Scaleway Generative APIs, Paris).
+6.1 By default the Service sends prompts only to language models hosted in the European Union (Annex 3, Scaleway Generative APIs).
 
 6.2 [Client] may opt in to **external models** (at the date of this DPA: Claude Opus 5.5 and GPT-6.1 Sol). When enabled, a user who chooses an external model for a conversation causes that conversation's prompts to be sent to **OpenRouter, Inc.** through its EU endpoint, which forwards them to the upstream vendor pinned for that model (Amazon Web Services Bedrock for Claude; Microsoft Azure for GPT). These vendors may process the prompt outside the European Economic Area. The region of processing is **[EU (Ireland for AWS; [country] for Azure) / the United States], per the Provider's transfer impact assessment dated [date]** (*owner: fill in after the verification in the TIA §10; until verified, state "may be outside the EEA, including the United States"*).
 
@@ -180,12 +180,12 @@ See `sub-processors.md` for the maintained list; at the date of this DPA. Client
 | Sub-processor | Purpose | Location | Safeguard |
 | --- | --- | --- | --- |
 | Scaleway SAS | Hosting, database, storage, backups | Paris, France | EU; Scaleway DPA |
-| Scaleway SAS — Generative APIs | Language model inference (default) | Paris, France | EU; Scaleway DPA, zero-retention confirmation [pending] |
+| Scaleway SAS — Generative APIs | Language model inference (default) | European Union (Scaleway confirms the EU, not a named site) | EU; Scaleway DPA; Scaleway's published zero-retention policy (version of Oct 3, 2025) |
 | Scaleway SAS — Transactional Email | Sending sign-in links and platform mail (email address and the link only) | Paris, France | EU; Scaleway DPA |
 | Mailgun Technologies, Inc. (Sinch), EU region — **optional backup, only if activated** | Sending sign-in links and platform mail (email address and the link only) | EU region | Mailgun DPA with SCCs; EU region pinned; tracking off; the client is notified before activation per the sub-processor change clause |
 | OpenRouter, Inc. — **only if external models are enabled** | Routing prompts to external models via EU endpoint | United States (EU endpoint) | SCCs; TIA |
-| Amazon Web Services (Bedrock) — **only if enabled**, upstream of OpenRouter | Claude inference | [eu-west-1 Ireland — pending verification; otherwise United States] | Via OpenRouter; SCCs; TIA |
-| Microsoft (Azure) — **only if enabled**, upstream of OpenRouter | GPT inference | [EU region — pending verification; otherwise United States] | Via OpenRouter; SCCs; TIA |
+| Amazon Web Services (Bedrock) — **only if enabled**, upstream of OpenRouter | Claude inference | EU, EEA, UK or Switzerland, as constrained by the region setting of each API request | Via OpenRouter; SCCs; TIA |
+| Microsoft (Azure) — **only if enabled**, upstream of OpenRouter | GPT inference | EU, EEA, UK or Switzerland, as constrained by the region setting of each API request | Via OpenRouter; SCCs; TIA |
 
 ## Annex 4 — Acceptance of external models (optional)
 

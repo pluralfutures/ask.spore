@@ -42,7 +42,7 @@ The owner holds the security lead role and signs vendor contracts. Counsel revie
 | Spend cap and fallback (CC9.2) | `usage_ledger`; `model.fallback` audit event; `test_spend_cap::*` | Built |
 | Sub-processor inventory (CC9.2) | `sub-processors.md` | Drafted |
 | Scaleway DPA filed | — | Entered into (version of June 1, 2024); filing to record (checklist item 2) |
-| Scaleway zero-retention letter | — | Open (findings M2, checklist item 3) |
+| Scaleway zero-retention evidence | Published policy, version of Oct 3, 2025 (Scaleway issues no letter) | Accepted by owner Oct 26, 2026 (findings M2, checklist item 3) |
 | OpenRouter DPA with SCCs, TIA | `transfer-impact-assessment.md` | Drafted; DPA signed Oct 23, 2026, SCC details and filing to record (items 1, 4, 5) |
 | Vendor security reports on file | — | Open |
 | Content-licence inventory | `sources` table (licence basis, `downloadable`); licence files from Phase 1b (P1b-01 `licence_file_path`) | Partly built |

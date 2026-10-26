@@ -70,7 +70,7 @@ We do **not** use your questions or conversations to train or improve any AI mod
 
 Everything we store is hosted by **Scaleway in Paris, France**: the application, the database, the search index, the files you can download, our logs and backups.
 
-By default, questions are answered by AI models run by **Scaleway in Paris** (DeepSeek V4.1 Flash and Qwen 3.8 27B). What the model receives: our fixed instructions, your workspace's instructions written by your employer, excerpts from the library (including, where your employer supplied documents, excerpts from them), recent turns of the conversation and your question. **No name, email address or account identifier is sent to the model.**
+By default, questions are answered by AI models run by **Scaleway in the European Union** (DeepSeek V4.1 Flash and Qwen 3.8 27B). What the model receives: our fixed instructions, your workspace's instructions written by your employer, excerpts from the library (including, where your employer supplied documents, excerpts from them), recent turns of the conversation and your question. **No name, email address or account identifier is sent to the model.**
 
 Sign-in emails are sent by **Scaleway Transactional Email in Paris**. It receives your email address and the email containing the link, nothing else.
 

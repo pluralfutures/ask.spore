@@ -276,6 +276,7 @@ A single job per source ID: delete the document from every RAGFlow dataset it is
 
 ### 7.1 Analyst features (MVP)
 
+- **Home page** (home page phase, Oct 26, 2026): a hideable welcome card saying what the tool does and how to use it, the question box to start a conversation, and the latest conversations with a link to the full list.
 - **Chat** with streaming answers; markdown rendering; stop generation.
 - **Answer mode selector** shown only when the tenant has more than one mode enabled; mode banner on every answer.
 - **Citations**: numbered inline markers; side panel listing sources with publisher, title, date, page/slide and the exact excerpt used. Third-party sources link to the publisher's canonical location; our own analysis offers a download of the original DOCX/PPTX from the platform (download is audited and rate-limited). Web citations (web-search mode) listed separately with URL and retrieval date. No in-app full-document viewer.

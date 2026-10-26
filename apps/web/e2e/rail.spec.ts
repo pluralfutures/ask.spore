@@ -48,16 +48,26 @@ test.describe("desktop", () => {
     const dialog = page.getByRole("dialog", { name: "Delete this conversation permanently?" });
     await dialog.getByRole("button", { name: "Delete" }).click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Conversations");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Welcome to /);
   });
 
-  test("the home page lists the same rows with their menus", async ({ page }) => {
+  test("the full list shows the same rows with their menus", async ({ page }) => {
     await openScenario(page, scenario("06-conversations"));
     const rows = page.getByRole("main").getByRole("listitem");
     await expect(
       rows.filter({ has: page.getByRole("button", { name: /^Actions for / }) }),
     ).toHaveCount(5);
     await expect(rows.nth(2)).toContainText("Untitled conversation");
+  });
+
+  test("/conversations lists every conversation with its expiry (HP-02)", async ({ page }) => {
+    await openScenario(page, { ...scenario("06-conversations"), url: "/conversations" });
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Conversations");
+    const rows = page.getByRole("main").getByRole("listitem").filter({ hasText: "Expires" });
+    await expect(rows).toHaveCount(5);
+    await expect(
+      page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Home" }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   test("the list's loading, empty and error states", async ({ page }) => {
@@ -77,6 +87,7 @@ for (const [width, viewport] of [
     await openScenario(page, inFirst);
     await expect(rail(page)).toBeHidden();
     await page.getByRole("link", { name: "← Conversations" }).click();
+    await expect(page).toHaveURL(/\/conversations$/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Conversations");
   });
 }

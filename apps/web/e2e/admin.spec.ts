@@ -27,7 +27,7 @@ test("a user cannot open the admin pages", async ({ page }) => {
   const api = new FakeApi({ workspaces: WORKSPACES, models: MODELS, role: "user" });
   await api.install(page);
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "New conversation" })).toBeVisible();
+  await expect(page.getByLabel("Question")).toBeVisible();
   await expect(page.getByRole("link", { name: "Administration" })).toHaveCount(0);
   await page.goto("/admin");
   await expect(page.getByText("Tenant admins only.")).toBeVisible();

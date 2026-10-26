@@ -18,12 +18,15 @@ const UNTITLED = "Untitled conversation";
 // UX-13: the conversation list, shown as the home page (and the only list on phone and
 // tablet) and as the chat's left rail from 1024 px. Each row links to its conversation,
 // shows its expiry (binding list item 4) and has a row menu whose "Delete" asks first.
+// HP-04: the home page shows the first `limit` rows (the API lists the latest first).
 export function ConversationLinks({
   variant,
   current = null,
+  limit,
 }: {
   variant: "page" | "rail";
   current?: string | null;
+  limit?: number;
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -47,7 +50,7 @@ export function ConversationLinks({
   else
     body = (
       <ul className={rail ? "flex flex-col gap-0.5" : "divide-y rounded-card border bg-surface"}>
-        {conversations.data.map((c) => {
+        {conversations.data.slice(0, limit).map((c) => {
           const title = c.title ?? UNTITLED;
           const here = c.id === current;
           return (

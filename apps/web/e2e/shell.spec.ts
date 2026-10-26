@@ -20,12 +20,12 @@ for (const s of SCENARIOS) {
   });
 }
 
-test("a user sees the product, the tenant and Conversations only", async ({ page }) => {
+test("a user sees the product, the tenant and Home only", async ({ page }) => {
   await openScenario(page, scenario("06-conversations"));
   await expect(page.getByRole("link", { name: "Mycelium SporeBot" })).toBeVisible();
   await expect(page.getByTestId("tenant-name")).toHaveText("Synthetic Client");
-  expect(await navLinks(page)).toEqual(["Conversations"]);
-  await expect(nav(page).getByRole("link", { name: "Conversations" })).toHaveAttribute(
+  expect(await navLinks(page)).toEqual(["Home"]);
+  await expect(nav(page).getByRole("link", { name: "Home" })).toHaveAttribute(
     "aria-current",
     "page",
   );
@@ -33,7 +33,7 @@ test("a user sees the product, the tenant and Conversations only", async ({ page
 
 test("an admin and operator also see Administration and the operator console", async ({ page }) => {
   await openScenario(page, scenario("06b-conversations-admin-operator"));
-  expect(await navLinks(page)).toEqual(["Conversations", "Administration", "Operator console"]);
+  expect(await navLinks(page)).toEqual(["Home", "Administration", "Operator console"]);
   await nav(page).getByRole("link", { name: "Administration" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Administration");
   await expect(nav(page).getByRole("link", { name: "Administration" })).toHaveAttribute(

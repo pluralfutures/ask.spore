@@ -8,7 +8,7 @@
     - navigation "Main":
         - list:
             - listitem:
-                - link "Conversations":
+                - link "Home":
                     - /url: /
             - listitem:
                 - link "Administration":

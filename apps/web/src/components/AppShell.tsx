@@ -68,7 +68,7 @@ interface NavItem {
   current: (path: string) => boolean;
 }
 
-const CHAT_PATHS = /^\/($|new$|c\/|w\/)/;
+const CHAT_PATHS = /^\/($|conversations$|new$|c\/|w\/)/;
 
 // The product name, the tenant, a nav that depends on the user's roles, and the user menu
 // (sign-out in OIDC mode, the same action as the former button below the page). While the
@@ -83,7 +83,8 @@ export function TopBar({ onSignOut }: { onSignOut?: () => void }) {
   const onGate = mustAccept(me.data, pathname);
   const items: NavItem[] = [];
   if (!gated) {
-    items.push({ label: "Conversations", to: "/", current: (p) => CHAT_PATHS.test(p) });
+    // HP-04: "Home" (owner, Oct 26, 2026); "Conversations" names the full list's page.
+    items.push({ label: "Home", to: "/", current: (p) => CHAT_PATHS.test(p) });
     if (isTenantAdmin(me.data)) {
       items.push({ label: "Administration", to: "/admin", current: (p) => p === "/admin" });
     }

@@ -46,7 +46,14 @@ async function open(page: Page, name: string, url?: string) {
 }
 
 test.describe("1. consent gate", () => {
-  const gated = ["/", "/new", "/admin", `/c/${LONG_CONVERSATION}`, `/w/${F.WS_MARKETS.id}/files`];
+  const gated = [
+    "/",
+    "/conversations",
+    "/new",
+    "/admin",
+    `/c/${LONG_CONVERSATION}`,
+    `/w/${F.WS_MARKETS.id}/files`,
+  ];
   for (const url of gated) {
     test(`replaces ${url} until the notice is accepted`, async ({ page }) => {
       await openScenario(page, {
@@ -82,7 +89,7 @@ test.describe("1. consent gate", () => {
     expect(order).toEqual(["consent-summary", "consent-full", "INPUT", "BUTTON"]);
     await box.check();
     await accept.click();
-    await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Welcome to / })).toBeVisible();
   });
 
   test("says when the notice has changed", async ({ page }) => {
@@ -321,5 +328,36 @@ test.describe("5. feedback", () => {
     await askFirstQuestion(page);
     await expect(page.getByText("Synthetic capacity grew by 12%")).toBeVisible();
     await expect(page.getByRole("button", { name: "Helpful", exact: true })).toHaveCount(0);
+  });
+});
+
+// HP-05 (design/specs/home-page-spec.md): the binding elements the home page carries.
+test.describe("home page", () => {
+  const home = { workspaces: [F.WS_MARKETS, F.WS_POLICY], models: [F.MODEL_EU, F.MODEL_EXT] };
+
+  test("each recent conversation shows its expiry", async ({ page }) => {
+    await openScenario(page, { name: "home", url: "/", options: home });
+    const rows = page.getByRole("region", { name: "Recent conversations" }).getByRole("listitem");
+    await expect(rows).toHaveCount(3);
+    for (const row of await rows.all()) await expect(row).toContainText(/Expires \d+ \w+ \d{4}/);
+  });
+
+  test("the start panel's external-model disclosures keep their text", async ({ page }) => {
+    await openScenario(page, { name: "home", url: "/", options: home });
+    const model = page.getByLabel("Model");
+    await expect(model.locator("option", { hasText: "served outside the EU" })).toHaveText(
+      `${F.MODEL_EXT.display_name} (served outside the EU)`,
+    );
+    await model.selectOption(F.MODEL_EXT.id);
+    await expect(page.getByTestId("external-note")).toHaveText(EXTERNAL_NOTE);
+  });
+
+  test("no text names a retention longer than 30 days", async ({ page }) => {
+    await openScenario(page, { name: "home", url: "/", options: home });
+    const text = await page.locator("body").innerText();
+    expect(text).toContain("after 30 days at most");
+    for (const [, days] of text.matchAll(/(\d+)\s*days/g)) {
+      expect(Number(days)).toBeLessThanOrEqual(30);
+    }
   });
 });

@@ -187,19 +187,34 @@ export const SCENARIOS: Scenario[] = [
     url: "/",
     options: { consentPending: true, overrides: [{ path: "^/consent$", status: 500 }] },
   },
-  { name: "06-conversations", url: "/" },
-  { name: "06b-conversations-admin-operator", url: "/", options: ADMIN },
-  { name: "06c-conversations-empty", url: "/", options: { conversations: [] } },
+  { name: "06-conversations", url: "/conversations" },
+  { name: "06b-conversations-admin-operator", url: "/conversations", options: ADMIN },
+  { name: "06c-conversations-empty", url: "/conversations", options: { conversations: [] } },
   {
     name: "06d-conversations-loading",
-    url: "/",
+    url: "/conversations",
     options: { overrides: [{ path: "^/conversations$", hang: true }] },
   },
   {
     name: "06e-conversations-error",
-    url: "/",
+    url: "/conversations",
     options: { overrides: [{ path: "^/conversations$", status: 500 }] },
   },
+  // HP-04: the home page (welcome, question, recent conversations).
+  { name: "06f-home", url: "/", options: CHOICES },
+  {
+    name: "06g-home-welcome-hidden",
+    url: "/",
+    act: async (page) => {
+      await page.getByRole("button", { name: "Hide the welcome" }).click();
+      await page
+        .getByRole("heading", { level: 1, name: "What would you like to research?" })
+        .waitFor();
+    },
+  },
+  { name: "06h-home-single", url: "/" },
+  { name: "06i-home-no-history", url: "/", options: { noHistory: true, conversations: [] } },
+  { name: "06j-home-no-workspace", url: "/", options: { workspaces: [] } },
   { name: "07-start-panel-single", url: "/new" },
   { name: "07b-start-panel-choices", url: "/new", options: CHOICES },
   {

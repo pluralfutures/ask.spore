@@ -45,7 +45,7 @@ test("lists the workspace files and downloads one", async ({ page }) => {
     files: { [WORKSPACE]: FILES },
   });
   await api.install(page);
-  await page.goto("/");
+  await page.goto("/conversations");
   await page.getByRole("link", { name: "Synthetic Team Alpha" }).click();
   await expect(page.getByRole("heading", { name: "Files in Synthetic Team Alpha" })).toBeVisible();
 
@@ -77,6 +77,13 @@ test.describe("UX-17 states", () => {
   test("an empty workspace says so", async ({ page }) => {
     await openScenario(page, named("10b-files-empty"));
     await expect(page.getByText("No files in this workspace.")).toBeVisible();
+  });
+
+  test("the back link leads to the full list (HP-02)", async ({ page }) => {
+    await openScenario(page, named("10-files"));
+    await page.getByRole("link", { name: "← Conversations" }).click();
+    await expect(page).toHaveURL(/\/conversations$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Conversations");
   });
 
   test("loading shows a skeleton", async ({ page }) => {

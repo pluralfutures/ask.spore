@@ -13,12 +13,12 @@ test("shows the notice before the first conversation and records the acceptance"
   await expect(page.getByRole("heading", { name: "Synthetic Notice" })).toBeVisible();
   await expect(page.getByText("Synthetic plain-language summary.")).toBeVisible();
   await expect(page.getByText("Synthetic full wording of the notice.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "New conversation" })).toHaveCount(0);
+  await expect(page.getByLabel("Question")).toHaveCount(0);
   const accept = page.getByRole("button", { name: "Accept and continue" });
   await expect(accept).toBeDisabled();
 
   await page.getByLabel(/I have read the notice/).check();
   await accept.click();
-  await expect(page.getByRole("link", { name: "New conversation" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Welcome to / })).toBeVisible();
   expect(api.accepted).toEqual([{ version: "v1" }]);
 });

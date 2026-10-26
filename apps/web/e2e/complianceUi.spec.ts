@@ -89,7 +89,7 @@ test.describe("1. consent gate", () => {
     expect(order).toEqual(["consent-summary", "consent-full", "INPUT", "BUTTON"]);
     await box.check();
     await accept.click();
-    await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Welcome to / })).toBeVisible();
   });
 
   test("says when the notice has changed", async ({ page }) => {

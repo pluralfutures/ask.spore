@@ -1,0 +1,65 @@
+- banner:
+  - note: AI-generated, verify against cited sources.
+  - link "Skip to content":
+    - /url: "#main"
+  - link "Mycelium SporeBot":
+    - /url: /
+  - text: Synthetic Client
+  - navigation "Main":
+    - list:
+      - listitem:
+        - link "Home":
+          - /url: /
+  - text: Synthetic Analyst
+- main:
+  - region "Welcome to Mycelium SporeBot":
+    - heading "Welcome to Mycelium SporeBot" [level=1]
+    - paragraph: Ask research questions in plain language. SporeBot searches your workspace's sources and cites them, so you can check each claim.
+    - button "Hide the welcome"
+    - list:
+      - listitem:
+        - paragraph: Pick a workspace
+        - paragraph: Each one covers a different set of sources.
+      - listitem:
+        - paragraph: Ask a specific question
+        - paragraph: Name a product, region or period for sharper answers.
+      - listitem:
+        - paragraph: Check the citations
+        - paragraph: Click a number to see the excerpt and where it comes from.
+    - paragraph: /Conversations are deleted automatically, after \d+ days at most\./
+  - region "What would you like to research?":
+    - heading "What would you like to research?" [level=2]
+    - text: Question
+    - textbox "Question":
+      - /placeholder: Ask a question about this workspace's sources
+    - group "Settings":
+      - text: Settings Workspace
+      - combobox "Workspace":
+        - option "Synthetic Markets" [selected]
+        - option "Synthetic Trade Policy and Regulatory Horizon Scanning"
+      - text: Model
+      - combobox "Model":
+        - option "Synthetic EU Standard" [selected]
+        - option "Synthetic EU Fast"
+        - option "Synthetic External Large (served outside the EU)"
+      - switch "Reasoning"
+      - text: Reasoning
+      - paragraph: These settings cannot be changed once the conversation has started.
+    - button "Ask" [disabled]
+  - region "Recent conversations":
+    - heading "Recent conversations" [level=2]
+    - list:
+      - listitem:
+        - link /What drove synthetic fertiliser prices in \d+\? Expires \d+ Nov \d+/:
+          - /url: /c/11111111-0000-4000-8000-000000000001
+        - button /Actions for What drove synthetic fertiliser prices in \d+\?/
+      - listitem:
+        - link /Compare synthetic maize and wheat planted area across the three synthetic regions, with a focus on the policy measures announced since the last synthetic harvest and their expected effect on export volumes Expires \d+ Nov \d+/:
+          - /url: /c/11111111-0000-4000-8000-000000000002
+        - button "Actions for Compare synthetic maize and wheat planted area across the three synthetic regions, with a focus on the policy measures announced since the last synthetic harvest and their expected effect on export volumes"
+      - listitem:
+        - link /Untitled conversation Expires \d+ Nov \d+/:
+          - /url: /c/11111111-0000-4000-8000-000000000003
+        - button "Actions for Untitled conversation"
+    - link "All conversations":
+      - /url: /conversations

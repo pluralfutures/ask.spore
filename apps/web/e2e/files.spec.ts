@@ -45,7 +45,7 @@ test("lists the workspace files and downloads one", async ({ page }) => {
     files: { [WORKSPACE]: FILES },
   });
   await api.install(page);
-  await page.goto("/");
+  await page.goto("/conversations");
   await page.getByRole("link", { name: "Synthetic Team Alpha" }).click();
   await expect(page.getByRole("heading", { name: "Files in Synthetic Team Alpha" })).toBeVisible();
 

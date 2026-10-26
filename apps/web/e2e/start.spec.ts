@@ -49,7 +49,7 @@ test("starts a conversation from the panel and gets a cited answer", async ({ pa
   const api = new FakeApi({ workspaces: WORKSPACES, models: MODELS });
   await api.install(page);
 
-  await page.goto("/");
+  await page.goto("/conversations");
   await page.getByRole("link", { name: "New conversation" }).click();
 
   const workspace = page.getByLabel("Workspace");

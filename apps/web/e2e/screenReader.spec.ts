@@ -25,6 +25,8 @@ const TREES = [
   "03c-second-factor-code",
   "05b-consent-changed",
   "05c-consent-error",
+  "06f-home",
+  "06g-home-welcome-hidden",
   "07b-start-panel-choices",
   "07h-start-panel-refused",
   "08-chat-searching",

@@ -133,7 +133,7 @@ test("the console and the chat app link to each other, and terminated tenants sh
     "suspended · purged 23 Oct 2026 · certificate COD-20261023-0000beef",
   );
   await page.getByRole("link", { name: "Chat app" }).click();
-  await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Welcome to / })).toBeVisible();
   await page.getByRole("link", { name: "Operator console" }).click();
   await expect(page.getByRole("heading", { name: "Operator console" })).toBeVisible();
 });

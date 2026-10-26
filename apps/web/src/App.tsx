@@ -20,6 +20,7 @@ import { CONVERSATIONS_PATH, ConversationList } from "./pages/ConversationList";
 import { renewalDelay } from "./lib/session";
 import { WithRail } from "./components/Conversations";
 import { FinishSignIn } from "./pages/FinishSignIn";
+import { Home } from "./pages/Home";
 import { NewConversation } from "./pages/NewConversation";
 import { OperatorAggregates } from "./pages/OperatorAggregates";
 import { OperatorConsole } from "./pages/OperatorConsole";
@@ -66,7 +67,7 @@ function Signed({ onSignOut }: { onSignOut?: () => void }) {
         <Shell topBar={<TopBar onSignOut={onSignOut} />}>
           <ConsentGate>
             <Routes>
-              <Route path="/" element={<ConversationList />} />
+              <Route path="/" element={<Home />} />
               <Route path={CONVERSATIONS_PATH} element={<ConversationList />} />
               <Route
                 path="/new"

@@ -83,7 +83,8 @@ export function TopBar({ onSignOut }: { onSignOut?: () => void }) {
   const onGate = mustAccept(me.data, pathname);
   const items: NavItem[] = [];
   if (!gated) {
-    items.push({ label: "Conversations", to: "/", current: (p) => CHAT_PATHS.test(p) });
+    // HP-04: "Home" (owner, Oct 26, 2026); "Conversations" names the full list's page.
+    items.push({ label: "Home", to: "/", current: (p) => CHAT_PATHS.test(p) });
     if (isTenantAdmin(me.data)) {
       items.push({ label: "Administration", to: "/admin", current: (p) => p === "/admin" });
     }

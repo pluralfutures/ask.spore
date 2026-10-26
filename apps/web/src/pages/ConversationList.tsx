@@ -12,7 +12,7 @@ import { PageHeader } from "../ui/PageHeader";
 export const CONVERSATIONS_PATH = "/conversations";
 
 // The conversation list (UX-13: the same rows as the chat's rail) and the workspaces'
-// files. At /conversations, and at / until the home page replaces it (HP-04).
+// files. The home page (HP-04) shows the latest three and links here.
 export function ConversationList() {
   const workspaces = useQuery({ queryKey: ["workspaces"], queryFn: api.workspaces });
 

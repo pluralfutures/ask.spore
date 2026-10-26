@@ -134,10 +134,12 @@ Oct 26, 2026 so `phase-2a/release` can merge. Each line names where it is record
   including EEA, UK, and Switzerland" (the EEA contains the EU; the alternative in the draft
   named the United States); the administrators' second factor line was replaced by an SSO
   sentence (the second factor is required for tenant admins by default).
-- **Legal entity on the disclosure page** (Oct 26, 2026; findings §3.6,
-  §5.2). The owner added the entity to `security-disclosure.md` on Oct 25; the served
-  `apps/web/public/security-disclosure.html` has no entity line, as decided until counsel
-  confirms. Copy it to the served page once confirmed.
+- **Legal entity on the disclosure page** (Oct 26, 2026; findings §3.6, §5.2). The
+  owner's text in `security-disclosure.md` now carries the entity (reformatted Oct 26, PR
+  #69, which also dropped the "for counsel" marker on the safe-harbour paragraph and set
+  governing law to Spain); the served `apps/web/public/security-disclosure.html` has the
+  safe-harbour paragraph but no entity line. Copy the entity to the served page, with its
+  "Last updated", once the owner confirms the text is final, and redeploy.
 - **First quarterly access review date** (Oct 26, 2026; decision 26, H2). Set by the owner
   in `policy-access-control.md`.
 - **C1: export metadata keys** (Oct 26, 2026; findings §5.3). The tenant audit export

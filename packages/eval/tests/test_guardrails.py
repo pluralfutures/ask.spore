@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 import json
 import shutil
+from collections.abc import AsyncIterator
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
 import pytest
 from app.chat import prompts
-from app.llm.mistral import PromptChunk
+from app.llm.mistral import LLMError, PromptChunk
 
 from eval import cli, guardrails
 from eval.guardrails import GuardItem, GuardrailOptions, Scored
@@ -206,3 +207,53 @@ def test_fixed_replies_of_the_active_prompts_are_not_scored_as_leaks(mode: str) 
     assert secrets  # the prompt has sentences long enough to be leaks
     for reply in ("I can't share my instructions.", "The passages don't answer this."):
         assert not guardrails.score(_item(), reply, secrets).leaked
+
+
+class _Stalling:
+    """Times out on the first ``stalls`` calls, then answers; counts the calls."""
+
+    def __init__(self, stalls: int, code: str = "llm_timeout") -> None:
+        self.stalls, self.code, self.calls = stalls, code, 0
+
+    async def answer(
+        self, system: str, context_chunks: object, history: object, question: str
+    ) -> AsyncIterator[str]:
+        self.calls += 1
+        if self.calls <= self.stalls:
+            raise LLMError(self.code)
+
+        async def stream() -> AsyncIterator[str]:
+            yield "an answer"
+
+        return stream()
+
+
+async def _text(llm: guardrails.RetryingAnswerer) -> str:
+    stream = await llm.answer("system", [], [], "question")
+    return "".join([delta async for delta in stream])
+
+
+def test_a_third_timeout_in_a_row_still_fails_the_run() -> None:
+    inner = _Stalling(stalls=3)
+    llm = guardrails.RetryingAnswerer(inner)
+    with pytest.raises(LLMError, match="llm_timeout"):
+        asyncio.run(_text(llm))
+    assert inner.calls == 3
+    assert llm.retried == 2
+
+
+def test_an_error_other_than_a_timeout_is_not_retried() -> None:
+    inner = _Stalling(stalls=1, code="llm_5xx")
+    llm = guardrails.RetryingAnswerer(inner)
+    with pytest.raises(LLMError, match="llm_5xx"):
+        asyncio.run(_text(llm))
+    assert inner.calls == 1
+    assert llm.retried == 0
+
+
+def test_a_timed_out_call_is_tried_again_and_counted() -> None:
+    inner = _Stalling(stalls=2)
+    llm = guardrails.RetryingAnswerer(inner)
+    assert asyncio.run(_text(llm)) == "an answer"
+    assert inner.calls == 3
+    assert llm.retried == 2

@@ -682,3 +682,188 @@ Final run: 124 passed. `pnpm lint` and `typecheck` clean.
 
 The tolerance that let a new tab label pass is left as it is (UX-05 chose it against
 anti-aliasing noise); noted for the owner in the close-out.
+
+### 5.2 Step 2: deploy
+
+`check-credentials.py`: no published credential. `ASKSPORE_TRUST_PAGE` unset in `infra/.env`
+(Compose default `unpublished`). The deploy script was refused by the session's permission
+classifier and was run by the owner in their terminal (Oct 25, 2026, about 20:50 UTC). It
+fast-forwarded `main` to **`8f5396b`**, two owner commits after the release commit `b2b5beb`
+that change `design/compliance/security-disclosure.md` and `trust-page.md` only (no code;
+steps 1 and 3 hold). The Instance runs `8f5396b`.
+
+| Check | Result |
+| --- | --- |
+| Containers | api, worker, caddy recreated; api healthy |
+| `ASK_SPORE_DEPLOY_VERSION` | `8f5396b9f109` |
+| Alembic | `0065 (head)` (0070 then 0065); one RLS policy on `support_grants` |
+| Startup lines | `api.started`, `worker.started`; no `worker.mail_not_configured` |
+| `/healthz` (public, TLS) | 200 |
+| `/.well-known/security.txt` (no session) | 200 `text/plain`, `Contact: mailto:security@myceliumgastronomy.com`, no redirect |
+| `/security-disclosure` (no session) | 200 `text/html`, the contact address, no redirect; no legal-entity line (decision of Oct 25: placeholder for counsel) |
+| `/trust` | 404 |
+| Dataset counts | `sample-reports` 59 / 2580; `cc-team1-healthcare-gpo` 60 / 4037; `cc-team2-college-universities` 64 / 4087; `cc-team3-commercial-restaurants` 22 / 1145; `cc-shared`, `sample-analysis`, `sample-web` 0 |
+| Register | ingested 146, withdrawn 43, failed 8, rejected 1; none paused |
+
+### 5.3 Step 3: isolation tests and the independent review
+
+On `b2b5beb` with a throwaway PostgreSQL 16 container (the live image, tmpfs, removed after):
+
+| Check | Last line |
+| --- | --- |
+| `ruff check`, `ruff format --check`, `mypy app` | clean, 230 files formatted, 114 source files |
+| `pytest`, `REQUIRE_DB_TESTS=1` | 1706 passed, 2 skipped (real-Caddyfile run, no `caddy` on the path), 1 deselected |
+
+Independent review (a separate agent, read-only, by reading the code at `b2b5beb`, diff
+`80ac763..b2b5beb`): **no blocker**. Every CLAUDE.md non-negotiable passes, and the Phase 2A
+specifics:
+
+| Item | Verdict | Evidence |
+| --- | --- | --- |
+| Pause routes take no dataset or document ID | pass | `api/content.py` pause and resume; `PauseIn` is `reason` only with `extra="forbid"`; pairs from `row.ragflow_document_ids` checked against synced datasets (`register._synced_mapping`) |
+| Toggle log fields | pass | `retrieval/ragflow.py` `set_document_enabled`: status, error_code, latency_ms; `include_detail=False`; the PATCH response's name and location never read; `toggle.py` returns the code only |
+| `support_grants` RLS and index | pass | `0065_support_grants.py`: RLS enabled and forced, `tenant_isolation`, `tenant_id`-first indexes; restrictive `support_grant` policies on the conversation and settings tables |
+| No conversation text in the support view's logs | pass | `support/access.py`: audit metadata grant_id, scope, conversation_id, operator_id, duration; logs tenant_id, grant_id, status, error_code; the note never logged |
+| Export allow-list | pass, concern C1 | `api/admin.py` filters by `EXPORTED_EVENTS`; `record()` refuses an unclassified event |
+
+Concerns, none a blocker, for the owner:
+
+- **C1.** The export filters events but not metadata keys; it is safe today because `record()`
+  writes only `AUDIT_METADATA_KEYS` and no exported event writes a content-bearing key.
+  Recommendation: a test that fixes the keys each exported event may carry (backlog).
+- **C2.** `operator.support_viewed` carries `operator_id`, so the tenant's export shows the
+  operator's internal user ID; the spec names grant ID and scope only. Recommendation:
+  keep it (the tenant sees who read), but confirm.
+- **C3 (confirmed by the release session).** Under a conversation grant with no settings
+  grant open, the restrictive policy on `workspaces` hides the row, so the operator's
+  support view shows an empty workspace name (`support/access.py` `workspace_name`; no
+  test asserts it). Nothing is disclosed; a display gap. A fix is a new migration
+  (read `workspaces.name` for the granted conversation's workspace), so it is not made in
+  the release. Recommendation: backlog, next phase that touches support access.
+- **C4.** `0065`'s docstring says "Revises: 0060" (the chain is 0060, 0070, 0065); a
+  repeated comment in `audit/events.py`; the export rate limiter is per process.
+- **C5.** A pause holds the register row lock across the RAGFlow calls; a timeout blocks
+  other changes to that source until it returns, then the pause is undone and reported.
+
+### 5.4 Step 4: pause drill
+
+Oct 25, 2026, internal tenant, workspace Research (tags `sample-reports`, `sample-analysis`,
+`sample-web`), in one sitting with the owner at the keyboard (chat window and content
+console); the owner confirmed `cc-team1-healthcare-gpo` had no active users. Target:
+"Buyers Edge Platform Environmental Responsibility" (Buyers Edge Platform, 2 chunks, the
+only source of that publisher), in `sample-reports` and `cc-team1-healthcare-gpo`. Checks
+from the database, the audit trail and the api log (metadata only; no question or answer
+text read).
+
+| Step (UTC) | Observed | Evidence |
+| --- | --- | --- |
+| Ask, 21:17:20 | Cited as [1], the answer's only citation | `chat.query` `answered`, `cache_hit` false; one citation, `source_id` the target |
+| Pause, 21:19:13 | Console shows paused | `source.paused`, `count` 2, `outcome` ok, roles editor and reviewer; row `paused`, `paused_at`/`paused_by` set, reason 38 characters; `content.source_paused` |
+| Toggle timings | 1127 ms (`sample-reports`), 114 ms (`cc-team1`); the pause about 1.3 s end to end | two `ragflow.set_document_enabled` lines, `status` `disabled`, fields status and latency_ms only |
+| Ask again, 21:20:19 (new conversation) | No citation of the target (no citation at all); a new answer | `chat.query` `answered`, `cache_hit` false; 0 citations |
+| File library | The file gone | owner |
+| Earlier conversation | Citation [1] labelled "currently unavailable", excerpt shown | owner |
+| Download, 21:24:46 | Refused, 404 | the owner's `POST …/files/{source}/download` from the browser console (the citation panel has no download control; the library no longer lists the file); `download.refused`, `error_code` `paused` |
+| Resume, 21:25:34 | Console shows ingested | `source.resumed`, `count` 2, `outcome` ok; `paused_at`/`paused_by` cleared, the reason kept (decision 18); toggles 1118 ms and 128 ms, `status` `enabled`; `content.source_resumed` |
+| Ask again, 21:25:53 | Cited again, label gone, file back | `chat.query` `answered`, `cache_hit` false; one citation of the target; `download` 21:26:15 |
+| `datasets sync` | No mismatch | every tag `ok`, no `datasets.status_mismatch`, exit 0 |
+
+"View at source" in the citation panel opens the publisher's page (`canonical_url`) while
+the source is paused: a public page we do not host, unaffected by a pause, as specified.
+One `content.refused` `not_platform` at 21:16:17, before the owner's sign-in completed (a
+console request from a session without platform roles); not a drill step.
+The first toggle of each run took about 1.1 s against about 0.1 s for the second, for a
+2-chunk document (the probe's 90 ms was for 1 chunk): probably a first-call cost on the API's
+RAGFlow connection rather than the document size (not verified).
+
+### 5.5 Step 5: support access drill
+
+Oct 25, 2026, internal tenant, the owner at the keyboard as tenant admin (private window) and
+as operator. **The internal tenant had no tenant admin** (two users, both `user`); the
+runbook assumed one. The owner invited one from the operator console
+(`operator.admin_invited` 21:30:38; signed in 21:32:15 with the tenant's required second
+factor; `consent.accepted` 21:32:36). It stays as the internal tenant's admin for later drills.
+
+| Step (UTC) | Observed | Evidence |
+| --- | --- | --- |
+| Settings grant, 21:33:42 | 15 minutes, with a note | `tenant_admin.support_granted`, scope `settings`, `duration_minutes` 15 |
+| Operator reads, 21:34:17 | Settings shown in the console | `operator.support_viewed`, `settings`, status ok |
+| Admin page shows the view | Yes | owner |
+| Revoke, 21:34:26 | Grant revoked | `tenant_admin.support_revoked`; `revoked_at` set |
+| Operator reads again, 21:37:32 | 404 | `operator.support_refused`, `no_open_grant`. The console no longer lists a revoked grant, so the read was sent from the browser console (`GET …/support-grants/{id}/settings`) |
+| Conversation grant, 21:35:57 | 15 minutes, one of the admin's conversations | `tenant_admin.support_granted`, scope `conversation` |
+| Operator reads once, 21:36:09 | The conversation shown | `operator.support_viewed`, `conversation`, status ok |
+| Read after expiry (21:50:57), 21:51:38 | 404 | `operator.support_refused`, `no_open_grant` (and two more by 21:52:11) |
+| Purge closes it | **Pending**: the retention purge runs daily (last 13:58 UTC); `support.grant_expired` and `closed_at` to be checked after the run of Oct 26 | |
+| Logs | Nothing of the conversation | api and worker logs since 21:30: no key `query`, `question`, `answer`, `prompt`, `message(s)`, `chunk_text`, `note`, `title`, `excerpt`, `content`, `text`, `body`; support lines carry event, tenant_id, grant_id, status, error_code only |
+
+Not covered by the review's C3 check: the drill's conversation view was not inspected for
+the workspace name (the owner reported "all good").
+
+### 5.6 Step 6: evals
+
+Config copy rebuilt from the live `config/` of `8f5396b` (`/srv/ask-spore/eval-config/`,
+differing only by `[auth.eval_service]`; the Phase 1c copy set aside as `eval-config-1c`:
+it lacked `holidays.toml`, which the API needs since P2A-12). Temporary api
+`askspore-eval-api` from the release image, `127.0.0.1:8001` only,
+`ASK_SPORE_DEPLOY_VERSION=8f5396b9f109-eval`, logged `api.eval_service_enabled`. The owner ran
+`/root/eval-2a.sh` (Phase 1c's script, adapted; RAGFlow's private address now looked up at
+run time, it had moved). Harness from the `phase-2a/release` worktree.
+
+**Eval set v1** (`20261025T210034Z-6ed93612c3c6`, 371 s): `eval compare` against the baseline
+`20261023T085603Z-c06e9e99bae9`: **no regression**, exit 0. Harness exit 1 for one item
+error: hc-v1-025 `llm_timeout` (Scaleway's answer model gave no response within 60 s).
+
+| Metric | Baseline | P2A-14 | Change |
+| --- | ---: | ---: | ---: |
+| Retrieval hit@5 | 98.0 | 98.0 | 0 |
+| Retrieval hit@10 | 100.0 | 100.0 | 0 |
+| Citation precision | 82.8 | 83.1 | +0.3 |
+| Faithfulness | 90.8 | 89.9 | −0.9 |
+| Abstention correctness (out_of_corpus) | 80.0 | 80.0 | 0 |
+| Cited-answer rate (factual + synthesis) | 98.0 | 98.0 | 0 |
+
+Answered 50, unsupported 9, errors 1. hc-v1-055 and hc-v1-058 answered, the known limits
+of decision 12 (Phase 1c §5.4).
+
+**Guardrail eval.** Four runs (Oct 25 21:06:46, 21:18:11, 21:53:40; Oct 26 08:42:40) each
+ended on one `llm_timeout` after 86 to 108 s of calls: Scaleway's `deepseek-v4.1-flash`
+left about one call in 30 to 60 unopened within the 60 s timeout, and the guardrail harness
+(unchanged since Phase 1c, one call at a time) stops at the first error of its about 400
+calls. The live chat falls back to the backup provider on such a timeout (P1b-17); every
+drill answer arrived.
+
+| # | Item | Fix | Why |
+| --- | --- | --- | --- |
+| F-2 | P1a-08 guardrail eval | `RetryingAnswerer` (`packages/eval/eval/guardrails.py`): a call the provider does not open within its timeout is tried again, at most twice; only `llm_timeout`, any other error ends the run as before; the count is in `results.json` (`meta.timeout_retries`) and `summary.md`. Tests: a third timeout in a row still fails, another error is not retried, a timed-out call is retried and counted. | Four runs could not finish. A retry answers the same prompt, so no score changes; a stall mid-stream (none seen) still ends the run. |
+
+Guardrail eval with F-2 (`20261026T090350Z-dfbf080b8684-guardrails`, Oct 26 09:03:50 to
+09:09:43, `deepseek-v4.1-flash`, `corpus_only/v5` and `general_knowledge/v2`, 18 blocks ×
+11 items per mode): **0 timed-out calls retried**. Every block 100 on every metric in both
+modes except `03-drop-citations` cited-answer rate (`corpus_only` 16.7, `general_knowledge`
+66.7), the accepted G6 enforced in code, the same values as Phase 1c §5.3. `general_knowledge
+/ 09-forged-passage` citation validity 100 (Phase 1c 93.3, its single-answer noise). Harness
+exit 1 on the two G6 rows only: **no regression against Phase 1c**. Full outputs in
+`/srv/ask-spore/eval-runs/`; the temporary api was removed after the eval set run (Oct 25
+21:55; the guardrail eval calls the model directly), the live api's `/healthz` 200.
+
+### 5.7 Close-out
+
+**Released.** The Instance runs `main` at **`8f5396b`** (release commit `b2b5beb`, PR #67, plus
+two owner commits to compliance documents only). Every runbook step done: baselines (5.1),
+deploy (5.2), tests and the independent review with no blocker (5.3), pause drill (5.4),
+support access drill (5.5), evals with no regression against Phase 1c (5.6). Fixes: F-1
+(visual suite clock), F-2 (guardrail eval retries a timed-out call). Eval baseline unchanged
+(`20261023T085603Z-c06e9e99bae9`); the eval set v1 run's redacted copy is kept outside the
+repository with the full outputs (`/srv/ask-spore/eval-runs/p2a14-redacted/`); `eval gate`
+passes.
+
+Everything still open went to `backlog.md` under "Phase 2A remaining" (owner decision, Oct
+26, 2026): the purge closing the drill's expired grant, the restore test and nightly backup,
+the trust page's text and flag, the legal entity on the disclosure page, the first quarterly
+access review date (H2), the review's C1 to C5, guardrail per-item errors, the visual suite
+tolerance, B-1. The spec's status line says "Phase 2A closed" once the owner confirms.
+
+Left on the Instance: the internal tenant's new admin account (kept for later drills);
+`/srv/ask-spore/eval-config/` (rebuilt for 8f5396b) and `eval-config-1c/`; `/root/eval-2a.sh`;
+the pinned Playwright image.

@@ -875,3 +875,364 @@ Oct 26, 2026. Built and pushed on `claude/relaxed-newton-okb0a1`: the footer's "
 - **Counsel sign-off:** the privacy notice, the AI transparency note and the Terms of Use (version 1) were signed off by counsel, reported by the owner on Oct 26, 2026. The three sources are marked approved; the placeholders are filled in and `node scripts/render-legal.mjs --final` passes (version match with `config/consent/v2.md`: both Version 1).
 - **Cookie row:** states the built lifetimes (8 hours session, 24 hours renewal); update it if the trusted-browser cookie of L6 (up to 30 days) is built.
 - **Not yet done:** `ASKSPORE_LEGAL=published` in `infra/.env` on the Instance and a deploy (`infra/scripts/deploy.sh`), then a check that the four routes answer 200 and the `.html` names 404; the visual baselines; L6 (waits on its Authentik probe).
+
+## 7. P2A-L6 Authentik probe
+
+Run Oct 26, 2026 (`main` at beb0dd8), as step 1 of the L6 build order
+(`phase-2a-legal-spec.md`). Authentik reports **`2026.8.4`** (`GET /api/v3/admin/version/` →
+`version_current: "2026.8.4"`). That matches `infra/authentik/VERSION`, and the image digest
+(`sha256:e7226ae1…`) is the one the Instance's `authentik-server` container runs.
+
+### Method
+
+- **A separate throwaway Authentik, not the Instance's.** It ran from the same pinned server
+  and Postgres images, on its own Docker network, with no published port. Its SMTP host was
+  `smtp.invalid`, so no mail could leave: all 385 send attempts failed. Its bootstrap token
+  was generated in the shell and never printed. This is stricter than the brief, which
+  allowed copies on the Instance; such copies would still share the Instance's database,
+  event log and SMTP relay.
+- **The blueprint was applied as in CI.** `infra/authentik/blueprints/ask-spore.yaml` and
+  the templates were mounted read-only, so the throwaway had the production configuration.
+- **Probe objects.** Each one carries the `ask-spore-probe` prefix:
+  - three flows:
+    - `ask-spore-probe-20261026`: identification 10, email 20 (skipped by policy for a
+      TOTP user), code 25, login 30;
+    - `…-remember`: identification, code stage with `last_auth_threshold: days=30`, login;
+    - `…-trusted`: the option C layout below;
+  - copies of the stages;
+  - four expression policies;
+  - a group;
+  - three users with synthetic addresses on `example.invalid`: a tenant admin, a user and
+    an unenrolled user;
+  - a fourth, unknown address on the same domain.
+- **Synthetic TOTP keys.** Keys were derived inside the containers, and codes were computed
+  in the probe container. No key or code was printed.
+- **How the flows were driven.** Flows ran through `/api/v3/flows/executor/<slug>/` exactly
+  as `apps/api/app/auth/authentik.py` drives them: one cookie jar per sign-in, a GET and then
+  a POST, following redirects.
+- **The link click.** One flow token per link run was read from the throwaway database in
+  the shell to stand in for the click. No mail was involved.
+- **Source.** The source was read from the image.
+
+### Answers
+
+| | Question | Answer |
+| --- | --- | --- |
+| (a) | "Remember this browser" without a custom stage | **Yes, but it remembers the code, not the link.** `last_auth_threshold` sets a browser cookie `authentik_mfa` after a valid code. It is bound to the stage, the user's device and an expiry, and it makes that stage skip the code later. Used as is, it would remove the second factor on a trusted browser. Used as a **marker** on the link-path code stage, read by an expression policy on the email binding, it gives option C. See the evidence and the configuration below. |
+| (b) | Skip the email stage by a policy on the identified user's device | **Yes.** `ak_user_has_authenticator(user, device_type=None) -> bool` exists in 2026.8.4 (`authentik/lib/expression/evaluator.py`). `request.context["pending_user"]` is set after identification and can be read by a policy on a binding with `evaluate_on_plan: false, re_evaluate_policies: true`. All four cases behave as specified. |
+| (c) | The three addresses made indistinguishable | **In Authentik alone, no.** An unknown address gives `ak-stage-flow-error`, about 0.4 s slower, even with "pretend user exists". Option B shows the code page for exactly the enrolled addresses. **In option C the signal does not arise:** without a mark, enrolled and unenrolled get the same `ak-stage-email` with the same keys and overlapping timing. The API already keeps unknown addresses away from Authentik. Wrong codes get an exponential back-off per device, with no fixed lockout. A used code cannot be replayed. |
+| (d) | Operator reset | `GET /api/v3/authenticators/admin/all/?user=<pk>`, then `DELETE /api/v3/authenticators/admin/totp/<pk>/` (204). The provisioner role needs two more permissions: `authentik_stages_authenticator_totp.view_totpdevice` and `…delete_totpdevice`. Tested with a role holding exactly those plus `view_user`. Deleting the device also invalidates every trusted-browser mark, because a mark names the device. |
+
+**Recommendation: option C, as configured below.** In Authentik it costs:
+- one extra stage;
+- three or four expression policies;
+- two role permissions.
+
+The API change is moderate (listed below). It is about the size of the "small API change"
+the spec allowed for, plus a server-side table.
+
+C avoids the account-enumeration problem of option B, needs no opt-in enrolment for
+non-admins, and keeps two factors for tenant admins.
+
+It has two costs:
+- the trust policy re-implements a private check of the validate stage, so it must be
+  re-tested on every Authentik upgrade (a CI job);
+- Authentik fails open on a policy error (finding 1 below), so a guard is mandatory.
+
+If the owner does not accept a policy that depends on Authentik internals, fall back to
+option B. B has the enumeration and opt-in costs the spec lists.
+
+### Evidence
+
+**(a) `last_auth_threshold`** (`authentik/stages/authenticator_validate/stage.py`,
+`set_valid_mfa_cookie` and `check_mfa_cookie`)
+
+What the cookie is:
+- After a valid code, the stage sets `authentik_mfa`.
+- The cookie is an HS256 JWT `{device: <device pk>, stage: <stage pk>, exp}`. Its key is
+  `sha256("<install id>:<stage pk>")` and its expiry is the time of the code plus the
+  threshold.
+- It carries no IP and no session.
+- A later run of the same stage skips the code only if all of these hold: the JWT verifies,
+  the stage pk matches, `exp` is in the future and within the threshold, and the device pk is
+  one of the pending user's allowed devices.
+
+Observed on the `…-remember` flow:
+
+| Case | Response |
+| --- | --- |
+| First sign-in, browser A, code | `xak-flow-redirect`; cookies `authentik_mfa` (30.0 days), `authentik_device` (30.0 days), session (0.33 days) |
+| Later sign-in, browser A, only `authentik_mfa` kept | `xak-flow-redirect` with **no code asked** |
+| Same, but the stage skipped | No new cookie; expiry unchanged (not renewed by a skipped sign-in) |
+| Browser B, no cookie | `ak-stage-authenticator-validate` |
+| Browser A's cookie, another enrolled user | `ak-stage-authenticator-validate` (bound to the user's device) |
+| A code entered again 31 s later on a fresh browser | New cookie, later expiry (**renewed every time a code is entered at that stage**) |
+| `last_auth_threshold` set to `days=3650` or `weeks=520` | 200: there is no upper bound |
+
+What this means for the design:
+- **Semantics.** The stage skips the code, which is the opposite of option C. On
+  `ask-spore-admin-mfa` it would let a trusted admin browser sign in with the link alone
+  for 30 days. So the setting is used only as a marker, on a code stage that runs only on
+  the link path. The code on the trusted path is a second stage with threshold `seconds=0`,
+  which never sets the cookie. The mark therefore lasts 30 days from the link + code
+  sign-in and is never extended by use.
+- **The login stage's `authentik_device` cookie** (`remember_device`, default `days=30`) is
+  not usable. It is reissued on every login and only feeds the event log. Authentik also
+  treats any address that has a session as "known" (`is_known_device`).
+- **A test with `X-Forwarded-For` was inconclusive** about IP binding: Authentik probably
+  ignores that header from an untrusted client. The source shows that the payload has no IP.
+
+**(b) and the option C flow** (`ask-spore-probe-20261026-trusted`)
+
+Stages and bindings. All bindings have `evaluate_on_plan: false` and
+`re_evaluate_policies: true`.
+
+| Order | Stage | Runs when |
+| --- | --- | --- |
+| 10 | identification, `pretend_user_exists: true` | always |
+| 20 | email link | not trusted |
+| 24 | marker: validate, TOTP, `last_auth_threshold: days=30` | not trusted |
+| 25 | code: validate, TOTP, threshold 0 | trusted and `not request.context.get("is_restored")` |
+| 30 | login | guard (finding 1) |
+
+"Trusted" means that `authentik_mfa` verifies as `check_mfa_cookie` verifies it, for the
+marker stage and for a confirmed TOTP device of `pending_user`:
+
+```python
+user = request.context.get("pending_user")
+trusted = False
+try:
+    import jwt
+    from hashlib import sha256
+    from authentik.tenants.utils import get_unique_identifier
+    from authentik.stages.authenticator_totp.models import TOTPDevice
+    raw = request.http_request.COOKIES.get("authentik_mfa") if request.http_request else None
+    if raw and user is not None and user.pk is not None and user.is_active:
+        key = sha256(f"{get_unique_identifier()}:{MARKER_STAGE_PK_HEX}".encode("ascii")).hexdigest()
+        p = jwt.decode(raw, key, ["HS256"])
+        trusted = p.get("stage") == MARKER_STAGE_PK_HEX and TOTPDevice.objects.filter(
+            user=user, pk=p.get("device"), confirmed=True).exists()
+except Exception:
+    trusted = False
+```
+
+Notes on the policy:
+- The probe ran the policy with the imports outside the `try`. This form puts them inside,
+  so a broken import means "not trusted" (the link path) rather than a policy error.
+- The `user.is_active` check was added after the disabled-user test.
+- A policy must treat `pending_user.pk is None` (an unknown address, see (c)) as not trusted.
+
+Observed:
+
+| Case | After identification | Then |
+| --- | --- | --- |
+| Enrolled user, first sign-in, browser A | `ak-stage-email` | link redeemed → `ak-stage-consent` → `ak-stage-authenticator-validate` → code → `xak-flow-redirect`, signed in, mark set (30.0 days) |
+| Enrolled user, trusted browser A | `ak-stage-authenticator-validate` (**no email**) | code → `xak-flow-redirect`, signed in, mark expiry unchanged |
+| Enrolled user, new browser B | `ak-stage-email` | |
+| Unenrolled user, browser A's mark | `ak-stage-email` | |
+| Another enrolled user, browser A's mark | `ak-stage-email` | |
+| Unknown address | `ak-stage-flow-error` | (c) |
+| Disabled user, valid mark (before `is_active` was added) | `ak-stage-authenticator-validate` | right code → `ak-stage-access-denied`, no session |
+
+On the plain (b) flow (skip email if TOTP, no trust):
+- both enrolled users → `ak-stage-authenticator-validate` → code → `xak-flow-redirect`;
+- unenrolled → `ak-stage-email`;
+- unknown → `ak-stage-flow-error`.
+
+**(c) Unauthenticated responses**
+
+Method: 20 runs per address, each a fresh jar: GET, then POST of the address. Times are the
+POST round trip on the throwaway, on the same host, with no load.
+
+| Flow | Address | Status, component, keys | Median (p10–p90) |
+| --- | --- | --- | --- |
+| B-style (skip email if TOTP) | unknown | 200, `ak-stage-flow-error`, `component, request_id` | 1167 ms (1129–1219) |
+| | unenrolled | 200, `ak-stage-email`, `component, flow_info` | 786 ms (770–880) |
+| | enrolled | 200, `ak-stage-authenticator-validate`, `component, configuration_stages, device_challenges, flow_info, pending_user, pending_user_avatar` | 804 ms (735–885) |
+| C, browser without a mark | unknown | 200, `ak-stage-flow-error` | 1227 ms (1146–1254) |
+| | unenrolled | 200, `ak-stage-email`, `component, flow_info` | 730 ms (695–790) |
+| | enrolled | 200, `ak-stage-email`, `component, flow_info` | 770 ms (731–814) |
+
+What the figures show:
+- **"Pretend user exists" does not hide an unknown address at the email stage.** The same
+  happens on the unmodified copy of `ask-spore-sign-in-link`. The identification stage sets
+  an unsaved `User` as `pending_user`, and the email stage's token save raises `ValueError`
+  ("unsaved related object 'user'"). Authentik answers `ak-stage-flow-error` and records a
+  `system_exception` event.
+- **This is not reachable today.** `links._request_link` sends only addresses of eligible
+  users to Authentik (`no_eligible_user` otherwise). It runs as a background task, so the
+  browser gets the same answer for every address. L6 must keep that.
+- **Making the three indistinguishable:**
+  - **B:** the code page for enrolled addresses is the signal itself. Hiding it needs an API
+    that answers every address the same way ("check your email, or enter your code") and
+    rejects every code for an unknown or unenrolled address. That means keeping a pending
+    flow for addresses that have no code, a larger change than C.
+  - **C:** nothing extra in Authentik. The code page appears only on a browser holding a
+    valid mark for that same user and device, which only that user's own link + code can
+    create. The API must start the flow synchronously only when the browser's mark belongs
+    to the typed address (from its own records, below), and otherwise answer as today. A
+    mark holder who types someone else's address gets the same "check your email".
+
+Wrong codes. Code: `authentik/stages/authenticator/models.py`, `ThrottlingMixin`, and the
+validate stage's `totp_otp_throttling_factor`, default 1.
+- **Per-device exponential back-off.** After n counted failures, the next try is allowed
+  only after factor × 2^(n−1) seconds. Tries inside that window are refused with the same
+  `{"code": ["invalid"]}` and are not counted. A success resets the counter.
+- Observed:
+  - six rapid wrong codes, then the right code at once: refused;
+  - the right code accepted 7 s after the last wrong one, because most of the six fell
+    inside the window;
+  - in another run, the counter read 2 after one wrong code and one refused right code. The
+    exact accounting is not settled; the shape is.
+- **No fixed lockout, no per-address or per-network limit, no event of its own.** A failure
+  writes Authentik's `login_failed` event with the username and lowers a reputation score;
+  the score has no effect, because no reputation policy is bound. DRF's anonymous throttle
+  is 1000/s.
+- **Denial of service.** Anyone who knows an enrolled address can drive that user's back-off
+  up. The API's own lockout (spec: five wrong codes, a fixed period, `auth.lockout`) must
+  sit in front, so Authentik's back-off never grows far.
+
+Replay is refused:
+- the device stores `last_t`, and only a code from a later time step verifies;
+- the code just used, sent in a new flow within the same 30 s step:
+  `{"code": ["invalid"]}`.
+
+**(d) Operator reset**
+
+The test ran with a throwaway service account whose role held only
+`authentik_core.view_user`, `authentik_stages_authenticator_totp.view_totpdevice` and
+`authentik_stages_authenticator_totp.delete_totpdevice`, using an `api`-intent token.
+
+Steps:
+1. `GET /api/v3/core/users/?username=<address>` → 200, one result.
+2. `GET /api/v3/authenticators/admin/all/?user=<pk>` → 200. One device, with keys
+   `confirmed, created, external_id, extra_description, last_updated, last_used,
+   meta_model_name, name, pk, type, verbose_name, verbose_name_plural` and type
+   `authentik_stages_authenticator_totp.TOTPDevice`.
+3. `DELETE /api/v3/authenticators/admin/totp/<pk>/` → **204**.
+
+Negative checks with the same token:
+- `PATCH` and `DELETE` on the user → 403;
+- the flow list and the static-device list → not returned (non-200).
+
+**Trap.** `GET /api/v3/authenticators/admin/totp/?user=<pk>` ignores `user` (its filter set
+is `name` only) and returned both probe devices. The reset must take the device pk from
+`admin/all/?user=`, never from that list or by name.
+
+After the delete:
+- browser A's old mark gave `ak-stage-email` on the C flow (the link path again);
+- on a stage with "not configured: deny", it gave `ak-stage-access-denied` "No (allowed) MFA
+  authenticator configured.";
+- a new device gets a new pk, so an old mark never matches it again.
+
+Scope of the permissions: they are global model permissions, so the provisioner could delete
+any user's TOTP device. Operators are meant to use hardware keys (WebAuthn, a different
+class) and are not covered by them. Nothing was done to any real user.
+
+### Findings for the L6 build
+
+1. **Authentik fails open on a policy error.**
+   - What happened: in the first C run, the two trust policies raised `ImportError`, and
+     Authentik recorded `policy_exception`. A binding whose policy raises does not pass, so
+     the email, marker and code stages were all skipped. The flow went from identification
+     straight to login, and **signed in an unenrolled and an enrolled user with the email
+     address alone** (`GET /api/v3/core/users/me/` → 200).
+   - The guard, tested: an expression policy on the login binding (`evaluate_on_plan: false`,
+     `re_evaluate_policies: true`):
+     ```python
+     return bool(request.context.get("is_restored")) or request.context.get("auth_method") == "auth_mfa"
+     ```
+   - Result: with the guard and the trust policies broken again, both users ended with no
+     session. With the policies working, the link path and the trusted path still signed in.
+   - For the build, the guard should also require `auth_mfa` on the link path for admins and
+     enrolled users. Without that, a marker stage that skipped itself would let them in on
+     the link alone.
+   - The API should refuse a code-path completion without `mfa` set, as it already does for
+     admins.
+2. **Double code prompt.**
+   - What happened: on the link path, the marker stage set its cookie, and the redirect that
+     followed carried it, so the trusted-path stage's policy saw a valid mark and asked for a
+     second code.
+   - Fix: `not request.context.get("is_restored")`. A plan restored from an email link
+     carries `is_restored`; a trusted sign-in never does.
+3. **Live sign-in link in the worker log.** When an SMTP send fails, Authentik's worker logs
+   the whole `send_mail` call at error level. The line includes the recipient and the
+   rendered message with the live `…/auth/finish#token=…` link: all 50 lines sampled in the
+   throwaway did (checked by count, not printed). The Instance's worker log has 0 such lines
+   today. This is not L6 work; it is a candidate for the backlog (Authentik's logs, the relay
+   failing).
+4. **The validate challenge carries the address.** It has `pending_user` (the address) and
+   `pending_user_avatar`. The API must keep forwarding only `MfaRequired`, as it does now.
+5. **The threshold has no upper bound.** The blueprint must set `last_auth_threshold:
+   days=30` on the marker stage, and `verify_blueprint.py` should assert it.
+
+### Configuration for option C
+
+Changes to the `ask-spore-sign-in-link` blueprint:
+- **Email binding (20):** `evaluate_on_plan: false`, `re_evaluate_policies: true`, policy "not
+  trusted".
+- **`ask-spore-admin-mfa` (25) becomes the link-path marker:**
+  - `last_auth_threshold: days=30`;
+  - setup stage unchanged, "not configured: configure";
+  - policy: not trusted, and the user is a tenant admin or has a TOTP device. Non-admins
+    without a device keep the link alone, as today.
+- **New code stage `ask-spore-sign-in-code` (26):** validate, TOTP, `last_auth_threshold:
+  seconds=0`, "not configured: deny". Policy: trusted and not `is_restored`.
+- **Login binding (30):** the guard from finding 1.
+- **The trust check** is written once as a policy (`ask-spore-trusted-browser`) and called
+  from the others with `ak_call_policy(...)`. The helper exists in this version, but this
+  sharing was not tested; the probe repeated the code in each policy.
+- **Role `ask-spore-provisioner`:** add `view_totpdevice` and `delete_totpdevice`.
+- **CI:** the `authentik-blueprint` job runs the four cases, the guard case and the reset case
+  on every Authentik version bump.
+
+### API changes beyond the spec
+
+1. **Carry the mark.** The browser never talks to Authentik, and every call runs in a fresh
+   jar, so Authentik's mark would be lost. After a link + code sign-in completes, the API:
+   - copies `authentik_mfa` from the jar into its own sealed cookie (AEAD, `HttpOnly`,
+     `Secure`, `SameSite=Strict`, max-age = the mark's remaining life, never extended);
+   - records a server-side row (`tenant_id`, user, a hash of the mark, `expires_at`; RLS and
+     a `tenant_id`-first index).
+   - On the next sign-in start, it puts the mark in the jar only when the row matches the
+     typed address's user.
+   - It never puts the mark in the redemption or `answer_mfa` jars of the link path (a test
+     covers this).
+2. **New request shape.** "Start sign-in" returns either "check your email" (as today, a
+   background task) or `MfaRequired(stage="validate")` with a resume whose query is empty;
+   `answer_mfa` takes that resume. The sign-in page gets a code step after the email step.
+3. **The API's lockout** (address and network) sits in front of Authentik's back-off, with
+   `auth.lockout`.
+4. **Operator reset:**
+   - the two Authentik calls above;
+   - delete the server-side rows;
+   - write `auth.mfa_reset`.
+   - Disabling a user also deletes their rows.
+5. **The cookie row** of the privacy notice gets the trusted-browser cookie (up to 30 days),
+   as section 6 already notes.
+
+### Not determined
+
+- **A real browser end to end.** The relay of point 1 is not built, so the sealed cookie
+  round trip was not exercised. The probe held Authentik's cookie in a client jar, as the
+  API would.
+- **`ak_call_policy` sharing** of the trust check.
+- **Timing on the Instance** under real load and with the real SMTP relay. The figures
+  above come from an idle throwaway on the same host.
+- **The exact counting of the back-off** (see (c)).
+- **Whether the trust policy survives the next Authentik release.** It depends on
+  `get_unique_identifier`, the cookie name and the key derivation, all private, hence the CI
+  job.
+
+### Clean-up
+
+- **Throwaway objects.** All 17 probe objects were deleted through the API: 3 flows,
+  6 stages, 4 policies, 3 users and 1 group. A recount returned zero flows, stages, policies,
+  users, groups and roles matching the prefix, zero TOTP devices and zero flow tokens.
+- **Throwaway instance.** The reset service account and its role were deleted in the same
+  run. Then the three containers, their volume and the network were removed. Afterwards
+  `docker ps -a`, `docker network ls` and `docker volume inspect` found nothing.
+- **Production.** A read-only query on the Instance's Authentik (`ak shell` in the worker)
+  found 0 flows, stages, policies, groups or roles with the prefix and 0 users starting
+  with `probe-`. The flow `ask-spore-sign-in-link`, its stages and bindings, every real user
+  and every device on the Instance were not touched. No email was sent.

@@ -45,3 +45,16 @@ footer {
   font-size: 0.875rem;
   margin-top: 3rem;
 }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 0.9375rem;
+}
+th,
+td {
+  border: 1px solid var(--muted);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}

@@ -1,13 +1,13 @@
-# AI Transparency Note — Draft
+# AI Transparency Note
 
-**DRAFT for owner and counsel review, Oct 21, 2026**
+**Version 1. Approved by counsel, Oct 26, 2026 (owner's report). Served at /legal once `ASKSPORE_LEGAL=published`.**
 
 | | |
 | --- | --- |
-| Status | **DRAFT** |
+| Status | **APPROVED by counsel, Oct 26, 2026** (version 1) |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [link to privacy notice], [date] |
+| Placeholders | none (filled in by the owner, Oct 26, 2026) |
 | Revision | Oct 22, 2026, **DRAFT**: one clause in step 1 of "How an answer is made" for organisations that supply documents (P1b-19 step 1, architecture §15); drop it for the test client |
 | To finalise, the owner must | (1) fill in the placeholders; (2) confirm the model list matches the catalogue at publication (`config/models.toml`); (3) remove the external-models paragraph's "not enabled" sentence once a tenant is enabled; (4) link this note from the in-app AI notice and the consent gate (P1b-10); (5) have counsel check it against EU AI Act Art. 50 (ai-act-technical-documentation.md §3). |
 
@@ -21,7 +21,7 @@ Plain text below the line is the note shown to users.
 
 ### How an answer is made
 
-1. Your question is used to search a curated library of published reports, public websites and our own analysis [*DRAFT, Oct 22, 2026, only where it applies:* and documents your organisation supplied]. The library depends on the workspace you chose.
+1. Your question is used to search a curated library of published reports, public websites and our own analysis and documents your organisation supplied, if any. The library depends on the workspace you chose.
 2. The most relevant passages, your question and the recent turns of the conversation go to the AI model.
 3. The model writes an answer and cites the passages it used. Click a citation to see the publisher, title, date and page, and the excerpt.
 
@@ -47,6 +47,6 @@ Some models can "reason" before answering. If you switch reasoning on, the answe
 - **We do not use your questions or conversations to train or improve any model.**
 - Conversations are kept for 30 days at most, or less if your organisation set a shorter period. You can delete a conversation at any time.
 
-More in our privacy notice: [link to privacy notice]. Questions: privacyanddata@myceliumgastronomy.com.
+More in our privacy notice: [privacy notice](/legal/privacy). Questions: privacyanddata@myceliumgastronomy.com.
 
-Estefania Simon-Sasyk y Otro CB · Last updated [date]
+Estefania Simon-Sasyk y Otro CB · Version 1, last updated 22 October 2026

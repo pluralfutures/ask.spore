@@ -249,6 +249,7 @@ Signed for Estefania Simon-Sasyk y Otro CB: name [ ], title [ ], date [ ]
 
 ## Notes for the owner (delete before sending)
 
+0. **Users read the Terms of Use, not this MSA** (owner, Oct 26, 2026, P2A-L2): `terms-of-use.md` restates §1, §3.2–3.4, §4, §5, §6, §8, §9.2 and §10 for users and is served at `/legal/terms`. Change the two together.
 1. **Self-serve terms vs MSA.** This draft is written as an MSA with an order form for business customers. Users still accept the privacy and use notice at first sign-in (P1b-10); counsel to confirm that the click-through notice does not need to repeat these terms.
 2. **Export window** (§13.3): the export is a manual job today; no export feature is built. Confirm the [10] working days is realistic, and whether to offer it at all given the 30-day retention.
 3. **Availability** (§7.2): one Instance, owner-run backups, no monitoring stack (backlog). Do not promise a numeric SLA with credits until the two-host deployment.

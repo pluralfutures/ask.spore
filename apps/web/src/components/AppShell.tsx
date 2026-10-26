@@ -8,11 +8,13 @@ import { cx } from "../ui/controlClass";
 import { Menu } from "../ui/Menu";
 import { mustAccept } from "../lib/consent";
 import { AiNotice } from "./AiNotice";
+import { AppFooter } from "./AppFooter";
 import { ProductName } from "./ProductName";
 
 // UX-10 (design/ux/design-direction.md, "App shell"): every page is a banner landmark
 // holding the AI notice (its first element, unchanged), the skip link and, signed in, the
-// top bar; then the page's one <main>. #root lays them out (index.css).
+// top bar; then the page's one <main>, then the footer with the Legal link (P2A-L1).
+// #root lays them out (index.css).
 
 export const MAIN_ID = "main";
 // UX-24: where a page has the conversation rail, "Skip to content" skips it too and lands
@@ -46,6 +48,7 @@ export function Shell({ topBar, children }: { topBar?: ReactNode; children: Reac
         {topBar ?? <SkipLink />}
       </div>
       <Main>{children}</Main>
+      <AppFooter />
     </>
   );
 }
@@ -78,7 +81,8 @@ export function TopBar({ onSignOut }: { onSignOut?: () => void }) {
   const { pathname } = useLocation();
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
   const content = useQuery({ queryKey: ["content", "me"], queryFn: contentApi.me });
-  // The consent page itself shows no links at all (UX-03 contract), not even this nav.
+  // The consent page shows no navigation (UX-03 contract), not even this nav; its only link
+  // is the footer's Legal link (P2A-L1, owner decision Oct 26, 2026).
   const gated = me.data?.consent_required === true;
   const onGate = mustAccept(me.data, pathname);
   const items: NavItem[] = [];

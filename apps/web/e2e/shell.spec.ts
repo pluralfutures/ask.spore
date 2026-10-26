@@ -17,6 +17,12 @@ for (const s of SCENARIOS) {
     await openScenario(page, s);
     await expect(page.getByRole("main")).toHaveCount(1);
     await expect(page.locator("#root > [role=banner] > :first-child")).toHaveRole("note");
+    // P2A-L1: the Legal link is the last landmark, after the page.
+    const footer = page.getByRole("contentinfo");
+    await expect(footer).toHaveCount(1);
+    await expect(footer.getByRole("link")).toHaveCount(1);
+    await expect(footer.getByRole("link", { name: "Legal" })).toHaveAttribute("href", "/legal");
+    await expect(page.locator("#root > :last-child")).toHaveRole("contentinfo");
   });
 }
 

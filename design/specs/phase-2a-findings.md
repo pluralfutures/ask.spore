@@ -826,7 +826,13 @@ error: hc-v1-025 `llm_timeout` (Scaleway's answer model gave no response within 
 Answered 50, unsupported 9, errors 1. hc-v1-055 and hc-v1-058 answered, the known limits
 of decision 12 (Phase 1c §5.4).
 
-**Guardrail eval: no result yet.** Two runs (21:06:46 and 21:18:11) each ended on one
-`llm_timeout` (the second after 108 s of calls): the guardrail harness stops at the first
-error instead of recording it per item, as eval set v1 does. To be run again; the backlog
-gains the per-item error handling.
+**Guardrail eval.** Four runs (Oct 25 21:06:46, 21:18:11, 21:53:40; Oct 26 08:42:40) each
+ended on one `llm_timeout` after 86 to 108 s of calls: Scaleway's `deepseek-v4.1-flash`
+left about one call in 30 to 60 unopened within the 60 s timeout, and the guardrail harness
+(unchanged since Phase 1c, one call at a time) stops at the first error of its about 400
+calls. The live chat falls back to the backup provider on such a timeout (P1b-17); every
+drill answer arrived.
+
+| # | Item | Fix | Why |
+| --- | --- | --- | --- |
+| F-2 | P1a-08 guardrail eval | `RetryingAnswerer` (`packages/eval/eval/guardrails.py`): a call the provider does not open within its timeout is tried again, at most twice; only `llm_timeout`, any other error ends the run as before; the count is in `results.json` (`meta.timeout_retries`) and `summary.md`. Tests: a third timeout in a row still fails, another error is not retried, a timed-out call is retried and counted. | Four runs could not finish. A retry answers the same prompt, so no score changes; a stall mid-stream (none seen) still ends the run. |

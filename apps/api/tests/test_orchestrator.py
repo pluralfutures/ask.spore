@@ -561,3 +561,77 @@ async def test_source_in_two_datasets_is_cited_once(
     assert text_of(events) == "Doubled [1]."
     citations = citations_of(events).citations
     assert [(c.source_id, c.chunk_id) for c in citations] == [(str(source_id), "c-1")]
+
+
+async def test_history_cap_counts_tokens_with_the_tokenizer(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    # P1b-15 f: 10 + 12 = 22 tokens fit a cap of 25; at 4 characters per token they
+    # would count 15 + 18 = 33 and the older turn would be dropped.
+    from dataclasses import replace
+
+    from app.core.db import tenant_session
+
+    for role, content, outcome in (
+        ("user", " apple" * 10, None),
+        ("assistant", " stone" * 12, "answered"),
+    ):
+        await world.admin.execute(
+            "INSERT INTO messages (tenant_id, conversation_id, role, content, outcome) "
+            "VALUES ($1, $2, $3, $4, $5)",
+            INTERNAL_TENANT_ID,
+            world.conversation_id,
+            role,
+            content,
+            outcome,
+        )
+    chat = settings.models.chat.model_copy(update={"history_max_tokens": 25})
+    capped = replace(settings, models=settings.models.model_copy(update={"chat": chat}))
+    orch = orchestrator(capped, engine, FakeRetriever([]), Recorder())
+    async with tenant_session(session_factory(engine), INTERNAL_TENANT_ID) as session:
+        turns = await orch._history(session, world.conversation_id)
+    assert [t.role for t in turns] == ["user", "assistant"]
+
+    chat = settings.models.chat.model_copy(update={"history_max_tokens": 21})
+    tighter = replace(settings, models=settings.models.model_copy(update={"chat": chat}))
+    orch = orchestrator(tighter, engine, FakeRetriever([]), Recorder())
+    async with tenant_session(session_factory(engine), INTERNAL_TENANT_ID) as session:
+        turns = await orch._history(session, world.conversation_id)
+    assert [t.role for t in turns] == ["assistant"]  # newest first within the cap
+
+
+# --- P2A-02: a paused source never reaches the prompt -----------------------------------
+
+
+async def test_a_paused_sources_chunk_never_reaches_the_prompt(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    (doc_a, doc_b) = list(world.sources)
+    paused = world.sources[doc_a]
+    await world.admin.execute(
+        "UPDATE sources SET status = 'paused', paused_at = now(), paused_by = gen_random_uuid(), "
+        "pause_reason = 'synthetic' WHERE id = $1",
+        paused,
+    )
+    try:
+        # The retriever still returns the paused source's chunk, as RAGFlow would if the
+        # toggle had not reached it: select_context drops it, as it has no provenance.
+        retriever = FakeRetriever(chunks_for(world))
+        recorder = Recorder(sse(delta("A slowdown [1]."), delta("", USAGE)))
+        events = await run(orchestrator(settings, engine, retriever, recorder), world, "Q?")
+        prompt = json.dumps(recorder.bodies())
+        assert "Synthetic capacity grew by 12 percent" not in prompt
+        assert "Our synthetic deck expects a slowdown" in prompt
+        assert [str(c.source_id) for c in citations_of(events).citations] == [
+            str(world.sources[doc_b])
+        ]
+        stored = await world.admin.fetch(
+            "SELECT source_id FROM citations WHERE message_id = $1", done_of(events).message_id
+        )
+        assert paused not in [r["source_id"] for r in stored]
+    finally:
+        await world.admin.execute(
+            "UPDATE sources SET status = 'ingested', paused_at = NULL, paused_by = NULL, "
+            "pause_reason = NULL WHERE id = $1",
+            paused,
+        )

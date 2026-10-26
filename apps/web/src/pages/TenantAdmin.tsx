@@ -1,21 +1,57 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState, type FormEvent, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 
 import { ApiError, adminApi, api } from "../api/client";
-import type { AdminUser, LoginPolicyOut, Me, ModelOption, Workspace } from "../api/types";
+import type {
+  AdminUser,
+  LoginPolicyOut,
+  Me,
+  ModelOption,
+  SupportGrant,
+  UsageOut,
+  Workspace,
+} from "../api/types";
 import {
   MAX_INSTRUCTIONS_CHARS,
   MAX_RETENTION_DAYS,
   adminRefusal,
+  consentStatus,
+  defaultAuditPeriod,
   isTenantAdmin,
   lastLogin,
   parseRetention,
+  retentionSummary,
   userActions,
+  usersHeading,
 } from "../lib/admin";
-import { formatDate } from "../lib/format";
-import { policySummary } from "../lib/sso";
+import { UserActions } from "../components/UserActions";
+import { formatDate, formatDateTime } from "../lib/format";
+import { count, euros } from "../lib/spend";
+import {
+  DEFAULT_SUPPORT_MINUTES,
+  MAX_SUPPORT_NOTE,
+  SUPPORT_DURATIONS,
+  SUPPORT_STATE_LABELS,
+  canRevoke,
+  durationLabel,
+  grantRefusal,
+  grantScope,
+  viewsLabel,
+} from "../lib/support";
+import { USAGE_MODE_LABELS, usageDays, usageModes, usageTotals } from "../lib/usage";
+import { POLICY_ROWS, policySummary } from "../lib/sso";
 import { modelLabel } from "../lib/startPanel";
+import { Button } from "../ui/Button";
+import { Field } from "../ui/Field";
+import { Input, Select, Textarea } from "../ui/Input";
+import { Switch } from "../ui/Switch";
+import { Notice } from "../ui/Notice";
+import { AccessDenied, PageSkeleton } from "../ui/States";
+import { Card } from "../ui/Card";
+import { PageHeader } from "../ui/PageHeader";
+import { StatusBadge } from "../ui/Badge";
+import { ActionsTh, Table, Td, Th } from "../ui/Table";
+import { Disclosure } from "../ui/Disclosure";
 
 function refusal(error: unknown): string | null {
   if (error === null || error === undefined) return null;
@@ -30,7 +66,7 @@ const MODE_LABELS: Record<string, string> = {
 // Only tenant admins see the pages; the API refuses everyone else anyway (403).
 export function AdminGate({ me, children }: { me: Me | null | undefined; children: ReactNode }) {
   if (!isTenantAdmin(me)) {
-    return <main className="mx-auto max-w-3xl p-4 text-sm">Tenant admins only.</main>;
+    return <AccessDenied>Tenant admins only.</AccessDenied>;
   }
   return <>{children}</>;
 }
@@ -38,47 +74,124 @@ export function AdminGate({ me, children }: { me: Me | null | undefined; childre
 // Tenant admin pages (P1a-13): users, workspaces (instructions and defaults), retention.
 export function TenantAdmin() {
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
-  if (me.isPending) return <main className="mx-auto max-w-3xl p-4">Loading…</main>;
+  if (me.isPending) return <PageSkeleton />;
   return (
     <AdminGate me={me.data}>
-      <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
-        <Link to="/" className="text-sm underline">
-          ← Conversations
-        </Link>
-        <h1 className="text-xl font-semibold">Administration</h1>
-        <Users selfEmail={me.data?.email} />
-        <Workspaces />
-        <Retention />
-        <SignInPolicy />
-      </main>
+      <div className="mx-auto flex w-full max-w-[70rem] flex-col gap-6 p-4 md:px-8 md:py-6">
+        <PageHeader back={{ to: "/", label: "← Conversations" }} title="Administration" />
+        {/* UX-18 (mockup 3): a section sub-nav beside the cards from 1024 px, above them
+            on smaller screens. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[12rem_minmax(0,1fr)]">
+          <SectionNav />
+          <div className="flex min-w-0 flex-col gap-6">
+            <Users selfEmail={me.data?.email} />
+            <Usage />
+            <Workspaces />
+            <Retention />
+            <SignInPolicy />
+            <SupportAccess />
+            <AuditLog />
+          </div>
+        </div>
+      </div>
     </AdminGate>
+  );
+}
+
+// The page's sections, in page order, with the headings they link to.
+const SECTIONS = [
+  ["users", "Users"],
+  ["usage", "Usage"],
+  ["workspaces", "Workspaces"],
+  ["retention", "Chat history retention"],
+  ["sign-in", "Sign-in"],
+  ["support", "Support access"],
+  ["audit", "Audit log"],
+] as const;
+const SECTION_CARD = "scroll-mt-4 text-ui";
+
+function SectionNav() {
+  const [current, setCurrent] = useState(() => {
+    const hash = typeof window === "undefined" ? "" : window.location.hash.slice(1);
+    return SECTIONS.some(([id]) => id === hash) ? hash : "users";
+  });
+  return (
+    <nav aria-label="Administration sections" className="lg:sticky lg:top-4 lg:self-start">
+      <ul className="flex w-0 min-w-full gap-1 overflow-x-auto lg:w-auto lg:flex-col">
+        {SECTIONS.map(([id, label]) => (
+          <li key={id} className="shrink-0">
+            <a
+              href={`#${id}`}
+              aria-current={current === id ? "true" : undefined}
+              onClick={() => setCurrent(id)}
+              className="flex min-h-9 items-center rounded-control px-3 text-ui whitespace-nowrap text-fg-secondary hover:bg-surface-subtle aria-[current=true]:bg-info-subtle aria-[current=true]:font-strong aria-[current=true]:text-info max-sm:min-h-11"
+            >
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 
 function Users({ selfEmail }: { selfEmail: string | undefined }) {
   const queryClient = useQueryClient();
   const users = useQuery({ queryKey: ["admin", "users"], queryFn: adminApi.users });
+  // P2A-06: the active notice version, named in the heading (the consent gate's query).
+  const notice = useQuery({ queryKey: ["consent"], queryFn: api.consent });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
   const change = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Parameters<typeof adminApi.changeUser>[1] }) =>
       adminApi.changeUser(id, body),
     onSuccess: refresh,
   });
+  // P1c-07: resend an invitation; remove a user.
+  const [done, setDone] = useState<string | null>(null);
+  const [inviteForm, setInviteForm] = useState(0);
+  const resend = useMutation({
+    mutationFn: (user: AdminUser) => adminApi.resendInvitation(user.id),
+    onSuccess: (_, user) => setDone(`Invitation sent again to ${user.email}.`),
+  });
+  const remove = useMutation({
+    mutationFn: (user: AdminUser) => adminApi.removeUser(user.id),
+    onSuccess: async (_, user) => {
+      setDone(`${user.email} was removed with their conversations.`);
+      await refresh();
+    },
+  });
+  const failed = refusal(change.error) ?? refusal(resend.error) ?? refusal(remove.error);
 
   return (
-    <section className="flex flex-col gap-2 rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">Users</h2>
-      <Invite onInvited={refresh} />
-      {refusal(change.error) ? <p className="text-red-700">{refusal(change.error)}</p> : null}
-      <table className="w-full text-left">
+    <Card id="users" title={usersHeading(notice.data?.version)} className={SECTION_CARD}>
+      {/* Release F4: each action shows its own outcome only. An invite clears the list's
+          last status; a resend or removal remounts the form, clearing its last refusal. */}
+      <Invite
+        key={inviteForm}
+        onInvited={refresh}
+        onStart={() => {
+          setDone(null);
+          resend.reset();
+          remove.reset();
+          change.reset();
+        }}
+      />
+      {failed ? <Notice tone="danger">{failed}</Notice> : null}
+      {done && !failed ? (
+        <Notice tone="success" role="status">
+          {done}
+        </Notice>
+      ) : null}
+      <Table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Last login</th>
-            <th />
+            <Th>Name</Th>
+            <Th>Email</Th>
+            <Th>Role</Th>
+            <Th>Status</Th>
+            <Th>Last login</Th>
+            <Th>Notice</Th>
+            <ActionsTh />
           </tr>
         </thead>
         <tbody>
@@ -88,11 +201,24 @@ function Users({ selfEmail }: { selfEmail: string | undefined }) {
               user={user}
               selfEmail={selfEmail}
               onChange={(body) => change.mutate({ id: user.id, body })}
+              onResend={() => {
+                setDone(null);
+                setInviteForm((n) => n + 1);
+                remove.reset();
+                resend.mutate(user);
+              }}
+              onRemove={() => {
+                setDone(null);
+                setInviteForm((n) => n + 1);
+                resend.reset();
+                remove.mutate(user);
+              }}
+              busy={resend.isPending || remove.isPending}
             />
           ))}
         </tbody>
-      </table>
-    </section>
+      </Table>
+    </Card>
   );
 }
 
@@ -100,59 +226,78 @@ function UserRow({
   user,
   selfEmail,
   onChange,
+  onResend,
+  onRemove,
+  busy,
 }: {
   user: AdminUser;
   selfEmail: string | undefined;
   onChange: (body: { role?: "user" | "tenant_admin"; status?: "active" | "deactivated" }) => void;
+  onResend: () => void;
+  onRemove: () => void;
+  busy: boolean;
 }) {
   const actions = userActions(user, selfEmail);
   return (
     <tr data-testid={`user-${user.email}`}>
-      <td>{user.display_name}</td>
-      <td>{user.email}</td>
-      <td>
+      <Td label="Name" className="[overflow-wrap:anywhere] sm:min-w-32">
+        {user.display_name}
+      </Td>
+      <Td label="Email" className="[overflow-wrap:anywhere] sm:min-w-48">
+        {user.email}
+      </Td>
+      <Td label="Role">
         {actions.canChangeRole ? (
-          <select
+          <Select
             aria-label={`Role of ${user.email}`}
             value={user.role}
             onChange={(e) => onChange({ role: e.target.value as "user" | "tenant_admin" })}
           >
             <option value="user">User</option>
             <option value="tenant_admin">Admin</option>
-          </select>
+          </Select>
         ) : user.role === "tenant_admin" ? (
           "Admin"
         ) : (
           "User"
         )}
-      </td>
-      <td>{user.status}</td>
-      <td>{lastLogin(user)}</td>
-      <td>
-        {actions.canDeactivate ? (
-          <button
-            type="button"
-            className="underline"
-            onClick={() => onChange({ status: "deactivated" })}
-          >
-            Deactivate
-          </button>
-        ) : null}
-        {actions.canReactivate ? (
-          <button
-            type="button"
-            className="underline"
-            onClick={() => onChange({ status: "active" })}
-          >
-            Reactivate
-          </button>
-        ) : null}
-      </td>
+      </Td>
+      <Td label="Status">
+        <StatusBadge kind="user" status={user.status} />
+      </Td>
+      <Td label="Last login" className="sm:min-w-32">
+        {lastLogin(user)}
+      </Td>
+      <Td label="Notice" className="sm:min-w-32">
+        {user.consent_current ? (
+          consentStatus(user)
+        ) : (
+          <span className="text-warning">{consentStatus(user)}</span>
+        )}
+      </Td>
+      <Td className="text-right">
+        <UserActions
+          before={[
+            ...(actions.canDeactivate
+              ? [{ label: "Deactivate", onSelect: () => onChange({ status: "deactivated" }) }]
+              : []),
+            ...(actions.canReactivate
+              ? [{ label: "Reactivate", onSelect: () => onChange({ status: "active" }) }]
+              : []),
+          ]}
+          user={user}
+          canResend={actions.canResend}
+          canRemove={actions.canRemove}
+          onResend={onResend}
+          onRemove={onRemove}
+          busy={busy}
+        />
+      </Td>
     </tr>
   );
 }
 
-function Invite({ onInvited }: { onInvited: () => void }) {
+function Invite({ onInvited, onStart }: { onInvited: () => void; onStart: () => void }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<"user" | "tenant_admin">("user");
@@ -167,48 +312,40 @@ function Invite({ onInvited }: { onInvited: () => void }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    onStart();
     invite.mutate({ email: email.trim(), display_name: name.trim(), role });
   }
 
   return (
     <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
-      <label className="flex flex-col">
-        Email
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="rounded border px-2"
-        />
-      </label>
-      <label className="flex flex-col">
-        Name
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="rounded border px-2"
-        />
-      </label>
-      <label className="flex flex-col">
-        Role
-        <select value={role} onChange={(e) => setRole(e.target.value as "user" | "tenant_admin")}>
+      <Field label="Email">
+        <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+      </Field>
+      <Field label="Name">
+        <Input value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="Role">
+        <Select value={role} onChange={(e) => setRole(e.target.value as "user" | "tenant_admin")}>
           <option value="user">User</option>
           <option value="tenant_admin">Admin</option>
-        </select>
-      </label>
-      <button
+        </Select>
+      </Field>
+      <Button
+        variant="primary"
         type="submit"
         disabled={invite.isPending || !email.trim() || !name.trim()}
-        className="rounded bg-slate-900 px-3 py-1 text-white disabled:opacity-50"
       >
         Invite
-      </button>
+      </Button>
       {invite.isSuccess ? (
-        <p className="w-full text-slate-600">
+        <p className="w-full text-fg-muted">
           Invited. They sign in by requesting a link on the sign-in page.
         </p>
       ) : null}
       {refusal(invite.error) ? (
-        <p className="w-full text-red-700">{refusal(invite.error)}</p>
+        <Notice tone="danger" className="w-full">
+          {refusal(invite.error)}
+        </Notice>
       ) : null}
     </form>
   );
@@ -219,8 +356,8 @@ function Workspaces() {
   const models = useQuery({ queryKey: ["models"], queryFn: api.models });
   const settings = useQuery({ queryKey: ["admin", "settings"], queryFn: adminApi.settings });
   return (
-    <section className="flex flex-col gap-3 text-sm">
-      <h2 className="font-semibold">Workspaces</h2>
+    <section id="workspaces" className={`flex flex-col gap-3 ${SECTION_CARD}`}>
+      <h2 className="text-heading font-strong">Workspaces</h2>
       {workspaces.data && models.data && settings.data
         ? workspaces.data.map((w) => (
             <WorkspacePanel
@@ -245,14 +382,10 @@ function WorkspacePanel({
   modes: string[];
 }) {
   return (
-    <div
-      className="flex flex-col gap-3 rounded bg-white p-3"
-      data-testid={`workspace-${workspace.slug}`}
-    >
-      <h3 className="font-semibold">{workspace.name}</h3>
+    <Card title={workspace.name} level={3} group data-testid={`workspace-${workspace.slug}`}>
       <Defaults workspace={workspace} models={models} modes={modes} />
       <Instructions workspace={workspace} />
-    </div>
+    </Card>
   );
 }
 
@@ -288,19 +421,17 @@ function Defaults({
       }}
       className="flex flex-wrap items-end gap-2"
     >
-      <label className="flex flex-col">
-        Default mode
-        <select value={mode} onChange={(e) => setMode(e.target.value)}>
+      <Field label="Default mode">
+        <Select value={mode} onChange={(e) => setMode(e.target.value)}>
           {modes.map((m) => (
             <option key={m} value={m}>
               {MODE_LABELS[m] ?? m}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="flex flex-col">
-        Default model
-        <select
+        </Select>
+      </Field>
+      <Field label="Default model">
+        <Select
           value={model}
           onChange={(e) => {
             setModel(e.target.value);
@@ -313,26 +444,24 @@ function Defaults({
               {modelLabel(m)}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="flex items-center gap-1">
-        <input
-          type="checkbox"
-          checked={reasoning}
-          disabled={!switchable}
-          onChange={(e) => setReasoning(e.target.checked)}
-        />
-        Reasoning by default
-      </label>
-      <button
-        type="submit"
-        disabled={save.isPending}
-        className="rounded bg-slate-900 px-3 py-1 text-white"
+        </Select>
+      </Field>
+      <Switch
+        checked={reasoning}
+        disabled={!switchable}
+        onChange={(e) => setReasoning(e.target.checked)}
       >
+        Reasoning by default
+      </Switch>
+      <Button variant="primary" type="submit" disabled={save.isPending}>
         Save defaults
-      </button>
-      {save.isSuccess ? <span className="text-slate-600">Saved.</span> : null}
-      {refusal(save.error) ? <p className="w-full text-red-700">{refusal(save.error)}</p> : null}
+      </Button>
+      {save.isSuccess ? <span className="text-fg-muted">Saved.</span> : null}
+      {refusal(save.error) ? (
+        <Notice tone="danger" className="w-full">
+          {refusal(save.error)}
+        </Notice>
+      ) : null}
     </form>
   );
 }
@@ -342,46 +471,59 @@ function Instructions({ workspace }: { workspace: Workspace }) {
   const key = ["admin", "prompts", workspace.id];
   const history = useQuery({ queryKey: key, queryFn: () => adminApi.prompts(workspace.id) });
   const [draft, setDraft] = useState<string | null>(null);
+  // P1c-11: the version the last save created, shown once the save has fully landed
+  // (history reloaded, draft settled); the end of a save is visible, not inferred.
+  const [savedVersion, setSavedVersion] = useState<number | null>(null);
   const text = draft ?? history.data?.[0]?.text ?? "";
   const save = useMutation({
-    mutationFn: () => adminApi.savePrompt(workspace.id, text),
-    onSuccess: async () => {
-      setDraft(null);
+    mutationFn: (saved: string) => adminApi.savePrompt(workspace.id, saved),
+    // The draft stays until the reloaded history holds the saved version (so the field
+    // never shows the previous one in between), and is cleared only if it is still the
+    // text that was saved: an edit typed while the save ran is kept (P1b-13 f).
+    onSuccess: async (result, saved) => {
       await queryClient.invalidateQueries({ queryKey: key });
+      setDraft((current) => (current === saved ? null : current));
+      setSavedVersion(result.version);
     },
   });
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={`instructions-${workspace.id}`} className="font-medium">
+      <label htmlFor={`instructions-${workspace.id}`} className="font-emphasis">
         Additional instructions
       </label>
-      <p className="text-slate-600">
+      <p className="text-fg-muted">
         Added to the assistant&apos;s instructions for this workspace. They cannot change how it
         cites sources or when it declines to answer.
       </p>
-      <textarea
+      <Textarea
         id={`instructions-${workspace.id}`}
         value={text}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setSavedVersion(null);
+        }}
         maxLength={MAX_INSTRUCTIONS_CHARS}
         rows={4}
-        className="rounded border px-2 py-1"
       />
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => save.mutate()}
+        <Button
+          variant="primary"
+          onClick={() => save.mutate(text)}
           disabled={save.isPending || draft === null}
-          className="rounded bg-slate-900 px-3 py-1 text-white disabled:opacity-50"
         >
           Save as new version
-        </button>
-        <span className="text-slate-600">
+        </Button>
+        <span className="text-fg-muted">
           {text.length} / {MAX_INSTRUCTIONS_CHARS}
         </span>
+        {savedVersion !== null && !save.isPending ? (
+          <span role="status" className="text-fg-muted">
+            Saved as version {savedVersion}.
+          </span>
+        ) : null}
       </div>
-      {refusal(save.error) ? <p className="text-red-700">{refusal(save.error)}</p> : null}
+      {refusal(save.error) ? <Notice tone="danger">{refusal(save.error)}</Notice> : null}
       <VersionHistory versions={history.data ?? []} />
     </div>
   );
@@ -393,21 +535,20 @@ export function VersionHistory({
 }: {
   versions: { version: number; text: string; created_at: string }[];
 }) {
-  if (versions.length === 0) return <p className="text-slate-600">No versions saved yet.</p>;
+  if (versions.length === 0) return <p className="text-fg-muted">No versions saved yet.</p>;
   return (
-    <details>
-      <summary>Version history ({versions.length})</summary>
+    <Disclosure summary={`Version history (${versions.length})`}>
       <ol className="flex flex-col gap-2">
         {versions.map((v) => (
           <li key={v.version} data-testid={`version-${v.version}`}>
-            <p className="font-medium">
+            <p className="font-emphasis">
               Version {v.version} · {formatDate(v.created_at)}
             </p>
-            <pre className="whitespace-pre-wrap text-slate-700">{v.text || "(empty)"}</pre>
+            <pre className="whitespace-pre-wrap text-fg-secondary">{v.text || "(empty)"}</pre>
           </li>
         ))}
       </ol>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -416,21 +557,26 @@ export function VersionHistory({
 function SignInPolicy() {
   const policy = useQuery({ queryKey: ["admin", "login-policy"], queryFn: adminApi.loginPolicy });
   return (
-    <section className="flex flex-col gap-2 rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">Sign-in</h2>
+    <Card id="sign-in" title="Sign-in" className={SECTION_CARD}>
       {policy.data ? <PolicySummary policy={policy.data} /> : null}
-      <p className="text-slate-600">To change single sign-on, contact the platform operator.</p>
-    </section>
+      <p className="text-fg-muted">To change single sign-on, contact the platform operator.</p>
+    </Card>
   );
 }
 
 export function PolicySummary({ policy }: { policy: LoginPolicyOut }) {
   return (
-    <dl className="grid grid-cols-[max-content_1fr] gap-x-3">
-      {policySummary(policy).map(([label, value]) => (
+    // UX-18: the SSO source's own settings (after the fixed rows) are configuration keys
+    // and values, shown in monospace.
+    <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1">
+      {policySummary(policy).map(([label, value], i) => (
         <Fragment key={label}>
-          <dt className="text-slate-600">{label}</dt>
-          <dd className="break-all">{value}</dd>
+          <dt className={i < POLICY_ROWS ? "text-fg-muted" : "font-mono text-meta text-fg-muted"}>
+            {label}
+          </dt>
+          <dd className={i < POLICY_ROWS ? "break-all" : "font-mono text-meta break-all"}>
+            {value}
+          </dd>
         </Fragment>
       ))}
     </dl>
@@ -463,34 +609,401 @@ function Retention() {
   }
 
   return (
-    <section className="rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">Chat history retention</h2>
-      <p className="text-slate-600">
+    <Card id="retention" title="Chat history retention" className={SECTION_CARD}>
+      <p className="text-fg-muted">
         Conversations are deleted after this many days, at most {MAX_RETENTION_DAYS}. Shortening it
-        also removes existing conversations older than the new limit.
+        also removes existing conversations older than the new limit. 0 keeps no history: each
+        conversation is deleted as soon as its answer ends.
       </p>
-      <form onSubmit={submit} noValidate className="mt-2 flex items-end gap-2">
-        <label className="flex flex-col">
-          Days
-          <input
+      {settings.data ? (
+        <p className="text-fg-muted" data-testid="retention-summary">
+          {retentionSummary(settings.data.retention_days)}
+        </p>
+      ) : null}
+      <form onSubmit={submit} noValidate className="mt-2 flex items-start gap-2">
+        <Field label="Days" error={error}>
+          <Input
             type="number"
-            min={1}
+            min={0}
             max={MAX_RETENTION_DAYS}
             value={current}
             onChange={(e) => setValue(e.target.value)}
-            className="w-20 rounded border px-2"
+            className="w-20"
           />
-        </label>
-        <button
-          type="submit"
-          disabled={save.isPending}
-          className="rounded bg-slate-900 px-3 py-1 text-white"
-        >
+        </Field>
+        {/* mt-6: level with the input, below the field's label */}
+        <Button variant="primary" type="submit" disabled={save.isPending} className="mt-6">
           Save retention
-        </button>
+        </Button>
       </form>
-      {error ? <p className="text-red-700">{error}</p> : null}
-      {refusal(save.error) ? <p className="text-red-700">{refusal(save.error)}</p> : null}
-    </section>
+      {refusal(save.error) ? <Notice tone="danger">{refusal(save.error)}</Notice> : null}
+    </Card>
+  );
+}
+
+// P1b-10 (architecture §7.2): the tenant's sign-in, admin, operator and consent events.
+// P2A-05 (architecture §7.2): counts only. No question text, no conversation and no
+// per-user figure reaches this page; the API does not send any.
+function Usage() {
+  const usage = useQuery({ queryKey: ["admin", "usage"], queryFn: adminApi.usage });
+  return (
+    <Card
+      id="usage"
+      title="Usage"
+      description="The last 30 days, in UTC. Counts only: no question text and no per-person figures."
+      className={SECTION_CARD}
+    >
+      {usage.isError ? <Notice tone="danger">{refusal(usage.error)}</Notice> : null}
+      {usage.data ? <UsageView usage={usage.data} /> : null}
+    </Card>
+  );
+}
+
+export function UsageView({ usage }: { usage: UsageOut }) {
+  const totals = usageTotals(usage);
+  const modes = usageModes(usage);
+  const days = usageDays(usage).reverse();
+  return (
+    <div className="flex flex-col gap-4">
+      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div>
+          <dt className="text-fg-muted">Questions</dt>
+          <dd className="text-heading font-strong">{count(totals.questions)}</dd>
+        </div>
+        {modes.map((mode) => (
+          <div key={mode}>
+            <dt className="text-fg-muted">{USAGE_MODE_LABELS[mode] ?? mode}</dt>
+            <dd className="text-heading font-strong">{count(totals.byMode[mode] ?? 0)}</dd>
+          </div>
+        ))}
+        <div>
+          <dt className="text-fg-muted">Most active users in a day</dt>
+          <dd className="text-heading font-strong">{count(totals.busiestDayUsers)}</dd>
+        </div>
+      </dl>
+      {totals.questions === 0 ? (
+        <p className="text-fg-muted">No questions in this period.</p>
+      ) : (
+        <Disclosure summary="Questions and active users per day">
+          <Table>
+            <thead>
+              <tr>
+                <Th>Day</Th>
+                {modes.map((mode) => (
+                  <Th key={mode}>{USAGE_MODE_LABELS[mode] ?? mode}</Th>
+                ))}
+                <Th>Active users</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {days.map((day) => (
+                <tr key={day.day}>
+                  <Td label="Day">{formatDate(day.day)}</Td>
+                  {modes.map((mode) => (
+                    <Td key={mode} label={USAGE_MODE_LABELS[mode] ?? mode}>
+                      {count(day.byMode[mode] ?? 0)}
+                    </Td>
+                  ))}
+                  <Td label="Active users">{count(day.users)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Disclosure>
+      )}
+      <div className="flex flex-col gap-2">
+        <h3 className="font-strong">Most cited sources</h3>
+        {usage.top_sources.length === 0 ? (
+          <p className="text-fg-muted">No cited sources in this period.</p>
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Title</Th>
+                <Th>Publisher</Th>
+                <Th>Answers citing it</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {usage.top_sources.map((source, index) => (
+                <tr key={`${index}-${source.title}`}>
+                  <Td label="Title" className="[overflow-wrap:anywhere]">
+                    {source.title}
+                  </Td>
+                  <Td label="Publisher">{source.publisher}</Td>
+                  <Td label="Answers citing it">{count(source.answers)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </div>
+      {usage.costs ? (
+        <div className="flex flex-col gap-2">
+          <h3 className="font-strong">{`Cost this month (${usage.cost_month ?? ""})`}</h3>
+          {usage.costs.length === 0 ? (
+            <p className="text-fg-muted">No model usage this month.</p>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Model</Th>
+                  <Th>Tokens in</Th>
+                  <Th>Tokens out</Th>
+                  <Th>Cost</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {usage.costs.map((row) => (
+                  <tr key={row.model}>
+                    <Td label="Model">
+                      {row.external ? `${row.display_name} (external)` : row.display_name}
+                    </Td>
+                    <Td label="Tokens in">{count(row.tokens_in)}</Td>
+                    <Td label="Tokens out">{count(row.tokens_out)}</Td>
+                    <Td label="Cost">{euros(row.cost_cents)}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// P2A-08 (architecture §7.4): the operators may read the settings, or one of the admin's
+// own conversations, only while a grant made here is open. Every read is listed here and
+// in the audit log; "Revoke now" ends the access at once.
+function SupportAccess() {
+  const queryClient = useQueryClient();
+  const grants = useQuery({ queryKey: ["admin", "support"], queryFn: adminApi.supportGrants });
+  const conversations = useQuery({
+    queryKey: ["conversations"],
+    queryFn: api.listConversations,
+  });
+  const [scope, setScope] = useState<"settings" | "conversation">("settings");
+  const [conversationId, setConversationId] = useState("");
+  const [minutes, setMinutes] = useState<number>(DEFAULT_SUPPORT_MINUTES);
+  const [note, setNote] = useState("");
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin", "support"] });
+  const grant = useMutation({
+    mutationFn: () =>
+      adminApi.grantSupport({
+        scope,
+        conversation_id: scope === "conversation" ? conversationId || null : null,
+        duration_minutes: minutes,
+        note,
+      }),
+    onSuccess: async () => {
+      setNote("");
+      await refresh();
+    },
+  });
+  const revoke = useMutation({
+    mutationFn: (grantId: string) => adminApi.revokeSupport(grantId),
+    onSuccess: refresh,
+  });
+  const failed = grant.error ?? revoke.error;
+  const code = failed instanceof ApiError ? failed.code : null;
+  return (
+    <Card
+      id="support"
+      title="Support access"
+      description="Let the platform operators read your settings or one of your conversations, for a limited time. They use their own account and cannot change anything."
+      className={SECTION_CARD}
+    >
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          revoke.reset();
+          grant.mutate();
+        }}
+      >
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="What they may read">
+            <Select
+              value={scope}
+              onChange={(e) => setScope(e.target.value as "settings" | "conversation")}
+            >
+              <option value="settings">Settings</option>
+              <option value="conversation">One of my conversations</option>
+            </Select>
+          </Field>
+          {scope === "conversation" ? (
+            <Field label="Conversation">
+              <Select value={conversationId} onChange={(e) => setConversationId(e.target.value)}>
+                <option value="">Choose…</option>
+                {conversations.data?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title || `Untitled, ${formatDate(c.created_at)}`}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
+          <Field label="For">
+            <Select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
+              {SUPPORT_DURATIONS.map((m) => (
+                <option key={m} value={m}>
+                  {durationLabel(m)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <Field label="Note for the operator" help="What should they look at? Up to 500 characters.">
+          <Textarea
+            value={note}
+            maxLength={MAX_SUPPORT_NOTE}
+            rows={2}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </Field>
+        <Button
+          type="submit"
+          variant="primary"
+          className="w-fit"
+          disabled={
+            grant.isPending || !note.trim() || (scope === "conversation" && !conversationId)
+          }
+        >
+          Grant access
+        </Button>
+      </form>
+      {failed ? <Notice tone="danger">{grantRefusal(code)}</Notice> : null}
+      {grants.data && grants.data.length > 0 ? (
+        <Table>
+          <thead>
+            <tr>
+              <Th>Access to</Th>
+              <Th>Granted</Th>
+              <Th>Until</Th>
+              <Th>State</Th>
+              <Th>Operator reads</Th>
+              <ActionsTh />
+            </tr>
+          </thead>
+          <tbody>
+            {grants.data.map((g) => (
+              <SupportGrantRow
+                key={g.id}
+                grant={g}
+                busy={revoke.isPending}
+                onRevoke={() => {
+                  grant.reset();
+                  revoke.mutate(g.id);
+                }}
+              />
+            ))}
+          </tbody>
+        </Table>
+      ) : (
+        <p className="text-fg-muted">No support access has been granted.</p>
+      )}
+    </Card>
+  );
+}
+
+export function SupportGrantRow({
+  grant,
+  busy,
+  onRevoke,
+}: {
+  grant: SupportGrant;
+  busy: boolean;
+  onRevoke: () => void;
+}) {
+  return (
+    <tr data-testid={`support-${grant.id}`}>
+      <Td label="Access to" className="[overflow-wrap:anywhere]">
+        {grantScope(grant)}
+      </Td>
+      <Td label="Granted">{formatDateTime(grant.created_at)}</Td>
+      <Td label="Until">{formatDateTime(grant.revoked_at ?? grant.expires_at)}</Td>
+      <Td label="State">{SUPPORT_STATE_LABELS[grant.state]}</Td>
+      <Td label="Operator reads">
+        {grant.last_viewed_at
+          ? `${viewsLabel(grant)}, last ${formatDateTime(grant.last_viewed_at)}`
+          : viewsLabel(grant)}
+      </Td>
+      <Td className="text-right">
+        {canRevoke(grant) ? (
+          <Button variant="secondary" disabled={busy} onClick={onRevoke}>
+            Revoke now
+          </Button>
+        ) : null}
+      </Td>
+    </tr>
+  );
+}
+
+function saveBlob(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+// P2A-07: the export between two dates. A period over 10,000 events comes in parts; the
+// page says so and offers the next part instead of a silently truncated file.
+function AuditLog() {
+  const [period, setPeriod] = useState(() => defaultAuditPeriod());
+  const [next, setNext] = useState<string | null>(null);
+  const download = useMutation({
+    mutationFn: (after: string | null) => adminApi.auditLog(period.since, period.until, after),
+    onSuccess: (file) => {
+      saveBlob(file.blob, file.name);
+      setNext(file.complete ? null : file.next);
+    },
+  });
+  const change = (key: "since" | "until") => (e: { target: { value: string } }) => {
+    setPeriod((p) => ({ ...p, [key]: e.target.value }));
+    setNext(null);
+    download.reset();
+  };
+  return (
+    <Card id="audit" title="Audit log" className={SECTION_CARD}>
+      <p className="text-fg-muted">
+        Sign-in, administration, notice-acceptance and download events, operator actions on your
+        users, and support access, as CSV. Questions and their text are never in it.
+      </p>
+      <form
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setNext(null);
+          download.mutate(null);
+        }}
+      >
+        <Field label="From">
+          <Input type="date" value={period.since} max={period.until} onChange={change("since")} />
+        </Field>
+        <Field label="To">
+          <Input type="date" value={period.until} min={period.since} onChange={change("until")} />
+        </Field>
+        <Button type="submit" variant="primary" className="w-fit" disabled={download.isPending}>
+          Download audit log
+        </Button>
+      </form>
+      {next ? (
+        <Notice tone="info" role="status">
+          This period holds more than 10,000 events; the file holds the first part.
+          <Button
+            variant="secondary"
+            className="ml-2 w-fit"
+            disabled={download.isPending}
+            onClick={() => download.mutate(next)}
+          >
+            Download the next part
+          </Button>
+        </Notice>
+      ) : null}
+      {refusal(download.error) ? <Notice tone="danger">{refusal(download.error)}</Notice> : null}
+    </Card>
   );
 }

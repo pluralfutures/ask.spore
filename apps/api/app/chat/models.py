@@ -95,6 +95,10 @@ class Message(Base):
             "(role = 'assistant' AND outcome IN ('answered', 'unsupported', 'abstained'))",
             name="outcome_valid",
         ),
+        # Revision 0050: only an assistant message is cut off or partial.
+        CheckConstraint(
+            "role = 'assistant' OR (NOT truncated AND NOT partial)", name="flags_assistant_only"
+        ),
         Index(None, "tenant_id", "conversation_id", "created_at"),
     )
 
@@ -112,6 +116,11 @@ class Message(Base):
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     # Assistant messages only (revision 0002): answered | unsupported | abstained.
     outcome: Mapped[str | None] = mapped_column(Text)
+    # P1c-09 (revision 0050), assistant messages: the answer stopped at the output budget
+    # (``truncated``), or ended early because the user stopped it, the client left or the
+    # model failed mid-stream (``partial``; the text is what had been shown).
+    truncated: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    partial: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = _created()
 
 

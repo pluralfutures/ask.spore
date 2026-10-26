@@ -20,7 +20,6 @@ import asyncio
 import contextlib
 import os
 import signal
-import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -33,9 +32,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.auth.authentik import oidc_services
 from app.auth.provider import ProviderError
+from app.consent.notices import ConsentNoticeTick
 from app.content import worker
-from app.content.crawler import crawl, page_markdown, write_pages
-from app.content.datasets import sync_datasets
+from app.content.datasets import dataset_counts, status_mismatches, sync_datasets
 from app.content.fetch import FetchError, fetch, http_client
 from app.content.ingest import (
     IngestError,
@@ -45,7 +44,7 @@ from app.content.ingest import (
     from_fetched,
     load_path,
 )
-from app.content.jobs import wait_for
+from app.content.jobs import enqueue, wait_for
 from app.content.manifest import (
     ManifestError,
     ManifestRow,
@@ -58,20 +57,58 @@ from app.content.manifest import (
 from app.content.register import (
     RegisterError,
     approve,
+    pause,
     record_takedown,
     reject,
     request_withdrawal,
+    resume,
     retry,
 )
 from app.content.roles import RoleError, grant_role, revoke_role, user_by_email
-from app.content.submit import settle, submit
+from app.content.sites import (
+    SiteSpec,
+    reinstate_site,
+    restore_page,
+    schedule_due_crawls,
+    withdraw_site,
+)
+from app.content.submit import settle, settle_site, submit, submit_site
 from app.content.tags import TagConfig, load_tags
 from app.core import cache
 from app.core.config import get_settings
 from app.core.db import create_engine, session_factory
 from app.core.logging import log
-from app.operator.grants import grant_operator, revoke_operator
+from app.core.mail import create_mail_sender
+from app.mail.jobs import MailContext
+from app.operator.grants import create_eval_identity, grant_operator, revoke_operator
 from app.retrieval.ragflow import RagflowClient
+from app.tenancy.purge import purge_retention, schedule_purge
+from app.tenancy.termination import TerminationError, terminate_tenant
+
+
+async def _datasets_counts() -> int:
+    settings = get_settings()
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    try:
+        async with (
+            RagflowClient.from_settings(settings) as client,
+            session_factory(engine)() as session,
+            session.begin(),
+        ):
+            counts = await dataset_counts(session, client)
+    finally:
+        await engine.dispose()
+    for item in counts:
+        log(
+            "datasets.counts",
+            level="info" if item.documents is not None else "error",
+            tag=item.tag,
+            dataset_id=item.dataset_id,
+            status="ok" if item.documents is not None else "missing",
+            count=item.documents,
+            chunk_count=item.chunks,
+        )
+    return 0 if all(item.documents is not None for item in counts) else 1
 
 
 async def _datasets_sync() -> int:
@@ -87,6 +124,8 @@ async def _datasets_sync() -> int:
             results = await sync_datasets(
                 session, client, tags, settings.models.ragflow.embedding_model
             )
+            # P2A-01: documents whose RAGFlow status disagrees with the register.
+            mismatches = await status_mismatches(session, client)
     finally:
         await engine.dispose()
     for result in results:
@@ -97,7 +136,16 @@ async def _datasets_sync() -> int:
             status=result.status,
             dataset_id=result.dataset_id,
         )
-    return 1 if any(result.failed for result in results) else 0
+    for mismatch in mismatches:
+        log(
+            "datasets.status_mismatch",
+            level="error",
+            source_id=str(mismatch.source_id),
+            tag=mismatch.tag,
+            dataset_id=mismatch.dataset_id,
+            status=f"expected_{mismatch.expected}_found_{mismatch.found}",
+        )
+    return 1 if mismatches or any(result.failed for result in results) else 0
 
 
 @dataclass(frozen=True)
@@ -135,7 +183,8 @@ async def _load(location: str) -> SourceFile:
             try:
                 return from_fetched(await fetch(http, location))
             except FetchError as exc:
-                raise IngestError(exc.code, str(exc)) from None
+                # The code only: a FetchError's message names the URL (P1c-04).
+                raise IngestError(exc.code, f"could not fetch the URL: {exc.code}") from None
     return load_path(Path(location))
 
 
@@ -195,56 +244,35 @@ async def _crawl_site(
     tags: Mapping[str, TagConfig],
     factory: async_sessionmaker[AsyncSession],
     *,
-    site_url: str,
-    tag: Sequence[str],
-    max_pages: int,
-    licence: str,
-    publisher: str | None,
-    out_dir: str | None,
-    parse_timeout: float,
+    spec: SiteSpec,
     actors: _Actors,
-    content_root: Path,
+    wait: bool,
 ) -> tuple[str, list[IngestResult]]:
-    """Crawl one site and submit every page; returns the crawl status and the results.
-
-    Raises FetchError when the start URL cannot be fetched at all.
-    """
-    async with http_client() as http:
-        report = await crawl(http, site_url, max_pages)
-    for reason, count in sorted(report.skipped.items()):
-        log("crawl.skipped", status=reason, chunk_count=count)
+    """Register a site and, with a reviewer, approve it (or ask for a crawl now); the
+    worker crawls it (P1b-04). Returns the site's status (``proposed``, ``queued``,
+    ``ok``, or an error code) and, after ``--wait``, the page ingestions the crawl
+    queued, still to be settled. Raises RegisterError, RoleError or FetchError."""
+    submission = await submit_site(
+        factory,
+        tags,
+        spec,
+        proposer_id=actors.proposer_id,
+        reviewer_id=actors.reviewer_id,
+    )
+    log("crawl.submitted", status=submission.status, error_code=submission.error_code)
+    if submission.status == "failed":
+        return submission.error_code or "failed", []
+    if not wait or submission.status != "queued":
+        return submission.status, []
+    log("jobs.waiting", status="waiting", count=1)
+    status, results = await settle_site(factory, submission)
     log(
         "crawl.finished",
-        level="info" if report.status == "ok" else "error",
-        status=report.status,
-        chunk_count=len(report.pages),
+        level="info" if status == "ok" else "error",
+        status=status,
+        count=len(results),
     )
-    if report.status != "ok":
-        return report.status, []
-
-    paths = write_pages(report.pages, Path(out_dir or tempfile.mkdtemp(prefix="ask-spore-crawl-")))
-    publisher = publisher or (urlsplit(site_url).hostname or site_url)
-    results: list[IngestResult] = []
-    for page, path in zip(report.pages, paths, strict=True):
-        result = await submit(
-            factory,
-            tags,
-            SourceFile(path.name, "markdown", page_markdown(page).encode()),
-            SourceMetadata(
-                tags=tuple(tag),
-                title=page.title,
-                publisher=publisher,
-                licence_basis=licence,
-                canonical_url=page.url,
-            ),
-            content_root=content_root,
-            proposer_id=actors.proposer_id,
-            reviewer_id=actors.reviewer_id,
-            parse_timeout=parse_timeout,
-        )
-        _log_ingest(result)
-        results.append(result)
-    return "ok", results
+    return status, results
 
 
 async def _crawl(args: argparse.Namespace) -> int:
@@ -253,35 +281,36 @@ async def _crawl(args: argparse.Namespace) -> int:
     unknown = [tag for tag in args.tag if tag not in tags]
     if unknown:
         raise SystemExit(f"ask-spore crawl: tags not in config/tags.toml: {', '.join(unknown)}")
+    host = urlsplit(args.site_url).hostname or args.site_url
+    spec = SiteSpec(
+        start_url=args.site_url,
+        name=args.name or host,
+        publisher=args.publisher or host,
+        licence_basis=args.licence,
+        tags=tuple(args.tag),
+        allow_patterns=tuple(args.allow or ()),
+        deny_patterns=tuple(args.deny or ()),
+        schedule=args.schedule,
+        max_pages=args.max_pages,
+    )
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     try:
         factory = session_factory(engine)
         actors = await _actors(factory, args.propose_as, args.approve_as)
-        status, results = await _crawl_site(
-            tags,
-            factory,
-            site_url=args.site_url,
-            tag=args.tag,
-            max_pages=args.max_pages,
-            licence=args.licence,
-            publisher=args.publisher,
-            out_dir=args.out_dir,
-            parse_timeout=args.parse_timeout,
-            actors=actors,
-            content_root=settings.models.files.content_root,
-        )
-        if args.wait and results:
-            results = await _wait(factory, results, args.wait)
-            for result in results:
-                _log_ingest(result)
+        status, results = await _crawl_site(tags, factory, spec=spec, actors=actors, wait=args.wait)
+        results = await _wait(factory, results, args.wait)
+        for result in results:
+            _log_ingest(result)
     except FetchError as exc:
-        raise SystemExit(f"ask-spore crawl: {exc}") from None
-    except (IngestError, RoleError, RegisterError) as exc:
+        log("crawl.rejected", level="error", status="rejected", error_code=exc.code)
+        raise SystemExit(f"ask-spore crawl: {exc.code}") from None
+    except (RoleError, RegisterError) as exc:
         log("crawl.rejected", level="error", status="rejected", error_code=exc.code)
         raise SystemExit(f"ask-spore crawl: {exc.code}") from None
     finally:
         await engine.dispose()
-    return 1 if status != "ok" or any(r.status == "failed" for r in results) else 0
+    waiting = ("ok", "proposed", "queued")
+    return 1 if status not in waiting or any(r.status == "failed" for r in results) else 0
 
 
 def _log_outcomes(outcomes: Sequence[RowOutcome]) -> None:
@@ -359,26 +388,22 @@ async def _ingest_manifest(args: argparse.Namespace) -> int:
         async def crawl_site(row: ManifestRow) -> tuple[str, list[IngestResult]]:
             if row.url is None:
                 raise AssertionError("validated site rows have a URL")
+            spec = SiteSpec(
+                start_url=row.url,
+                name=row.metadata.title,
+                publisher=row.metadata.publisher,
+                licence_basis=row.metadata.licence_basis,
+                tags=row.metadata.tags,
+                max_pages=row.max_pages,
+            )
             try:
                 status, results = await _crawl_site(
-                    tags,
-                    factory,
-                    site_url=row.url,
-                    tag=row.metadata.tags,
-                    max_pages=row.max_pages,
-                    licence=row.metadata.licence_basis,
-                    publisher=row.metadata.publisher,
-                    out_dir=str(Path(args.crawl_dir) / f"line-{row.line}")
-                    if args.crawl_dir
-                    else None,
-                    parse_timeout=args.parse_timeout,
-                    actors=actors,
-                    content_root=content_root,
+                    tags, factory, spec=spec, actors=actors, wait=args.wait
                 )
             except FetchError as exc:
                 log("crawl.failed", level="error", status="failed", error_code=exc.code)
                 status, results = exc.code, []
-            except (IngestError, RoleError, RegisterError) as exc:
+            except (RoleError, RegisterError) as exc:
                 raise SystemExit(
                     f"ask-spore ingest-manifest: line {row.line}: {exc.code}"
                 ) from None
@@ -433,7 +458,8 @@ async def _content_roles(args: argparse.Namespace) -> int:
 
 async def _sources(args: argparse.Namespace) -> int:
     """A reviewer's decision on one register row: approve or retry (each queues an
-    ingestion job), reject, withdraw (queues the withdrawal job) or record a takedown."""
+    ingestion job), reject, withdraw (queues the withdrawal job), record a takedown, or
+    pause and resume (P2A-04, done in the call)."""
     settings = get_settings()
     engine = create_engine(settings.secrets.database_url.get_secret_value())
     source_id: UUID = args.source_id
@@ -452,8 +478,40 @@ async def _sources(args: argparse.Namespace) -> int:
                 reference=args.reference,
                 requested_on=args.requested_on,
                 licence_breach=args.licence_breach,
+                licence_grounds=args.licence_grounds,
+                holidays=settings.holidays.dates,
             )
             log("sources.takedown", source_id=str(source_id), status="recorded")
+            return 0
+        if args.sources_command in ("pause", "resume"):
+            # P2A-04: the console's code path (register.pause / register.resume); the
+            # RAGFlow documents switched are the register row's, never an argument.
+            async with RagflowClient.from_settings(settings) as client:
+                if args.sources_command == "pause":
+                    # A pause purges the cached answers citing the source, as from the
+                    # console (P2A-01), only through app.core.cache.
+                    cache.connect(settings.secrets.redis_url.get_secret_value())
+                    try:
+                        switched = await pause(
+                            factory, client, source_id, reviewer_id, reason=args.reason
+                        )
+                    finally:
+                        await cache.close()
+                else:
+                    switched = await resume(factory, client, source_id, reviewer_id)
+            purge_failed = args.sources_command == "pause" and switched.cache_entries_purged is None
+            log(
+                "sources." + args.sources_command,
+                level="warning" if purge_failed else "info",
+                source_id=str(source_id),
+                status=switched.status,
+                count=switched.documents,
+                error_code="cache_not_purged" if purge_failed else None,
+            )
+            return 0
+        if args.sources_command == "restore":
+            site_id = await restore_page(factory, source_id, reviewer_id)
+            log("sources.restore", source_id=str(source_id), site_id=str(site_id), status="ok")
             return 0
         if args.sources_command == "withdraw":
             job_id = await request_withdrawal(factory, source_id, reviewer_id, reason=args.reason)
@@ -473,7 +531,13 @@ async def _sources(args: argparse.Namespace) -> int:
             return 0
         if args.sources_command == "approve":
             job_id = await approve(
-                factory, source_id, reviewer_id, note=args.note, parse_timeout=args.parse_timeout
+                factory,
+                source_id,
+                reviewer_id,
+                note=args.note,
+                parse_timeout=args.parse_timeout,
+                replaces=args.replace,
+                keep_both=args.keep_both,
             )
         else:
             job_id = await retry(factory, source_id, reviewer_id, parse_timeout=args.parse_timeout)
@@ -494,6 +558,128 @@ async def _sources(args: argparse.Namespace) -> int:
     return 1 if result.status == "failed" else 0
 
 
+async def _sites(args: argparse.Namespace) -> int:
+    """A reviewer withdraws a whole site (P1c-14): retired, never crawled again, every
+    page withdrawn by its own ``withdraw_source`` job; or reinstates a withdrawn one
+    (P2A-12 a): back to proposed, for a fresh approval."""
+    settings = get_settings()
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    site_id: UUID = args.site_id
+    try:
+        factory = session_factory(engine)
+        reviewer_id = await user_by_email(factory, args.reviewer)
+        if args.sites_command == "reinstate":
+            released, _ = await reinstate_site(factory, site_id, reviewer_id, note=args.note)
+            log("sites.reinstate", site_id=str(site_id), count=released, status="proposed")
+            return 0
+        job_ids = await withdraw_site(factory, site_id, reviewer_id, reason=args.reason)
+        status = "queued"
+        if args.wait and job_ids:
+            found = await wait_for(factory, job_ids)
+            failed = [j for j, state in found.items() if state.status != "succeeded"]
+            status = "failed" if failed else "succeeded"
+    except (RoleError, RegisterError) as exc:
+        log(
+            "sites." + args.sites_command,
+            level="error",
+            site_id=str(site_id),
+            status="refused",
+            error_code=exc.code,
+        )
+        return 1
+    finally:
+        await engine.dispose()
+    log(
+        "sites.withdraw",
+        level="error" if status == "failed" else "info",
+        site_id=str(site_id),
+        count=len(job_ids),
+        status=status,
+    )
+    return 1 if status == "failed" else 0
+
+
+async def _tick(factory: async_sessionmaker[AsyncSession], notices: ConsentNoticeTick) -> None:
+    """Between jobs: due crawls (P1b-04), the daily purge (P1b-14), consent notices (P1b-10)."""
+    await schedule_due_crawls(factory)
+    await schedule_purge(factory)
+    await notices()
+
+
+async def _purge(args: argparse.Namespace) -> int:
+    """The retention purge (P1b-14): count what is due, or queue the job for the worker."""
+    settings = get_settings()
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    factory = session_factory(engine)
+    try:
+        if args.dry_run:
+            due = await purge_retention(
+                factory, downloads_days=settings.models.retention.downloads_days, dry_run=True
+            )
+            for tenant in due:
+                for table, count in tenant.counts.as_dict().items():
+                    if count:
+                        log(
+                            "retention.due",
+                            tenant_id=str(tenant.tenant_id),
+                            table=table,
+                            count=count,
+                        )
+            log("retention.dry_run", status="dry_run", count=sum(t.counts.total for t in due))
+            return 0
+        async with factory() as session, session.begin():
+            job_id = await enqueue(session, "purge_retention", {}, created_by=None, max_attempts=1)
+        log("retention.queued", job_id=str(job_id), job_type="purge_retention", status="queued")
+        if not args.wait:
+            return 0
+        state = (await wait_for(factory, [job_id]))[job_id]
+        log(
+            "retention.job",
+            level="info" if state.status == "succeeded" else "error",
+            job_id=str(job_id),
+            status=state.status,
+            error_code=state.error_code,
+        )
+        return 0 if state.status == "succeeded" else 1
+    finally:
+        await engine.dispose()
+
+
+async def _tenant_purge(args: argparse.Namespace) -> int:
+    """Termination purge of one tenant (P1b-14), as the schema owner (MIGRATIONS_DATABASE_URL)."""
+    settings = get_settings()
+    owner_url = os.environ.get("MIGRATIONS_DATABASE_URL", "").strip()
+    if not owner_url:
+        log("tenant.purge_failed", level="error", error_code="no_owner_database_url")
+        return 1
+    cache.connect(settings.secrets.redis_url.get_secret_value())
+    engine = create_engine(owner_url)
+    try:
+        done = await terminate_tenant(
+            session_factory(engine),
+            slug=args.slug,
+            confirm=args.confirm,
+            content_root=settings.models.files.content_root,
+        )
+    except TerminationError as exc:
+        log("tenant.purge_failed", level="error", error_code=exc.code)
+        return 1
+    finally:
+        await cache.close()
+        await engine.dispose()
+    for table, count in done.counts.items():
+        log("tenant.purged_rows", tenant_id=str(done.tenant_id), table=table, count=count)
+    # The certificate's number names its file under content_root/certificates/.
+    log(
+        "tenant.purged",
+        tenant_id=str(done.tenant_id),
+        status="purged",
+        count=done.total,
+        certificate=done.certificate_number,
+    )
+    return 0
+
+
 async def _worker(args: argparse.Namespace) -> int:
     """Run the job queue until stopped (SIGTERM or SIGINT puts the running job back)."""
     settings = get_settings()
@@ -512,13 +698,27 @@ async def _worker(args: argparse.Namespace) -> int:
             loop.add_signal_handler(signum, on_signal)
     # The withdrawal job purges answer caches (P1b-03), only through app.core.cache.
     cache.connect(settings.secrets.redis_url.get_secret_value())
+    # P1b-11: platform mail, through the configured provider (None without its key).
+    sender = create_mail_sender(settings)
+    if settings.models.mail is not None and sender is None:
+        log("worker.mail_not_configured", level="warning", status="no_sender")
+    factory = session_factory(engine)
+    # P1b-10: one consent-notice email per user when the notice version changes.
+    notices = ConsentNoticeTick(factory, settings.models.consent.version)
     try:
         async with RagflowClient.from_settings(settings) as client:
             context = worker.Context(
-                factory=session_factory(engine),
+                factory=factory,
                 client=client,
                 tags=load_tags(settings.config_dir),
                 content_root=settings.models.files.content_root,
+                downloads_retention_days=settings.models.retention.downloads_days,
+                mail=MailContext(
+                    factory=factory,
+                    config=settings.models.mail,
+                    config_dir=settings.config_dir,
+                    sender=sender,
+                ),
             )
             await worker.run(
                 context.factory,
@@ -526,13 +726,32 @@ async def _worker(args: argparse.Namespace) -> int:
                 poll_interval=args.poll_interval,
                 stop=stop,
                 once=args.once,
+                tick=lambda: _tick(context.factory, notices),
             )
     except asyncio.CancelledError:
         log("worker.stopped", status="stopped")
     finally:
+        if sender is not None:
+            await sender.aclose()
         await cache.close()
         await engine.dispose()
     return 0
+
+
+async def _eval_identity(args: argparse.Namespace) -> int:
+    """Create the eval harness's service identity (P1b-15 a), as the schema owner."""
+    owner_url = os.environ.get("MIGRATIONS_DATABASE_URL", "").strip()
+    if not owner_url:
+        log("eval_identity.failed", level="error", error_code="no_owner_database_url")
+        return 1
+    engine = create_engine(owner_url)
+    try:
+        result = await create_eval_identity(session_factory(engine), email=args.email)
+    finally:
+        await engine.dispose()
+    failed = result == "has_roles"
+    log("eval_identity.create", level="error" if failed else "info", status=result)
+    return 1 if failed else 0
 
 
 async def _operators(args: argparse.Namespace) -> int:
@@ -603,6 +822,10 @@ def build_parser() -> argparse.ArgumentParser:
     datasets_commands.add_parser(
         "sync", help="create missing datasets for config/tags.toml and record the mapping"
     )
+    datasets_commands.add_parser(
+        "counts",
+        help="RAGFlow's document and chunk counts per mapped tag (P1c-10; metadata only)",
+    )
 
     ingest_cmd = commands.add_parser(
         "ingest",
@@ -643,19 +866,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     crawl_cmd = commands.add_parser(
         "crawl",
-        help="crawl one site and ingest each page as Markdown",
-        description="Honours robots.txt and crawl delay; a text-and-data-mining reservation "
-        "(TDMRep) anywhere on the site blocks the whole site. Same host only, no scheduling.",
+        help="register a site for crawling (P1b-04); with --approve-as, approve and crawl it",
+        description="Registers the site in the sites table (the content console's Sites "
+        "page shows it). The worker crawls an approved site: robots.txt, crawl delay and "
+        "the text-and-data-mining reservation are honoured, special-category pages are "
+        "skipped, and each page becomes a register row. Same host only.",
     )
     crawl_cmd.add_argument("site_url", help="start URL; only pages on its host are crawled")
     crawl_cmd.add_argument("--tag", action="append", required=True, help="content tag")
     crawl_cmd.add_argument("--max-pages", type=int, required=True, help="page budget")
     crawl_cmd.add_argument("--licence", required=True, help="licence basis for the site")
     crawl_cmd.add_argument("--publisher", help="publisher name (defaults to the host name)")
+    crawl_cmd.add_argument("--name", help="the site's name (defaults to the host name)")
     crawl_cmd.add_argument(
-        "--out-dir", help="directory for the rendered Markdown files (default: a new temp dir)"
+        "--allow", action="append", metavar="PATTERN", help="path pattern to crawl, e.g. /reports/*"
     )
-    crawl_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
+    crawl_cmd.add_argument(
+        "--deny", action="append", metavar="PATTERN", help="path pattern never to crawl"
+    )
+    crawl_cmd.add_argument(
+        "--schedule", choices=("none", "weekly", "monthly"), default="none", help="re-crawl"
+    )
     _actor_flags(crawl_cmd)
     _wait_flag(crawl_cmd)
 
@@ -676,9 +907,6 @@ def build_parser() -> argparse.ArgumentParser:
     manifest_cmd.add_argument("--check", action="store_true", help="validate only; upload nothing")
     manifest_cmd.add_argument(
         "--summary", help="also write the summary table to this CSV file (no titles or content)"
-    )
-    manifest_cmd.add_argument(
-        "--crawl-dir", help="directory for crawled Markdown, one sub-folder per site row"
     )
     manifest_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
     _actor_flags(manifest_cmd)
@@ -716,6 +944,22 @@ def build_parser() -> argparse.ArgumentParser:
         if name != "reject":
             source_cmd.add_argument("--parse-timeout", type=float, default=1800.0)
             _wait_flag(source_cmd)
+        if name == "approve":
+            # Owner decisions 4 (Oct 22) and 3 (Oct 23, 2026): a proposal at the canonical
+            # link of an ingested source under another title needs the reviewer's choice;
+            # with the same title it replaces that source unless --keep-both is given.
+            choice = source_cmd.add_mutually_exclusive_group()
+            choice.add_argument(
+                "--replace",
+                type=UUID,
+                metavar="SOURCE_ID",
+                help="the ingested source at the same canonical link that this file replaces",
+            )
+            choice.add_argument(
+                "--keep-both",
+                action="store_true",
+                help="keep the ingested source at the same canonical link beside this one",
+            )
 
     withdraw_cmd = sources_commands.add_parser(
         "withdraw",
@@ -726,6 +970,51 @@ def build_parser() -> argparse.ArgumentParser:
     withdraw_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
     withdraw_cmd.add_argument("--reason", required=True, help="kept on the register row")
     _wait_flag(withdraw_cmd)
+
+    pause_cmd = sources_commands.add_parser(
+        "pause",
+        help="take an ingested source out of retrieval, file lists and downloads for every "
+        "tenant without deleting it; its RAGFlow documents are disabled (P2A-04)",
+    )
+    pause_cmd.add_argument("source_id", type=UUID)
+    pause_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+    pause_cmd.add_argument("--reason", required=True, help="kept on the register row")
+    resume_cmd = sources_commands.add_parser(
+        "resume", help="put a paused source back into retrieval, no re-parse (P2A-04)"
+    )
+    resume_cmd.add_argument("source_id", type=UUID)
+    resume_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+
+    restore_cmd = sources_commands.add_parser(
+        "restore",
+        help="restore a crawled page a reviewer withdrew: the next crawl of its site takes "
+        "it again (P1c-14)",
+    )
+    restore_cmd.add_argument("source_id", type=UUID, help="the page's withdrawn register row")
+    restore_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+
+    sites_parser = commands.add_parser(
+        "sites", help="a reviewer's decision on a registered site (P1c-14)"
+    )
+    sites_commands = sites_parser.add_subparsers(dest="sites_command", required=True)
+    site_withdraw = sites_commands.add_parser(
+        "withdraw",
+        help="withdraw a whole site: retired (no further crawls), every page withdrawn from "
+        "every dataset, the answer caches and stored citations",
+    )
+    site_withdraw.add_argument("site_id", type=UUID)
+    site_withdraw.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+    site_withdraw.add_argument("--reason", required=True, help="kept on the site and its rows")
+    _wait_flag(site_withdraw)
+    site_reinstate = sites_commands.add_parser(
+        "reinstate",
+        help="reinstate a withdrawn site (P2A-12): back to proposed, so it needs a fresh "
+        "approval before any crawl; pages under a takedown stay blocked, its other "
+        "withdrawn pages come back as new rows at the first crawl after approval",
+    )
+    site_reinstate.add_argument("site_id", type=UUID)
+    site_reinstate.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
+    site_reinstate.add_argument("--note", required=True, help="kept as the site's review note")
 
     takedown_cmd = sources_commands.add_parser(
         "takedown",
@@ -738,7 +1027,15 @@ def build_parser() -> argparse.ArgumentParser:
     takedown_cmd.add_argument(
         "--requested-on", type=date.fromisoformat, required=True, help="YYYY-MM-DD"
     )
-    takedown_cmd.add_argument("--licence-breach", action="store_true")
+    takedown_cmd.add_argument(
+        "--licence-breach", action="store_true", help="a breach we found ourselves: due today"
+    )
+    takedown_cmd.add_argument(
+        "--licence-grounds",
+        action="store_true",
+        help="the request is on licence grounds, recorded on the queue (implied by "
+        "--licence-breach); every withdrawal blanks stored excerpts",
+    )
 
     worker_cmd = commands.add_parser(
         "worker",
@@ -752,6 +1049,55 @@ def build_parser() -> argparse.ArgumentParser:
     worker_cmd.add_argument(
         "--poll-interval", type=float, default=5.0, help="seconds between polls when idle"
     )
+
+    purge_cmd = commands.add_parser(
+        "purge",
+        help="the retention purge (P1b-14): expired history, revoked sessions, old downloads",
+        description="Deletes, tenant by tenant under row-level security, conversations past "
+        "their expiry (with messages, citations and feedback), revoked_sessions rows past "
+        "their token's expiry and downloads rows older than [retention] downloads_days. The "
+        "worker runs it once a day; --run queues it now. Output is counts only.",
+    )
+    purge_mode = purge_cmd.add_mutually_exclusive_group(required=True)
+    purge_mode.add_argument(
+        "--dry-run", action="store_true", help="count what is due per tenant; delete nothing"
+    )
+    purge_mode.add_argument(
+        "--run", action="store_true", help="queue a purge_retention job for the worker"
+    )
+    _wait_flag(purge_cmd)
+
+    tenant_cmd = commands.add_parser(
+        "tenant", help="tenant lifecycle, operator only (P1b-14: termination purge)"
+    )
+    tenant_commands = tenant_cmd.add_subparsers(dest="tenant_command", required=True)
+    tenant_purge = tenant_commands.add_parser(
+        "purge",
+        help="terminate a tenant: delete its history, account data, workspaces, prompts, "
+        "settings, downloads and sessions, clear its answer cache, write the certificate",
+        description="Runs as the schema owner (MIGRATIONS_DATABASE_URL), in one transaction, "
+        "audited under the internal tenant (tenant.purged). Keeps the audit events and the "
+        "usage ledger. Writes certificates/<number>.json under [files] content_root. The "
+        "tenant's Authentik users and SSO source are removed by hand afterwards (see "
+        "design/compliance/offboarding-pack.md section 1.4). Cannot be undone.",
+    )
+    tenant_purge.add_argument("--slug", required=True, help="the tenant to terminate")
+    tenant_purge.add_argument(
+        "--confirm", required=True, metavar="SLUG", help="the same slug again, to confirm"
+    )
+
+    eval_cmd = commands.add_parser(
+        "eval-identity",
+        help="the eval harness's service identity under oidc (P1b-15 a)",
+        description="Runs as the schema owner (MIGRATIONS_DATABASE_URL). Creates a plain "
+        "active user of the internal tenant (role user, no operator or content role, not "
+        "in Authentik) for the eval harness's signed credential; an API accepts it only "
+        "with [auth.eval_service] set to that email and the harness's public key "
+        "(packages/eval/README.md).",
+    )
+    eval_commands = eval_cmd.add_subparsers(dest="eval_identity_command", required=True)
+    eval_create = eval_commands.add_parser("create", help="create the service identity")
+    eval_create.add_argument("--email", required=True)
 
     operators = commands.add_parser(
         "operators",
@@ -772,6 +1118,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "datasets" and args.datasets_command == "sync":
         return asyncio.run(_datasets_sync())
+    if args.command == "datasets" and args.datasets_command == "counts":
+        return asyncio.run(_datasets_counts())
     if args.command == "ingest":
         return asyncio.run(_ingest(args))
     if args.command == "crawl":
@@ -786,8 +1134,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_content_roles(args))
     if args.command == "sources":
         return asyncio.run(_sources(args))
+    if args.command == "sites":
+        return asyncio.run(_sites(args))
     if args.command == "worker":
         return asyncio.run(_worker(args))
+    if args.command == "purge":
+        return asyncio.run(_purge(args))
+    if args.command == "eval-identity":
+        return asyncio.run(_eval_identity(args))
+    if args.command == "tenant":
+        return asyncio.run(_tenant_purge(args))
     raise AssertionError("unreachable: argparse enforces the commands")
 
 

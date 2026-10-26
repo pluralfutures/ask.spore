@@ -61,6 +61,9 @@ class Identity:
     tenant_id: UUID
     expires_at: datetime
     sso: SsoClaims | None = None
+    # P1b-15 a: True for the eval harness's signed credential. A service identity, not a
+    # natural person: the consent gate (P1b-10) does not apply to it.
+    service: bool = False
 
 
 def sso_from_claims(claims: dict[str, Any]) -> SsoClaims | None:

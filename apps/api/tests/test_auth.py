@@ -49,6 +49,7 @@ def oidc_settings(real: Settings, mode: str = "oidc") -> Any:
     return SimpleNamespace(
         models=real.models.model_copy(update={"auth": auth}),
         config_dir=real.config_dir,
+        holidays=real.holidays,
         secrets=Secrets(
             mistral_api_key=SecretStr("unused"),
             ragflow_api_key=SecretStr("unused"),
@@ -220,6 +221,8 @@ async def test_post_from_the_requesting_browser_signs_in(auth: Auth) -> None:
         "display_name": "Synthetic User",
         "role": "tenant_admin",
         "tenant_display_name": "Synthetic Client",
+        "consent_required": False,
+        "operator": False,  # P1c-08: a client tenant's admin is never an operator
     }
     user = await auth.admin.fetchrow(
         "SELECT status, last_login_at, last_login_method FROM users WHERE id = $1", t.user_id

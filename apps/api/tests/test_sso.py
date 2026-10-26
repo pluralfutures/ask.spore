@@ -15,6 +15,7 @@ import re
 import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -24,12 +25,16 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.auth.sources import entra_config, google_config, oidc_config, saml_config, spec_for
 from app.auth.sources import parse_idp_metadata as parse_metadata
+from app.auth.sso import refusal_reason
 from app.tenancy.models import INTERNAL_TENANT_ID
+from tests.authentik_expressions import run_source_mapping, run_source_policy
 from tests.fake_idp import sign
 from tests.test_auth import SESSION, Auth, auth  # noqa: F401 - fixture
+from tests.test_consent import export_rows
 from tests.test_login_policy import unique_domain
 from tests.test_saml_metadata import metadata_xml
 from tests.test_tenancy import Tenant
+from tests.test_tenant_admin import add_user, as_user
 
 pytestmark = pytest.mark.usefixtures("database")
 
@@ -153,10 +158,12 @@ def signed_in(response: httpx.Response) -> bool:
     )
 
 
-def refused(response: httpx.Response) -> bool:
+def refused(response: httpx.Response, reason: str | None = None) -> bool:
+    location = response.headers.get("location", "")
     return (
         response.status_code == 303
-        and response.headers["location"] == FAILED
+        and location.startswith(FAILED + "&reason=")
+        and (reason is None or location == f"{FAILED}&reason={reason}")
         and not any(h.startswith(f"{SESSION}=") for h in response.headers.get_list("set-cookie"))
     )
 
@@ -186,7 +193,7 @@ async def test_invited_user_signs_in_with_entra(sso: Auth) -> None:
     )
     assert (user["status"], user["last_login_method"]) == ("active", "sso")
     assert await sso.audit("auth.login", t.id) == [
-        {"actor": t.user_id, "method": "sso", "status": "ok"}
+        {"actor": t.user_id, "method": "sso:entra", "status": "ok"}
     ]
 
 
@@ -359,6 +366,7 @@ async def test_the_callback_needs_the_browser_that_started(sso: Auth) -> None:
     assert refused(await callback(other, slug_of(started.json()["redirect_url"]), params))
     assert sso.idp.finished == []  # refused before Authentik was asked
     last = (await sso.audit("auth.login_failed", INTERNAL_TENANT_ID))[-1]
+    # Before the attempt is found its source is unknown: "sso" without a kind (P1c-02).
     assert (last["method"], last["error_code"]) == ("sso", "no_binding")
 
 
@@ -440,3 +448,151 @@ def test_caddy_routes_the_callback_paths_to_the_api() -> None:
     assert "rewrite * /api/v1/auth/sso/saml/{re.sso_saml.1}" in caddyfile
     assert r"^/source/oauth/callback/([a-z0-9-]+)/$" in caddyfile
     assert r"^/source/saml/([a-z0-9-]+)/acs/$" in caddyfile
+
+
+# --- P1c-02: refusals by the source end on our page, with the kind in the audit ----------
+
+KINDS = ["entra", "google", "oidc", "saml"]
+
+
+def claims_for(kind: str, email: str) -> dict[str, Any]:
+    domain = email.partition("@")[2]
+    return {"saml": True} if kind == "saml" else {"hd": domain if kind == "google" else None}
+
+
+@pytest.mark.parametrize("kind", KINDS)
+async def test_every_kind_records_its_kind_on_login(sso: Auth, kind: str) -> None:
+    t = await with_source(sso, kind)
+    sso.idp.apply_mapping = True
+    assert signed_in(await sign_in(sso, sso.browser(), t.email, **claims_for(kind, t.email)))
+    assert [e["method"] for e in await sso.audit("auth.login", t.id)] == [f"sso:{kind}"]
+    # The users column keeps the method family (its constraint), not the kind.
+    method = await sso.admin.fetchval(
+        "SELECT last_login_method FROM users WHERE id = $1", t.user_id
+    )
+    assert method == "sso"
+    assert sso.idp.events == []
+
+
+@pytest.mark.parametrize("kind", KINDS)
+async def test_an_out_of_domain_sign_in_is_refused_by_the_source_on_our_page(
+    sso: Auth, kind: str
+) -> None:
+    t = await with_source(sso, kind, jit=True)
+    sso.idp.apply_mapping = True
+    outsider = f"someone@{unique_domain()}"
+    claims = claims_for(kind, outsider)
+    minted = len(sso.idp.refresh_tokens)
+    response = await sign_in(sso, sso.browser(), t.email, as_email=outsider, **claims)
+    # Our sign-in page with a reason; not an Authentik error, no 500.
+    assert refused(response, reason="domain"), response.headers
+    # Authentik denied the flow through its policy: no mapping exception, no
+    # configuration_error event, and no token was minted for the outsider.
+    assert sso.idp.events == []
+    assert len(sso.idp.refresh_tokens) == minted
+    (failed,) = await sso.audit("auth.login_failed", t.id)
+    assert (failed["method"], failed["error_code"]) == (f"sso:{kind}", "domain_not_verified")
+    assert await sso.admin.fetchval("SELECT count(*) FROM users WHERE email = $1", outsider) == 0
+
+
+@pytest.mark.parametrize("kind", ["google", "oidc"])
+async def test_an_address_the_idp_did_not_verify_is_refused_by_the_source(
+    sso: Auth, kind: str
+) -> None:
+    t = await with_source(sso, kind, jit=True)
+    sso.idp.apply_mapping = True
+    claims = claims_for(kind, t.email)
+    response = await sign_in(sso, sso.browser(), t.email, email_verified=False, **claims)
+    assert refused(response, reason="unverified")
+    assert sso.idp.events == []
+    (failed,) = await sso.audit("auth.login_failed", t.id)
+    assert (failed["method"], failed["error_code"]) == (f"sso:{kind}", "email_unverified")
+
+
+async def test_a_google_hd_outside_the_domains_is_refused_by_the_source(sso: Auth) -> None:
+    t = await with_source(sso, "google", jit=True)
+    sso.idp.apply_mapping = True
+    assert refused(await sign_in(sso, sso.browser(), t.email, hd="gmail.com"), reason="domain")
+    assert sso.idp.events == []
+    assert await failures(sso, t.id) == ["hd_mismatch"]
+
+
+@pytest.mark.parametrize(
+    ("code", "reason"),
+    [
+        ("not_invited", "no_access"),
+        # Never tells an outsider that the address is another tenant's user.
+        ("email_in_other_tenant", "no_access"),
+        ("no_binding", "start_again"),
+        ("tenant_mismatch", "failed"),
+        ("refused_by_source", "failed"),
+    ],
+)
+def test_the_page_gets_a_coarse_reason_never_the_code(code: str, reason: str) -> None:
+    assert refusal_reason(code) == reason
+
+
+async def test_the_refusal_reason_does_not_tell_another_tenants_user_apart(sso: Auth) -> None:
+    a = await with_source(sso, "entra", jit=False)
+    b = await sso.tenant(domain=unique_domain())
+    shared = f"shared-{uuid.uuid4().hex[:6]}@{a.email.partition('@')[2]}"
+    await sso.admin.execute("UPDATE users SET email = $2 WHERE id = $1", b.user_id, shared)
+    stranger = f"new-{uuid.uuid4().hex[:6]}@{a.email.partition('@')[2]}"
+    first = await sign_in(sso, sso.browser(), shared)
+    second = await sign_in(sso, sso.browser(), stranger)
+    assert refused(first, "no_access") and refused(second, "no_access")
+    assert await failures(sso, a.id) == ["email_in_other_tenant", "not_invited"]
+
+
+async def test_the_audit_export_shows_the_kind_of_each_sso_event(sso: Auth) -> None:
+    t = await with_source(sso, "google", jit=True)
+    sso.idp.apply_mapping = True
+    domain = t.email.partition("@")[2]
+    assert signed_in(await sign_in(sso, sso.browser(), t.email, hd=domain))
+    outsider = f"x@{unique_domain()}"
+    assert refused(await sign_in(sso, sso.browser(), t.email, as_email=outsider, hd=domain))
+    admin = await add_user(sso.admin, t, role="tenant_admin")
+    rows = export_rows(await as_user(sso, admin.email, t.id).get("/api/v1/admin/audit-log"))
+    methods = {
+        (r["event"], json.loads(r["metadata"]).get("method"))
+        for r in rows
+        if r["event"].startswith("auth.")
+    }
+    assert {("auth.login", "sso:google"), ("auth.login_failed", "sso:google")} <= methods
+    assert outsider not in json.dumps(rows)
+
+
+@pytest.mark.parametrize("kind", KINDS)
+@pytest.mark.parametrize(
+    "info",
+    [
+        {},
+        {"email": None},
+        {"email": "no-at-sign"},
+        {"email": 42, "hd": None, "email_verified": "yes"},
+        {"mail": "x@client.example", "hd": ["a"]},
+        {"userPrincipalName": "  X@Client.Example  ", "email_verified": "true"},
+    ],
+)
+def test_the_mapping_never_raises_whatever_the_idp_sends(kind: str, info: dict[str, Any]) -> None:
+    # An exception in a source mapping is what Authentik answers with HTTP 500 and
+    # configuration_error events (Phase 1b release 2.4).
+    config = {
+        "entra": entra_config(uuid.uuid4(), "c", []),
+        "google": google_config("c"),
+        "oidc": oidc_config("https://idp.client.example", "c"),
+        "saml": saml_config(parse_metadata(metadata_xml())),
+    }[kind]
+    spec = spec_for(
+        tenant_id=uuid.uuid4(),
+        tenant_slug="cc",
+        verified_domains=["client.example"],
+        kind=kind,  # type: ignore[arg-type]
+        config=config,
+    )
+    name_id = SimpleNamespace(text=info.get("email") or "")
+    properties = run_source_mapping(spec, info=info, properties={"groups": ["g"]}, name_id=name_id)
+    passing, messages = run_source_policy({"prompt_data": properties})
+    refusal = properties.get("attributes", {}).get("ask_spore_refusal")
+    assert passing == (refusal is None)
+    assert messages == ([] if refusal is None else [f"ask-spore-refusal:{refusal}"])

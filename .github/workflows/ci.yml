@@ -1,24 +1,67 @@
 name: CI
 
+# One run per commit: pull requests run on the PR; `push` is for main only. (A push trigger on
+# phase branches ran the whole suite twice on the same SHA next to the pull_request run.)
 on:
   pull_request:
   push:
-    branches: [main, "phase-*/**"]
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    # Which of the independent jobs a change can affect. The API and Eval jobs always run: their
+    # tests read design documents, config and prompts from anywhere in the repository. The web,
+    # Authentik and compose jobs read nothing outside their own folders, so they are skipped when
+    # nothing they depend on changed. Anything uncertain (a new base, a failed diff) runs all.
+    name: Changed paths
+    runs-on: ubuntu-24.04
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      authentik: ${{ steps.filter.outputs.authentik }}
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          web=false; authentik=false; infra=false
+          if [ "$EVENT" = pull_request ]; then base="$PR_BASE"; else base="$PUSH_BEFORE"; fi
+          if ! files="$(git diff --name-only "$base" HEAD 2>/dev/null)" || [ -z "$files" ]; then
+            web=true; authentik=true; infra=true
+          else
+            while IFS= read -r f; do
+              case "$f" in
+                .github/workflows/ci.yml) web=true; authentik=true; infra=true ;;
+                apps/web/*|apps/api/openapi.json) web=true ;;
+                infra/authentik/*) authentik=true; infra=true ;;
+                infra/*) infra=true ;;
+              esac
+            done <<< "$files"
+          fi
+          {
+            echo "web=$web"
+            echo "authentik=$authentik"
+            echo "infra=$infra"
+          } >> "$GITHUB_OUTPUT"
+
   api:
     name: API (ruff, mypy, pytest)
     runs-on: ubuntu-24.04
     services:
       postgres:
-        image: postgres:16.15-bookworm
+        image: postgres:16.15-bookworm@sha256:d81f7b51697014367236d07ec58b54153fc28f828b72bf247fe5c7487520bcb0
         env:
           POSTGRES_USER: askspore
           POSTGRES_PASSWORD: ci-only-password
@@ -63,6 +106,12 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run pytest
+      - name: Eval gate (committed runs against results/BASELINE, P1b-15 b)
+        run: |
+          uv run python -m eval gate --output "$RUNNER_TEMP/gate.md"
+          status=$?
+          cat "$RUNNER_TEMP/gate.md" >> "$GITHUB_STEP_SUMMARY"
+          exit $status
       - name: Validate eval sets
         run: |
           uv run python -m eval validate sets/synthetic-v0.jsonl --min-items 30 --min-out-of-corpus 6
@@ -87,6 +136,8 @@ jobs:
 
   web:
     name: Web (eslint, prettier, tsc, vitest)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -107,13 +158,69 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:e2e
+      - name: The component gallery is left out of the production build (UX-06)
+        run: pnpm build && ! grep -rqF ui-gallery dist
+
+  web-e2e:
+    # The Playwright suite, in four shards. It is the longest job (about 7 minutes in one piece).
+    # It runs in the same pinned Playwright image as web-visual: the browser and its system
+    # libraries are already there, so there is no per-run browser download.
+    name: Web e2e (shard ${{ matrix.shard }})
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --ipc=host
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/4", "2/4", "3/4", "4/4"]
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: apps/web/package.json
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:e2e --shard=${{ matrix.shard }}
+
+  web-visual:
+    # UX-05 (design/specs/ux-refresh-spec.md): the visual-regression suite, in the same pinned
+    # Playwright image that generates the snapshots (apps/web/e2e/visual/run-in-image.sh).
+    name: Web visual regression (pinned Playwright image)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --ipc=host
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: apps/web/package.json
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright test --config playwright.visual.config.ts
+      - name: Diff images of a failed comparison
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-diffs
+          path: apps/web/test-results/
+          retention-days: 7
 
   authentik-blueprint:
     # P1b-08: the blueprint applies to an empty Authentik of the pinned version and gives
     # what the API relies on. A throwaway instance: secrets generated here, nothing kept.
     name: Authentik blueprint (empty instance)
+    needs: changes
+    if: needs.changes.outputs.authentik == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
@@ -171,6 +278,8 @@ jobs:
 
   compose:
     name: Compose config
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -184,3 +293,9 @@ jobs:
           if docker compose -f infra/compose.dev.yml config --images | grep -E ':latest$'; then
             echo "floating :latest tag"; exit 1
           fi
+      - name: Deploy script dry run (P1c-10)
+        # compose config with every profile, then the image-digest check against the
+        # registries; a moved tag or an unreachable registry fails the job (fail closed).
+        # Runs only when infra/ changed; image-pins.yml runs the same check every night, so a
+        # tag that moved upstream is found there and not in an unrelated pull request.
+        run: bash infra/scripts/deploy.sh --dry-run

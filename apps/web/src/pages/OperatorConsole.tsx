@@ -1,55 +1,116 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 
 import { ApiError, operatorApi } from "../api/client";
-import type {
-  LoginPolicyIn,
-  OperatorOptions,
-  OperatorWorkspace,
-  SsoSourceIn,
-  TenantOut,
-} from "../api/types";
+import { SaveStatus } from "../components/SaveStatus";
 import { formatDate } from "../lib/format";
-import { formFrom, toRequest, type EntitlementsForm } from "../lib/entitlements";
-import { emptySourceForm, sourceBody, type SourceForm, type SsoKind } from "../lib/sso";
-import { PolicySummary } from "./TenantAdmin";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
+import { Field } from "../ui/Field";
+import { Input } from "../ui/Input";
+import { Checkbox } from "../ui/Checkbox";
+import { Card } from "../ui/Card";
+import { cardClass } from "../ui/cardClass";
+import { PageHeader } from "../ui/PageHeader";
+import { StatusBadge } from "../ui/Badge";
+import { Table, Td, Th } from "../ui/Table";
+import { AccessDenied, EmptyState } from "../ui/States";
 
-// Operator console, minimum (P1a-03): tenants, first admin, entitlements, notices; and the
-// package builder (P1a-04): each tenant's workspaces and the tags that form their corpus.
-// The API decides who is an operator; anyone else gets 403 and this page says so.
+// Operator console (P1a-03), one tenant per page (P1b-12): this page picks the tenant and
+// creates new ones; each tenant's settings are on its own page (OperatorTenant), so a
+// save can only ever be made on the tenant it is shown for (Phase 1a findings F2). The
+// platform-wide parts stay here: notices, the download switch per source, and a link
+// to the cross-tenant totals. The API decides who is an operator; anyone else gets 403.
 export function OperatorConsole() {
   const tenants = useQuery({ queryKey: ["operator", "tenants"], queryFn: operatorApi.tenants });
-  const options = useQuery({ queryKey: ["operator", "options"], queryFn: operatorApi.options });
   const notices = useQuery({ queryKey: ["operator", "notices"], queryFn: operatorApi.notices });
 
   if (tenants.error instanceof ApiError && tenants.error.status === 403) {
-    return <main className="mx-auto max-w-3xl p-4 text-sm">Operators only.</main>;
+    return <OperatorsOnly />;
   }
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
-      <h1 className="text-xl font-semibold">Operator console</h1>
-      <CreateTenant />
-      {tenants.data?.map((tenant) =>
-        options.data ? (
-          <TenantPanel key={tenant.id} tenant={tenant} options={options.data} />
-        ) : null,
-      )}
-      <Sources />
-      <section>
-        <h2 className="mb-2 font-semibold">Notices</h2>
-        {notices.data?.length ? (
-          <ul className="text-sm">
-            {notices.data.map((n) => (
-              <li key={n.id}>
-                {formatDate(n.created_at)} · {n.tenant_slug} · {n.kind}
-              </li>
+    <div className="mx-auto w-full flex max-w-4xl flex-col gap-6 p-4 md:px-8 md:py-6">
+      <PageHeader
+        title="Operator console"
+        actions={
+          // P1c-08: every operator is also a user of the internal tenant.
+          <Link to="/" className={`text-ui ${LINK}`}>
+            Chat app
+          </Link>
+        }
+      />
+      {/* UX-19: tenants, downloadable files and notices are tables. */}
+      <Card
+        title="Tenants"
+        className="text-ui"
+        actions={
+          <Link to="/operator/aggregates" className={LINK}>
+            Totals across tenants
+          </Link>
+        }
+      >
+        <Table>
+          <thead>
+            <tr>
+              <Th>Tenant</Th>
+              <Th>Slug</Th>
+              <Th>Status</Th>
+              <Th numeric>Admins</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {tenants.data?.map((tenant) => (
+              <tr key={tenant.id}>
+                <Td label="Tenant">
+                  <Link to={`/operator/tenants/${tenant.id}`} className={LINK}>
+                    {tenant.display_name}
+                  </Link>
+                </Td>
+                <Td label="Slug" className="font-mono text-meta">
+                  {tenant.slug}
+                </Td>
+                <Td label="Status">
+                  <StatusBadge kind="tenant" status={tenant.status} />
+                </Td>
+                <Td label="Admins" numeric>
+                  {tenant.admins}
+                </Td>
+              </tr>
             ))}
-          </ul>
+          </tbody>
+        </Table>
+      </Card>
+      <TerminatedTenants />
+      <CreateTenant />
+      <Sources />
+      <Card title="Notices" className="text-ui">
+        {notices.data?.length ? (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Date</Th>
+                <Th>Tenant</Th>
+                <Th>Kind</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {notices.data.map((n) => (
+                <tr key={n.id}>
+                  <Td label="Date">{formatDate(n.created_at)}</Td>
+                  <Td label="Tenant" className="font-mono text-meta">
+                    {n.tenant_slug}
+                  </Td>
+                  <Td label="Kind">{n.kind}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
         ) : (
-          <p className="text-sm text-slate-600">No notices.</p>
+          <EmptyState title="No notices." />
         )}
-      </section>
-    </main>
+      </Card>
+    </div>
   );
 }
 
@@ -65,34 +126,76 @@ function Sources() {
   });
   const files = sources.data?.filter((s) => ["pdf", "docx", "pptx"].includes(s.type)) ?? [];
   return (
-    <section className="rounded bg-white p-3 text-sm">
-      <h2 className="mb-2 font-semibold">Downloadable files</h2>
-      {errorText(toggle.error) ? <p className="text-red-700">{errorText(toggle.error)}</p> : null}
-      {files.length === 0 ? <p className="text-slate-600">No files in the register.</p> : null}
-      <ul className="flex flex-col gap-1">
-        {files.map((source) => (
-          <li key={source.id}>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={source.downloadable}
-                disabled={!source.stored || toggle.isPending}
-                onChange={(e) => toggle.mutate({ id: source.id, downloadable: e.target.checked })}
-              />
-              {source.title} · {source.publisher} · {source.licence_basis} ·{" "}
-              {source.tags.join(", ")}
-              {source.stored ? null : <span className="text-slate-600">(no stored copy)</span>}
-            </label>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <Card title="Downloadable files" className="text-ui">
+      <SaveStatus isSuccess={toggle.isSuccess} error={toggle.error} />
+      {files.length === 0 ? (
+        <EmptyState title="No files in the register." />
+      ) : (
+        <Table>
+          <thead>
+            <tr>
+              <Th>Downloadable</Th>
+              <Th>Title</Th>
+              <Th>Publisher</Th>
+              <Th>Licence basis</Th>
+              <Th>Tags</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {files.map((source) => (
+              <tr key={source.id} data-testid={`source-${source.id}`}>
+                <Td label="Downloadable">
+                  <Checkbox
+                    checked={source.downloadable}
+                    disabled={!source.stored || toggle.isPending}
+                    onChange={(e) =>
+                      toggle.mutate({ id: source.id, downloadable: e.target.checked })
+                    }
+                  >
+                    <span className="sr-only">{source.title}</span>
+                  </Checkbox>
+                </Td>
+                <Td label="Title">
+                  <span className="font-emphasis">{source.title}</span>
+                  {source.stored ? null : <span className="text-fg-muted"> (no stored copy)</span>}
+                </Td>
+                <Td label="Publisher">{source.publisher}</Td>
+                <Td label="Licence basis">{source.licence_basis}</Td>
+                <Td label="Tags">{source.tags.join(", ")}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </Card>
   );
 }
 
-function errorText(error: unknown): string | null {
-  if (error === null || error === undefined) return null;
-  return error instanceof ApiError ? `Refused (${error.status}).` : "Something went wrong.";
+// P1c-08 (Phase 1b F5): tenants the termination purge emptied, with the purge's date and
+// certificate number; they have no settings page any more.
+function TerminatedTenants() {
+  const terminated = useQuery({
+    queryKey: ["operator", "terminated"],
+    queryFn: operatorApi.terminatedTenants,
+  });
+  if (!terminated.data?.length) return null;
+  return (
+    <Card title="Terminated tenants" className="text-ui">
+      <ul className="flex flex-col gap-1">
+        {terminated.data.map((t) => (
+          <li key={t.id} data-testid={`terminated-${t.slug}`}>
+            {t.display_name} <span className="text-fg-subtle">({t.slug})</span> · {t.status} ·
+            purged {t.purged_at ? formatDate(t.purged_at) : "date not recorded"} · certificate{" "}
+            {t.certificate ?? "not recorded"}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+export function OperatorsOnly() {
+  return <AccessDenied>Operators only.</AccessDenied>;
 }
 
 function CreateTenant() {
@@ -118,470 +221,21 @@ function CreateTenant() {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-wrap items-end gap-2 rounded bg-white p-3 text-sm">
-      <h2 className="w-full font-semibold">New tenant</h2>
-      <label className="flex flex-col">
-        Slug
-        <input
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-          required
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Display name
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          className="border px-1"
-        />
-      </label>
-      <label className="flex flex-col">
-        Verified domains (comma-separated)
-        <input
-          value={domains}
-          onChange={(e) => setDomains(e.target.value)}
-          className="border px-1"
-        />
-      </label>
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
+    <form onSubmit={submit} className={cardClass("flex flex-wrap items-end gap-2 text-ui")}>
+      <h2 className="w-full font-strong">New tenant</h2>
+      <Field label="Slug">
+        <Input value={slug} onChange={(e) => setSlug(e.target.value)} required />
+      </Field>
+      <Field label="Display name">
+        <Input value={name} onChange={(e) => setName(e.target.value)} required />
+      </Field>
+      <Field label="Verified domains (comma-separated)">
+        <Input value={domains} onChange={(e) => setDomains(e.target.value)} />
+      </Field>
+      <Button variant="primary" type="submit">
         Create
-      </button>
-      {errorText(create.error) && <p className="w-full text-red-700">{errorText(create.error)}</p>}
-    </form>
-  );
-}
-
-function toggle(list: string[], value: string, on: boolean): string[] {
-  return on ? [...new Set([...list, value])] : list.filter((v) => v !== value);
-}
-
-function TenantPanel({ tenant, options }: { tenant: TenantOut; options: OperatorOptions }) {
-  const queryClient = useQueryClient();
-  const [form, setForm] = useState<EntitlementsForm>(() => formFrom(tenant.entitlements));
-  const [problem, setProblem] = useState<string | null>(null);
-  const [adminEmail, setAdminEmail] = useState("");
-  const [adminName, setAdminName] = useState("");
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["operator", "tenants"] });
-  const save = useMutation({
-    mutationFn: (body: Parameters<typeof operatorApi.setEntitlements>[1]) =>
-      operatorApi.setEntitlements(tenant.id, body),
-    onSuccess: refresh,
-  });
-  const invite = useMutation({
-    mutationFn: () =>
-      operatorApi.inviteAdmin(tenant.id, {
-        email: adminEmail.trim(),
-        display_name: adminName.trim(),
-      }),
-    onSuccess: refresh,
-  });
-  const ent = tenant.entitlements;
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    const result = toRequest(form, ent);
-    if ("error" in result) {
-      setProblem(result.error);
-      return;
-    }
-    setProblem(null);
-    save.mutate(result.body);
-  }
-
-  return (
-    <section className="flex flex-col gap-3 rounded bg-white p-3 text-sm">
-      <h2 className="font-semibold">
-        {tenant.display_name} <span className="text-slate-500">({tenant.slug})</span>
-      </h2>
-      <p className="text-slate-600">
-        {tenant.status} · admins: {tenant.admins} · domains:{" "}
-        {tenant.verified_domains.join(", ") || "none"}
-      </p>
-      <form onSubmit={submit} className="flex flex-col gap-2">
-        <fieldset className="flex gap-3">
-          <legend>Answer modes</legend>
-          {options.answer_modes.map((mode) => (
-            <label key={mode}>
-              <input
-                type="checkbox"
-                checked={form.answerModes.includes(mode)}
-                disabled={mode === "corpus_only"}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    answerModes: toggle(form.answerModes, mode, e.target.checked),
-                  })
-                }
-              />{" "}
-              {mode}
-            </label>
-          ))}
-        </fieldset>
-        <fieldset className="flex gap-3">
-          <legend>Enabled models</legend>
-          {options.models.map((model) => (
-            <label key={model}>
-              <input
-                type="checkbox"
-                checked={form.enabledModels.includes(model)}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    enabledModels: toggle(form.enabledModels, model, e.target.checked),
-                  })
-                }
-              />{" "}
-              {model}
-            </label>
-          ))}
-        </fieldset>
-        <fieldset className="flex flex-wrap items-end gap-2">
-          <legend>External models (served outside the EU)</legend>
-          <label>
-            <input
-              type="checkbox"
-              checked={form.externalModelsEnabled}
-              onChange={(e) => setForm({ ...form, externalModelsEnabled: e.target.checked })}
-            />{" "}
-            Enabled
-          </label>
-          <label className="flex flex-col">
-            Monthly spend cap (EUR)
-            <input
-              inputMode="decimal"
-              value={form.spendCapEuros}
-              onChange={(e) => setForm({ ...form, spendCapEuros: e.target.value })}
-              className="border px-1"
-            />
-          </label>
-          <label className="flex flex-col">
-            Client acceptance: DPA document
-            <input
-              value={form.acceptanceReference}
-              onChange={(e) => setForm({ ...form, acceptanceReference: e.target.value })}
-              className="border px-1"
-            />
-          </label>
-          <label className="flex flex-col">
-            Accepted on
-            <input
-              type="date"
-              value={form.acceptanceDate}
-              onChange={(e) => setForm({ ...form, acceptanceDate: e.target.value })}
-              className="border px-1"
-            />
-          </label>
-          {ent.external_acceptance_reference && (
-            <p className="w-full text-slate-600">
-              On file: {ent.external_acceptance_reference}, {ent.external_acceptance_date}
-            </p>
-          )}
-        </fieldset>
-        <button type="submit" className="self-start rounded bg-slate-900 px-3 py-1 text-white">
-          Save entitlements
-        </button>
-        {(problem ?? errorText(save.error)) && (
-          <p className="text-red-700">{problem ?? errorText(save.error)}</p>
-        )}
-      </form>
-      <LoginPolicy tenant={tenant} />
-      <SsoSource tenant={tenant} />
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          invite.mutate();
-        }}
-        className="flex flex-wrap items-end gap-2"
-      >
-        <label className="flex flex-col">
-          Invite admin: email
-          <input
-            type="email"
-            value={adminEmail}
-            onChange={(e) => setAdminEmail(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
-        <label className="flex flex-col">
-          Name
-          <input
-            value={adminName}
-            onChange={(e) => setAdminName(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
-        <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
-          Invite
-        </button>
-        {invite.isSuccess && (
-          <p className="w-full">Invited. They sign in with a link from their own browser.</p>
-        )}
-        {errorText(invite.error) && (
-          <p className="w-full text-red-700">{errorText(invite.error)}</p>
-        )}
-      </form>
-      <Workspaces tenant={tenant} options={options} />
-    </section>
-  );
-}
-
-// P1b-06: how the tenant's users sign in. Sign-in links are on by default; the operator
-// switches them off once the client's SSO is live and their IT asks for it.
-function LoginPolicy({ tenant }: { tenant: TenantOut }) {
-  const queryClient = useQueryClient();
-  const current = tenant.login_policy;
-  const [form, setForm] = useState<LoginPolicyIn>({
-    sign_in_links_enabled: current.sign_in_links_enabled,
-    jit_provisioning_enabled: current.jit_provisioning_enabled,
-    admin_mfa_required: current.admin_mfa_required,
-  });
-  const save = useMutation({
-    mutationFn: () => operatorApi.setLoginPolicy(tenant.id, form),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["operator", "tenants"] }),
-  });
-  const box = (key: keyof LoginPolicyIn, label: string) => (
-    <label>
-      <input
-        type="checkbox"
-        checked={form[key]}
-        onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
-      />{" "}
-      {label}
-    </label>
-  );
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        save.mutate();
-      }}
-      className="flex flex-wrap items-center gap-3"
-    >
-      <h3 className="w-full font-semibold">Login policy</h3>
-      {box("sign_in_links_enabled", "Sign-in links")}
-      {box("jit_provisioning_enabled", "Create users on first SSO sign-in (verified domains)")}
-      {box("admin_mfa_required", "Second factor for tenant admins")}
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
-        Save login policy
-      </button>
-      {errorText(save.error) && <p className="w-full text-red-700">{errorText(save.error)}</p>}
-    </form>
-  );
-}
-
-// P1b-07: the tenant's one SSO source, configured in Authentik with the client's IT. The
-// client secret is sent once and never shown again; leave it empty to keep it.
-function SsoSource({ tenant }: { tenant: TenantOut }) {
-  const queryClient = useQueryClient();
-  const current = tenant.login_policy;
-  const [form, setForm] = useState<SourceForm>(() =>
-    emptySourceForm(current.sso_source_kind === "none" ? "entra" : current.sso_source_kind),
-  );
-  const [problem, setProblem] = useState<string | null>(null);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["operator", "tenants"] });
-  const save = useMutation({
-    mutationFn: (body: SsoSourceIn) => operatorApi.setSsoSource(tenant.id, body),
-    onSuccess: () => {
-      setForm({ ...form, clientSecret: "" });
-      void refresh();
-    },
-  });
-  const remove = useMutation({
-    mutationFn: () => operatorApi.removeSsoSource(tenant.id),
-    onSuccess: refresh,
-  });
-  const field = (key: keyof SourceForm, label: string, type = "text") => (
-    <label className="flex flex-col">
-      {label}
-      <input
-        type={type}
-        autoComplete="off"
-        value={form[key]}
-        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-        className="border px-1"
-      />
-    </label>
-  );
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    const result = sourceBody(form);
-    if ("error" in result) {
-      setProblem(result.error);
-      return;
-    }
-    setProblem(null);
-    save.mutate(result.body);
-  }
-
-  return (
-    <form onSubmit={submit} className="flex flex-col gap-2">
-      <h3 className="font-semibold">Single sign-on source</h3>
-      <PolicySummary policy={current} />
-      <label className="flex gap-2">
-        Kind
-        <select
-          value={form.kind}
-          onChange={(e) => setForm({ ...form, kind: e.target.value as SsoKind })}
-          className="border"
-        >
-          <option value="entra">Microsoft Entra ID</option>
-          <option value="google">Google Workspace</option>
-          <option value="oidc">OpenID Connect</option>
-          <option value="saml">SAML 2.0</option>
-        </select>
-      </label>
-      <div className="flex flex-wrap items-end gap-2">
-        {form.kind === "entra" && field("entraTenantId", "Entra tenant ID")}
-        {form.kind === "oidc" && field("issuer", "Issuer (https)")}
-        {form.kind !== "saml" && field("clientId", "Client ID")}
-        {form.kind !== "saml" && field("clientSecret", "Client secret", "password")}
-        {form.kind === "entra" &&
-          field("adminGroupIds", "Admin group object IDs (comma-separated, optional)")}
-      </div>
-      {form.kind === "saml" && (
-        <label className="flex flex-col">
-          IdP metadata (XML)
-          <textarea
-            value={form.metadataXml}
-            onChange={(e) => setForm({ ...form, metadataXml: e.target.value })}
-            rows={4}
-            className="border px-1 font-mono text-xs"
-          />
-        </label>
-      )}
-      <div className="flex gap-2">
-        <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
-          Save SSO source
-        </button>
-        {current.sso_source_kind !== "none" && (
-          <button type="button" onClick={() => remove.mutate()} className="underline">
-            Remove SSO source
-          </button>
-        )}
-      </div>
-      {(problem ?? errorText(save.error) ?? errorText(remove.error)) && (
-        <p className="text-red-700">
-          {problem ?? errorText(save.error) ?? errorText(remove.error)}
-        </p>
-      )}
-    </form>
-  );
-}
-
-function Workspaces({ tenant, options }: { tenant: TenantOut; options: OperatorOptions }) {
-  const queryClient = useQueryClient();
-  const key = ["operator", "workspaces", tenant.id];
-  const workspaces = useQuery({ queryKey: key, queryFn: () => operatorApi.workspaces(tenant.id) });
-  const [slug, setSlug] = useState("");
-  const [name, setName] = useState("");
-  const create = useMutation({
-    mutationFn: () =>
-      operatorApi.createWorkspace(tenant.id, {
-        slug: slug.trim(),
-        name: name.trim(),
-        tag_ids: [],
-        default_mode: "corpus_only",
-        default_model: tenant.entitlements.enabled_models[0] ?? "",
-        default_reasoning: false,
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
-  });
-
-  return (
-    <div className="flex flex-col gap-2">
-      <h3 className="font-semibold">Workspaces</h3>
-      {workspaces.data?.map((workspace) => (
-        <WorkspaceTags
-          key={workspace.id}
-          tenantId={tenant.id}
-          workspace={workspace}
-          tags={options.tags}
-        />
-      ))}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          create.mutate();
-        }}
-        className="flex flex-wrap items-end gap-2"
-      >
-        <label className="flex flex-col">
-          New workspace: slug
-          <input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
-        <label className="flex flex-col">
-          Name
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="border px-1"
-          />
-        </label>
-        <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
-          Add workspace
-        </button>
-        {errorText(create.error) && (
-          <p className="w-full text-red-700">{errorText(create.error)}</p>
-        )}
-      </form>
-    </div>
-  );
-}
-
-function WorkspaceTags({
-  tenantId,
-  workspace,
-  tags,
-}: {
-  tenantId: string;
-  workspace: OperatorWorkspace;
-  tags: string[];
-}) {
-  const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<string[]>(workspace.tag_ids);
-  const save = useMutation({
-    mutationFn: () => operatorApi.setWorkspaceTags(tenantId, workspace.id, selected),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["operator", "workspaces", tenantId] }),
-  });
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        save.mutate();
-      }}
-      className="flex flex-wrap items-center gap-3"
-    >
-      <span>
-        {workspace.name} <span className="text-slate-500">({workspace.slug})</span>
-      </span>
-      {tags.map((tag) => (
-        <label key={tag}>
-          <input
-            type="checkbox"
-            checked={selected.includes(tag)}
-            onChange={(e) => setSelected(toggle(selected, tag, e.target.checked))}
-          />{" "}
-          {tag}
-        </label>
-      ))}
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1 text-white">
-        Save tags
-      </button>
-      {errorText(save.error) && <p className="w-full text-red-700">{errorText(save.error)}</p>}
+      </Button>
+      <SaveStatus isSuccess={create.isSuccess} error={create.error} savedText="Tenant created." />
     </form>
   );
 }

@@ -18,6 +18,7 @@ import pytest
 import yaml
 
 from app.core.config import DEFAULT_CONFIG_DIR, load_settings
+from tests.authentik_expressions import run_source_policy
 from tests.test_config import ENV
 
 REPO = Path(__file__).resolve().parents[3]
@@ -152,6 +153,25 @@ def test_the_sign_in_link_flow_matches_the_readme_and_the_config(blueprint: dict
     assert login["attrs"]["session_duration"] == "hours=8"
 
 
+def test_what_users_see_reads_sporebot(blueprint: dict[str, Any]) -> None:
+    """P1b-17 (owner decision 1): the sign-in email's subject and text, the flow titles
+    and the authenticator app's issuer say SporeBot; slugs and names stay ask-spore."""
+    email = one(blueprint, "authentik_stages_email.emailstage", name="ask-spore-email-link")
+    assert email["attrs"]["subject"] == "Sign in to SporeBot"
+    totp = one(
+        blueprint,
+        "authentik_stages_authenticator_totp.authenticatortotpstage",
+        name="ask-spore-admin-totp-setup",
+    )
+    assert totp["attrs"]["friendly_name"] == "SporeBot"
+    for flow in entries(blueprint, "authentik_flows.flow"):
+        assert "SporeBot" in flow["attrs"]["title"]
+        assert "ask.spore" not in flow["attrs"]["title"]
+    template = REPO / "infra" / "authentik" / "templates" / email["attrs"]["template"]
+    shown = re.sub(r"\{#.*?#\}", "", template.read_text(encoding="utf-8"), flags=re.S)
+    assert "SporeBot" in shown and "ask.spore" not in shown
+
+
 def test_the_second_factor_is_bound_to_the_admin_group(blueprint: dict[str, Any]) -> None:
     config = settings_authentik()
     stage = one(
@@ -284,3 +304,16 @@ def test_ci_applies_it_to_an_empty_authentik() -> None:
     # The scripts run in Authentik's shell from stdin: they must at least be valid Python.
     for script in (VERIFY, VERIFY.with_name("wait_for_defaults.py")):
         compile(script.read_text(), str(script), "exec")
+
+
+# --- P1c-02: the source flows' policy turns the mapping's refusal into a denial ----------
+
+
+def test_the_source_policy_denies_a_refused_mapping_with_its_code() -> None:
+    refused = {"prompt_data": {"attributes": {"ask_spore_refusal": "domain_not_verified"}}}
+    assert run_source_policy(refused) == (False, ["ask-spore-refusal:domain_not_verified"])
+    allowed = {"prompt_data": {"email": "x@client.example", "attributes": {"ask_spore_sso": {}}}}
+    assert run_source_policy(allowed) == (True, [])
+    # Never started directly: outside a source's callback the flow does not apply.
+    assert run_source_policy(allowed, sso_flow=False) == (False, [])
+    assert run_source_policy({}) == (True, [])

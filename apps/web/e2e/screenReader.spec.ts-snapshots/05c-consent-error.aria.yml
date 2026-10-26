@@ -1,0 +1,6 @@
+- banner:
+    - note: AI-generated, verify against cited sources.
+    - text: Mycelium SporeBot Synthetic Client Synthetic Analyst
+- main:
+    - alert:
+        - heading "The notice could not be loaded." [level=1]

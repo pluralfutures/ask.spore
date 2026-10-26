@@ -65,7 +65,7 @@ describe("second factor (P1b-08)", () => {
   const challenge = {
     status: "mfa_required" as const,
     stage: "setup" as const,
-    setup_uri: "otpauth://totp/ask.spore:x?secret=JBSWY3DPEHPK3PXP",
+    setup_uri: "otpauth://totp/SporeBot:x?secret=JBSWY3DPEHPK3PXP",
     failed: false,
   };
 
@@ -78,6 +78,21 @@ describe("second factor (P1b-08)", () => {
     const html = renderToString(<SecondFactor challenge={challenge} onResult={() => {}} />);
     expect(html).toContain("JBSW Y3DP EHPK 3PXP");
     expect(html).toContain("one-time-code");
+  });
+
+  it("renders the otpauth URI as a QR image and as text (P1c-08)", () => {
+    const html = renderToString(<SecondFactor challenge={challenge} onResult={() => {}} />);
+    expect(html).toMatch(/<svg role="img" aria-label="QR code for your authenticator app"/);
+    expect(html).toContain('viewBox="0 0 41 41"'); // version 4 with its quiet zone
+    expect(html).toContain('href="otpauth://totp/SporeBot:x?secret=JBSWY3DPEHPK3PXP"');
+    // Only the setup stage shows it; asking for a code shows no key and no image.
+    const validate = renderToString(
+      <SecondFactor
+        challenge={{ ...challenge, stage: "validate", setup_uri: null }}
+        onResult={() => {}}
+      />,
+    );
+    expect(validate).not.toContain("<svg");
   });
 
   it("POSTs the code to the MFA route", async () => {

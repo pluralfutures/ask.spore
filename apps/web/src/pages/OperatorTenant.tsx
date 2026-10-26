@@ -1,0 +1,867 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, type FormEvent } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+
+import { ApiError, operatorApi } from "../api/client";
+import type {
+  AdminUser,
+  EntitlementsIn,
+  LoginPolicyIn,
+  OperatorOptions,
+  OperatorSupportGrant,
+  SupportConversation,
+  SupportSettings,
+  OperatorTag,
+  OperatorWorkspace,
+  SsoSourceIn,
+  TenantOut,
+} from "../api/types";
+import { SaveStatus } from "../components/SaveStatus";
+import { UserActions } from "../components/UserActions";
+import { lastLogin } from "../lib/admin";
+import { sourcesForTags } from "../lib/content";
+import { formFrom, toRequest, type EntitlementsForm } from "../lib/entitlements";
+import { formatDate, formatDateTime, pageLabel } from "../lib/format";
+import { TENANT_TABS, errorText, tabFrom, toggle, type TenantTab } from "../lib/operator";
+import { capShare, count, euros } from "../lib/spend";
+import {
+  emptySourceForm,
+  formAfterRemoval,
+  latestSourceAction,
+  sourceBody,
+  type SourceForm,
+  type SsoKind,
+} from "../lib/sso";
+import { OperatorsOnly } from "./OperatorConsole";
+import { PolicySummary } from "./TenantAdmin";
+import { Button } from "../ui/Button";
+import { LINK } from "../ui/link";
+import { Field } from "../ui/Field";
+import { Input, Select, Textarea } from "../ui/Input";
+import { Checkbox } from "../ui/Checkbox";
+import { Switch } from "../ui/Switch";
+import { Notice } from "../ui/Notice";
+import { cardClass } from "../ui/cardClass";
+import { PageHeader } from "../ui/PageHeader";
+import { Badge, StatusBadge } from "../ui/Badge";
+import { cx } from "../ui/controlClass";
+import { Card } from "../ui/Card";
+import { EmptyState, Skeleton } from "../ui/States";
+import { Tabs } from "../ui/Tabs";
+import { ActionsTh, Table, Td, Th } from "../ui/Table";
+
+const TAB_LABELS: Record<TenantTab, string> = {
+  entitlements: "Entitlements",
+  login: "Login policy",
+  workspaces: "Workspaces",
+  users: "Users",
+  spend: "Spend",
+  support: "Support access",
+};
+
+// One tenant per page (P1b-12, Phase 1a findings F2): every form on this page is keyed
+// to the tenant in the URL and is re-created when the tenant changes, so a save can
+// only go to the tenant whose name is shown above it. The entitlement save also names
+// the tenant in its body, and the API refuses it if that is not the path's tenant.
+export function OperatorTenant() {
+  const { tenantId = "" } = useParams();
+  return <TenantPage key={tenantId} tenantId={tenantId} />;
+}
+
+function TenantPage({ tenantId }: { tenantId: string }) {
+  const [params] = useSearchParams();
+  const tab = tabFrom(params.get("tab"));
+  const tenant = useQuery({
+    queryKey: ["operator", "tenant", tenantId],
+    queryFn: () => operatorApi.tenant(tenantId),
+  });
+  const options = useQuery({ queryKey: ["operator", "options"], queryFn: operatorApi.options });
+
+  if (tenant.error instanceof ApiError && tenant.error.status === 403) return <OperatorsOnly />;
+  if (tenant.error)
+    return (
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6">
+        <Notice tone="danger">No such tenant.</Notice>
+      </div>
+    );
+  if (!tenant.data || !options.data) {
+    return (
+      <div className="mx-auto w-full max-w-3xl p-4 md:px-8 md:py-6 text-ui">
+        <Skeleton />
+      </div>
+    );
+  }
+  const current = tenant.data;
+  return (
+    <div className="mx-auto w-full flex max-w-4xl flex-col gap-4 p-4 md:px-8 md:py-6 text-ui">
+      <p className="flex gap-4">
+        <Link to="/operator" className={LINK}>
+          Operator console
+        </Link>
+        <Link to="/" className={LINK}>
+          Chat app
+        </Link>
+      </p>
+      <PageHeader
+        title={
+          <>
+            {current.display_name} <span className="text-fg-subtle">({current.slug})</span>
+          </>
+        }
+        meta={
+          <>
+            <StatusBadge kind="tenant" status={current.status} />
+            <span className="text-fg-muted">
+              admins: {current.admins} · domains: {current.verified_domains.join(", ") || "none"}
+            </span>
+          </>
+        }
+      />
+      <Tabs
+        label="Tenant settings"
+        tabs={TENANT_TABS.map((name) => ({
+          label: TAB_LABELS[name],
+          to: `?tab=${name}`,
+          current: name === tab,
+        }))}
+      />
+      {tab === "entitlements" && <Entitlements tenant={current} options={options.data} />}
+      {tab === "login" && (
+        <>
+          <LoginPolicy tenant={current} />
+          <SsoSource tenant={current} />
+        </>
+      )}
+      {tab === "workspaces" && <Workspaces tenant={current} />}
+      {tab === "users" && <Users tenant={current} />}
+      {tab === "spend" && <Spend tenant={current} />}
+      {tab === "support" && <SupportAccess tenant={current} />}
+    </div>
+  );
+}
+
+function useRefreshTenant(tenantId: string): () => Promise<void> {
+  const queryClient = useQueryClient();
+  return async () => {
+    await queryClient.invalidateQueries({ queryKey: ["operator", "tenant", tenantId] });
+    await queryClient.invalidateQueries({ queryKey: ["operator", "tenants"] });
+  };
+}
+
+function Entitlements({ tenant, options }: { tenant: TenantOut; options: OperatorOptions }) {
+  const [form, setForm] = useState<EntitlementsForm>(() => formFrom(tenant.entitlements));
+  const [problem, setProblem] = useState<string | null>(null);
+  const refresh = useRefreshTenant(tenant.id);
+  const save = useMutation({
+    mutationFn: ({ tenantId, body }: { tenantId: string; body: EntitlementsIn }) =>
+      operatorApi.setEntitlements(tenantId, body),
+    onSuccess: refresh,
+  });
+  const ent = tenant.entitlements;
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const result = toRequest(tenant.id, form, ent);
+    if ("error" in result) {
+      setProblem(result.error);
+      return;
+    }
+    setProblem(null);
+    save.mutate(result);
+  }
+
+  return (
+    <form onSubmit={submit} className={cardClass("flex flex-col gap-5")}>
+      <fieldset className={FIELDSET}>
+        <legend className={LEGEND}>Answer modes</legend>
+        {options.answer_modes.map((mode) => (
+          <Checkbox
+            key={mode}
+            checked={form.answerModes.includes(mode)}
+            disabled={mode === "corpus_only"}
+            onChange={(e) =>
+              setForm({ ...form, answerModes: toggle(form.answerModes, mode, e.target.checked) })
+            }
+          >
+            {mode}
+          </Checkbox>
+        ))}
+      </fieldset>
+      <fieldset className={FIELDSET}>
+        <legend className={LEGEND}>Enabled models</legend>
+        {options.models.map((model) => (
+          <Checkbox
+            key={model}
+            checked={form.enabledModels.includes(model)}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                enabledModels: toggle(form.enabledModels, model, e.target.checked),
+              })
+            }
+          >
+            {model}
+          </Checkbox>
+        ))}
+      </fieldset>
+      <fieldset className="grid grid-cols-1 items-end gap-4 sm:grid-cols-3">
+        <legend className={LEGEND}>External models (served outside the EU)</legend>
+        <Checkbox
+          className="sm:col-span-3"
+          checked={form.externalModelsEnabled}
+          onChange={(e) => setForm({ ...form, externalModelsEnabled: e.target.checked })}
+        >
+          Enabled
+        </Checkbox>
+        <Field label="Monthly spend cap (EUR)">
+          <Input
+            inputMode="decimal"
+            value={form.spendCapEuros}
+            onChange={(e) => setForm({ ...form, spendCapEuros: e.target.value })}
+          />
+        </Field>
+        <Field label="Client acceptance: DPA document">
+          <Input
+            value={form.acceptanceReference}
+            onChange={(e) => setForm({ ...form, acceptanceReference: e.target.value })}
+          />
+        </Field>
+        <Field label="Accepted on">
+          <Input
+            type="date"
+            value={form.acceptanceDate}
+            onChange={(e) => setForm({ ...form, acceptanceDate: e.target.value })}
+          />
+        </Field>
+        {ent.external_acceptance_reference && (
+          <p className="text-meta text-fg-muted sm:col-span-3">
+            On file: {ent.external_acceptance_reference}, {ent.external_acceptance_date}
+          </p>
+        )}
+      </fieldset>
+      <Button variant="primary" className="self-start" type="submit">
+        Save entitlements for {tenant.display_name}
+      </Button>
+      {problem ? (
+        <Notice tone="danger">{problem}</Notice>
+      ) : (
+        <SaveStatus isSuccess={save.isSuccess} error={save.error} />
+      )}
+    </form>
+  );
+}
+
+// UX-20: the operator forms' groups: a strong legend over wrapping options.
+const FIELDSET = "flex flex-wrap gap-x-5 gap-y-2";
+const LEGEND = "mb-2 text-ui font-strong";
+
+// P1b-06: how the tenant's users sign in. Sign-in links are on by default; the operator
+// switches them off once the client's SSO is live and their IT asks for it.
+function LoginPolicy({ tenant }: { tenant: TenantOut }) {
+  const current = tenant.login_policy;
+  const [form, setForm] = useState<LoginPolicyIn>({
+    sign_in_links_enabled: current.sign_in_links_enabled,
+    jit_provisioning_enabled: current.jit_provisioning_enabled,
+    admin_mfa_required: current.admin_mfa_required,
+  });
+  const refresh = useRefreshTenant(tenant.id);
+  const save = useMutation({
+    mutationFn: () => operatorApi.setLoginPolicy(tenant.id, form),
+    onSuccess: refresh,
+  });
+  const box = (key: keyof LoginPolicyIn, label: string) => (
+    <Switch checked={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.checked })}>
+      {label}
+    </Switch>
+  );
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate();
+      }}
+      className={cardClass("flex flex-col items-start gap-3")}
+    >
+      <h2 className="text-heading font-strong">Login policy</h2>
+      {box("sign_in_links_enabled", "Sign-in links")}
+      {box("jit_provisioning_enabled", "Create users on first SSO sign-in (verified domains)")}
+      {box("admin_mfa_required", "Second factor for tenant admins")}
+      <Button variant="primary" type="submit">
+        Save login policy
+      </Button>
+      <SaveStatus isSuccess={save.isSuccess} error={save.error} />
+    </form>
+  );
+}
+
+// P1b-07: the tenant's one SSO source, configured in Authentik with the client's IT. The
+// client secret is sent once and never shown again; leave it empty to keep it.
+function SsoSource({ tenant }: { tenant: TenantOut }) {
+  const current = tenant.login_policy;
+  const [form, setForm] = useState<SourceForm>(() =>
+    emptySourceForm(current.sso_source_kind === "none" ? "entra" : current.sso_source_kind),
+  );
+  const [problem, setProblem] = useState<string | null>(null);
+  const refresh = useRefreshTenant(tenant.id);
+  const save = useMutation({
+    mutationFn: (body: SsoSourceIn) => operatorApi.setSsoSource(tenant.id, body),
+    onSuccess: () => {
+      setForm({ ...form, clientSecret: "" });
+      void refresh();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: () => operatorApi.removeSsoSource(tenant.id),
+    onSuccess: () => {
+      setForm(formAfterRemoval());
+      setProblem(null);
+      void refresh();
+    },
+  });
+  const field = (key: keyof SourceForm, label: string, type = "text") => (
+    <Field label={label}>
+      <Input
+        type={type}
+        autoComplete="off"
+        value={form[key]}
+        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+      />
+    </Field>
+  );
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const result = sourceBody(form);
+    if ("error" in result) {
+      setProblem(result.error);
+      return;
+    }
+    setProblem(null);
+    save.mutate(result.body);
+  }
+
+  return (
+    <form onSubmit={submit} className={cardClass("flex flex-col gap-3")}>
+      <h2 className="text-heading font-strong">Single sign-on source</h2>
+      <PolicySummary policy={current} />
+      <Field label="Kind" className="w-fit">
+        <Select
+          value={form.kind}
+          onChange={(e) => setForm({ ...form, kind: e.target.value as SsoKind })}
+        >
+          <option value="entra">Microsoft Entra ID</option>
+          <option value="google">Google Workspace</option>
+          <option value="oidc">OpenID Connect</option>
+          <option value="saml">SAML 2.0</option>
+        </Select>
+      </Field>
+      <div className="flex flex-wrap items-end gap-2">
+        {form.kind === "entra" && field("entraTenantId", "Entra tenant ID")}
+        {form.kind === "oidc" && field("issuer", "Issuer (https)")}
+        {form.kind !== "saml" && field("clientId", "Client ID")}
+        {form.kind !== "saml" && field("clientSecret", "Client secret", "password")}
+        {form.kind === "entra" &&
+          field("adminGroupIds", "Admin group object IDs (comma-separated, optional)")}
+      </div>
+      {form.kind === "saml" && (
+        <Field label="IdP metadata (XML)">
+          <Textarea
+            value={form.metadataXml}
+            onChange={(e) => setForm({ ...form, metadataXml: e.target.value })}
+            rows={4}
+            className="font-mono text-meta"
+          />
+        </Field>
+      )}
+      <div className="flex gap-2">
+        <Button variant="primary" type="submit">
+          Save SSO source
+        </Button>
+        {current.sso_source_kind !== "none" && (
+          <Button variant="ghost-danger" onClick={() => remove.mutate()}>
+            Remove SSO source
+          </Button>
+        )}
+      </div>
+      {problem ? (
+        <Notice tone="danger">{problem}</Notice>
+      ) : (
+        <SaveStatus {...latestSourceAction(save, remove)} />
+      )}
+    </form>
+  );
+}
+
+// Package builder (P1a-04): the tenant's workspaces and their tags. The pickers offer
+// only this tenant's own tags and the shared ones (P1b-12); the API refuses any other.
+function Workspaces({ tenant }: { tenant: TenantOut }) {
+  const queryClient = useQueryClient();
+  const key = ["operator", "workspaces", tenant.id];
+  const workspaces = useQuery({ queryKey: key, queryFn: () => operatorApi.workspaces(tenant.id) });
+  const tags = useQuery({
+    queryKey: ["operator", "tags", tenant.id],
+    queryFn: () => operatorApi.tenantTags(tenant.id),
+  });
+  const [slug, setSlug] = useState("");
+  const [name, setName] = useState("");
+  const create = useMutation({
+    mutationFn: () =>
+      operatorApi.createWorkspace(tenant.id, {
+        slug: slug.trim(),
+        name: name.trim(),
+        tag_ids: [],
+        default_mode: "corpus_only",
+        default_model: tenant.entitlements.enabled_models[0] ?? "",
+        default_reasoning: false,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+
+  return (
+    <div className={cardClass("flex flex-col gap-2")}>
+      {workspaces.data?.map((workspace) => (
+        <WorkspaceTags
+          key={workspace.id}
+          tenantId={tenant.id}
+          workspace={workspace}
+          tags={tags.data ?? []}
+        />
+      ))}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          create.mutate();
+        }}
+        className="flex flex-wrap items-end gap-2"
+      >
+        <Field label="New workspace: slug">
+          <Input value={slug} onChange={(e) => setSlug(e.target.value)} required />
+        </Field>
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </Field>
+        <Button variant="primary" type="submit">
+          Add workspace
+        </Button>
+        <SaveStatus
+          isSuccess={create.isSuccess}
+          error={create.error}
+          savedText="Workspace added."
+        />
+      </form>
+    </div>
+  );
+}
+
+function WorkspaceTags({
+  tenantId,
+  workspace,
+  tags,
+}: {
+  tenantId: string;
+  workspace: OperatorWorkspace;
+  tags: OperatorTag[];
+}) {
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState<string[]>(workspace.tag_ids);
+  const save = useMutation({
+    mutationFn: () => operatorApi.setWorkspaceTags(tenantId, workspace.id, selected),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["operator", "workspaces", tenantId] }),
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate();
+      }}
+      className="flex flex-wrap items-center gap-3"
+    >
+      <span>
+        {workspace.name} <span className="text-fg-subtle">({workspace.slug})</span>
+      </span>
+      {tags.map(({ tag, shared }) => (
+        <Checkbox
+          key={tag}
+          checked={selected.includes(tag)}
+          onChange={(e) => setSelected(toggle(selected, tag, e.target.checked))}
+        >
+          {tag}
+          {shared ? <span className="text-fg-subtle"> (shared)</span> : null}
+        </Checkbox>
+      ))}
+      <Button variant="primary" type="submit">
+        Save tags
+      </Button>
+      <SaveStatus isSuccess={save.isSuccess} error={save.error} />
+      {/* P2A-04 (D4): the files this workspace holds, in the content console, where a
+          content reviewer pauses or withdraws them. */}
+      {workspace.tag_ids.length ? (
+        <Link to={sourcesForTags(workspace.tag_ids)} className={LINK}>
+          Sources in its tags
+        </Link>
+      ) : null}
+    </form>
+  );
+}
+
+function Users({ tenant }: { tenant: TenantOut }) {
+  const queryClient = useQueryClient();
+  const key = ["operator", "users", tenant.id];
+  const users = useQuery({ queryKey: key, queryFn: () => operatorApi.tenantUsers(tenant.id) });
+  const refresh = useRefreshTenant(tenant.id);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const invite = useMutation({
+    mutationFn: () =>
+      operatorApi.inviteAdmin(tenant.id, { email: email.trim(), display_name: name.trim() }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: key });
+      await refresh();
+    },
+  });
+  // P1c-07: resend an invitation; remove a user (any tenant's, never a platform role).
+  const [done, setDone] = useState<string | null>(null);
+  const resend = useMutation({
+    mutationFn: (user: AdminUser) => operatorApi.resendInvitation(tenant.id, user.id),
+    onSuccess: (_, user) => setDone(`Invitation sent again to ${user.email}.`),
+  });
+  const remove = useMutation({
+    mutationFn: (user: AdminUser) => operatorApi.removeUser(tenant.id, user.id),
+    onSuccess: async (_, user) => {
+      setDone(`${user.email} was removed with their conversations.`);
+      await queryClient.invalidateQueries({ queryKey: key });
+      await refresh();
+    },
+  });
+  const failed = errorText(resend.error) ?? errorText(remove.error);
+
+  return (
+    <div className={cardClass("flex flex-col gap-3")}>
+      <Table>
+        <thead>
+          <tr>
+            <Th>Name</Th>
+            <Th>Email</Th>
+            <Th>Role</Th>
+            <Th>Status</Th>
+            <Th>Last sign-in</Th>
+            <ActionsTh />
+          </tr>
+        </thead>
+        <tbody>
+          {users.data?.map((user) => (
+            <tr key={user.id}>
+              <Td label="Name">{user.display_name}</Td>
+              <Td label="Email" className="break-all">
+                {user.email}
+              </Td>
+              <Td label="Role">{user.role}</Td>
+              <Td label="Status">
+                <StatusBadge kind="user" status={user.status} />
+              </Td>
+              <Td label="Last sign-in">{lastLogin(user)}</Td>
+              <Td className="text-right">
+                <UserActions
+                  user={user}
+                  canResend={user.status === "invited"}
+                  canRemove
+                  onResend={() => {
+                    setDone(null);
+                    invite.reset();
+                    remove.reset();
+                    resend.mutate(user);
+                  }}
+                  onRemove={() => {
+                    setDone(null);
+                    invite.reset();
+                    resend.reset();
+                    remove.mutate(user);
+                  }}
+                  busy={resend.isPending || remove.isPending}
+                />
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+      {failed && <Notice tone="danger">{failed}</Notice>}
+      {done && !failed && <p role="status">{done}</p>}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          // Release F4: the invite's outcome replaces the list's last status.
+          setDone(null);
+          resend.reset();
+          remove.reset();
+          invite.mutate();
+        }}
+        className="flex flex-wrap items-end gap-2"
+      >
+        <Field label="Invite admin: email">
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </Field>
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </Field>
+        <Button variant="primary" type="submit">
+          Invite
+        </Button>
+        {invite.isSuccess && (
+          <p className="w-full">
+            Invited. An invitation email is on its way; they sign in from their own browser.
+          </p>
+        )}
+        {errorText(invite.error) && (
+          <Notice tone="danger" className="w-full">
+            {errorText(invite.error)}
+          </Notice>
+        )}
+      </form>
+    </div>
+  );
+}
+
+// P1b-12: month-to-date usage by model from the usage ledger, and external spend against
+// the cap with the two notice thresholds (80 percent: notice; 100 percent: hard stop).
+function Spend({ tenant }: { tenant: TenantOut }) {
+  const spend = useQuery({
+    queryKey: ["operator", "spend", tenant.id],
+    queryFn: () => operatorApi.tenantSpend(tenant.id),
+  });
+  if (!spend.data) {
+    const problem = errorText(spend.error);
+    return problem ? <Notice tone="danger">{problem}</Notice> : <Skeleton />;
+  }
+  const data = spend.data;
+  const share = capShare(data.external_spent_cents, data.external_spend_cap_cents ?? null);
+  return (
+    <Card title={`Month to date (${data.month}, UTC)`}>
+      <p id="spend-line">
+        External models: {data.external_models_enabled ? "enabled" : "off"} · spent{" "}
+        {euros(data.external_spent_cents)}
+        {data.external_spend_cap_cents === null || data.external_spend_cap_cents === undefined
+          ? " · no cap"
+          : ` of ${euros(data.external_spend_cap_cents)} (${share}%)`}
+      </p>
+      {/* UX-20: the cap as a meter, with the notice thresholds marked on it. */}
+      {share !== null ? (
+        <div
+          role="meter"
+          aria-labelledby="spend-line"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.min(share, 100)}
+          className="relative h-2 w-full overflow-hidden rounded-badge bg-neutral-muted"
+        >
+          <div
+            className={cx(
+              "h-full",
+              share >= 100 ? "bg-danger" : share >= 80 ? "bg-attention" : "bg-primary",
+            )}
+            style={{ width: `${Math.min(share, 100)}%` }}
+          />
+          {data.thresholds.map((t) => (
+            <span
+              key={t.percent}
+              aria-hidden="true"
+              className="absolute inset-y-0 w-0.5 bg-fg-secondary"
+              style={{ left: `calc(${Math.min(t.percent, 100)}% - 1px)` }}
+            />
+          ))}
+        </div>
+      ) : null}
+      {data.thresholds.length > 0 && (
+        <ul className="divide-y rounded-card border">
+          {data.thresholds.map((t) => (
+            <li
+              key={t.percent}
+              data-testid={`threshold-${t.percent}`}
+              className="flex flex-wrap items-center gap-2 px-3 py-2"
+            >
+              <span className="tabular-nums">
+                {t.percent}% at {euros(t.cents)}:
+              </span>
+              <Badge tone={t.reached ? (t.percent >= 100 ? "danger" : "warning") : "neutral"}>
+                {t.reached ? "reached" : "not reached"}
+              </Badge>
+              {t.notified_at ? (
+                <span className="text-fg-muted">
+                  operators notified {formatDate(t.notified_at)}
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {data.models.length === 0 ? (
+        <EmptyState title="No usage this month." />
+      ) : (
+        <Table>
+          <thead>
+            <tr>
+              <Th>Model</Th>
+              <Th numeric>Tokens in</Th>
+              <Th numeric>Tokens out</Th>
+              <Th numeric>Cost</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.models.map((m) => (
+              <tr key={m.model}>
+                <Td label="Model">
+                  {m.display_name}
+                  {m.external ? <span className="text-fg-subtle"> (outside the EU)</span> : null}
+                </Td>
+                <Td label="Tokens in" numeric>
+                  {count(m.tokens_in)}
+                </Td>
+                <Td label="Tokens out" numeric>
+                  {count(m.tokens_out)}
+                </Td>
+                <Td label="Cost" numeric>
+                  {euros(m.cost_cents)}
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </Card>
+  );
+}
+
+// P2A-08 (architecture §7.4): what the tenant's admins opened for support, and a read of
+// it. Each read is audited under the tenant and shown on its admin page; an expired or
+// revoked grant reads as not found. Read only: nothing here changes the tenant.
+function SupportAccess({ tenant }: { tenant: TenantOut }) {
+  const grants = useQuery({
+    queryKey: ["operator", "support", tenant.id],
+    queryFn: () => operatorApi.supportGrants(tenant.id),
+  });
+  const [open, setOpen] = useState<OperatorSupportGrant | null>(null);
+  if (grants.isPending) return <Skeleton />;
+  return (
+    <div className="flex flex-col gap-4">
+      <Card
+        title="Open support grants"
+        description="Granted by the tenant's admins. Each view is recorded and shown to them."
+      >
+        {grants.data && grants.data.length > 0 ? (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Access to</Th>
+                <Th>Note</Th>
+                <Th>Until</Th>
+                <ActionsTh />
+              </tr>
+            </thead>
+            <tbody>
+              {grants.data.map((g) => (
+                <tr key={g.id} data-testid={`grant-${g.id}`}>
+                  <Td label="Access to">
+                    {g.scope === "settings" ? "Settings" : "One conversation"}
+                  </Td>
+                  <Td label="Note" className="[overflow-wrap:anywhere]">
+                    {g.note}
+                  </Td>
+                  <Td label="Until">{formatDateTime(g.expires_at)}</Td>
+                  <Td className="text-right">
+                    <Button variant="secondary" onClick={() => setOpen(g)}>
+                      View
+                    </Button>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : (
+          <EmptyState title="No open support grants">
+            A tenant admin grants access from their administration page.
+          </EmptyState>
+        )}
+      </Card>
+      {open ? <SupportView key={open.id} tenantId={tenant.id} grant={open} /> : null}
+    </div>
+  );
+}
+
+function SupportView({ tenantId, grant }: { tenantId: string; grant: OperatorSupportGrant }) {
+  const view = useQuery({
+    queryKey: ["operator", "support", tenantId, grant.id, "view"],
+    queryFn: (): Promise<SupportSettings | SupportConversation> =>
+      grant.scope === "settings"
+        ? operatorApi.supportSettings(tenantId, grant.id)
+        : operatorApi.supportConversation(tenantId, grant.id, grant.conversation_id ?? ""),
+    retry: false,
+    staleTime: Infinity,
+  });
+  if (view.isPending) return <Skeleton />;
+  if (view.error)
+    return <Notice tone="danger">This grant is no longer open; nothing can be read.</Notice>;
+  return "messages" in view.data ? (
+    <SupportConversationView conversation={view.data} />
+  ) : (
+    <SupportSettingsView settings={view.data} />
+  );
+}
+
+function citationLine(c: SupportConversation["messages"][number]["citations"][number]): string {
+  const page = c.page_or_slide !== null ? `, ${pageLabel(c.type, c.page_or_slide)}` : "";
+  const status = c.withdrawn ? " (withdrawn)" : c.superseded ? " (superseded)" : "";
+  return `[${c.marker}] ${c.publisher}, ${c.title}${page}${status}`;
+}
+
+export function SupportConversationView({ conversation }: { conversation: SupportConversation }) {
+  return (
+    <Card
+      title={conversation.title || "Untitled conversation"}
+      description={`${conversation.workspace_name} · read only, until ${formatDateTime(conversation.expires_at)}`}
+    >
+      <ol className="flex flex-col gap-3">
+        {conversation.messages.map((m, index) => (
+          <li key={index} className="flex flex-col gap-1">
+            <p className="font-strong">{m.role === "user" ? "Question" : "Answer"}</p>
+            <p className="whitespace-pre-wrap">{m.content}</p>
+            {m.citations.length > 0 ? (
+              <ul className="flex flex-col gap-1 text-fg-muted">
+                {m.citations.map((c) => (
+                  <li key={c.marker}>
+                    {citationLine(c)}
+                    <blockquote className="ml-4 whitespace-pre-wrap">{c.excerpt}</blockquote>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
+export function SupportSettingsView({ settings }: { settings: SupportSettings }) {
+  return (
+    <Card
+      title="Tenant settings"
+      description={`Read only, until ${formatDateTime(settings.expires_at)}`}
+    >
+      <p>{`Chat history retention: ${settings.retention_days} days`}</p>
+      {settings.workspaces.map((w) => (
+        <section key={w.slug} className="flex flex-col gap-1">
+          <h3 className="font-strong">{w.name}</h3>
+          <p className="text-fg-muted">
+            {`Default mode ${w.default_mode}, model ${w.default_model}, reasoning ${w.default_reasoning ? "on" : "off"}`}
+          </p>
+          {w.instructions ? (
+            <p className="whitespace-pre-wrap">{`Instructions v${w.instructions_version}: ${w.instructions}`}</p>
+          ) : (
+            <p className="text-fg-muted">No additional instructions.</p>
+          )}
+        </section>
+      ))}
+    </Card>
+  );
+}

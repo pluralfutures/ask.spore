@@ -15,6 +15,10 @@ eu_hosts = [
     "api.scaleway.ai", # Scaleway Generative APIs, Paris (findings M2; DPA/ZDR confirmation open)
     "ragflow",        # RAGFlow on the private Compose network; never public
     "authentik-server", # Authentik (P1a-02) on the private Compose network; ours, Paris host
+    "api.scaleway.com", # Scaleway Transactional Email (P1b-11), fr-par; under the Scaleway DPA
+    # Mailgun EU (P1b-11 backup): called only while [mail] provider = "mailgun", which is
+    # set only after the Mailgun DPA is filed (Stack Decision, email row). Never the US host.
+    "api.eu.mailgun.net",
 ]
 # external_hosts: non-EU model providers. Called only for a tenant with the operator-set
 # "external models" entitlement, and only with zero-data-retention routing on every
@@ -50,6 +54,12 @@ public_url = "https://askspore.myceliumgastronomy.com"
 # PHASE 0: Scaleway, by owner decision, because the Mistral account has no API quota
 # (findings M2). The [mistral] section stays in place, inactive.
 provider = "scaleway"
+# P1b-17: when the active provider fails to open an answer (5xx, 429, timeout), the
+# other EU provider answers (Stack Decision, fallback LLM row); needs its key. Off while
+# the Mistral account has no API quota (findings M2). Tenants with the external-models
+# entitlement fail over to OpenRouter as well, whatever this says (owner decision 2 of
+# Oct 22, 2026; app.llm.factory).
+eu_failover = false
 
 [mistral]
 base_url = "https://api.mistral.ai"
@@ -66,15 +76,13 @@ base_url = "https://api.scaleway.ai"
 # Scaleway names are not dated; fixed names only, never "latest" (findings M2).
 chat_model = "deepseek-v4.1-flash"
 rewrite_model = "deepseek-v4.1-flash"   # same model: one model to cover under the DPA
-judge_model = "deepseek-v4.1-flash"     # eval judge grades its own model (findings D6)
 # Every Scaleway model the [[catalogue]] may offer (P1a-09). qwen3.8-27b confirmed by
 # the owner on Oct 19, 2026 (findings C26).
 models = ["deepseek-v4.1-flash", "qwen3.8-27b"]
 timeout_seconds = 60
-# DeepSeek reasons by default; "none" turns it off for rewrites, the judge and the
+# DeepSeek reasons by default; "none" turns it off for rewrites and the
 # default (no-choice) call. Answers follow the conversation's switch (app.llm.reasoning).
 reasoning_effort = "none"
-judge_reasoning_effort = "none"
 # Client-side throttle per process. The organisation's limits reported by the API
 # (x-ratelimit-* headers, Oct 2026): 600 requests and 5,000,000 tokens per minute.
 rate_limit_rps = 5
@@ -165,6 +173,14 @@ timeout_seconds = 30
 # which RAGFlow exposes as its "Builtin" provider (infra/ragflow, findings R1, R7).
 # Changing it means re-creating and re-ingesting every dataset.
 embedding_model = "BAAI/bge-m3@Builtin"
+# The private RAGFlow web UI (P1b-05): the content console links each source's documents
+# here for chunk spot-checks. Loopback only (checked at startup): RAGFlow publishes its
+# UI on 127.0.0.1 of the Instance (infra/ragflow), and an operator reaches it over an SSH
+# tunnel (`ssh -L 8080:127.0.0.1:8080 <instance>`). Never a public URL.
+admin_ui_url = "http://127.0.0.1:8080"
+# Routes of the pinned RAGFlow UI (v0.27.2): a dataset, and one document's parsed chunks.
+admin_ui_dataset_path = "/dataset/dataset/{dataset_id}"
+admin_ui_document_path = "/chunk/parsed/chunks?id={dataset_id}&doc_id={document_id}"
 
 [prompts]
 # Active versions of config/prompts/<name>/<version>.md. Changing a prompt means a
@@ -175,6 +191,13 @@ rewrite = "v1"
 # Faithfulness judge of the eval harness (packages/eval, P0-18); the API does not use it.
 judge = "v1"
 
+[consent]
+# The use and privacy notice every user accepts before their first conversation
+# (P1b-10): config/consent/<version>.md. A new version re-prompts every user and queues
+# one consent_notice email per user who accepted an earlier one. Never edit a released
+# version. v2 replaced v1 (contact and address) on Oct 25, 2026; the wording stays provisional.
+version = "v2"
+
 [files]
 # Workspace file list and downloads (P1a-14). content_root holds our own copies of the
 # ingested PDF, DOCX and PPTX files, named by content hash (never the original file name),
@@ -183,11 +206,74 @@ content_root = "/srv/ask-spore/content"
 download_url_ttl_seconds = 60     # a download link is single-use and expires after this
 downloads_per_user_per_day = 50   # owner, Oct 19, 2026; per UTC calendar day
 
+[eval]
+# The eval harness's faithfulness judge (P1b-15 c), pinned separately from the answer
+# model so the judge does not grade its own model's answers (findings D6). Owner decision
+# 22, Oct 22, 2026: Qwen on Scaleway. It must be a model its EU provider pins (Scaleway's
+# models list, or Mistral's chat/rewrite model).
+judge_provider = "scaleway"
+judge_model = "qwen3.8-27b"
+judge_reasoning_effort = "none"
+
+[retention]
+# The retention purge (P1b-14): the worker deletes, once a day and tenant by tenant,
+# conversations past their tenant's retention (at most 30 days, CLAUDE.md; 0 is "no
+# history"), revoked_sessions rows past their token's expiry, and downloads records
+# older than this. The download audit events stay. Owner decision, Oct 21, 2026.
+downloads_days = 90
+
+[mail]
+# Platform transactional mail (P1b-11): invitations, operator notices and the consent
+# notice, sent by the worker's send_mail jobs through app.core.mail. Exactly one provider
+# sends: "scaleway" (primary, Scaleway Transactional Email, fr-par) or "mailgun" (the
+# backup, EU region, only after its DPA is filed). Keys come from the environment:
+# SCALEWAY_TEM_API_KEY (an IAM key allowed EmailSend on the project, not the Generative
+# APIs key) with SCALEWAY_TEM_PROJECT_ID (or SCALEWAY_PROJECT_ID), or MAILGUN_API_KEY.
+# Without the active provider's key nothing is sent (jobs fail with mail_not_configured).
+provider = "scaleway"
+# The sending address: on the domain verified in Scaleway Transactional Email (fr-par;
+# SPF, DKIM, DMARC), the same address as Authentik's AUTHENTIK_EMAIL__FROM. Owner
+# decision 13, Oct 22, 2026.
+from_address = "reply@askspore.myceliumgastronomy.com"
+from_name = "SporeBot"
+# Where recipients sign in; the only link a platform email carries.
+app_url = "https://askspore.myceliumgastronomy.com"
+timeout_seconds = 10
+
+[mail.scaleway]
+base_url = "https://api.scaleway.com"
+api_version = "v1alpha1"   # pinned (Stack Decision): .../transactional-email/v1alpha1/regions/fr-par
+region = "fr-par"
+
+# The backup, inactive while provider = "scaleway". Uncomment with the verified sending
+# domain (click and open tracking off) when the owner activates it.
+# [mail.mailgun]
+# base_url = "https://api.eu.mailgun.net"
+# api_version = "v3"
+# domain = "mg.example.org"
+
+[mail.templates]
+# Active versions of config/mail/<name>/<version>.txt and .html; never edit a released
+# version (app.core.mailtemplates).
+invitation = "v2"  # v2: greets the recipient by first name (decision 16)
+spend_cap_80 = "v1"
+spend_cap_100 = "v1"
+tenant_name_flag = "v1"
+consent_notice = "v1"   # template only: the consent gate (P1b-10) decides when it is sent
+
 [chat]
-# Orchestrator parameters (P0-14). Token figures are estimates (~4 characters per token).
+# Orchestrator parameters (P0-14). Token figures are counted with the DeepSeek V4
+# tokenizer (P1b-15 f, app.chat.tokens).
 history_messages = 6        # last N messages of the conversation sent as context
 history_max_tokens = 2000   # ...bounded by this many tokens, newest first
 top_k = 10
 similarity_threshold = 0.25  # below this nothing is relevant: abstain without an LLM call (findings section 5: v1 real-corpus runs)
 max_context_tokens = 6000   # cap on retrieved passages sent to the model
 cache_ttl_seconds = 86400   # answer cache; key includes the corpus version
+# RAGFlow's hybrid score: weight of vector similarity against keyword similarity
+# (RAGFlow's default 0.3, P0-20). Part of the answer-cache key. Tuned Oct 23, 2026 on
+# the Instance (P1b-15 e, release step 7.4; findings 1b §8): one full eval set v1 run
+# each at 0.2, 0.3 and 0.4 with similarity_threshold 0.25, corpus_only/v5 on
+# deepseek-v4.1-flash, judge qwen3.8-27b; owner chose 0.4 (0.2 lost a third of
+# retrieval under the threshold). One run per weight: confirm at the next eval run.
+vector_similarity_weight = 0.4

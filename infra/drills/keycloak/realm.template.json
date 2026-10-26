@@ -1,0 +1,45 @@
+{
+  "realm": "ask-spore-drill",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "loginWithEmailAllowed": true,
+  "clients": [
+    {
+      "clientId": "ask-spore-drill",
+      "name": "ask.spore SSO drill",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${DRILL_CLIENT_SECRET}",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["https://askspore.myceliumgastronomy.com/source/oauth/callback/${DRILL_SOURCE_SLUG}/"],
+      "webOrigins": ["+"]
+    }
+  ],
+  "users": [
+    {
+      "username": "drill-verified",
+      "email": "${DRILL_VERIFIED_EMAIL}",
+      "emailVerified": true,
+      "firstName": "Drill",
+      "lastName": "Verified",
+      "enabled": true,
+      "credentials": [{"type": "password", "value": "${DRILL_VERIFIED_PASSWORD}", "temporary": false}]
+    },
+    {
+      "username": "drill-outsider",
+      "email": "${DRILL_OUTSIDER_EMAIL}",
+      "emailVerified": true,
+      "firstName": "Drill",
+      "lastName": "Outsider",
+      "enabled": true,
+      "credentials": [{"type": "password", "value": "${DRILL_OUTSIDER_PASSWORD}", "temporary": false}]
+    }
+  ]
+}

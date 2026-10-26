@@ -1,0 +1,20 @@
+# Drill only: the production Caddyfile plus the Keycloak test host. Only the drill realm's
+# endpoints and Keycloak's static resources are reachable; the admin console and the
+# master realm are not.
+import /etc/caddy/Caddyfile
+
+idp-test.askspore.myceliumgastronomy.com {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+	@drill path /realms/ask-spore-drill/* /resources/*
+	handle @drill {
+		reverse_proxy idp-test-keycloak:8080
+	}
+	handle {
+		respond 404
+	}
+}

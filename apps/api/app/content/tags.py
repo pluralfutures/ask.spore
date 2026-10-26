@@ -21,6 +21,9 @@ SOURCE_TYPES: tuple[SourceType, ...] = ("pdf", "docx", "pptx", "html", "markdown
 # Methods whose RAGFlow parser accepts PDF only ("file type not supported yet"): a tag
 # defaulting to one of them must name a method for every other source type (findings E6).
 PDF_ONLY_METHODS: frozenset[str] = frozenset({"paper", "manual"})
+# Slug of our own platform tenant (alembic revision 0001), the owner of a tag that names
+# no tenant (P1c-01).
+INTERNAL_TENANT_SLUG = "internal"
 
 
 class TagsConfigError(ValueError):
@@ -32,6 +35,17 @@ class TagConfig(BaseModel):
 
     chunk_method: ChunkMethod
     chunk_method_by_type: dict[SourceType, ChunkMethod] = Field(default_factory=dict)
+    # P1b-12: the slug of the one tenant whose workspaces may use this tag (a client's own
+    # corpus). P1c-01: unset, the tag is the internal tenant's; sharing it with every
+    # tenant is explicit (``shared = true``), and load_tags refuses a file that names
+    # neither, so no tag is shared by omission.
+    tenant: str | None = Field(default=None, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    shared: bool = False
+
+    @property
+    def owner(self) -> str | None:
+        """Slug of the one tenant that may use the tag; ``None`` for a shared tag."""
+        return None if self.shared else (self.tenant or INTERNAL_TENANT_SLUG)
 
     def chunk_method_for(self, source_type: str) -> str:
         """The method a document of ``source_type`` should be parsed with in this tag."""
@@ -42,6 +56,11 @@ class TagsFile(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     tags: dict[str, TagConfig] = Field(min_length=1)
+
+
+def tags_for_tenant(tags: dict[str, TagConfig], tenant_slug: str) -> list[str]:
+    """The tags a tenant's workspaces may use: its own and the shared ones, sorted."""
+    return sorted(tag for tag, config in tags.items() if config.owner in (None, tenant_slug))
 
 
 def dataset_name(tag: str) -> str:
@@ -67,6 +86,18 @@ def load_tags(config_dir: Path) -> dict[str, TagConfig]:
     bad = [tag for tag in parsed.tags if not re.fullmatch(TAG_PATTERN, tag)]
     if bad:
         raise TagsConfigError(f"{TAGS_FILE}: tag names must be lowercase-hyphenated: {bad}")
+    unowned = sorted(
+        tag for tag, config in parsed.tags.items() if not config.tenant and not config.shared
+    )
+    if unowned:
+        # Before P1c-01 an unset tenant meant shared; a file written for that default
+        # must say which it means (Phase 1b release 5.1, F4).
+        raise TagsConfigError(
+            f'{TAGS_FILE}: tags {unowned} name no tenant; set tenant = "<slug>" or shared = true'
+        )
+    both = sorted(tag for tag, config in parsed.tags.items() if config.tenant and config.shared)
+    if both:
+        raise TagsConfigError(f"{TAGS_FILE}: tags {both} set both tenant and shared = true")
     for tag, config in parsed.tags.items():
         uncovered = [
             source_type

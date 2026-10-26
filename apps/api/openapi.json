@@ -69,6 +69,22 @@
       },
       "AdminUserOut": {
         "properties": {
+          "consent_current": {
+            "default": false,
+            "title": "Consent Current",
+            "type": "boolean"
+          },
+          "consent_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consent Version"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -127,9 +143,134 @@
           "status",
           "last_login_at",
           "last_login_method",
-          "created_at"
+          "created_at",
+          "consent_version"
         ],
         "title": "AdminUserOut",
+        "type": "object"
+      },
+      "AggregateModelOut": {
+        "properties": {
+          "cost_cents": {
+            "title": "Cost Cents",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "external": {
+            "title": "External",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "tenants": {
+            "title": "Tenants",
+            "type": "integer"
+          },
+          "tokens_in": {
+            "title": "Tokens In",
+            "type": "integer"
+          },
+          "tokens_out": {
+            "title": "Tokens Out",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "display_name",
+          "external",
+          "tokens_in",
+          "tokens_out",
+          "cost_cents",
+          "provider",
+          "tenants"
+        ],
+        "title": "AggregateModelOut",
+        "type": "object"
+      },
+      "AggregatesOut": {
+        "description": "Cross-tenant totals for the month (P1b-12): no tenant is named, no text exists.",
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/AggregateModelOut"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderTotalOut"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "tenants": {
+            "title": "Tenants",
+            "type": "integer"
+          },
+          "tenants_with_usage": {
+            "title": "Tenants With Usage",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "month",
+          "tenants",
+          "tenants_with_usage",
+          "models",
+          "providers"
+        ],
+        "title": "AggregatesOut",
+        "type": "object"
+      },
+      "ApproveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "keep_both": {
+            "default": false,
+            "title": "Keep Both",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "replaces": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces"
+          }
+        },
+        "title": "ApproveIn",
         "type": "object"
       },
       "AskIn": {
@@ -163,6 +304,123 @@
           "mode"
         ],
         "title": "AuthModeOut",
+        "type": "object"
+      },
+      "Body_attach_licence_api_v1_content_sources__source_id__licence_put": {
+        "properties": {
+          "licence_file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Licence File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "licence_file"
+        ],
+        "title": "Body_attach_licence_api_v1_content_sources__source_id__licence_put",
+        "type": "object"
+      },
+      "Body_propose_source_api_v1_content_sources_post": {
+        "properties": {
+          "canonical_url": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Url"
+          },
+          "downloadable": {
+            "default": false,
+            "title": "Downloadable",
+            "type": "boolean"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "licence_basis": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "licence_file": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Licence File"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "publisher": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Publisher",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "title",
+          "publisher",
+          "licence_basis",
+          "tags"
+        ],
+        "title": "Body_propose_source_api_v1_content_sources_post",
         "type": "object"
       },
       "ChatStreamEvents": {
@@ -260,6 +518,11 @@
             "title": "Type",
             "type": "string"
           },
+          "unavailable": {
+            "default": false,
+            "title": "Unavailable",
+            "type": "boolean"
+          },
           "withdrawn": {
             "default": false,
             "title": "Withdrawn",
@@ -295,6 +558,575 @@
           "citations"
         ],
         "title": "CitationsData",
+        "type": "object"
+      },
+      "ConsentAcceptIn": {
+        "additionalProperties": false,
+        "description": "The notice version the user read and accepts; must be the active one.",
+        "properties": {
+          "version": {
+            "pattern": "^v[1-9][0-9]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "ConsentAcceptIn",
+        "type": "object"
+      },
+      "ConsentNoticeOut": {
+        "description": "The active use and privacy notice (P1b-10): Markdown, from the owner's file.",
+        "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "accepted_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Version"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "title",
+          "summary",
+          "text",
+          "accepted_version",
+          "accepted_at",
+          "required"
+        ],
+        "title": "ConsentNoticeOut",
+        "type": "object"
+      },
+      "ContentMeOut": {
+        "properties": {
+          "ragflow_ui_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ragflow Ui Url"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "ragflow_ui_url"
+        ],
+        "title": "ContentMeOut",
+        "type": "object"
+      },
+      "ContentSourceDetail": {
+        "properties": {
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "canonical_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Url"
+          },
+          "chunk_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Count"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentLink"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "downloadable": {
+            "title": "Downloadable",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryEntry"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobOut"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "licence_basis": {
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "licence_file": {
+            "title": "Licence File",
+            "type": "boolean"
+          },
+          "pause_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Reason"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
+          },
+          "paused_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused By"
+          },
+          "possible_replacement": {
+            "title": "Possible Replacement",
+            "type": "boolean"
+          },
+          "possible_replacements": {
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            },
+            "title": "Possible Replacements",
+            "type": "array"
+          },
+          "proposed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed By"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "review_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Date"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "stored": {
+            "title": "Stored",
+            "type": "boolean"
+          },
+          "supersedes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "takedown": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TakedownOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "takedown_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takedown Due On"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "withdrawal_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawal Reason"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "publisher",
+          "published_on",
+          "canonical_url",
+          "licence_basis",
+          "tags",
+          "status",
+          "downloadable",
+          "site_id",
+          "takedown_due_on",
+          "possible_replacement",
+          "created_at",
+          "updated_at",
+          "review_note",
+          "review_date",
+          "proposed_by",
+          "approved_by",
+          "approved_at",
+          "withdrawn_at",
+          "withdrawal_reason",
+          "paused_at",
+          "paused_by",
+          "pause_reason",
+          "chunk_count",
+          "error",
+          "licence_file",
+          "stored",
+          "fetched_at",
+          "supersedes",
+          "possible_replacements",
+          "takedown",
+          "documents",
+          "history",
+          "jobs"
+        ],
+        "title": "ContentSourceDetail",
+        "type": "object"
+      },
+      "ContentSourceOut": {
+        "description": "A register row in the list.",
+        "properties": {
+          "canonical_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Url"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "downloadable": {
+            "title": "Downloadable",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "licence_basis": {
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "possible_replacement": {
+            "title": "Possible Replacement",
+            "type": "boolean"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "takedown_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takedown Due On"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "publisher",
+          "published_on",
+          "canonical_url",
+          "licence_basis",
+          "tags",
+          "status",
+          "downloadable",
+          "site_id",
+          "takedown_due_on",
+          "possible_replacement",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ContentSourceOut",
         "type": "object"
       },
       "ConversationCreateIn": {
@@ -380,6 +1212,11 @@
           "model": {
             "title": "Model",
             "type": "string"
+          },
+          "no_history": {
+            "default": false,
+            "title": "No History",
+            "type": "boolean"
           },
           "notice": {
             "anyOf": [
@@ -640,6 +1477,42 @@
         "title": "DiscoverOut",
         "type": "object"
       },
+      "DocumentLink": {
+        "description": "One RAGFlow document of a source, for chunk spot-checks in the private UI.",
+        "properties": {
+          "dataset_id": {
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "ragflow_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ragflow Url"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "dataset_id",
+          "document_id",
+          "ragflow_url"
+        ],
+        "title": "DocumentLink",
+        "type": "object"
+      },
       "DoneData": {
         "properties": {
           "abstained": {
@@ -649,6 +1522,21 @@
           "cached": {
             "title": "Cached",
             "type": "boolean"
+          },
+          "failover": {
+            "anyOf": [
+              {
+                "enum": [
+                  "eu",
+                  "external"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failover"
           },
           "message_id": {
             "format": "uuid",
@@ -771,9 +1659,15 @@
               }
             ],
             "title": "External Spend Cap Cents"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
           }
         },
         "required": [
+          "tenant_id",
           "answer_modes",
           "enabled_models",
           "external_models_enabled"
@@ -1045,6 +1939,168 @@
         "title": "Health",
         "type": "object"
       },
+      "HistoryEntry": {
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "event": {
+            "title": "Event",
+            "type": "string"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          }
+        },
+        "required": [
+          "event",
+          "at",
+          "actor",
+          "before",
+          "after",
+          "method"
+        ],
+        "title": "HistoryEntry",
+        "type": "object"
+      },
+      "InvitationResentOut": {
+        "description": "P1c-07: the invitation email is queued again (one ``send_mail`` job; an invitation\nstill waiting to be sent is not queued twice).",
+        "properties": {
+          "status": {
+            "const": "queued",
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "status"
+        ],
+        "title": "InvitationResentOut",
+        "type": "object"
+      },
+      "JobOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "status",
+          "error_code",
+          "attempts",
+          "created_at",
+          "finished_at"
+        ],
+        "title": "JobOut",
+        "type": "object"
+      },
+      "JobQueuedOut": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "JobQueuedOut",
+        "type": "object"
+      },
       "LinkCompleteIn": {
         "additionalProperties": false,
         "properties": {
@@ -1198,6 +2254,11 @@
       },
       "MeOut": {
         "properties": {
+          "consent_required": {
+            "default": false,
+            "title": "Consent Required",
+            "type": "boolean"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -1205,6 +2266,11 @@
           "email": {
             "title": "Email",
             "type": "string"
+          },
+          "operator": {
+            "default": false,
+            "title": "Operator",
+            "type": "boolean"
           },
           "role": {
             "enum": [
@@ -1262,6 +2328,21 @@
             "title": "Created At",
             "type": "string"
           },
+          "failover": {
+            "anyOf": [
+              {
+                "enum": [
+                  "eu",
+                  "external"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failover"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1282,6 +2363,11 @@
             ],
             "title": "Model"
           },
+          "partial": {
+            "default": false,
+            "title": "Partial",
+            "type": "boolean"
+          },
           "reasoning": {
             "anyOf": [
               {
@@ -1300,6 +2386,11 @@
             ],
             "title": "Role",
             "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
           },
           "unsupported": {
             "title": "Unsupported",
@@ -1407,6 +2498,61 @@
           "default"
         ],
         "title": "ModelOptionOut",
+        "type": "object"
+      },
+      "ModelSpendOut": {
+        "description": "One model's month-to-date usage, from ``usage_ledger`` (P1b-12).",
+        "properties": {
+          "cost_cents": {
+            "title": "Cost Cents",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "external": {
+            "title": "External",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "tokens_in": {
+            "title": "Tokens In",
+            "type": "integer"
+          },
+          "tokens_out": {
+            "title": "Tokens Out",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "display_name",
+          "external",
+          "tokens_in",
+          "tokens_out",
+          "cost_cents"
+        ],
+        "title": "ModelSpendOut",
+        "type": "object"
+      },
+      "NoteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "NoteIn",
         "type": "object"
       },
       "NoticeOut": {
@@ -1596,6 +2742,79 @@
         "title": "OperatorSourceOut",
         "type": "object"
       },
+      "OperatorSupportGrantOut": {
+        "description": "An open grant on the operator's tenant page: what it covers and until when.",
+        "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "settings",
+              "conversation"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "conversation_id",
+          "note",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "OperatorSupportGrantOut",
+        "type": "object"
+      },
+      "OperatorTagOut": {
+        "description": "A tag a tenant's workspaces may use (P1b-12): its own, or shared by all tenants.",
+        "properties": {
+          "shared": {
+            "title": "Shared",
+            "type": "boolean"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "shared"
+        ],
+        "title": "OperatorTagOut",
+        "type": "object"
+      },
       "OperatorWorkspaceOut": {
         "properties": {
           "created_at": {
@@ -1655,12 +2874,160 @@
         "title": "OperatorWorkspaceOut",
         "type": "object"
       },
+      "PatternsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "patterns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Patterns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "patterns"
+        ],
+        "title": "PatternsIn",
+        "type": "object"
+      },
+      "PauseIn": {
+        "additionalProperties": false,
+        "description": "P2A-04: a reviewer pauses a source; the reason is kept on the register row.",
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "PauseIn",
+        "type": "object"
+      },
+      "PauseOut": {
+        "description": "P2A-01: the source's status after a pause or resume, how many RAGFlow documents\nwere switched, and (pause only) how many cached answers were purged (None when the\ncache could not be reached).",
+        "properties": {
+          "cache_entries_purged": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cache Entries Purged"
+          },
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "paused",
+              "ingested"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "documents",
+          "cache_entries_purged"
+        ],
+        "title": "PauseOut",
+        "type": "object"
+      },
+      "ProposeOut": {
+        "description": "``proposed``: a new row. Otherwise the file is already in the register:\n``pending`` (waits for a reviewer), ``duplicate`` (ingested in every tag),\n``retag`` (ingested; adding tags needs a reviewer, from the CLI for now) or\n``taken_down`` (withdrawn after a takedown request; not proposed again).",
+        "properties": {
+          "outcome": {
+            "enum": [
+              "proposed",
+              "pending",
+              "duplicate",
+              "retag",
+              "taken_down"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "possible_replacements": {
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            },
+            "title": "Possible Replacements",
+            "type": "array"
+          },
+          "replaces": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "outcome",
+          "status",
+          "possible_replacements"
+        ],
+        "title": "ProposeOut",
+        "type": "object"
+      },
+      "ProviderTotalOut": {
+        "properties": {
+          "cost_cents": {
+            "title": "Cost Cents",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "tokens_in": {
+            "title": "Tokens In",
+            "type": "integer"
+          },
+          "tokens_out": {
+            "title": "Tokens Out",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "provider",
+          "tokens_in",
+          "tokens_out",
+          "cost_cents"
+        ],
+        "title": "ProviderTotalOut",
+        "type": "object"
+      },
       "RetentionIn": {
         "additionalProperties": false,
         "properties": {
           "retention_days": {
             "maximum": 30.0,
-            "minimum": 1.0,
+            "minimum": 0.0,
             "title": "Retention Days",
             "type": "integer"
           }
@@ -1691,6 +3058,635 @@
           "metadata_xml"
         ],
         "title": "SamlSourceIn",
+        "type": "object"
+      },
+      "SiteApproveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "SiteApproveIn",
+        "type": "object"
+      },
+      "SiteCreateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Allow Patterns",
+            "type": "array"
+          },
+          "deny_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Deny Patterns",
+            "type": "array"
+          },
+          "licence_basis": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "max_pages": {
+            "default": 50,
+            "maximum": 5000.0,
+            "minimum": 1.0,
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "publisher": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Publisher",
+            "type": "string"
+          },
+          "schedule": {
+            "default": "none",
+            "enum": [
+              "none",
+              "weekly",
+              "monthly"
+            ],
+            "title": "Schedule",
+            "type": "string"
+          },
+          "start_url": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Start Url",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "start_url",
+          "name",
+          "publisher",
+          "licence_basis",
+          "tags"
+        ],
+        "title": "SiteCreateIn",
+        "type": "object"
+      },
+      "SiteDetail": {
+        "properties": {
+          "allow_checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Checked At"
+          },
+          "allow_decision": {
+            "title": "Allow Decision",
+            "type": "string"
+          },
+          "allow_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allow Patterns",
+            "type": "array"
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "blocked_count": {
+            "title": "Blocked Count",
+            "type": "integer"
+          },
+          "deny_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deny Patterns",
+            "type": "array"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobOut"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "last_crawl_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawl At"
+          },
+          "last_crawl_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawl Status"
+          },
+          "licence_basis": {
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "max_pages": {
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_crawl_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Crawl At"
+          },
+          "page_count": {
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/SitePageOut"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "proposed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed By"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "schedule": {
+            "title": "Schedule",
+            "type": "string"
+          },
+          "special_category_allow": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Special Category Allow",
+            "type": "array"
+          },
+          "start_url": {
+            "title": "Start Url",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "withdrawal_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawal Reason"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "start_url",
+          "host",
+          "publisher",
+          "licence_basis",
+          "tags",
+          "status",
+          "schedule",
+          "max_pages",
+          "allow_decision",
+          "allow_checked_at",
+          "last_crawl_at",
+          "last_crawl_status",
+          "next_crawl_at",
+          "page_count",
+          "blocked_count",
+          "allow_patterns",
+          "deny_patterns",
+          "special_category_allow",
+          "review_note",
+          "proposed_by",
+          "approved_by",
+          "approved_at",
+          "withdrawn_at",
+          "withdrawal_reason",
+          "pages",
+          "jobs"
+        ],
+        "title": "SiteDetail",
+        "type": "object"
+      },
+      "SiteOut": {
+        "properties": {
+          "allow_checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Checked At"
+          },
+          "allow_decision": {
+            "title": "Allow Decision",
+            "type": "string"
+          },
+          "blocked_count": {
+            "title": "Blocked Count",
+            "type": "integer"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_crawl_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawl At"
+          },
+          "last_crawl_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawl Status"
+          },
+          "licence_basis": {
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "max_pages": {
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_crawl_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Crawl At"
+          },
+          "page_count": {
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "schedule": {
+            "title": "Schedule",
+            "type": "string"
+          },
+          "start_url": {
+            "title": "Start Url",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "start_url",
+          "host",
+          "publisher",
+          "licence_basis",
+          "tags",
+          "status",
+          "schedule",
+          "max_pages",
+          "allow_decision",
+          "allow_checked_at",
+          "last_crawl_at",
+          "last_crawl_status",
+          "next_crawl_at",
+          "page_count",
+          "blocked_count"
+        ],
+        "title": "SiteOut",
+        "type": "object"
+      },
+      "SitePageOut": {
+        "properties": {
+          "fetched_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "special_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special Category"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "state",
+          "reason",
+          "special_category",
+          "source_id",
+          "published_on",
+          "fetched_at"
+        ],
+        "title": "SitePageOut",
+        "type": "object"
+      },
+      "SiteReinstatedOut": {
+        "description": "P2A-12 (a): pages released for the next crawl, and pages kept blocked for a\ntakedown. The site is ``proposed`` and needs a fresh approval.",
+        "properties": {
+          "kept_blocked": {
+            "title": "Kept Blocked",
+            "type": "integer"
+          },
+          "released": {
+            "title": "Released",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "released",
+          "kept_blocked"
+        ],
+        "title": "SiteReinstatedOut",
+        "type": "object"
+      },
+      "SiteSettingsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Allow Patterns",
+            "type": "array"
+          },
+          "deny_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Deny Patterns",
+            "type": "array"
+          },
+          "max_pages": {
+            "maximum": 5000.0,
+            "minimum": 1.0,
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "schedule": {
+            "enum": [
+              "none",
+              "weekly",
+              "monthly"
+            ],
+            "title": "Schedule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule",
+          "max_pages"
+        ],
+        "title": "SiteSettingsIn",
+        "type": "object"
+      },
+      "SiteWithdrawnOut": {
+        "description": "P1c-14: the per-page ``withdraw_source`` jobs a site withdrawal queued.",
+        "properties": {
+          "job_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Job Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "job_ids"
+        ],
+        "title": "SiteWithdrawnOut",
         "type": "object"
       },
       "SourceDownloadableIn": {
@@ -1766,6 +3762,71 @@
         "title": "SourceOut",
         "type": "object"
       },
+      "SourceRef": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "publisher",
+          "status"
+        ],
+        "title": "SourceRef",
+        "type": "object"
+      },
+      "SpendThresholdOut": {
+        "properties": {
+          "cents": {
+            "title": "Cents",
+            "type": "string"
+          },
+          "notified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notified At"
+          },
+          "percent": {
+            "title": "Percent",
+            "type": "integer"
+          },
+          "reached": {
+            "title": "Reached",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "percent",
+          "cents",
+          "reached",
+          "notified_at"
+        ],
+        "title": "SpendThresholdOut",
+        "type": "object"
+      },
       "SsoStartOut": {
         "description": "Where the browser goes next: the IdP's sign-in page (P1b-07).",
         "properties": {
@@ -1778,6 +3839,617 @@
           "redirect_url"
         ],
         "title": "SsoStartOut",
+        "type": "object"
+      },
+      "SupportCitationOut": {
+        "properties": {
+          "canonical_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Url"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "marker": {
+            "title": "Marker",
+            "type": "integer"
+          },
+          "page_or_slide": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Or Slide"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "superseded": {
+            "title": "Superseded",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "withdrawn": {
+            "title": "Withdrawn",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "marker",
+          "title",
+          "publisher",
+          "published_on",
+          "page_or_slide",
+          "type",
+          "canonical_url",
+          "excerpt",
+          "superseded",
+          "withdrawn"
+        ],
+        "title": "SupportCitationOut",
+        "type": "object"
+      },
+      "SupportConversationOut": {
+        "description": "One granted conversation as its user sees it; no user identifier.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "grant_id": {
+            "format": "uuid",
+            "title": "Grant Id",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/SupportMessageOut"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "workspace_name": {
+            "title": "Workspace Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant_id",
+          "expires_at",
+          "title",
+          "workspace_name",
+          "mode",
+          "model",
+          "created_at",
+          "messages"
+        ],
+        "title": "SupportConversationOut",
+        "type": "object"
+      },
+      "SupportGrantIn": {
+        "additionalProperties": false,
+        "description": "A tenant admin's grant: the settings, or one of their own conversations.",
+        "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "duration_minutes": {
+            "default": 60,
+            "maximum": 240.0,
+            "minimum": 15.0,
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "settings",
+              "conversation"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "note"
+        ],
+        "title": "SupportGrantIn",
+        "type": "object"
+      },
+      "SupportGrantOut": {
+        "description": "A grant as its tenant admin sees it, with the operator's reads through it.",
+        "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "conversation_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Title"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_minutes": {
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_viewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Viewed At"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "scope": {
+            "enum": [
+              "settings",
+              "conversation"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "open",
+              "used",
+              "expired",
+              "revoked"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "views": {
+            "title": "Views",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "conversation_id",
+          "conversation_title",
+          "duration_minutes",
+          "note",
+          "created_at",
+          "expires_at",
+          "revoked_at",
+          "state",
+          "views",
+          "last_viewed_at"
+        ],
+        "title": "SupportGrantOut",
+        "type": "object"
+      },
+      "SupportMessageOut": {
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/SupportCitationOut"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "unsupported": {
+            "title": "Unsupported",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "role",
+          "content",
+          "created_at",
+          "unsupported",
+          "truncated",
+          "partial",
+          "citations"
+        ],
+        "title": "SupportMessageOut",
+        "type": "object"
+      },
+      "SupportSettingsOut": {
+        "description": "The tenant's settings a tenant admin sets, read through a ``settings`` grant.",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "grant_id": {
+            "format": "uuid",
+            "title": "Grant Id",
+            "type": "string"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "workspaces": {
+            "items": {
+              "$ref": "#/components/schemas/SupportWorkspaceOut"
+            },
+            "title": "Workspaces",
+            "type": "array"
+          }
+        },
+        "required": [
+          "grant_id",
+          "expires_at",
+          "retention_days",
+          "workspaces"
+        ],
+        "title": "SupportSettingsOut",
+        "type": "object"
+      },
+      "SupportWorkspaceOut": {
+        "properties": {
+          "default_mode": {
+            "title": "Default Mode",
+            "type": "string"
+          },
+          "default_model": {
+            "title": "Default Model",
+            "type": "string"
+          },
+          "default_reasoning": {
+            "title": "Default Reasoning",
+            "type": "boolean"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions"
+          },
+          "instructions_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions Version"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "slug",
+          "default_mode",
+          "default_model",
+          "default_reasoning",
+          "instructions_version",
+          "instructions"
+        ],
+        "title": "SupportWorkspaceOut",
+        "type": "object"
+      },
+      "TagOut": {
+        "description": "A tag of ``config/tags.toml`` and its RAGFlow dataset (the ``datasets`` table).",
+        "properties": {
+          "chunk_method": {
+            "title": "Chunk Method",
+            "type": "string"
+          },
+          "chunk_method_by_type": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Chunk Method By Type",
+            "type": "object"
+          },
+          "dataset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Id"
+          },
+          "ragflow_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ragflow Url"
+          },
+          "sources": {
+            "title": "Sources",
+            "type": "integer"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "chunk_method",
+          "chunk_method_by_type",
+          "dataset_id",
+          "ragflow_url",
+          "sources"
+        ],
+        "title": "TagOut",
+        "type": "object"
+      },
+      "TagSyncOut": {
+        "properties": {
+          "dataset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "status",
+          "dataset_id"
+        ],
+        "title": "TagSyncOut",
+        "type": "object"
+      },
+      "TakedownIn": {
+        "additionalProperties": false,
+        "properties": {
+          "licence_breach": {
+            "default": false,
+            "title": "Licence Breach",
+            "type": "boolean"
+          },
+          "licence_grounds": {
+            "default": false,
+            "title": "Licence Grounds",
+            "type": "boolean"
+          },
+          "reference": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Reference",
+            "type": "string"
+          },
+          "requested_on": {
+            "format": "date",
+            "title": "Requested On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "requested_on"
+        ],
+        "title": "TakedownIn",
+        "type": "object"
+      },
+      "TakedownOut": {
+        "properties": {
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "licence_grounds": {
+            "title": "Licence Grounds",
+            "type": "boolean"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "requested_on": {
+            "format": "date",
+            "title": "Requested On",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "working_days_left": {
+            "title": "Working Days Left",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_id",
+          "title",
+          "status",
+          "reference",
+          "requested_on",
+          "due_on",
+          "working_days_left",
+          "licence_grounds"
+        ],
+        "title": "TakedownOut",
         "type": "object"
       },
       "TenantCreateIn": {
@@ -1892,6 +4564,119 @@
         "title": "TenantSettingsOut",
         "type": "object"
       },
+      "TenantSpendOut": {
+        "description": "A tenant's month-to-date usage by model and its external spend against the cap.",
+        "properties": {
+          "external_models_enabled": {
+            "title": "External Models Enabled",
+            "type": "boolean"
+          },
+          "external_spend_cap_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Spend Cap Cents"
+          },
+          "external_spent_cents": {
+            "title": "External Spent Cents",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelSpendOut"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "thresholds": {
+            "items": {
+              "$ref": "#/components/schemas/SpendThresholdOut"
+            },
+            "title": "Thresholds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "month",
+          "models",
+          "external_spent_cents",
+          "external_models_enabled",
+          "external_spend_cap_cents",
+          "thresholds"
+        ],
+        "title": "TenantSpendOut",
+        "type": "object"
+      },
+      "TerminatedTenantOut": {
+        "description": "P1c-08: a tenant whose data the termination purge deleted (P1b-14). The row stays\n(the audit log names it), suspended, with the purge's date and certificate number from\nits ``tenant.purged`` audit event; ``None`` when no such event is found.",
+        "properties": {
+          "certificate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "purged_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purged At"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "display_name",
+          "status",
+          "purged_at",
+          "certificate"
+        ],
+        "title": "TerminatedTenantOut",
+        "type": "object"
+      },
       "TokenData": {
         "properties": {
           "text": {
@@ -1903,6 +4688,185 @@
           "text"
         ],
         "title": "TokenData",
+        "type": "object"
+      },
+      "UsageActiveUsersOut": {
+        "description": "How many distinct users asked at least one question on one UTC day.",
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "users": {
+            "title": "Users",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "users"
+        ],
+        "title": "UsageActiveUsersOut",
+        "type": "object"
+      },
+      "UsageModelCostOut": {
+        "description": "One model's month-to-date usage from ``usage_ledger``, as the operator sees it.",
+        "properties": {
+          "cost_cents": {
+            "title": "Cost Cents",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "external": {
+            "title": "External",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "tokens_in": {
+            "title": "Tokens In",
+            "type": "integer"
+          },
+          "tokens_out": {
+            "title": "Tokens Out",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "display_name",
+          "external",
+          "tokens_in",
+          "tokens_out",
+          "cost_cents"
+        ],
+        "title": "UsageModelCostOut",
+        "type": "object"
+      },
+      "UsageOut": {
+        "properties": {
+          "active_users": {
+            "items": {
+              "$ref": "#/components/schemas/UsageActiveUsersOut"
+            },
+            "title": "Active Users",
+            "type": "array"
+          },
+          "cost_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Month"
+          },
+          "costs": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/UsageModelCostOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Costs"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/UsageQuestionsOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "since": {
+            "format": "date",
+            "title": "Since",
+            "type": "string"
+          },
+          "top_sources": {
+            "items": {
+              "$ref": "#/components/schemas/UsageSourceOut"
+            },
+            "title": "Top Sources",
+            "type": "array"
+          },
+          "until": {
+            "format": "date",
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "since",
+          "until",
+          "questions",
+          "active_users",
+          "top_sources",
+          "cost_month",
+          "costs"
+        ],
+        "title": "UsageOut",
+        "type": "object"
+      },
+      "UsageQuestionsOut": {
+        "description": "Questions asked on one UTC day in one answer mode (``chat.query`` events).",
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "mode",
+          "questions"
+        ],
+        "title": "UsageQuestionsOut",
+        "type": "object"
+      },
+      "UsageSourceOut": {
+        "description": "A cited source, by title and publisher, and how many answers cited it.",
+        "properties": {
+          "answers": {
+            "title": "Answers",
+            "type": "integer"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "publisher",
+          "answers"
+        ],
+        "title": "UsageSourceOut",
         "type": "object"
       },
       "UserChangeIn": {
@@ -2013,6 +4977,22 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WithdrawIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "WithdrawIn",
         "type": "object"
       },
       "WorkspaceCreateIn": {
@@ -2332,6 +5312,86 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/audit-log": {
+      "get": {
+        "description": "The tenant's exported audit events (``app.audit.events.EXPORTED_EVENTS``) from\n``since`` (default 90 days ago) to ``until`` (default today), both whole UTC days,\noldest first, as CSV.\n\nAt most 10,000 rows per file. A period that holds more is paged: the response says\nso in ``X-Audit-Export-Complete: false`` and gives the next part's cursor in\n``X-Audit-Export-Next``, which the next call passes as ``after`` with the same\ndates. One export per minute per admin (P2A-07).",
+        "operationId": "export_audit_log_api_v1_admin_audit_log_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "the tenant's audit events"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "one export per minute per admin"
+          }
+        },
+        "summary": "Export Audit Log"
+      }
+    },
     "/api/v1/admin/login-policy": {
       "get": {
         "description": "How the tenant's users sign in, as the operator configured it with the client's\nIT (architecture §7.4): shown, never changed here (self-service SSO is Phase 3).",
@@ -2408,8 +5468,129 @@
         "summary": "Set Retention Days"
       }
     },
+    "/api/v1/admin/support-grants": {
+      "get": {
+        "description": "The tenant's support grants, newest first: state, and how often the operator read.",
+        "operationId": "get_support_grants_api_v1_admin_support_grants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SupportGrantOut"
+                  },
+                  "title": "Response Get Support Grants Api V1 Admin Support Grants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Support Grants"
+      },
+      "post": {
+        "description": "Let the operators read the settings, or one of the admin's own conversations, for\n15 minutes to 4 hours (default 1 hour). Audited; the note is never logged.",
+        "operationId": "grant_support_api_v1_admin_support_grants_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportGrantIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportGrantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grant Support"
+      }
+    },
+    "/api/v1/admin/support-grants/{grant_id}/revoke": {
+      "post": {
+        "description": "End an open grant now: the operator's next read through it is refused.",
+        "operationId": "revoke_support_api_v1_admin_support_grants__grant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportGrantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Support"
+      }
+    },
+    "/api/v1/admin/usage": {
+      "get": {
+        "description": "The tenant's usage over the last 30 days: counts only, no text or per-user figure.",
+        "operationId": "get_usage_api_v1_admin_usage_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Usage"
+      }
+    },
     "/api/v1/admin/users": {
       "get": {
+        "description": "The tenant's users, with the notice version each accepted (P2A-06).",
         "operationId": "list_users_api_v1_admin_users_get",
         "responses": {
           "200": {
@@ -2430,7 +5611,7 @@
         "summary": "List Users"
       },
       "post": {
-        "description": "Invite a user of one of the tenant's verified email domains, as ``invited``.\n\nThey then request a sign-in link from their own browser; the first sign-in makes\nthem ``active`` (findings A15). An email that exists in any tenant is refused:\nAuthentik's usernames are emails, and an email maps to one tenant (findings A8).",
+        "description": "Invite a user of one of the tenant's verified email domains, as ``invited``.\n\nThe worker emails them an invitation (P1b-11); they then sign in from their own\nbrowser, and the first sign-in makes them ``active`` (findings A15). An email that\nexists in any tenant is refused: Authentik's usernames are emails, and an email maps\nto one tenant (findings A8).",
         "operationId": "invite_user_api_v1_admin_users_post",
         "requestBody": {
           "content": {
@@ -2468,6 +5649,38 @@
       }
     },
     "/api/v1/admin/users/{user_id}": {
+      "delete": {
+        "description": "P1c-07: delete a user of the admin's tenant with their history; audited.",
+        "operationId": "remove_tenant_user_api_v1_admin_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Tenant User"
+      },
       "patch": {
         "description": "Change role or status. Deactivated users are refused at sign-in and on every\nrequest; reactivating returns them to ``active``, or ``invited`` if they never\nsigned in.",
         "operationId": "change_user_api_v1_admin_users__user_id__patch",
@@ -2516,6 +5729,47 @@
           }
         },
         "summary": "Change User"
+      }
+    },
+    "/api/v1/admin/users/{user_id}/invitation": {
+      "post": {
+        "description": "P1c-07: queue the invitation email again for a user who has not signed in yet.",
+        "operationId": "resend_invitation_api_v1_admin_users__user_id__invitation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Invitation"
       }
     },
     "/api/v1/admin/workspaces/{workspace_id}/defaults": {
@@ -2808,6 +6062,1220 @@
           }
         },
         "summary": "Start Sso"
+      }
+    },
+    "/api/v1/consent": {
+      "get": {
+        "description": "The active notice in full, its summary, and what the user has accepted.",
+        "operationId": "get_consent_api_v1_consent_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentNoticeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Consent"
+      },
+      "post": {
+        "description": "Accept the active notice version (idempotent: a second acceptance records nothing).",
+        "operationId": "accept_consent_api_v1_consent_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentAcceptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentNoticeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Consent"
+      }
+    },
+    "/api/v1/content/me": {
+      "get": {
+        "operationId": "content_me_api_v1_content_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentMeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Content Me"
+      }
+    },
+    "/api/v1/content/sites": {
+      "get": {
+        "operationId": "list_sites_api_v1_content_sites_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SiteOut"
+                  },
+                  "title": "Response List Sites Api V1 Content Sites Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sites"
+      },
+      "post": {
+        "description": "An editor registers a site for a reviewer to approve.",
+        "operationId": "create_site_api_v1_content_sites_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Site"
+      }
+    },
+    "/api/v1/content/sites/{site_id}": {
+      "get": {
+        "description": "The site, its settings and every page a crawl met (blocked ones with the reason).",
+        "operationId": "site_detail_api_v1_content_sites__site_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Site Detail"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/approve": {
+      "post": {
+        "operationId": "approve_site_api_v1_content_sites__site_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteApproveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Site"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/crawl": {
+      "post": {
+        "operationId": "crawl_now_api_v1_content_sites__site_id__crawl_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Crawl Now"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/reinstate": {
+      "post": {
+        "description": "P2A-12 (a): a reviewer reinstates a withdrawn site: back to ``proposed`` with the\nnote, for a fresh approval; pages under a takedown stay blocked, the site's other\nwithdrawn pages are released for the first crawl after approval.",
+        "operationId": "reinstate_site_api_v1_content_sites__site_id__reinstate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteReinstatedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reinstate Site"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/reject": {
+      "post": {
+        "operationId": "reject_site_api_v1_content_sites__site_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Site"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/settings": {
+      "put": {
+        "operationId": "site_settings_api_v1_content_sites__site_id__settings_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Site Settings"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/special-category-allow": {
+      "put": {
+        "operationId": "site_whitelist_api_v1_content_sites__site_id__special_category_allow_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatternsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Site Whitelist"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/withdraw": {
+      "post": {
+        "description": "P1c-14: a reviewer withdraws the whole site: retired (never crawled again), every\npage blocked, and every page's register row withdrawn by its own job.",
+        "operationId": "withdraw_site_api_v1_content_sites__site_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteWithdrawnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Site"
+      }
+    },
+    "/api/v1/content/sources": {
+      "get": {
+        "description": "The register, newest change first, filtered by status, tags (any of them; the\noperator console links a workspace's tags here, P2A-04), type and publisher (a\ncase-insensitive part of the name); at most 500 rows.",
+        "operationId": "list_sources_api_v1_content_sources_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 20,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "publisher",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Publisher"
+            }
+          },
+          {
+            "in": "query",
+            "name": "site_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ContentSourceOut"
+                  },
+                  "title": "Response List Sources Api V1 Content Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sources"
+      },
+      "post": {
+        "description": "An editor proposes a file (upload) or a URL, with the manifest's metadata. The\nlicence basis is always required; a licence or permission letter may be attached,\ndownloadable or not (decision 10, Oct 22, 2026: no letter is required for now).",
+        "operationId": "propose_source_api_v1_content_sources_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_propose_source_api_v1_content_sources_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposeOut"
+                }
+              }
+            },
+            "description": "already in the register"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}": {
+      "get": {
+        "operationId": "source_detail_api_v1_content_sources__source_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSourceDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source Detail"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/approve": {
+      "post": {
+        "description": "A reviewer approves a proposal, which queues its ingestion. For a possible\nreplacement the reviewer names the source it replaces, or keeps both.",
+        "operationId": "approve_source_api_v1_content_sources__source_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/licence": {
+      "get": {
+        "description": "The licence or permission letter on file, as a download.",
+        "operationId": "source_licence_api_v1_content_sources__source_id__licence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source Licence"
+      },
+      "put": {
+        "operationId": "attach_licence_api_v1_content_sources__source_id__licence_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_attach_licence_api_v1_content_sources__source_id__licence_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach Licence"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/pause": {
+      "post": {
+        "description": "P2A-04: a reviewer takes an ingested source out of retrieval, the library and\ndownloads for every tenant (D1), without deleting it; its RAGFlow documents are\ndisabled in this call. A pause never satisfies a takedown.",
+        "operationId": "pause_source_api_v1_content_sources__source_id__pause_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PauseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PauseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/reject": {
+      "post": {
+        "operationId": "reject_source_api_v1_content_sources__source_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/restore": {
+      "post": {
+        "description": "P1c-14: a reviewer restores a crawled page they withdrew; the next crawl of its\nsite takes it again as a new register row.",
+        "operationId": "restore_source_api_v1_content_sources__source_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/resume": {
+      "post": {
+        "description": "P2A-04: a reviewer resumes a paused source; no re-parse.",
+        "operationId": "resume_source_api_v1_content_sources__source_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PauseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/retry": {
+      "post": {
+        "operationId": "retry_source_api_v1_content_sources__source_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Source"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/takedown": {
+      "post": {
+        "operationId": "record_takedown_api_v1_content_sources__source_id__takedown_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TakedownIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TakedownOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Takedown"
+      }
+    },
+    "/api/v1/content/sources/{source_id}/withdraw": {
+      "post": {
+        "operationId": "withdraw_source_api_v1_content_sources__source_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Source"
+      }
+    },
+    "/api/v1/content/tags": {
+      "get": {
+        "description": "The tags of ``config/tags.toml`` (read-only here) and their datasets.",
+        "operationId": "list_tags_api_v1_content_tags_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TagOut"
+                  },
+                  "title": "Response List Tags Api V1 Content Tags Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Tags"
+      }
+    },
+    "/api/v1/content/tags/sync": {
+      "post": {
+        "description": "A reviewer runs ``datasets sync``: a dataset for every tag in ``config/tags.toml``\n(created or adopted in RAGFlow, server-side), audited. The file is not edited here.",
+        "operationId": "sync_tags_api_v1_content_tags_sync_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TagSyncOut"
+                  },
+                  "title": "Response Sync Tags Api V1 Content Tags Sync Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sync Tags"
+      }
+    },
+    "/api/v1/content/takedowns": {
+      "get": {
+        "description": "The takedown queue, soonest due first, with the SLA timer in working days.",
+        "operationId": "takedowns_api_v1_content_takedowns_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TakedownOut"
+                  },
+                  "title": "Response Takedowns Api V1 Content Takedowns Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Takedowns"
       }
     },
     "/api/v1/conversations": {
@@ -3156,6 +7624,25 @@
         "summary": "List Models"
       }
     },
+    "/api/v1/operator/aggregates": {
+      "get": {
+        "description": "Cross-tenant totals for the month: per model and per provider, and how many\ntenants used each. No tenant is named; there is no query text to show.",
+        "operationId": "aggregates_api_v1_operator_aggregates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AggregatesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Aggregates"
+      }
+    },
     "/api/v1/operator/me": {
       "get": {
         "operationId": "operator_me_api_v1_operator_me_get",
@@ -3346,9 +7833,50 @@
         "summary": "Create Tenant"
       }
     },
+    "/api/v1/operator/tenants/{tenant_id}": {
+      "get": {
+        "description": "One tenant, for its console page (P1b-12).",
+        "operationId": "get_tenant_api_v1_operator_tenants__tenant_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Tenant"
+      }
+    },
     "/api/v1/operator/tenants/{tenant_id}/admins": {
       "post": {
-        "description": "Create the tenant's admin as ``invited`` and provision them in Authentik.\n\nThey then sign in with a link from their own browser; the first sign-in makes\nthem ``active``. An email already used in any tenant is refused: Authentik's\nusernames are emails, and an email maps to one tenant (findings A8).",
+        "description": "Create the tenant's admin as ``invited``, provision them in Authentik and queue\ntheir invitation email (P1b-11).\n\nThey then sign in from their own browser; the first sign-in makes them ``active``.\nAn email already used in any tenant is refused: Authentik's usernames are emails,\nand an email maps to one tenant (findings A8).",
         "operationId": "invite_admin_api_v1_operator_tenants__tenant_id__admins_post",
         "parameters": [
           {
@@ -3649,6 +8177,387 @@
         "summary": "Set Sso Source"
       }
     },
+    "/api/v1/operator/tenants/{tenant_id}/spend": {
+      "get": {
+        "description": "Month-to-date token usage and cost by model, from ``usage_ledger``, and external\nspend against the cap with the 80 and 100 percent notice thresholds (UTC month).",
+        "operationId": "tenant_spend_api_v1_operator_tenants__tenant_id__spend_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSpendOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tenant Spend"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/support-grants": {
+      "get": {
+        "description": "The tenant's open grants: what each covers and until when.",
+        "operationId": "list_open_support_grants_api_v1_operator_tenants__tenant_id__support_grants_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OperatorSupportGrantOut"
+                  },
+                  "title": "Response List Open Support Grants Api V1 Operator Tenants  Tenant Id  Support Grants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Open Support Grants"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/support-grants/{grant_id}/conversations/{conversation_id}": {
+      "get": {
+        "operationId": "read_support_conversation_api_v1_operator_tenants__tenant_id__support_grants__grant_id__conversations__conversation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportConversationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Support Conversation"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/support-grants/{grant_id}/settings": {
+      "get": {
+        "operationId": "read_support_settings_api_v1_operator_tenants__tenant_id__support_grants__grant_id__settings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Support Settings"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/tags": {
+      "get": {
+        "description": "What the tenant's workspace tag pickers offer (P1b-12).",
+        "operationId": "list_tenant_tags_api_v1_operator_tenants__tenant_id__tags_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OperatorTagOut"
+                  },
+                  "title": "Response List Tenant Tags Api V1 Operator Tenants  Tenant Id  Tags Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Tenant Tags"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/users": {
+      "get": {
+        "description": "The tenant's users, as its admin sees them (no conversation data).",
+        "operationId": "list_tenant_users_api_v1_operator_tenants__tenant_id__users_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminUserOut"
+                  },
+                  "title": "Response List Tenant Users Api V1 Operator Tenants  Tenant Id  Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Tenant Users"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/users/{user_id}": {
+      "delete": {
+        "description": "P1c-07: delete any tenant's user with their history; audited under the tenant.",
+        "operationId": "remove_tenant_user_api_v1_operator_tenants__tenant_id__users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Tenant User"
+      }
+    },
+    "/api/v1/operator/tenants/{tenant_id}/users/{user_id}/invitation": {
+      "post": {
+        "description": "P1c-07: queue the invitation email again for a user still ``invited``.",
+        "operationId": "resend_invitation_api_v1_operator_tenants__tenant_id__users__user_id__invitation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Invitation"
+      }
+    },
     "/api/v1/operator/tenants/{tenant_id}/workspaces": {
       "get": {
         "operationId": "list_workspaces_api_v1_operator_tenants__tenant_id__workspaces_get",
@@ -3800,6 +8709,29 @@
           }
         },
         "summary": "Set Workspace Tags"
+      }
+    },
+    "/api/v1/operator/terminated-tenants": {
+      "get": {
+        "description": "P1c-08 (Phase 1b F5): the tenants the termination purge emptied, shown as such.\n\nA purged tenant keeps its ``tenants`` row, suspended, without entitlements or a login\npolicy. Its purge date and certificate number come from the ``tenant.purged`` event,\nrecorded under the internal tenant with the tenant's slug in ``before`` (the event\ncarries no other identifier of it).",
+        "operationId": "list_terminated_tenants_api_v1_operator_terminated_tenants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TerminatedTenantOut"
+                  },
+                  "title": "Response List Terminated Tenants Api V1 Operator Terminated Tenants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Terminated Tenants"
       }
     },
     "/api/v1/sources/{source_id}": {

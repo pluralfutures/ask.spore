@@ -1,7 +1,9 @@
-"""Source register transitions (P1b-01): propose, approve, reject, retry.
+"""Source register transitions (P1b-01): propose, approve, reject, retry, pause, resume.
 
 ``proposed -> approved -> ingested -> withdrawn``, plus ``failed`` (retryable: a
-reviewer sends it back to ``approved``) and ``rejected``. No document reaches RAGFlow
+reviewer sends it back to ``approved``), ``rejected``, and ``ingested <-> paused``
+(P2A-01: a reviewer takes a source out of retrieval without destroying it; a paused
+source can still be withdrawn, and a pause never satisfies a takedown). No document reaches RAGFlow
 without an approved row (architecture §6.1): ``propose`` only records the row and
 stages the file under ``[files] content_root``; ingestion (``app.content.ingest``)
 refuses a source that is not ``approved``.
@@ -17,7 +19,7 @@ they approve their own proposal (allowed and audited by owner decision, Oct 21, 
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
@@ -29,12 +31,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.audit.writer import AuditValue, record
 from app.content.ingest import IngestError, SourceFile, SourceMetadata
-from app.content.jobs import enqueue
-from app.content.models import Dataset, Source
-from app.content.roles import EDITOR, REVIEWER, require
+from app.content.jobs import Job, enqueue
+from app.content.models import Dataset, SitePage, Source
+from app.content.roles import EDITOR, REVIEWER, RoleError, require, roles_of
 from app.content.store import STORABLE_TYPES, stage
 from app.content.tags import TagConfig
+from app.content.toggle import set_enabled_everywhere
+from app.content.withdraw import purge_answer_cache
 from app.core.db import tenant_session
+from app.core.logging import log
+from app.retrieval.ragflow import RagflowClient
 from app.tenancy.models import INTERNAL_TENANT_ID
 
 MAX_NOTE_LENGTH = 2000
@@ -61,7 +67,21 @@ class Submission:
     outcome: SubmissionOutcome
     status: str
     new_tags: tuple[str, ...] = ()
-    supersedes_id: UUID | None = None  # proposed: the ingested source it will replace
+    # proposed: ingested sources at the same canonical link, which the reviewer may
+    # choose to replace (owner decision 4, Oct 22, 2026); nothing is replaced unasked.
+    possible_replacements: tuple[UUID, ...] = ()
+    # proposed: the one ingested source with the same canonical link and the same title,
+    # which the new file replaces once ingested (owner decision 3, Oct 23, 2026).
+    replaces: UUID | None = None
+
+
+@dataclass(frozen=True)
+class Choice:
+    """The reviewer's answer to "possible replacement of <source>": replace that source,
+    or keep both (owner decision 4, Oct 22, 2026)."""
+
+    replaces: UUID | None = None
+    keep_both: bool = False
 
 
 class RegisterError(ValueError):
@@ -116,6 +136,72 @@ async def _audit(
     )
 
 
+async def replacement_candidates(
+    session: AsyncSession, canonical_url: str | None, *, exclude: UUID | None = None
+) -> list[UUID]:
+    """Ingested sources at ``canonical_url`` that a new file there may replace.
+
+    Owner decision 4 (Oct 22, 2026): a new file at an existing canonical link does not
+    replace the old document automatically; the reviewer chooses "replace" or "keep
+    both" when approving. Crawled pages are matched by their site instead (P1b-04).
+    """
+    if not canonical_url:
+        return []
+    query = (
+        select(Source.id)
+        .where(
+            Source.canonical_url == canonical_url,
+            # P2A-03: a paused source can be replaced; the new version inherits the pause.
+            Source.status.in_(("ingested", "paused")),
+            Source.site_id.is_(None),
+        )
+        .order_by(Source.created_at)
+    )
+    if exclude is not None:
+        query = query.where(Source.id != exclude)
+    return list((await session.scalars(query)).all())
+
+
+def same_title(a: str, b: str) -> bool:
+    """Titles match ignoring case and runs of whitespace (owner decision 3)."""
+    return " ".join(a.split()).casefold() == " ".join(b.split()).casefold()
+
+
+async def _being_replaced(session: AsyncSession, source_id: UUID, *, by: UUID | None) -> bool:
+    """Another approved (or ingested, or failed) proposal already replaces the source."""
+    query = select(Source.id).where(
+        Source.supersedes_id == source_id,
+        Source.status.in_(("approved", "ingested", "paused", "failed")),
+    )
+    if by is not None:
+        query = query.where(Source.id != by)
+    return await session.scalar(query.limit(1)) is not None
+
+
+async def exact_replacement(
+    session: AsyncSession, canonical_url: str | None, title: str, *, exclude: UUID | None = None
+) -> UUID | None:
+    """The ingested source a new file at ``canonical_url`` replaces without asking.
+
+    Owner decision 3 (Oct 23, 2026): a re-ingestion replaces a document only when both
+    the canonical link and the title match; a link match with another title stays a
+    possible replacement for the reviewer (decision 4 of Oct 22). Exactly one ingested
+    source at the link may have the title, and no other proposal may already be
+    replacing it; otherwise there is no automatic replacement.
+    """
+    candidates = await replacement_candidates(session, canonical_url, exclude=exclude)
+    if not candidates:
+        return None
+    titles = (
+        await session.execute(select(Source.id, Source.title).where(Source.id.in_(candidates)))
+    ).all()
+    matches = [r.id for r in titles if same_title(r.title, title)]
+    if len(matches) != 1 or await _being_replaced(session, matches[0], by=exclude):
+        return None
+    match: UUID = matches[0]
+    return match
+
+
 async def propose(
     factory: async_sessionmaker[AsyncSession],
     tags_config: Mapping[str, TagConfig],
@@ -124,19 +210,22 @@ async def propose(
     *,
     content_root: Path,
     proposer_id: UUID | None,
+    licence_file_path: str | None = None,
 ) -> Submission:
     """Record ``source`` as a proposal; raises IngestError, recording nothing, on bad input.
 
-    The file is staged under ``content_root`` by hash, so ingestion can run elsewhere.
-    ``proposer_id`` must hold ``content_editor``; None means the operator's shell (the
-    manifest CLI run without a proposer), recorded as such in the audit event.
+    ``proposer_id`` must hold ``content_editor`` (checked before anything is written);
+    None means the operator's shell (the manifest CLI run without a proposer), recorded
+    as such in the audit event. The file is staged under ``content_root`` by hash, so
+    ingestion can run elsewhere, only once the proposal is to be recorded.
     """
     tags = _validate(tags_config, source, metadata)
-    try:
-        staged = stage(content_root, source.sha256, source.type, source.content)
-    except OSError as exc:
-        raise IngestError("store_failed", f"cannot store the file: {exc.strerror}") from None
-    stored_path = staged if source.type in STORABLE_TYPES else None
+
+    def staged() -> str:
+        try:
+            return stage(content_root, source.sha256, source.type, source.content)
+        except OSError as exc:
+            raise IngestError("store_failed", f"cannot store the file: {exc.strerror}") from None
 
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         if proposer_id is not None:
@@ -168,37 +257,33 @@ async def propose(
         )
         if taken_down is not None:
             return Submission(taken_down.id, "taken_down", "withdrawn")
-        ingested = next((r for r in same if r.status == "ingested"), None)
+        # P2A-03: a paused source is in the corpus as an ingested one is; a re-tag of it is
+        # refused at approval (``paused``).
+        ingested = next((r for r in same if r.status in ("ingested", "paused")), None)
         if ingested is not None:
-            if ingested.stored_path is None and stored_path is not None:
+            # A re-tag reads the staged copy; sources ingested before P1b-02 have none.
+            path = staged()
+            if ingested.stored_path is None and source.type in STORABLE_TYPES:
                 await session.execute(
-                    update(Source).where(Source.id == ingested.id).values(stored_path=stored_path)
+                    update(Source).where(Source.id == ingested.id).values(stored_path=path)
                 )
             new_tags = tuple(tag for tag in tags if tag not in ingested.tags)
             if new_tags:
-                return Submission(ingested.id, "retag", "ingested", new_tags)
-            return Submission(ingested.id, "duplicate", "ingested")
+                return Submission(ingested.id, "retag", ingested.status, new_tags)
+            return Submission(ingested.id, "duplicate", ingested.status)
         waiting = next((r for r in same if r.status in ("proposed", "approved", "failed")), None)
         if waiting is not None:
             return Submission(waiting.id, "pending", waiting.status)
-        # P1b-03: a changed file (new hash) at the canonical link of exactly one ingested
-        # source is its new version; once ingested, it replaces that source.
-        supersedes: UUID | None = None
-        if metadata.canonical_url:
-            linked = (
-                await session.scalars(
-                    select(Source.id).where(
-                        Source.canonical_url == metadata.canonical_url,
-                        Source.status == "ingested",
-                    )
-                )
-            ).all()
-            if len(linked) == 1:
-                supersedes = linked[0]
+        title = metadata.title.strip()
+        replaces = await exact_replacement(session, metadata.canonical_url, title)
+        candidates = (
+            [] if replaces else await replacement_candidates(session, metadata.canonical_url)
+        )
 
+        path = staged()
         row = Source(
             type=source.type,
-            title=metadata.title.strip(),
+            title=title,
             publisher=metadata.publisher.strip(),
             published_on=metadata.published_on,
             canonical_url=metadata.canonical_url,
@@ -206,10 +291,11 @@ async def propose(
             tags=list(tags),
             status="proposed",
             file_sha256=source.sha256,
-            stored_path=stored_path,
+            stored_path=path if source.type in STORABLE_TYPES else None,
             downloadable=metadata.downloadable,
             proposed_by=proposer_id,
-            supersedes_id=supersedes,
+            licence_file_path=licence_file_path,
+            supersedes_id=replaces,
         )
         session.add(row)
         await session.flush()
@@ -222,7 +308,13 @@ async def propose(
             "proposed",
             method="cli" if proposer_id is None else "editor",
         )
-        return Submission(row.id, "proposed", "proposed", supersedes_id=supersedes)
+        return Submission(
+            row.id,
+            "proposed",
+            "proposed",
+            possible_replacements=tuple(candidates),
+            replaces=replaces,
+        )
 
 
 async def _locked(session: AsyncSession, source_id: UUID) -> Source:
@@ -251,9 +343,17 @@ async def _review(
     event: str,
     note: str | None,
     parse_timeout: float | None = None,
+    choice: Choice | None = None,
 ) -> UUID | None:
-    """The transition; the ``ingest_source`` job's ID when the row becomes approved."""
+    """The transition; the ``ingest_source`` job's ID when the row becomes approved.
+
+    With ``choice`` (a first approval), a proposal at the canonical link of ingested
+    sources needs the reviewer's decision, replace one of them or keep both, unless it
+    has the same title as exactly one of them (recorded at proposal as ``supersedes_id``):
+    that one is replaced without a choice, and "keep both" or another source overrides.
+    """
     job_id: UUID | None = None
+    extra: dict[str, AuditValue] = {}
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
@@ -263,6 +363,32 @@ async def _review(
         values: dict[str, object] = {"status": to, "updated_at": func.now()}
         if to == "approved":
             values |= {"approved_by": reviewer_id, "approved_at": func.now(), "error": None}
+        if choice is not None:
+            candidates = await replacement_candidates(session, row.canonical_url, exclude=source_id)
+            if choice.replaces is not None and choice.keep_both:
+                raise RegisterError("replace_or_keep_both")
+            # Same link and same title, recorded at proposal (owner decision 3): still
+            # the one exact match now, or the reviewer decides as for any other.
+            automatic = row.supersedes_id
+            if automatic is not None and automatic != await exact_replacement(
+                session, row.canonical_url, row.title, exclude=source_id
+            ):
+                automatic = None
+            values["supersedes_id"] = None
+            if choice.replaces is not None:
+                if choice.replaces not in candidates:
+                    raise RegisterError("not_a_replacement_candidate")
+                if await _being_replaced(session, choice.replaces, by=source_id):
+                    raise RegisterError("already_being_replaced")
+                values["supersedes_id"] = choice.replaces
+                extra["replaces"] = str(choice.replaces)
+            elif choice.keep_both and candidates:
+                extra["keep_both"] = True
+            elif automatic is not None:
+                values["supersedes_id"] = automatic
+                extra |= {"replaces": str(automatic), "method": "same_link_and_title"}
+            elif candidates:
+                raise RegisterError("replacement_choice_required")
         if note is not None:
             values["review_note"] = note
         await session.execute(update(Source).where(Source.id == source_id).values(**values))
@@ -281,6 +407,7 @@ async def _review(
             to,
             roles=sorted(roles),
             self_approval=self_approval,
+            **extra,
         )
     return job_id
 
@@ -292,9 +419,20 @@ async def approve(
     *,
     note: str | None = None,
     parse_timeout: float | None = None,
+    replaces: UUID | None = None,
+    keep_both: bool = False,
 ) -> UUID:
     """``proposed -> approved``; returns the ``ingest_source`` job it enqueued. The
-    reviewer may be the proposer (audited as such)."""
+    reviewer may be the proposer (audited as such).
+
+    When ingested sources share the proposal's canonical link, the reviewer must choose
+    (owner decision 4, Oct 22, 2026): ``replaces`` names the one the new file replaces
+    (once ingested, the old one is withdrawn and its citations show as superseded), or
+    ``keep_both`` keeps them side by side. Without a choice the approval is refused
+    (``replacement_choice_required``), unless the proposal also has the title of exactly
+    one of them: that one is replaced (owner decision 3, Oct 23, 2026), audited with
+    ``method: same_link_and_title``.
+    """
     job_id = await _review(
         factory,
         source_id,
@@ -304,6 +442,7 @@ async def approve(
         event="source.approved",
         note=_note(note, required=False),
         parse_timeout=parse_timeout,
+        choice=Choice(replaces, keep_both),
     )
     if job_id is None:
         raise AssertionError("an approval always enqueues a job")
@@ -363,6 +502,8 @@ async def approve_retag(
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
+        if row.status == "paused":
+            raise RegisterError("paused")  # P2A-03: the reviewer resumes it first
         if row.status != "ingested":
             raise RegisterError("not_ingested")
         await record(
@@ -387,22 +528,60 @@ async def approve_retag(
         return await enqueue(session, "ingest_source", payload, created_by=reviewer_id)
 
 
-def working_days_after(start: date, days: int) -> date:
-    """The date ``days`` working days (Monday to Friday) after ``start``."""
+async def set_licence_file(
+    factory: async_sessionmaker[AsyncSession],
+    source_id: UUID,
+    user_id: UUID,
+    licence_file_path: str,
+) -> None:
+    """Attach a licence or permission letter (stored by ``store_licence``) to a source;
+    an editor or a reviewer may, audited. The letter never goes to RAGFlow."""
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        roles = await roles_of(session, user_id)
+        if not roles & {EDITOR, REVIEWER}:
+            raise RoleError("no_content_role")
+        row = await _locked(session, source_id)
+        previous = row.licence_file_path
+        if previous == licence_file_path:
+            return
+        await session.execute(
+            update(Source)
+            .where(Source.id == source_id)
+            .values(licence_file_path=licence_file_path, updated_at=func.now())
+        )
+        await record(
+            session,
+            tenant_id=INTERNAL_TENANT_ID,
+            actor_user_id=user_id,
+            event="source.licence_file_set",
+            metadata={
+                "source_id": str(source_id),
+                "status": "replaced" if previous else "added",
+                "roles": sorted(roles),
+            },
+        )
+
+
+def working_days_after(start: date, days: int, holidays: Collection[date] = ()) -> date:
+    """The date ``days`` working days after ``start``: Monday to Friday, leaving out
+    ``holidays`` (the active region of ``config/holidays.toml``, P2A-12 b). With no
+    holidays, Monday to Friday only."""
     current = start
     while days > 0:
         current += timedelta(days=1)
-        if current.weekday() < 5:
+        if current.weekday() < 5 and current not in holidays:
             days -= 1
     return current
 
 
-def takedown_due_on(requested_on: date, *, licence_breach: bool) -> date:
+def takedown_due_on(
+    requested_on: date, *, licence_breach: bool, holidays: Collection[date] = ()
+) -> date:
     """10 working days from a valid request; the same day for a licence breach we find
     ourselves (architecture §6.3)."""
     if licence_breach:
         return requested_on
-    return working_days_after(requested_on, TAKEDOWN_WORKING_DAYS)
+    return working_days_after(requested_on, TAKEDOWN_WORKING_DAYS, holidays)
 
 
 async def record_takedown(
@@ -413,12 +592,24 @@ async def record_takedown(
     reference: str,
     requested_on: date,
     licence_breach: bool,
+    licence_grounds: bool = False,
+    holidays: Collection[date] = (),
 ) -> date:
-    """Put a source on the takedown queue with its due date; returns the due date."""
+    """Put a source on the takedown queue with its due date; returns the due date.
+
+    ``holidays``: the active public holidays (``Settings.holidays``, P2A-12 b), which the
+    working-day count leaves out; the API and the CLI pass the configured calendar.
+
+    ``licence_grounds``: the request is on licence grounds (a licence breach we find
+    ourselves always is). Recorded for the queue and the audit trail; since owner
+    decision 3 (Oct 23, 2026) every withdrawal blanks the stored citation excerpts, so it
+    no longer changes what the withdrawal does.
+    """
+    licence_grounds = licence_grounds or licence_breach
     reference = reference.strip()
     if not reference or len(reference) > MAX_REFERENCE_LENGTH:
         raise RegisterError("bad_reference")
-    due = takedown_due_on(requested_on, licence_breach=licence_breach)
+    due = takedown_due_on(requested_on, licence_breach=licence_breach, holidays=holidays)
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
@@ -427,6 +618,7 @@ async def record_takedown(
         before: dict[str, str | int | float | bool | list[str] | None] = {
             "takedown_reference": row.takedown_reference,
             "takedown_due_on": row.takedown_due_on.isoformat() if row.takedown_due_on else None,
+            "takedown_licence_grounds": row.takedown_licence_grounds,
         }
         await session.execute(
             update(Source)
@@ -435,6 +627,7 @@ async def record_takedown(
                 takedown_reference=reference,
                 takedown_requested_on=requested_on,
                 takedown_due_on=due,
+                takedown_licence_grounds=licence_grounds,
                 updated_at=func.now(),
             )
         )
@@ -446,7 +639,11 @@ async def record_takedown(
             metadata={
                 "source_id": str(source_id),
                 "before": before,
-                "after": {"takedown_reference": reference, "takedown_due_on": due.isoformat()},
+                "after": {
+                    "takedown_reference": reference,
+                    "takedown_due_on": due.isoformat(),
+                    "takedown_licence_grounds": licence_grounds,
+                },
                 "roles": sorted(roles),
             },
         )
@@ -460,16 +657,19 @@ class TakedownItem:
     reference: str
     requested_on: date
     due_on: date
+    title: str = ""
+    licence_grounds: bool = False
 
-    def working_days_left(self, today: date) -> int:
-        """Working days until the due date; negative when overdue."""
+    def working_days_left(self, today: date, holidays: Collection[date] = ()) -> int:
+        """Working days until the due date, on the same calendar as the due date
+        (``holidays``, P2A-12 b); negative when overdue."""
         if today == self.due_on:
             return 0
         step = 1 if self.due_on > today else -1
         days, current = 0, today
         while current != self.due_on:
             current += timedelta(days=step)
-            if current.weekday() < 5:
+            if current.weekday() < 5 and current not in holidays:
                 days += step
         return days
 
@@ -483,13 +683,21 @@ async def takedown_queue(session: AsyncSession) -> list[TakedownItem]:
             Source.takedown_reference,
             Source.takedown_requested_on,
             Source.takedown_due_on,
+            Source.title,
+            Source.takedown_licence_grounds,
         )
         .where(Source.takedown_due_on.is_not(None), Source.status != "withdrawn")
         .order_by(Source.takedown_due_on, Source.created_at)
     )
     return [
         TakedownItem(
-            r.id, r.status, r.takedown_reference, r.takedown_requested_on, r.takedown_due_on
+            r.id,
+            r.status,
+            r.takedown_reference,
+            r.takedown_requested_on,
+            r.takedown_due_on,
+            r.title,
+            r.takedown_licence_grounds,
         )
         for r in rows
     ]
@@ -503,18 +711,26 @@ async def request_withdrawal(
     reason: str,
 ) -> UUID:
     """A reviewer withdraws a source: records the reason and enqueues the
-    ``withdraw_source`` job, which removes it everywhere (``app.content.withdraw``)."""
+    ``withdraw_source`` job, which removes it everywhere (``app.content.withdraw``).
+    A paused source is withdrawn the same way, with the full cascade (P2A-01)."""
     note = _note(reason, required=True)
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         row = await _locked(session, source_id)
-        if row.status not in ("ingested", "failed"):
+        if row.status not in ("ingested", "failed", "paused"):
             raise RegisterError("not_withdrawable")
         await session.execute(
             update(Source)
             .where(Source.id == source_id)
             .values(withdrawal_reason=note, updated_at=func.now())
         )
+        if row.site_id is not None:
+            # A crawled page a reviewer withdraws stays out of later crawls (P1b-04).
+            await session.execute(
+                update(SitePage)
+                .where(SitePage.site_id == row.site_id, SitePage.source_id == source_id)
+                .values(state="blocked", reason="withdrawn", special_category=None)
+            )
         job_id = await enqueue(
             session, "withdraw_source", {"source_id": str(source_id)}, created_by=reviewer_id
         )
@@ -531,3 +747,165 @@ async def request_withdrawal(
             },
         )
     return job_id
+
+
+# P2A-01: pause and resume.
+
+
+@dataclass(frozen=True)
+class PauseResult:
+    """What a pause or a resume did: the RAGFlow documents switched, and (pause only)
+    the cached answers purged, None when the cache could not be reached."""
+
+    source_id: UUID
+    status: Literal["paused", "ingested"]
+    documents: int
+    cache_entries_purged: int | None = None
+
+
+async def _synced_mapping(session: AsyncSession, row: Source) -> list[tuple[str, str]]:
+    """The source's ``(dataset_id, document_id)`` pairs, sorted by dataset ID.
+
+    Every key must be a synced dataset's ID; a mapping from before the datasets table
+    (Phase 0) cannot be switched document by document, so it is refused rather than
+    half-paused. The IDs come from the register, never from a request.
+    """
+    mapping = row.ragflow_document_ids
+    if not isinstance(mapping, dict) or not mapping:
+        raise RegisterError("no_documents")
+    synced = set(
+        (
+            await session.scalars(
+                select(Dataset.ragflow_dataset_id).where(
+                    Dataset.ragflow_dataset_id.in_(list(mapping))
+                )
+            )
+        ).all()
+    )
+    pairs = [(str(k), str(v)) for k, v in mapping.items() if isinstance(v, str)]
+    if len(pairs) != len(mapping) or any(k not in synced for k, _ in pairs):
+        raise RegisterError("unmapped_document")
+    return sorted(pairs)
+
+
+async def _ingestion_in_flight(session: AsyncSession, source_id: UUID) -> bool:
+    job = await session.scalar(
+        select(Job.id)
+        .where(
+            Job.type == "ingest_source",
+            Job.status.in_(("queued", "running")),
+            Job.payload["source_id"].astext == str(source_id),
+        )
+        .limit(1)
+    )
+    return job is not None
+
+
+async def _switch(
+    factory: async_sessionmaker[AsyncSession],
+    client: RagflowClient,
+    source_id: UUID,
+    reviewer_id: UUID,
+    *,
+    pause: bool,
+    reason: str | None,
+) -> PauseResult:
+    before, after = ("ingested", "paused") if pause else ("paused", "ingested")
+    action = "pause" if pause else "resume"
+    failure: str | None = None
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        roles = await require(session, reviewer_id, REVIEWER)
+        row = await _locked(session, source_id)
+        if row.status != before:
+            raise RegisterError(f"not_{before}")
+        if await _ingestion_in_flight(session, source_id):
+            # A re-tag uploads and parses new documents, whose chunks RAGFlow makes
+            # available whatever the status: switch only once it is done.
+            raise RegisterError("ingestion_in_progress")
+        pairs = await _synced_mapping(session, row)
+        error, undo_failed = await set_enabled_everywhere(client, pairs, enabled=not pause)
+        if error is not None:
+            failure = f"{action}_undo_failed" if undo_failed else error
+            await record(
+                session,
+                tenant_id=INTERNAL_TENANT_ID,
+                actor_user_id=reviewer_id,
+                event=f"source.{action}_failed",
+                metadata={
+                    "source_id": str(source_id),
+                    "before": {"status": before},
+                    "after": {"status": before},
+                    "roles": sorted(roles),
+                    "error_code": error,
+                    "outcome": "undo_failed" if undo_failed else "undone",
+                    "count": len(pairs),
+                },
+            )
+        else:
+            values: dict[str, object] = {"status": after, "updated_at": func.now()}
+            if pause:
+                values |= {
+                    "paused_at": func.now(),
+                    "paused_by": reviewer_id,
+                    "pause_reason": reason,
+                }
+            else:
+                # The reason stays as the last pause's (owner decision, Oct 25, 2026).
+                values |= {"paused_at": None, "paused_by": None}
+            await session.execute(update(Source).where(Source.id == source_id).values(**values))
+            await _audit(
+                session,
+                reviewer_id,
+                f"source.{after if pause else 'resumed'}",
+                source_id,
+                before,
+                after,
+                roles=sorted(roles),
+                outcome="ok",
+                count=len(pairs),
+            )
+    if failure is not None:
+        log("content.source_switch_failed", source_id=str(source_id), error_code=failure)
+        raise RegisterError(failure)
+    purged: int | None = None
+    if pause:
+        # The corpus fingerprint changed with the status, so no cache key of any
+        # workspace finds the old answers; they are purged as well, so that a cached
+        # answer never cites a paused source (P2A-01).
+        try:
+            purged = await purge_answer_cache(factory, {str(source_id)})
+        except Exception:  # the pause stands; the old keys are unreachable anyway
+            log("content.cache_purge_failed", source_id=str(source_id), error_code="cache")
+    return PauseResult(source_id, "paused" if pause else "ingested", len(pairs), purged)
+
+
+async def pause(
+    factory: async_sessionmaker[AsyncSession],
+    client: RagflowClient,
+    source_id: UUID,
+    reviewer_id: UUID,
+    *,
+    reason: str,
+) -> PauseResult:
+    """``ingested -> paused``: a reviewer takes the source out of retrieval, the library
+    and downloads for every tenant (D1), keeping its RAGFlow documents and its stored
+    citations (D3).
+
+    Each RAGFlow document of the source is disabled in this call, not in a job. If one
+    fails or answers with the wrong status, those already disabled are enabled again,
+    the row stays ``ingested`` and the error code is raised (``source.pause_failed`` is
+    audited, never ``source.paused``). A pause does not touch the takedown queue.
+    """
+    note = _note(reason, required=True)
+    return await _switch(factory, client, source_id, reviewer_id, pause=True, reason=note)
+
+
+async def resume(
+    factory: async_sessionmaker[AsyncSession],
+    client: RagflowClient,
+    source_id: UUID,
+    reviewer_id: UUID,
+) -> PauseResult:
+    """``paused -> ingested``: every RAGFlow document enabled again, no re-parse. A
+    failure disables again those already enabled and leaves the row ``paused``."""
+    return await _switch(factory, client, source_id, reviewer_id, pause=False, reason=None)

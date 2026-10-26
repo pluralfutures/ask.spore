@@ -5,7 +5,9 @@ Environment (the same names as the API where they mean the same thing):
 - ``MISTRAL_API_KEY``: the judge (any value with ``--mock-mistral``).
 - ``RAGFLOW_API_KEY``, ``DATABASE_URL``: the retrieval step (package datasets,
   provenance and the source register are read, never written).
-- ``PHASE0_BEARER_TOKEN`` and ``EVAL_USER_EMAIL`` (a seeded internal user): the API.
+- ``EVAL_USER_EMAIL``: the user the API answers as, and either
+  ``EVAL_SERVICE_PRIVATE_KEY`` (``[auth] mode = "oidc"``, P1b-15 a: the service
+  identity's signing key) or ``PHASE0_BEARER_TOKEN`` (``mode = "phase0"``).
 - ``EVAL_API_URL``, ``EVAL_RAGFLOW_URL``: defaults for ``--api-url`` / ``--ragflow-url``.
 """
 
@@ -28,12 +30,12 @@ import httpx
 from app.chat.prompts import active_prompt
 from app.core.config import Settings, load_settings
 from app.core.db import create_engine, session_factory
-from app.llm.factory import LLMClient, create_llm_client
+from app.llm.factory import LLMClient, create_judge_client
 from app.llm.mistral import MistralClient
 from app.retrieval.ragflow import RagflowClient
 from pydantic import SecretStr
 
-from eval import mock, results
+from eval import mock, outputs, results
 from eval.judge import Judge
 from eval.metrics import aggregate, citation_precision, matches
 from eval.pipeline import ApiPipeline, PipelineAnswer
@@ -58,7 +60,8 @@ class RunOptions:
     set_path: Path
     api_url: str
     user_email: str
-    results_root: Path
+    results_root: Path  # the redacted copy (packages/eval/results/)
+    runs_root: Path  # the full outputs, outside the repository (P1c-12, eval.outputs)
     ragflow_url: str | None = None
     mock_mistral: bool = False
     notes: list[str] = field(default_factory=list)
@@ -166,22 +169,19 @@ def _config_meta(settings: Settings) -> dict[str, Any]:
     except FileNotFoundError:
         ragflow_version = "unknown"
     if models.llm.provider == "scaleway" and models.scaleway is not None:
-        chat, rewrite, judge = (
-            models.scaleway.chat_model,
-            models.scaleway.rewrite_model,
-            models.scaleway.judge_model,
-        )
+        chat, rewrite = models.scaleway.chat_model, models.scaleway.rewrite_model
     else:
-        chat, rewrite, judge = (
-            models.mistral.chat_model,
-            models.mistral.rewrite_model,
-            models.mistral.chat_model,
-        )
+        chat, rewrite = models.mistral.chat_model, models.mistral.rewrite_model
+    # P1b-15 c: the judge is pinned on its own ([eval]); the chat model without it.
+    judge = models.eval.judge_model if models.eval is not None else chat
+    judge_provider = models.eval.judge_provider if models.eval is not None else models.llm.provider
     return {
         "llm_provider": models.llm.provider,
         "chat_model": chat,
         "rewrite_model": rewrite,
         "judge_model": judge,
+        "judge_provider": judge_provider,
+        "vector_similarity_weight": models.chat.vector_similarity_weight,
         "prompts": prompts,
         "top_k": models.chat.top_k,
         "similarity_threshold": models.chat.similarity_threshold,
@@ -219,8 +219,13 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
             http_client=httpx.AsyncClient(transport=mock.transport()),
         )
     else:
-        llm = create_llm_client(settings, rewrite_system)
-    pipeline = ApiPipeline(options.api_url, token, options.user_email)
+        llm = create_judge_client(settings)
+    pipeline = ApiPipeline(
+        options.api_url,
+        token,
+        options.user_email,
+        service_key=env.get("EVAL_SERVICE_PRIVATE_KEY") or None,
+    )
     warnings: list[str] = []
     item_results: list[ItemResult] = []
     try:
@@ -240,7 +245,17 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
         pipeline.workspace_id = step.workspace_id
         if not step.package.dataset_ids:
             raise HarnessError("the package has no datasets; run `ask-spore datasets sync`")
-        judge = Judge(llm, active_prompt(settings, "judge").text)
+        judge_config = settings.models.eval
+        judge = Judge(
+            llm,
+            active_prompt(settings, "judge").text,
+            model=None
+            if options.mock_mistral or judge_config is None
+            else judge_config.judge_model,
+            reasoning_effort="none"
+            if judge_config is None
+            else judge_config.judge_reasoning_effort,
+        )
         for item in items:
             unknown = step.unknown_expected(item.expected_source_ids)
             if unknown:
@@ -311,6 +326,9 @@ async def run(options: RunOptions, environ: Mapping[str, str] | None = None) -> 
         "workspace": options.workspace,
         "warnings": warnings,
     }
-    directory = options.results_root / run_id
-    results.write(directory, results.build(meta, summary, item_results))
-    return directory
+    full, _ = outputs.write_run(
+        results.build(meta, summary, item_results),
+        runs_root=options.runs_root,
+        results_root=options.results_root,
+    )
+    return full

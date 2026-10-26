@@ -2,7 +2,7 @@
 
 Implemented by `ask-spore ingest-manifest` (P0-11, `apps/api/app/content/manifest.py`; since Phase 1b through the source register and the job queue, see "Register, approval and the worker" below); the licence basis vocabulary is enforced as proposed below unless the owner amends it. Columns are matched by header name in any order. Two details the command fixes: `canonical_url` is required unless `licence_basis` is `own-work`, and a `site` row without `max_pages` crawls at most 50 pages.
 
-Format for the manifest that drives batch ingestion of the Phase 0 sample corpus (spec items P0-09, P0-10, P0-11). The columns map one-to-one onto the `ask-spore ingest` and `ask-spore crawl` flags and onto the `sources` table (P0-05).
+Format for the manifest that drives batch ingestion of the Phase 0 sample corpus (spec items P0-09, P0-10, P0-11). The columns map one-to-one onto the `ask-spore ingest` and `ask-spore crawl` flags and onto the `sources` table (P0-05); since Phase 1b a `site` row maps onto the `sites` table (P1b-04, "Sites" below).
 
 Status: proposal from the coding session, 2026-10-18. The licence basis vocabulary needs confirmation from the research lead before the team fills in rows.
 
@@ -37,7 +37,7 @@ The corpus and the manifest live on the Phase 0 Instance only. Never commit them
 | `language` | no | ISO 639-1, e.g. `en`, `de` | For spot-checking only; not used by retrieval in Phase 0. |
 | `max_pages` | no | Integer | `site` rows only; caps the crawl. |
 | `notes` | no | Free text | Anything the content editor wants recorded. Not sent to RAGFlow or the LLM. |
-| `downloadable` | no (optional column) | `true` or `false`; empty means `false` | P1a-14, licence-gated downloads: `true` only where the licence permits redistribution from our domain (our own analyses; third-party files only with the permission recorded per source). Only `pdf`, `docx` and `pptx` rows. Read for new sources, and for an already-ingested source when its row adds a tag (re-tagging, below; the change is audited); otherwise re-running the manifest does not change the flag, and the operator console does, audited. The column may be left out entirely, or placed anywhere. |
+| `downloadable` | no (optional column) | `true` or `false`; empty means `false` | P1a-14, licence-gated downloads: `true` only where the licence permits redistribution from our domain (our own analyses; third-party files where the row's `licence_basis` records the permission). No permission letter is required, in the manifest or in the console's propose form (owner decision 10, Oct 22, 2026); a letter may still be attached to a source in the console. Only `pdf`, `docx` and `pptx` rows. Read for new sources, and for an already-ingested source when its row adds a tag (re-tagging, below; the change is audited); otherwise re-running the manifest does not change the flag, and the operator console does, audited. The column may be left out entirely, or placed anywhere. |
 
 ## Rules
 
@@ -47,7 +47,8 @@ The corpus and the manifest live on the Phase 0 Instance only. Never commit them
 - File names must be unique across the whole tree. Eval items reference files by name until source register IDs exist after ingestion.
 - The batch command validates every row before uploading anything and reports all errors at once.
 - Re-tagging: a row whose file is already ingested (same content hash) but whose `tags` include tags the source lacks uploads and parses the file again into each new tag's dataset (RAGFlow cannot link one document into a second dataset), adds the tags to the source and reports the row as `retagged`; a failure there removes only the new documents and leaves the source as it was. Since Phase 1b a re-tag needs a reviewer: without `--approve-as` the row reports `retag_pending` and nothing changes.
-- `canonical_url` must identify **one document** (Phase 1b, P1b-03). A file with new content at the canonical link of exactly one ingested source is treated as that source's new version: once it is ingested, the old version is withdrawn from every dataset and citations of it show as "superseded". Do not give two different documents the same link (for example a publisher's landing page): the second would replace the first. When several ingested sources already share a link, a new file there is a new source.
+- A file with new content at the `canonical_url` **and with the `title`** of exactly one ingested source is that source's new version (owner decision 3, Oct 23, 2026, P1c-14): with `--approve-as` it is approved and, once ingested, replaces the old source as below; titles are compared ignoring case and runs of spaces. So a corrected file is re-ingested by re-running its manifest row with the same link and title.
+- A file with new content at the `canonical_url` of an ingested source under **another title** (or at a link that two ingested sources share under that title) is **not** treated as that source's new version automatically (owner decision 4, Oct 22, 2026; this replaces the Phase 1b A1 rule that a canonical link identifies one document). The row is proposed and flagged "possible replacement of <source>"; even with `--approve-as` it stays `proposed` (error code `possible_replacement`) until a reviewer chooses in the console, or with `ask-spore sources approve <source_id> --as <email> --replace <old source_id>` or `--keep-both`. With "replace", once the new file is ingested the old source is withdrawn from every dataset and its citations show as "superseded"; with "keep both" both stay. A publisher's landing page may therefore be the link of several documents. The manifest has no `replaces` column (decision 4).
 
 ## Register, approval and the worker (Phase 1b)
 
@@ -67,7 +68,7 @@ Row statuses in the summary (log lines and `--summary` CSV):
 
 | Status | Meaning |
 | --- | --- |
-| `proposed` | Recorded; waits for a reviewer. |
+| `proposed` | Recorded; waits for a reviewer. With error code `possible_replacement`: the file sits at the canonical link of an ingested source under another title, and the reviewer chooses replace or keep both. |
 | `retag_pending` | Already ingested; the row adds tags, which needs a reviewer. Nothing recorded. |
 | `queued` | Approved; the worker will ingest it (without `--wait`). |
 | `ingested` | Ingested (with `--wait`). |
@@ -77,13 +78,21 @@ Row statuses in the summary (log lines and `--summary` CSV):
 
 Site rows report `ok`, `failed`, or the first waiting status of their pages.
 
+## Sites (Phase 1b, P1b-04)
+
+A `site` row registers the site in the `sites` table (the content console's Sites page), with the row's `title` as the site's name, its `publisher`, `licence_basis`, `tags` and `max_pages`; the row's `published_on` and `canonical_url` are not used for sites (each page's date comes from its own metadata, and its URL is its canonical link). With `--approve-as` the reviewer approves the site, which queues a `crawl_site` job for the worker; a site approved earlier gets a crawl now. Without it the row reports `proposed` until a reviewer approves the site in the console. A rejected site fails with `site_rejected`. With `--wait` the run waits for the crawl and then for the pages it queued.
+
+`ask-spore crawl <url> --tag … --max-pages … --licence … [--publisher …] [--name …] [--allow /path/*] [--deny /path/*] [--schedule none|weekly|monthly] [--approve-as …] [--wait]` does the same for one site. The `--out-dir` and `--crawl-dir` flags of Phase 0 are gone: pages are staged under `[files] content_root`, with their raw HTML snapshot.
+
+The worker's crawl honours robots.txt, the crawl delay and the TDM reservation (the site's allow decision), stays within the scope rules and the page budget, waits at least a second between requests to one host, skips special-category pages unless a reviewer whitelists their path, takes publication dates from explicit page metadata only, re-ingests changed pages (the new version replaces the old one) and withdraws pages that are gone. Each page is a register row in the reviewer's name: the reviewer's approval of the site covers its pages.
+
 Source register states: `proposed → approved → ingested → withdrawn`, plus `failed` (a reviewer retries it) and `rejected` (a reviewer declined the proposal, with a note).
 
 ## Withdrawal and takedown (Phase 1b, P1b-03)
 
 - `ask-spore sources withdraw <source_id> --as <reviewer email> --reason "…" [--wait]` queues the withdrawal: the document is deleted from every dataset, its citations in users' history are flagged **withdrawn**, the register row is marked `withdrawn` with the reason and date, our stored copy is deleted, and cached answers that cite it are purged in every tenant.
-- `ask-spore sources takedown <source_id> --as <reviewer email> --reference <ref> --requested-on YYYY-MM-DD [--licence-breach]` puts a source on the takedown queue: due 10 working days (Monday to Friday) after the request, or the same day for a licence breach we find ourselves. The withdrawal is a separate reviewer step.
-- In the chat history a citation of a re-ingested source is labelled **superseded**, of a withdrawn source **withdrawn**; the stored excerpt stays.
+- `ask-spore sources takedown <source_id> --as <reviewer email> --reference <ref> --requested-on YYYY-MM-DD [--licence-breach] [--licence-grounds]` puts a source on the takedown queue: due 10 working days (Monday to Friday) after the request, or the same day for a licence breach we find ourselves. `--licence-grounds` marks a request on licence grounds (a licence breach always is). The withdrawal is a separate reviewer step.
+- In the chat history a citation of a re-ingested source is labelled **superseded**, of a withdrawn source **withdrawn**. The stored excerpt stays, except after a takedown on licence grounds: the excerpt is the licensed text, so the withdrawal blanks it (for that source and the earlier versions it replaced) and the citation keeps its title, publisher, link and the "withdrawn" label (owner decision 5, Oct 22, 2026).
 
 ## Example
 

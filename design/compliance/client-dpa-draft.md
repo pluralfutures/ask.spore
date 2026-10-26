@@ -14,7 +14,7 @@
 This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement / Order Form] dated [date] (the "**Agreement**") between:
 
 - **[Client legal name]**, [legal form], registered at [address], company number [ ] ("**[Client]**" or the "**Controller**"); and
-- **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, registered at [address] ("**Provider**" or the "**Processor**").
+- **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, registered at Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain ("**Provider**" or the "**Processor**").
 
 ## 1. Definitions and scope
 
@@ -54,7 +54,7 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 
 ## 6. Optional mode: external models
 
-6.1 By default the Service sends prompts only to language models hosted in the European Union (Annex 3, Scaleway Generative APIs, Paris).
+6.1 By default the Service sends prompts only to language models hosted in the European Union (Annex 3, Scaleway Generative APIs).
 
 6.2 [Client] may opt in to **external models** (at the date of this DPA: Claude Opus 5.5 and GPT-6.1 Sol). When enabled, a user who chooses an external model for a conversation causes that conversation's prompts to be sent to **OpenRouter, Inc.** through its EU endpoint, which forwards them to the upstream vendor pinned for that model (Amazon Web Services Bedrock for Claude; Microsoft Azure for GPT). These vendors may process the prompt outside the European Economic Area. The region of processing is **[EU (Ireland for AWS; [country] for Azure) / the United States], per the Provider's transfer impact assessment dated [date]** (*owner: fill in after the verification in the TIA §10; until verified, state "may be outside the EEA, including the United States"*).
 
@@ -84,7 +84,7 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 
 7A.4 [Client] is the controller of personal data in the documents it supplies and is responsible for having a lawful basis to supply them and for informing the people named in them (Article 14 GDPR). The Processor forwards to [Client] any request or claim it receives about a client-supplied document (clause 8.1).
 
-7A.5 On [Client]'s written request, the Processor withdraws a client-supplied document from the Service within 10 working days: the file, its text, its index entries and any copy the Processor holds outside the Service are deleted, and passages already cited in conversations are marked as withdrawn. Where the Processor receives a valid third party's notice that a document infringes its rights, it may suspend the document at once (removed from search, listing and download; stored copy kept for 30 days), sends [Client] a statement of reasons, and restores or deletes the document as terms §6A.6 provides. [Client]'s prior agreement to this in the terms is its documented instruction for the purposes of Article 28(3)(a) GDPR. Excerpts already cited in [Client]'s conversations stay, marked as withdrawn, when [Client] withdraws a document itself; they are blanked when the withdrawal follows a third party's rights claim.
+7A.5 On [Client]'s written request, the Processor withdraws a client-supplied document from the Service within 10 working days: the file, its text, its index entries and any copy the Processor holds outside the Service are deleted, and passages already cited in conversations are blanked, the citation kept and marked as withdrawn. Where the Processor receives a valid third party's notice that a document infringes its rights, it may suspend the document at once (removed from search, listing and download; stored copy kept for 30 days), sends [Client] a statement of reasons, and restores or deletes the document as terms §6A.6 provides. [Client]'s prior agreement to this in the terms is its documented instruction for the purposes of Article 28(3)(a) GDPR. Excerpts already cited in [Client]'s conversations stay, marked as withdrawn, when [Client] withdraws a document itself; they are blanked when the withdrawal follows a third party's rights claim.
 
 7A.6 [Client]'s warranty of rights and indemnity for client-supplied documents are in the Agreement (terms §6A), not in this DPA.
 
@@ -128,7 +128,7 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 
 13.2 This DPA lasts as long as the Processor processes Client Personal Data. In case of conflict, this DPA prevails over the Agreement on data protection matters.
 
-13.3 Governing law and jurisdiction: [as in the Agreement / law of [Member State]].
+13.3 Governing law and jurisdiction: as in the Agreement (Spanish law; the courts of San Sebastián (Donostia), Spain).
 
 Signed for [Client]: name [ ], title [ ], date [ ]
 
@@ -180,12 +180,12 @@ See `sub-processors.md` for the maintained list; at the date of this DPA. Client
 | Sub-processor | Purpose | Location | Safeguard |
 | --- | --- | --- | --- |
 | Scaleway SAS | Hosting, database, storage, backups | Paris, France | EU; Scaleway DPA |
-| Scaleway SAS — Generative APIs | Language model inference (default) | Paris, France | EU; Scaleway DPA, zero-retention confirmation [pending] |
+| Scaleway SAS — Generative APIs | Language model inference (default) | European Union (Scaleway confirms the EU, not a named site) | EU; Scaleway DPA; Scaleway's published zero-retention policy (version of Oct 3, 2025) |
 | Scaleway SAS — Transactional Email | Sending sign-in links and platform mail (email address and the link only) | Paris, France | EU; Scaleway DPA |
 | Mailgun Technologies, Inc. (Sinch), EU region — **optional backup, only if activated** | Sending sign-in links and platform mail (email address and the link only) | EU region | Mailgun DPA with SCCs; EU region pinned; tracking off; the client is notified before activation per the sub-processor change clause |
 | OpenRouter, Inc. — **only if external models are enabled** | Routing prompts to external models via EU endpoint | United States (EU endpoint) | SCCs; TIA |
-| Amazon Web Services (Bedrock) — **only if enabled**, upstream of OpenRouter | Claude inference | [eu-west-1 Ireland — pending verification; otherwise United States] | Via OpenRouter; SCCs; TIA |
-| Microsoft (Azure) — **only if enabled**, upstream of OpenRouter | GPT inference | [EU region — pending verification; otherwise United States] | Via OpenRouter; SCCs; TIA |
+| Amazon Web Services (Bedrock) — **only if enabled**, upstream of OpenRouter | Claude inference | EU, EEA, UK or Switzerland, as constrained by the region setting of each API request | Via OpenRouter; SCCs; TIA |
+| Microsoft (Azure) — **only if enabled**, upstream of OpenRouter | GPT inference | EU, EEA, UK or Switzerland, as constrained by the region setting of each API request | Via OpenRouter; SCCs; TIA |
 
 ## Annex 4 — Acceptance of external models (optional)
 
@@ -205,5 +205,5 @@ Document reference: [ ] · Signed for [Client]: name [ ], title [ ], date [ ]
 4. **External-model region (clause 6.2).** Fill in only after the TIA verification; the fallback wording is the safe default.
 5. **Notice periods and breach window** (clauses 5.2, 9.1) are placeholders for counsel.
 6. **Downloads table retention** (`downloads` rows) is not yet set (backlog, Phase 1b); the audit event is 12 months.
-7. **Annex 2 must match what is live at signature.** It lists the guide's controls. Not yet in place or not verified in Phase 1a: bulk-extraction detection (only rate limits and the download cap exist), the daily write-once export of the audit log, encrypted backups to Object Storage (the content store is a local volume until Phase 1b, findings D9), time-boxed support access, and operator hardware-key MFA (Authentik configuration, not checked by the API, findings A12). Mark these as planned with a date or remove them before signature.
+7. **Annex 2 must match what is live at signature.** It lists the guide's controls. Not yet in place or not verified in Phase 1a: bulk-extraction detection (only rate limits and the download cap exist), the daily write-once export of the audit log, encrypted backups to Object Storage (the content store is a local volume until Phase 1b, findings D9), time-boxed support access (built in Phase 2A, P2A-08: in place from that release), and operator hardware-key MFA (proposed to change to TOTP with hardware keys a Phase 2 item, decision D7 of `phase-2a-build-spec.md`) (Authentik configuration, not checked by the API, findings A12). Mark these as planned with a date or remove them before signature.
 8. **Client-supplied documents (clause 7A, Oct 22, 2026).** Drafted ahead of the build (P1b-19 step 2): do not offer clause 7A to a client until the step-2 isolation tests pass and the Annex 2 row is true. Open points in `open-questions.md` section J.

@@ -1,34 +1,61 @@
 // Typed client for /api/v1. The browser never talks to RAGFlow or the LLM.
+import { auditLogQuery } from "../lib/admin";
 import { readEvents } from "../lib/sse";
 import type {
   AdminInviteIn,
   AdminUser,
+  Aggregates,
+  ApproveIn,
   AuthMode,
   ChatStreamEvent,
-  ConversationCreated,
+  ConsentNotice,
+  ContentMe,
+  ContentSite,
+  ContentSiteDetail,
+  ContentSource,
+  ContentSourceDetail,
+  ContentTag,
   ConversationCreateIn,
+  ConversationCreated,
   ConversationDetail,
   ConversationSummary,
   DiscoverOut,
   DownloadLink,
-  FeedbackIn,
-  FeedbackOut,
   EntitlementsIn,
   EntitlementsOut,
+  FeedbackIn,
+  FeedbackOut,
+  InvitationResent,
   LoginPolicyIn,
   LoginPolicyOut,
-  MfaRequiredOut,
-  SsoSourceIn,
-  SsoStartOut,
   Me,
+  MfaRequiredOut,
   ModelOption,
   NoticeOut,
   OperatorOptions,
   OperatorSource,
+  OperatorTag,
   OperatorWorkspace,
+  PauseOut,
+  ProposeOut,
+  SiteCreateIn,
+  SiteSettingsIn,
+  SsoSourceIn,
+  SsoStartOut,
+  TagSync,
+  Takedown,
+  TakedownIn,
   TenantCreateIn,
   TenantOut,
   TenantSettings,
+  OperatorSupportGrant,
+  SupportConversation,
+  SupportGrant,
+  SupportGrantIn,
+  SupportSettings,
+  UsageOut,
+  TenantSpend,
+  TerminatedTenant,
   UserChangeIn,
   UserInviteIn,
   Workspace,
@@ -103,6 +130,15 @@ export function setUnauthorizedHandler(handler: () => void): void {
   onUnauthorized = handler;
 }
 
+// P1b-10: a route refused for want of consent (the notice version changed during the
+// session) sends the app back to the consent gate.
+export const CONSENT_REQUIRED = "consent_required";
+let onConsentRequired: () => void = () => {};
+
+export function setConsentRequiredHandler(handler: () => void): void {
+  onConsentRequired = handler;
+}
+
 async function send(method: string, path: string, body?: unknown, signal?: AbortSignal) {
   const credentials = loadCredentials();
   const headers: Record<string, string> = {};
@@ -122,12 +158,29 @@ async function send(method: string, path: string, body?: unknown, signal?: Abort
     clearCredentials();
     onUnauthorized();
   }
-  if (!response.ok) throw new ApiError(response.status, await errorCode(response));
+  if (!response.ok) {
+    const code = await errorCode(response);
+    if (response.status === 403 && code === CONSENT_REQUIRED) onConsentRequired();
+    throw new ApiError(response.status, code);
+  }
   return response;
 }
 
 async function json<T>(method: string, path: string, body?: unknown): Promise<T> {
   return (await (await send(method, path, body)).json()) as T;
+}
+
+// A multipart form (uploads in the content console, P1b-05); the browser sets the
+// boundary, so no Content-Type here.
+async function sendForm(method: string, path: string, form: FormData): Promise<Response> {
+  const response = await fetch(`${BASE}${path}`, {
+    method,
+    body: form,
+    credentials: "same-origin",
+  });
+  if (response.status === 401) onUnauthorized();
+  if (!response.ok) throw new ApiError(response.status, await errorCode(response));
+  return response;
 }
 
 export async function authMode(): Promise<AuthMode> {
@@ -233,6 +286,9 @@ export async function currentUser(): Promise<Me | null> {
 
 export const api = {
   me: () => json<Me>("GET", "/me"),
+  // P1b-10: the active use and privacy notice, and accepting the version shown.
+  consent: () => json<ConsentNotice>("GET", "/consent"),
+  acceptConsent: (version: string) => json<ConsentNotice>("POST", "/consent", { version }),
   listConversations: () => json<ConversationSummary[]>("GET", "/conversations"),
   workspaces: () => json<Workspace[]>("GET", "/workspaces"),
   models: () => json<ModelOption[]>("GET", "/models"),
@@ -264,12 +320,20 @@ export const api = {
   },
 };
 
+export type AuditExport = { blob: Blob; name: string; complete: boolean; next: string | null };
+
 // Tenant admin pages (P1a-13). The API answers 403 to anyone who is not a tenant admin.
 export const adminApi = {
   users: () => json<AdminUser[]>("GET", "/admin/users"),
   invite: (body: UserInviteIn) => json<AdminUser>("POST", "/admin/users", body),
   changeUser: (userId: string, body: UserChangeIn) =>
     json<AdminUser>("PATCH", `/admin/users/${userId}`, body),
+  // P1c-07: the invitation email again for a user still invited; remove a user.
+  resendInvitation: (userId: string) =>
+    json<InvitationResent>("POST", `/admin/users/${userId}/invitation`),
+  removeUser: async (userId: string): Promise<void> => {
+    await send("DELETE", `/admin/users/${userId}`);
+  },
   setDefaults: (workspaceId: string, body: WorkspaceDefaultsIn) =>
     json<Workspace>("PUT", `/admin/workspaces/${workspaceId}/defaults`, body),
   prompts: (workspaceId: string) =>
@@ -281,12 +345,55 @@ export const adminApi = {
   loginPolicy: () => json<LoginPolicyOut>("GET", "/admin/login-policy"),
   setRetention: (days: number) =>
     json<TenantSettings>("PUT", "/admin/settings/retention", { retention_days: days }),
+  // P1b-10, P2A-07: the tenant's exported audit events between two dates, as CSV. A
+  // period over the row cap comes in parts: `next` is the cursor of the next one.
+  auditLog: async (since: string, until: string, after?: string | null): Promise<AuditExport> => {
+    const response = await send("GET", `/admin/audit-log${auditLogQuery(since, until, after)}`);
+    const disposition = response.headers.get("content-disposition") ?? "";
+    return {
+      blob: await response.blob(),
+      name: /filename="([^"]+)"/.exec(disposition)?.[1] ?? "audit-log.csv",
+      complete: response.headers.get("x-audit-export-complete") !== "false",
+      next: response.headers.get("x-audit-export-next"),
+    };
+  },
+  // P2A-05: questions, active users, cited sources and (with external models) cost.
+  usage: () => json<UsageOut>("GET", "/admin/usage"),
+  // P2A-08: grant the operators a time-boxed read, list the grants, revoke one.
+  supportGrants: () => json<SupportGrant[]>("GET", "/admin/support-grants"),
+  grantSupport: (body: SupportGrantIn) => json<SupportGrant>("POST", "/admin/support-grants", body),
+  revokeSupport: (grantId: string) =>
+    json<SupportGrant>("POST", `/admin/support-grants/${grantId}/revoke`),
 };
 
 // Operator console (P1a-03). The API answers 403 to anyone who is not an operator.
 export const operatorApi = {
   options: () => json<OperatorOptions>("GET", "/operator/options"),
   tenants: () => json<TenantOut[]>("GET", "/operator/tenants"),
+  // P1c-08: tenants the termination purge emptied, with purge date and certificate.
+  terminatedTenants: () => json<TerminatedTenant[]>("GET", "/operator/terminated-tenants"),
+  // P1b-12: one tenant per page, its users and spend, and the cross-tenant totals.
+  tenant: (tenantId: string) => json<TenantOut>("GET", `/operator/tenants/${tenantId}`),
+  tenantTags: (tenantId: string) =>
+    json<OperatorTag[]>("GET", `/operator/tenants/${tenantId}/tags`),
+  tenantUsers: (tenantId: string) =>
+    json<AdminUser[]>("GET", `/operator/tenants/${tenantId}/users`),
+  tenantSpend: (tenantId: string) =>
+    json<TenantSpend>("GET", `/operator/tenants/${tenantId}/spend`),
+  aggregates: () => json<Aggregates>("GET", "/operator/aggregates"),
+  // P2A-08: the tenant's open support grants, and the reads they allow (404 otherwise).
+  supportGrants: (tenantId: string) =>
+    json<OperatorSupportGrant[]>("GET", `/operator/tenants/${tenantId}/support-grants`),
+  supportSettings: (tenantId: string, grantId: string) =>
+    json<SupportSettings>(
+      "GET",
+      `/operator/tenants/${tenantId}/support-grants/${grantId}/settings`,
+    ),
+  supportConversation: (tenantId: string, grantId: string, conversationId: string) =>
+    json<SupportConversation>(
+      "GET",
+      `/operator/tenants/${tenantId}/support-grants/${grantId}/conversations/${conversationId}`,
+    ),
   createTenant: (body: TenantCreateIn) => json<TenantOut>("POST", "/operator/tenants", body),
   inviteAdmin: (tenantId: string, body: AdminInviteIn) =>
     json<{ user_id: string; status: "invited" }>(
@@ -294,6 +401,12 @@ export const operatorApi = {
       `/operator/tenants/${tenantId}/admins`,
       body,
     ),
+  // P1c-07: the invitation email again, and removing a tenant's user.
+  resendInvitation: (tenantId: string, userId: string) =>
+    json<InvitationResent>("POST", `/operator/tenants/${tenantId}/users/${userId}/invitation`),
+  removeUser: async (tenantId: string, userId: string): Promise<void> => {
+    await send("DELETE", `/operator/tenants/${tenantId}/users/${userId}`);
+  },
   setEntitlements: (tenantId: string, body: EntitlementsIn) =>
     json<EntitlementsOut>("PUT", `/operator/tenants/${tenantId}/entitlements`, body),
   // Login policy (P1b-06): sign-in links, JIT provisioning, MFA for tenant admins.
@@ -318,4 +431,86 @@ export const operatorApi = {
     json<OperatorWorkspace>("PUT", `/operator/tenants/${tenantId}/workspaces/${workspaceId}/tags`, {
       tag_ids: tagIds,
     }),
+};
+
+// Content console (P1b-05). The API answers 403 to anyone without a content role, and
+// to an editor on a reviewer's action. Register metadata only, never document text.
+export interface SourceFilters {
+  status?: string;
+  tag?: string;
+  // P2A-04: several tags at once (any of them), from the operator console's workspace link.
+  tags?: string[];
+  type?: string;
+  publisher?: string;
+  site_id?: string;
+}
+
+function query(params: object): string {
+  const entries: [string, string][] = [];
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === "string" && value !== "") entries.push([key, value]);
+    // A list repeats its key; `tags` is the API's repeated `tag` parameter (P2A-04).
+    if (Array.isArray(value))
+      for (const item of value)
+        if (typeof item === "string" && item !== "")
+          entries.push([key === "tags" ? "tag" : key, item]);
+  }
+  return entries.length ? `?${new URLSearchParams(entries).toString()}` : "";
+}
+
+export const contentApi = {
+  me: () => json<ContentMe>("GET", "/content/me"),
+  sources: (filters: SourceFilters = {}) =>
+    json<ContentSource[]>("GET", `/content/sources${query(filters)}`),
+  source: (id: string) => json<ContentSourceDetail>("GET", `/content/sources/${id}`),
+  licenceUrl: (id: string) => `${BASE}/content/sources/${id}/licence`,
+  propose: async (form: FormData) =>
+    (await (await sendForm("POST", "/content/sources", form)).json()) as ProposeOut,
+  attachLicence: async (id: string, form: FormData) => {
+    await sendForm("PUT", `/content/sources/${id}/licence`, form);
+  },
+  approve: (id: string, body: ApproveIn) =>
+    json<{ job_id: string }>("POST", `/content/sources/${id}/approve`, body),
+  reject: async (id: string, note: string) => {
+    await send("POST", `/content/sources/${id}/reject`, { note });
+  },
+  retry: (id: string) => json<{ job_id: string }>("POST", `/content/sources/${id}/retry`),
+  withdraw: (id: string, reason: string) =>
+    json<{ job_id: string }>("POST", `/content/sources/${id}/withdraw`, { reason }),
+  // P2A-04: a reviewer pauses or resumes a source; done in the call, no job.
+  pause: (id: string, reason: string) =>
+    json<PauseOut>("POST", `/content/sources/${id}/pause`, { reason }),
+  resume: (id: string) => json<PauseOut>("POST", `/content/sources/${id}/resume`),
+  // P1c-14: a withdrawn crawled page comes back at the next crawl of its site.
+  restore: async (id: string) => {
+    await send("POST", `/content/sources/${id}/restore`);
+  },
+  takedown: (id: string, body: TakedownIn) =>
+    json<Takedown>("POST", `/content/sources/${id}/takedown`, body),
+  takedowns: () => json<Takedown[]>("GET", "/content/takedowns"),
+  sites: () => json<ContentSite[]>("GET", "/content/sites"),
+  site: (id: string) => json<ContentSiteDetail>("GET", `/content/sites/${id}`),
+  createSite: (body: SiteCreateIn) => json<ContentSite>("POST", "/content/sites", body),
+  approveSite: (id: string, note: string | null) =>
+    json<{ job_id: string }>("POST", `/content/sites/${id}/approve`, { note }),
+  rejectSite: async (id: string, note: string) => {
+    await send("POST", `/content/sites/${id}/reject`, { note });
+  },
+  siteSettings: async (id: string, body: SiteSettingsIn) => {
+    await send("PUT", `/content/sites/${id}/settings`, body);
+  },
+  siteWhitelist: async (id: string, patterns: string[]) => {
+    await send("PUT", `/content/sites/${id}/special-category-allow`, { patterns });
+  },
+  crawl: (id: string) => json<{ job_id: string }>("POST", `/content/sites/${id}/crawl`),
+  // P1c-14: retires the site and withdraws every page, one job per page.
+  withdrawSite: (id: string, reason: string) =>
+    json<{ job_ids: string[] }>("POST", `/content/sites/${id}/withdraw`, { reason }),
+  // P2A-12 (a): back to proposed, for a fresh approval; takedown pages stay blocked.
+  reinstateSite: (id: string, note: string) =>
+    json<{ released: number; kept_blocked: number }>("POST", `/content/sites/${id}/reinstate`, {
+      note,
+    }),
+  tags: () => json<ContentTag[]>("GET", "/content/tags"),
+  syncTags: () => json<TagSync[]>("POST", "/content/tags/sync"),
 };

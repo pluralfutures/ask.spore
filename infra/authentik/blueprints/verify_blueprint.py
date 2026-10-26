@@ -6,6 +6,7 @@
 # Authentik's blueprint discovery ignores it. Prints names only, never a secret.
 from authentik.core.models import Application, Group, Token, User
 from authentik.flows.models import Flow, FlowStageBinding
+from authentik.policies.expression.models import ExpressionPolicy
 from authentik.policies.models import PolicyBinding
 from authentik.providers.oauth2.models import OAuth2Provider, ScopeMapping
 
@@ -75,6 +76,11 @@ need(
     and "ask_spore_tenant" in mapping.expression
     and "ask_spore_sso" in mapping.expression,
     "scope mapping ask_spore",
+)
+guard = ExpressionPolicy.objects.filter(name="ask-spore-source-if-sso").first()
+need(
+    guard is not None and "ask_spore_refusal" in guard.expression,
+    "policy ask-spore-source-if-sso denies the mapping's refusals (P1c-02)",
 )
 need(Group.objects.filter(name="ask-spore-tenant-admins").exists(), "group ask-spore-tenant-admins")
 provisioner = User.objects.filter(username="ask-spore-provisioner").first()

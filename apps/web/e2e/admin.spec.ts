@@ -27,7 +27,7 @@ test("a user cannot open the admin pages", async ({ page }) => {
   const api = new FakeApi({ workspaces: WORKSPACES, models: MODELS, role: "user" });
   await api.install(page);
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "New conversation" })).toBeVisible();
+  await expect(page.getByLabel("Question")).toBeVisible();
   await expect(page.getByRole("link", { name: "Administration" })).toHaveCount(0);
   await page.goto("/admin");
   await expect(page.getByText("Tenant admins only.")).toBeVisible();
@@ -41,12 +41,20 @@ test("an admin saves the instructions as a new version", async ({ page }) => {
   await page.getByRole("link", { name: "Administration" }).click();
   await expect(page.getByTestId("user-analyst@example.org")).toContainText("sign-in link");
 
+  const workspace = page.getByTestId("workspace-team-alpha");
   const instructions = page.getByLabel("Additional instructions");
   const save = page.getByRole("button", { name: "Save as new version" });
-  for (const text of ["Synthetic first instructions.", "Synthetic second instructions."]) {
+  const texts = ["Synthetic first instructions.", "Synthetic second instructions."];
+  for (const [index, text] of texts.entries()) {
     await instructions.fill(text);
     await save.click();
+    // Wait for the end of the save, which the editor shows once the history is reloaded
+    // and the draft settled (P1c-11). The history count and a disabled button are not
+    // enough: both also hold while the save is still finishing (P1b-13 f, PR #35).
+    await expect(workspace.getByRole("status")).toHaveText(`Saved as version ${index + 1}.`);
+    await expect(page.getByText(`Version history (${index + 1})`)).toBeVisible();
     await expect(save).toBeDisabled();
+    await expect(instructions).toHaveValue(text);
   }
   await page.getByText("Version history (2)").click();
   await expect(page.getByTestId("version-2")).toContainText("Synthetic second instructions.");
@@ -57,4 +65,83 @@ test("an admin saves the instructions as a new version", async ({ page }) => {
   await page.getByRole("button", { name: "Save retention" }).click();
   await expect(page.getByText("Retention cannot exceed 30 days.")).toBeVisible();
   expect(api.adminCalls.filter((c) => c.path === "/admin/settings/retention")).toEqual([]);
+});
+
+test("an admin resends an invitation, removes a user, and sees a taken address", async ({
+  page,
+}) => {
+  const api = new FakeApi({ workspaces: WORKSPACES, models: MODELS, role: "tenant_admin" });
+  await api.install(page);
+  await page.goto("/admin");
+
+  // P1c-07: only the invited user offers a resend; nobody can remove themselves.
+  const invited = page.getByTestId("user-invited@example.org");
+  const member = page.getByTestId("user-member@example.org");
+  const self = page.getByTestId("user-analyst@example.org");
+  // UX-09: the actions are in each row's menu; the admin's own row has none to offer.
+  const act = async (row: typeof member, item: string) => {
+    await row.getByRole("button", { name: /^Actions for / }).click();
+    await row.getByRole("menuitem", { name: item, exact: true }).click();
+  };
+  await member.getByRole("button", { name: "Actions for member@example.org" }).click();
+  await expect(member.getByRole("menuitem", { name: "Resend invitation" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(self.getByRole("button", { name: /^Actions for / })).toHaveCount(0);
+  await act(invited, "Resend invitation");
+  await expect(page.getByRole("status")).toHaveText(
+    "Invitation sent again to invited@example.org.",
+  );
+  expect(api.resent).toEqual(["55555555-5555-4555-8555-555555555556"]);
+
+  // Removal asks first; cancelling sends nothing.
+  const confirm = page.getByRole("dialog", {
+    name: "Remove member@example.org and delete their conversations?",
+  });
+  await act(member, "Remove");
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  expect(api.adminCalls.filter((c) => c.method === "DELETE")).toEqual([]);
+  await act(member, "Remove");
+  await confirm.getByRole("button", { name: "Remove member@example.org" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "member@example.org was removed with their conversations.",
+  );
+  await expect(member).toHaveCount(0);
+  expect(api.adminCalls.filter((c) => c.method === "DELETE").map((c) => c.path)).toEqual([
+    "/admin/users/55555555-5555-4555-8555-555555555557",
+  ]);
+
+  // The 409 email_taken reads as a sentence, not a status code.
+  await page.getByLabel("Email", { exact: true }).fill("invited@example.org");
+  await page.getByLabel("Name", { exact: true }).fill("Synthetic Again");
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
+  await expect(page.getByText("That address already has an account.")).toBeVisible();
+  // Release F4: the invite's refusal replaces the removal's status, and the next
+  // resend replaces the refusal (both stood together on the Instance).
+  await expect(page.getByText("was removed with their conversations.")).toHaveCount(0);
+  await act(invited, "Resend invitation");
+  await expect(page.getByRole("status")).toHaveText(
+    "Invitation sent again to invited@example.org.",
+  );
+  await expect(page.getByText("That address already has an account.")).toHaveCount(0);
+});
+
+test("the audit download asks for the chosen dates and offers the next part", async ({ page }) => {
+  const api = new FakeApi({ workspaces: WORKSPACES, models: MODELS, role: "tenant_admin" });
+  await api.install(page);
+  await page.goto("/admin#audit");
+  const audit = page.locator("#audit");
+  await audit.getByLabel("From").fill("2026-09-01");
+  await audit.getByLabel("To").fill("2026-09-30");
+  const first = page.waitForEvent("download");
+  await audit.getByRole("button", { name: "Download audit log" }).click();
+  expect((await first).suggestedFilename()).toBe("audit-log-synthetic.csv");
+  expect(api.auditExports).toEqual(["?since=2026-09-01&until=2026-09-30"]);
+  await expect(audit.getByRole("status")).toContainText("more than 10,000 events");
+  const second = page.waitForEvent("download");
+  await audit.getByRole("button", { name: "Download the next part" }).click();
+  await second;
+  expect(api.auditExports[1]).toBe(
+    "?since=2026-09-01&until=2026-09-30&after=2026-09-02T00%3A00%3A00%2B00%3A00%7Csynthetic",
+  );
+  await expect(audit.getByRole("status")).toHaveCount(0);
 });

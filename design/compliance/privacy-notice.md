@@ -7,9 +7,9 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted |
-| Placeholders | [registered address], [DPO or privacy contact name], [privacy contact email], [security contact email], [takedown contact email], [website address], [supervisory authority], [Member State], [date], [version], [link to sub-processor list], [link to LIA summary], [website host], plus the retention and website values marked in §3 |
-| To finalise, the owner must | (1) fill in the entity, contacts and supervisory authority; (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) website facts given by the owner on Oct 22, 2026 (contact form, no cookies) are in §3; fill in [website host] and its log retention, and keep the no-cookie statement true (no third-party fonts, maps, videos or analytics loaded from other servers); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records. |
+| Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted. Oct 25, 2026, **DRAFT** (P2A-10): support access described in §2 and in the audit row, as built in P2A-08 (owner note 8) |
+| Placeholders | [website host], [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
+| To finalise, the owner must | (1) confirm the entity, contacts and supervisory authority (AEPD); (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) website facts given by the owner on Oct 22, 2026 (contact form, no cookies) are in §3; fill in [website host] and its log retention, and keep the no-cookie statement true (no third-party fonts, maps, videos or analytics loaded from other servers); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records (the wording goes in `config/consent/<version>.md`, the version in `[consent] version` of `config/models.toml`; P1b-10, findings E1-5). |
 
 Plain text below the line is the notice.
 
@@ -17,14 +17,14 @@ Plain text below the line is the notice.
 
 ## About this notice
 
-SporeBot is a research assistant. It answers questions from a curated library of published reports, public websites and our own analysis, and, for some customers, documents the customer supplied for its own use, and shows the sources for every answer. It is run by **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, [registered address] ("**we**").
+SporeBot is a research assistant. It answers questions from a curated library of published reports, public websites and our own analysis, and, for some customers, documents the customer supplied for its own use, and shows the sources for every answer. It is run by **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain ("**we**").
 
 This notice explains what personal data we handle and why. It has two parts:
 
 - **Part A** is for people who use SporeBot through their employer, and for people who contact us.
 - **Part B** is for people who are named or quoted in the public sources in our library (GDPR Article 14), and explains who is responsible for documents our customers supply (§13).
 
-Privacy contact: [DPO or privacy contact name], [privacy contact email].
+Privacy contact: privacyanddata@myceliumgastronomy.com.
 
 Version [version], last updated [date].
 
@@ -51,11 +51,11 @@ The rest of Part A describes both, so that you can see the whole picture.
 | Questions and conversations | Your questions, the answers, the sources cited, your feedback, the model and settings you chose | 30 days at most; your employer can set a shorter period (1 to 30 days). From Phase 1b (P1b-14) your employer can also choose not to keep history at all |
 | Downloads | Which file you downloaded and when | Audit record, below |
 | Documents your employer supplied (only if it does) | The files your employer sent us for its workspaces, their text and search index | Until your employer withdraws them, and deleted when it stops using the service. Only your employer's users can search or download them |
-| Audit records | Who signed in, administrative actions, when a question was asked and which sources were cited, downloads. Never the text of a question or answer | 12 months |
+| Audit records | Who signed in, administrative actions, when a question was asked and which sources were cited, downloads, support access granted by your employer and each read by our staff. Never the text of a question or answer | 12 months |
 
 Today, conversations past their retention period no longer appear anywhere in the service. They are removed from the database by a scheduled clean-up job from Phase 1b (P1b-14).
 
-We do **not** use your questions or conversations to train or improve any AI model, we do not sell them, and we never show one customer's questions or answers to another customer. Our staff do not read conversations, except where your employer asks for support on a specific conversation; such access is time-boxed and logged.
+We do **not** use your questions or conversations to train or improve any AI model, we do not sell them, and we never show one customer's questions or answers to another customer. Our staff do not read conversations, except where your employer asks for support on a specific conversation; such access is time-boxed and logged. In practice, one of your employer's administrators grants our staff read-only access to one of the administrator's own conversations, or to your organisation's settings, for at most four hours; each read is recorded and shown to your employer's administrators, and they can end the access at any time. Our staff use their own accounts and cannot change anything.
 
 ### 3. What we process as controller
 
@@ -66,6 +66,7 @@ We do **not** use your questions or conversations to train or improve any AI mod
 | Answering your messages to us | Your name, email address, the content of your message | Legitimate interest in responding; legal obligation where you exercise a GDPR right (Art. 6(1)(c)) | [2 years] after the matter is closed |
 | Our website's contact form | Your name, email address, organisation if you give it, and your message | Our legitimate interest in answering enquiries (Art. 6(1)(f)); steps you ask for before a contract (Art. 6(1)(b)) | [2 years] after the matter is closed; if it leads to a contract, as a business contact for the contract's term |
 | Our website's server logs | IP address, time, page requested and browser type, kept by [website host] | Our legitimate interest in running a secure website (Art. 6(1)(f)) | [website host's log retention, owner to confirm] |
+| The SporeBot app (askspore.myceliumgastronomy.com) | Strictly necessary cookies only (sign-in). No analytics, advertising or tracking cookies. | Legitimate interest (strictly necessary; no consent needed) | [ ] |
 
 **Cookies.** Our public website sets no cookies and uses no analytics or tracking tools. The SporeBot app, which you use after signing in, uses only cookies that are strictly necessary to sign you in and keep you signed in; they need no consent and are not used for anything else.
 
@@ -73,7 +74,7 @@ We do **not** use your questions or conversations to train or improve any AI mod
 
 Everything we store is hosted by **Scaleway in Paris, France**: the application, the database, the search index, the files you can download, our logs and backups.
 
-By default, questions are answered by AI models run by **Scaleway in Paris** (DeepSeek V4.1 Flash and Qwen 3.8 27B). What the model receives: our fixed instructions, your workspace's instructions written by your employer, excerpts from the library (including, where your employer supplied documents, excerpts from them), recent turns of the conversation and your question. **No name, email address or account identifier is sent to the model.**
+By default, questions are answered by AI models run by **Scaleway in the European Union** (DeepSeek V4.1 Flash and Qwen 3.8 27B). What the model receives: our fixed instructions, your workspace's instructions written by your employer, excerpts from the library (including, where your employer supplied documents, excerpts from them), recent turns of the conversation and your question. **No name, email address or account identifier is sent to the model.**
 
 Sign-in emails are sent by **Scaleway Transactional Email in Paris**. It receives your email address and the email containing the link, nothing else.
 
@@ -83,9 +84,9 @@ The full list of companies that process data for us is at [link to sub-processor
 
 ### 5. Your rights
 
-You can ask for access to, correction or deletion of your data, restriction of processing, data portability, and you can object to processing based on legitimate interests. For data we process for your employer, we pass your request to your employer and help it respond. For data we control, write to [privacy contact email]; we answer within one month.
+You can ask for access to, correction or deletion of your data, restriction of processing, data portability, and you can object to processing based on legitimate interests. For data we process for your employer, we pass your request to your employer and help it respond. For data we control, write to privacyanddata@myceliumgastronomy.com; we answer within one month.
 
-You can also complain to a data protection supervisory authority, in particular in the EU country where you live or work. Ours is [supervisory authority], [Member State].
+You can also complain to a data protection supervisory authority, in particular in the EU country where you live or work. Ours is the Agencia Española de Protección de Datos (AEPD), Spain.
 
 ### 6. Security
 
@@ -103,7 +104,7 @@ Our library contains published third-party material (research reports, industry 
 | --- | --- |
 | Categories | Names, job titles, employers, professional statements and quotes, and other information that appears in the published text about a person in a professional or public capacity |
 | Not intended | Special categories (health, political opinions, religion and similar). We do not seek them out. Where a source contains such information that the person made public themselves (for example in their own autobiography), we may keep it as published; where someone else revealed it, we review it and remove or redact it unless there is a clear legal basis. We never search or profile people by these traits. An automatic filter that skips web pages likely to contain them is added from Phase 1b (P1b-04); until then sources are chosen by hand |
-| Sources | Publicly available reports and documents from their publishers, and public websites that do not opt out of text and data mining (we respect robots.txt and the machine-readable reservation under EU copyright law). A summary of the publishers in our library is available on request at [privacy contact email] |
+| Sources | Publicly available reports and documents from their publishers, and public websites that do not opt out of text and data mining (we respect robots.txt and the machine-readable reservation under EU copyright law). A summary of the publishers in our library is available on request at privacyanddata@myceliumgastronomy.com |
 | What we do with it | Split the text into short passages, index them for search, show passages with their source (publisher, title, date, page) to our customers' users when relevant to a question, and offer downloads of a file only where its licence allows |
 | Who sees it | Users of our business customers, through answers and citations. The text is also sent, as excerpts, to the AI model answering a question (section 4) |
 
@@ -125,7 +126,7 @@ As long as the source stays licensed and relevant to our library. Each source ha
 
 You can ask what we hold about you, ask for correction, **object** to our use of it, or ask for its **erasure**. We assess each request and, where it succeeds, remove the document or replace it with a copy without your data **within 30 days**, and tell you what we decided and why.
 
-Write to [takedown contact email] (or [privacy contact email]), naming the document or web page if you can. We may ask for information to confirm the request concerns you.
+Write to security@myceliumgastronomy.com (or privacyanddata@myceliumgastronomy.com), naming the document or web page if you can. We may ask for information to confirm the request concerns you.
 
 Publishers who want their content removed can use the same address. We act on publisher takedown requests within 10 working days.
 
@@ -145,11 +146,12 @@ What happens to these documents: their text is split into passages and indexed, 
 
 ## Contact
 
-Estefania Simon-Sasyk y Otro CB, [registered address]
+Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain
 
-- Privacy: [privacy contact email]
-- Removal of content or personal data from our library: [takedown contact email]
-- Security reports: [security contact email]
+- Website: https://askspore.myceliumgastronomy.com
+- Privacy: privacyanddata@myceliumgastronomy.com
+- Removal of content or personal data from our library: security@myceliumgastronomy.com
+- Security reports: security@myceliumgastronomy.com
 
 ---
 
@@ -162,3 +164,4 @@ Estefania Simon-Sasyk y Otro CB, [registered address]
 5. **Downloads** (§8): by owner decision of Oct 20, 2026, third-party files in the test corpus are downloadable where their manifest row says so. Confirm the licence basis per source before publishing "only where its licence allows".
 6. **Encryption at rest** is not claimed in §6 because the Instance volume encryption is unconfirmed; add it once confirmed.
 7. **Customer-supplied documents** (§13, Oct 22, 2026): drafted ahead of the build (P1b-19 step 2). Counsel to confirm that the processor role and the forward-to-the-customer route are right for people named in client files, and whether we may tell a requester which customer supplied a document (open-questions J).
+8. **Support access** (§2, Oct 25, 2026, P2A-10): the added sentences describe the control built in Phase 2A (P2A-08): an administrator grants access to one of their **own** conversations or to the settings, never to another user's conversation. The in-app notice (`config/consent/v1.md` §1 and the same §2 sentence) still says "where your employer asks for support on a specific conversation", which is broader than the build; it stays true (nothing is read without the employer's grant), but if counsel prefers the narrower wording, it is a new notice version (`phase-2a-findings.md` §2, question 1).

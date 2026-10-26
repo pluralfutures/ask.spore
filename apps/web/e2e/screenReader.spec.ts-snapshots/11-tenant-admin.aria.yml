@@ -1,0 +1,235 @@
+- banner:
+    - note: AI-generated, verify against cited sources.
+    - link "Skip to content":
+        - /url: "#main"
+    - link "Mycelium SporeBot":
+        - /url: /
+    - text: Synthetic Client
+    - navigation "Main":
+        - list:
+            - listitem:
+                - link "Home":
+                    - /url: /
+            - listitem:
+                - link "Administration":
+                    - /url: /admin
+    - text: Synthetic Analyst
+- main:
+    - link "← Conversations":
+        - /url: /
+    - heading "Administration" [level=1]
+    - navigation "Administration sections":
+        - list:
+            - listitem:
+                - link "Users":
+                    - /url: "#users"
+            - listitem:
+                - link "Usage":
+                    - /url: "#usage"
+            - listitem:
+                - link "Workspaces":
+                    - /url: "#workspaces"
+            - listitem:
+                - link "Chat history retention":
+                    - /url: "#retention"
+            - listitem:
+                - link "Sign-in":
+                    - /url: "#sign-in"
+            - listitem:
+                - link "Support access":
+                    - /url: "#support"
+            - listitem:
+                - link "Audit log":
+                    - /url: "#audit"
+    - heading "Users · notice v1" [level=2]
+    - text: Email
+    - textbox "Email"
+    - text: Name
+    - textbox "Name"
+    - text: Role
+    - combobox "Role":
+        - option "User" [selected]
+        - option "Admin"
+    - button "Invite" [disabled]
+    - table:
+        - rowgroup:
+            - row "Name Email Role Status Last login Notice Actions":
+                - columnheader "Name"
+                - columnheader "Email"
+                - columnheader "Role"
+                - columnheader "Status"
+                - columnheader "Last login"
+                - columnheader "Notice"
+                - columnheader "Actions"
+        - rowgroup:
+            - row /Synthetic analyst analyst@example\.org Admin active \d+ Oct \d+ · sign-in link v1 \(current\)/:
+                - cell "Synthetic analyst"
+                - cell "analyst@example.org"
+                - cell "Admin"
+                - cell "active"
+                - cell /\d+ Oct \d+ · sign-in link/
+                - cell "v1 (current)"
+                - cell
+            - row "Synthetic invited invited@example.org User invited Never signed in Not accepted Actions for invited@example.org":
+                - cell "Synthetic invited"
+                - cell "invited@example.org"
+                - cell "User":
+                    - combobox "Role of invited@example.org":
+                        - option "User" [selected]
+                        - option "Admin"
+                - cell "invited"
+                - cell "Never signed in"
+                - cell "Not accepted"
+                - cell "Actions for invited@example.org":
+                    - button "Actions for invited@example.org"
+            - row /Synthetic member member@example\.org User active \d+ Oct \d+ v1 \(current\) Actions for member@example\.org/:
+                - cell "Synthetic member"
+                - cell "member@example.org"
+                - cell "User":
+                    - combobox "Role of member@example.org":
+                        - option "User" [selected]
+                        - option "Admin"
+                - cell "active"
+                - cell /\d+ Oct \d+/
+                - cell "v1 (current)"
+                - cell "Actions for member@example.org":
+                    - button "Actions for member@example.org"
+            - row /Synthetic policy\.analyst\.with\.a\.long\.address policy\.analyst\.with\.a\.long\.address@international-organisation\.example\.org User active \d+ Oct \d+ · sign-in link v1 \(current\) Actions for policy\.analyst\.with\.a\.long\.address@international-organisation\.example\.org/:
+                - cell "Synthetic policy.analyst.with.a.long.address"
+                - cell "policy.analyst.with.a.long.address@international-organisation.example.org"
+                - cell "User":
+                    - combobox "Role of policy.analyst.with.a.long.address@international-organisation.example.org":
+                        - option "User" [selected]
+                        - option "Admin"
+                - cell "active"
+                - cell /\d+ Oct \d+ · sign-in link/
+                - cell "v1 (current)"
+                - cell "Actions for policy.analyst.with.a.long.address@international-organisation.example.org":
+                    - button "Actions for policy.analyst.with.a.long.address@international-organisation.example.org"
+            - row /Synthetic former former@example\.org User deactivated \d+ Oct \d+ · sign-in link v1 \(current\) Actions for former@example\.org/:
+                - cell "Synthetic former"
+                - cell "former@example.org"
+                - cell "User":
+                    - combobox "Role of former@example.org":
+                        - option "User" [selected]
+                        - option "Admin"
+                - cell "deactivated"
+                - cell /\d+ Oct \d+ · sign-in link/
+                - cell "v1 (current)"
+                - cell "Actions for former@example.org":
+                    - button "Actions for former@example.org"
+    - heading "Usage" [level=2]
+    - paragraph: "/The last \\d+ days, in UTC\\. Counts only: no question text and no per-person figures\\./"
+    - term: Questions
+    - definition: /\d+/
+    - term: Sources only
+    - definition: /\d+/
+    - term: General knowledge
+    - definition: "3"
+    - term: Most active users in a day
+    - definition: "4"
+    - group: Questions and active users per day
+    - heading "Most cited sources" [level=3]
+    - table:
+        - rowgroup:
+            - row "Title Publisher Answers citing it":
+                - columnheader "Title"
+                - columnheader "Publisher"
+                - columnheader "Answers citing it"
+        - rowgroup:
+            - row /Synthetic Trade Outlook \d+ Synthetic Trade Observatory 7/:
+                - cell /Synthetic Trade Outlook \d+/
+                - cell "Synthetic Trade Observatory"
+                - cell "7"
+            - row "Synthetic Food Systems Brief Synthetic Food Systems Council 4":
+                - cell "Synthetic Food Systems Brief"
+                - cell "Synthetic Food Systems Council"
+                - cell "4"
+    - heading "Workspaces" [level=2]
+    - group "Synthetic Markets":
+        - heading "Synthetic Markets" [level=3]
+        - text: Default mode
+        - combobox "Default mode":
+            - option "Sources only" [selected]
+            - option "General knowledge"
+        - text: Default model
+        - combobox "Default model":
+            - option "Synthetic EU Standard" [selected]
+            - option "Synthetic EU Fast"
+            - option "Synthetic External Large (served outside the EU)"
+        - switch "Reasoning by default"
+        - text: Reasoning by default
+        - button "Save defaults"
+        - text: Additional instructions
+        - paragraph: Added to the assistant's instructions for this workspace. They cannot change how it cites sources or when it declines to answer.
+        - textbox "Additional instructions": Answer for a business development audience. Lead with the commercial implication, then the evidence. Use metric tonnes and US dollars.
+        - button "Save as new version" [disabled]
+        - text: /\d+ \/ \d+/
+        - group: Version history (2)
+    - group "Synthetic Trade Policy and Regulatory Horizon Scanning":
+        - heading "Synthetic Trade Policy and Regulatory Horizon Scanning" [level=3]
+        - text: Default mode
+        - combobox "Default mode":
+            - option "Sources only" [selected]
+            - option "General knowledge"
+        - text: Default model
+        - combobox "Default model":
+            - option "Synthetic EU Standard" [selected]
+            - option "Synthetic EU Fast"
+            - option "Synthetic External Large (served outside the EU)"
+        - switch "Reasoning by default" [checked]
+        - text: Reasoning by default
+        - button "Save defaults"
+        - text: Additional instructions
+        - paragraph: Added to the assistant's instructions for this workspace. They cannot change how it cites sources or when it declines to answer.
+        - textbox "Additional instructions"
+        - button "Save as new version" [disabled]
+        - text: /0 \/ \d+/
+        - paragraph: No versions saved yet.
+    - heading "Chat history retention" [level=2]
+    - paragraph: "/Conversations are deleted after this many days, at most \\d+\\. Shortening it also removes existing conversations older than the new limit\\. 0 keeps no history: each conversation is deleted as soon as its answer ends\\./"
+    - paragraph: /Conversations are deleted \d+ days after they start\./
+    - text: Days
+    - spinbutton "Days": /\d+/
+    - button "Save retention"
+    - heading "Sign-in" [level=2]
+    - term: Single sign-on
+    - definition: Microsoft Entra ID
+    - term: Sign-in links
+    - definition: "on"
+    - term: Create users on first SSO sign-in
+    - definition: "on"
+    - term: Second factor for tenant admins
+    - definition: required
+    - term: tenant
+    - definition: /[0-9a-fA-F-]+/
+    - term: client_id
+    - definition: synthetic-client-id
+    - term: redirect_uri
+    - definition: https://sso.example.org/source/oauth/callback/synthetic-client-entra/
+    - paragraph: To change single sign-on, contact the platform operator.
+    - heading "Support access" [level=2]
+    - paragraph: Let the platform operators read your settings or one of your conversations, for a limited time. They use their own account and cannot change anything.
+    - text: What they may read
+    - combobox "What they may read":
+        - option "Settings" [selected]
+        - option "One of my conversations"
+    - text: For
+    - combobox "For":
+        - option /\d+ minutes/
+        - option /\d+ minutes/
+        - option "1 hour" [selected]
+        - option "2 hours"
+        - option "4 hours"
+    - text: Note for the operator
+    - textbox "Note for the operator"
+    - paragraph: /What should they look at\? Up to \d+ characters\./
+    - button "Grant access" [disabled]
+    - paragraph: No support access has been granted.
+    - heading "Audit log" [level=2]
+    - paragraph: Sign-in, administration, notice-acceptance and download events, operator actions on your users, and support access, as CSV. Questions and their text are never in it.
+    - text: From
+    - textbox "From": /\d+-\d+-\d+/
+    - text: To
+    - textbox "To": /\d+-\d+-\d+/
+    - button "Download audit log"

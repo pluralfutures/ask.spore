@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Annotated, Literal
+from decimal import Decimal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
@@ -87,6 +88,9 @@ class ConversationCreated(_Out):
     # the requested model (``external_spend_cap_reached``), with the text to show.
     notice: str | None = None
     notice_text: str | None = None
+    # P1b-14: the tenant keeps no history; the conversation takes one question and is
+    # deleted when its answer ends (never listed or readable).
+    no_history: bool = False
 
 
 class WorkspaceOut(_Out):
@@ -126,6 +130,9 @@ class CitationOut(BaseModel):
     # withdrawn. A citation in a live answer has neither.
     superseded: bool = False
     withdrawn: bool = False
+    # P2A-02, history only: the source is paused now (D3: the excerpt and provenance are
+    # kept); read live from the register, so the label goes when the source is resumed.
+    unavailable: bool = False
 
 
 class MessageOut(BaseModel):
@@ -141,6 +148,13 @@ class MessageOut(BaseModel):
     # reasoning was on.
     model: str | None = None
     reasoning: bool | None = None
+    # P1b-17: a backup model answered (``model`` is not the conversation's): "eu" or
+    # "external" (served outside the EU).
+    failover: Literal["eu", "external"] | None = None
+    # P1c-09, assistant messages: cut off at the output budget, or ended early (stopped,
+    # the client left, or the model failed mid-stream).
+    truncated: bool = False
+    partial: bool = False
 
 
 class ConversationDetail(ConversationSummary):
@@ -205,6 +219,9 @@ class DoneData(BaseModel):
     reasoning: bool
     # The answer stopped at the output budget and is shown as cut off.
     truncated: bool
+    # P1b-17: a backup model answered because the conversation's model was unavailable:
+    # "eu" (the other EU provider) or "external" (served outside the EU).
+    failover: Literal["eu", "external"] | None = None
 
 
 class ErrorData(BaseModel):
@@ -274,6 +291,31 @@ class MeOut(BaseModel):
     tenant_display_name: str
     # P1b-08: the session's access token expiry (OIDC mode); renew before it.
     session_expires_at: datetime | None = None
+    # P1b-10: true until the user accepts the active use and privacy notice.
+    consent_required: bool = False
+    # P1c-08: the user may open the operator console (an operator of the internal
+    # tenant); the chat app links to it, the console's API decides again on every call.
+    operator: bool = False
+
+
+class ConsentNoticeOut(BaseModel):
+    """The active use and privacy notice (P1b-10): Markdown, from the owner's file."""
+
+    version: str
+    title: str
+    summary: str
+    text: str
+    accepted_version: str | None
+    accepted_at: datetime | None
+    required: bool
+
+
+class ConsentAcceptIn(BaseModel):
+    """The notice version the user read and accepts; must be the active one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: str = Field(pattern=r"^v[1-9][0-9]*$")
 
 
 class ModelOptionOut(BaseModel):
@@ -319,6 +361,9 @@ class AcceptanceIn(_In):
 
 
 class EntitlementsIn(_In):
+    # P1b-12 (Phase 1a findings F2): the tenant of the console page the save was made on.
+    # It must equal the tenant in the path, or nothing is saved (409 tenant_mismatch).
+    tenant_id: UUID
     answer_modes: list[Literal["corpus_only", "general_knowledge"]] = Field(min_length=1)
     enabled_models: list[str] = Field(min_length=1, max_length=20)
     external_models_enabled: bool
@@ -424,6 +469,19 @@ class TenantOut(BaseModel):
     login_policy: LoginPolicyOut
 
 
+class TerminatedTenantOut(BaseModel):
+    """P1c-08: a tenant whose data the termination purge deleted (P1b-14). The row stays
+    (the audit log names it), suspended, with the purge's date and certificate number from
+    its ``tenant.purged`` audit event; ``None`` when no such event is found."""
+
+    id: UUID
+    slug: str
+    display_name: str
+    status: str
+    purged_at: datetime | None
+    certificate: str | None
+
+
 class AdminInviteIn(_In):
     email: str = Field(min_length=3, max_length=320)
     display_name: str = Field(min_length=1, max_length=128)
@@ -432,6 +490,14 @@ class AdminInviteIn(_In):
 class AdminInvitedOut(BaseModel):
     user_id: UUID
     status: Literal["invited"]
+
+
+class InvitationResentOut(BaseModel):
+    """P1c-07: the invitation email is queued again (one ``send_mail`` job; an invitation
+    still waiting to be sent is not queued twice)."""
+
+    user_id: UUID
+    status: Literal["queued"]
 
 
 class NoticeOut(BaseModel):
@@ -446,6 +512,65 @@ class OperatorOptionsOut(BaseModel):
     answer_modes: list[str]
     models: list[str]
     tags: list[str]  # config/tags.toml, assignable to workspaces (P1a-04)
+
+
+class OperatorTagOut(BaseModel):
+    """A tag a tenant's workspaces may use (P1b-12): its own, or shared by all tenants."""
+
+    tag: str
+    shared: bool
+
+
+class ModelSpendOut(BaseModel):
+    """One model's month-to-date usage, from ``usage_ledger`` (P1b-12)."""
+
+    model: str
+    display_name: str
+    external: bool
+    tokens_in: int
+    tokens_out: int
+    cost_cents: Decimal  # euro cents, as the ledger holds them
+
+
+class SpendThresholdOut(BaseModel):
+    percent: int  # 80 or 100
+    cents: Decimal  # the threshold in euro cents of the tenant's cap
+    reached: bool
+    notified_at: datetime | None  # the operator notice for this month, if written
+
+
+class TenantSpendOut(BaseModel):
+    """A tenant's month-to-date usage by model and its external spend against the cap."""
+
+    tenant_id: UUID
+    month: str  # YYYY-MM, UTC
+    models: list[ModelSpendOut]
+    external_spent_cents: Decimal
+    external_models_enabled: bool
+    external_spend_cap_cents: int | None
+    thresholds: list[SpendThresholdOut]
+
+
+class AggregateModelOut(ModelSpendOut):
+    provider: str
+    tenants: int  # how many tenants used the model this month
+
+
+class ProviderTotalOut(BaseModel):
+    provider: str
+    tokens_in: int
+    tokens_out: int
+    cost_cents: Decimal
+
+
+class AggregatesOut(BaseModel):
+    """Cross-tenant totals for the month (P1b-12): no tenant is named, no text exists."""
+
+    month: str
+    tenants: int
+    tenants_with_usage: int
+    models: list[AggregateModelOut]
+    providers: list[ProviderTotalOut]
 
 
 TAG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
@@ -490,6 +615,16 @@ class AdminUserOut(_Out):
     last_login_at: datetime | None
     last_login_method: str | None
     created_at: datetime
+    # P2A-06: the use and privacy notice version the user last accepted, and whether it
+    # is the active one. Admin and operator lists only; never in ``/me``.
+    consent_version: str | None
+    consent_current: bool = False
+
+    @classmethod
+    def of(cls, user: Any, active_version: str) -> AdminUserOut:
+        out = cls.model_validate(user)
+        out.consent_current = user.consent_version == active_version
+        return out
 
 
 class UserInviteIn(_In):
@@ -514,8 +649,9 @@ class WorkspaceDefaultsIn(_In):
 
 
 class RetentionIn(_In):
-    # CLAUDE.md: 30 days maximum; a tenant admin may only shorten it.
-    retention_days: int = Field(ge=1, le=30)
+    # CLAUDE.md: 30 days maximum; a tenant admin may only shorten it. 0 is "no history":
+    # a conversation is kept only while its answer streams (P1b-14).
+    retention_days: int = Field(ge=0, le=30)
 
 
 class TenantSettingsOut(BaseModel):
@@ -581,3 +717,151 @@ class OperatorSourceOut(BaseModel):
 
 class SourceDownloadableIn(_In):
     downloadable: bool
+
+
+# --- tenant admin usage (P2A-05; architecture §7.2) --------------------------------------
+# Counts only: no query text, no conversation or message ID, no user ID or per-user
+# figure. ``test_logging_policy`` asserts the field names against an allow-list.
+
+
+class UsageQuestionsOut(BaseModel):
+    """Questions asked on one UTC day in one answer mode (``chat.query`` events)."""
+
+    day: date
+    mode: str
+    questions: int
+
+
+class UsageActiveUsersOut(BaseModel):
+    """How many distinct users asked at least one question on one UTC day."""
+
+    day: date
+    users: int
+
+
+class UsageSourceOut(BaseModel):
+    """A cited source, by title and publisher, and how many answers cited it."""
+
+    title: str
+    publisher: str
+    answers: int
+
+
+class UsageModelCostOut(BaseModel):
+    """One model's month-to-date usage from ``usage_ledger``, as the operator sees it."""
+
+    model: str
+    display_name: str
+    external: bool
+    tokens_in: int
+    tokens_out: int
+    cost_cents: Decimal
+
+
+class UsageOut(BaseModel):
+    since: date
+    until: date
+    questions: list[UsageQuestionsOut]
+    active_users: list[UsageActiveUsersOut]
+    top_sources: list[UsageSourceOut]
+    # Only for a tenant with the external-models entitlement; null otherwise.
+    cost_month: str | None
+    costs: list[UsageModelCostOut] | None
+
+
+# --- support access (P2A-08; architecture §7.4) ------------------------------------------
+
+SupportScope = Literal["settings", "conversation"]
+SupportState = Literal["open", "used", "expired", "revoked"]
+
+
+class SupportGrantIn(_In):
+    """A tenant admin's grant: the settings, or one of their own conversations."""
+
+    scope: SupportScope
+    conversation_id: UUID | None = None
+    duration_minutes: int = Field(default=60, ge=15, le=240)
+    note: str = Field(min_length=1, max_length=500)
+
+
+class SupportGrantOut(BaseModel):
+    """A grant as its tenant admin sees it, with the operator's reads through it."""
+
+    id: UUID
+    scope: SupportScope
+    conversation_id: UUID | None
+    conversation_title: str | None
+    duration_minutes: int
+    note: str
+    created_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
+    state: SupportState
+    views: int
+    last_viewed_at: datetime | None
+
+
+class OperatorSupportGrantOut(BaseModel):
+    """An open grant on the operator's tenant page: what it covers and until when."""
+
+    id: UUID
+    scope: SupportScope
+    conversation_id: UUID | None
+    note: str
+    created_at: datetime
+    expires_at: datetime
+
+
+class SupportCitationOut(BaseModel):
+    marker: int
+    title: str
+    publisher: str
+    published_on: date | None
+    page_or_slide: int | None
+    type: str
+    canonical_url: str | None
+    excerpt: str
+    superseded: bool
+    withdrawn: bool
+
+
+class SupportMessageOut(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime
+    unsupported: bool
+    truncated: bool
+    partial: bool
+    citations: list[SupportCitationOut]
+
+
+class SupportConversationOut(BaseModel):
+    """One granted conversation as its user sees it; no user identifier."""
+
+    grant_id: UUID
+    expires_at: datetime
+    title: str | None
+    workspace_name: str
+    mode: str
+    model: str
+    created_at: datetime
+    messages: list[SupportMessageOut]
+
+
+class SupportWorkspaceOut(BaseModel):
+    name: str
+    slug: str
+    default_mode: str
+    default_model: str
+    default_reasoning: bool
+    instructions_version: int | None
+    instructions: str | None
+
+
+class SupportSettingsOut(BaseModel):
+    """The tenant's settings a tenant admin sets, read through a ``settings`` grant."""
+
+    grant_id: UUID
+    expires_at: datetime
+    retention_days: int
+    workspaces: list[SupportWorkspaceOut]

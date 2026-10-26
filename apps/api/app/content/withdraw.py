@@ -3,12 +3,20 @@
 One job per source (architecture §6.3), run by the worker, idempotent on retry:
 
 1. delete the source's document from every RAGFlow dataset it is in (the register's
-   ``ragflow_document_ids``), recording what is left after each deletion;
+   ``ragflow_document_ids``), recording what is left after each deletion; a document
+   RAGFlow no longer has counts as deleted;
 2. flag the stored citations of the source in every tenant's history, as
    ``askspore_content`` (identifier and flag columns only): ``superseded_at`` when a
-   re-ingested version of the file replaced it, ``withdrawn_at`` otherwise;
-3. mark the register row ``withdrawn`` with its date and reason, audited;
-4. delete our stored copy of the file, unless another live source has the same content;
+   re-ingested version of the file replaced it, ``withdrawn_at`` otherwise. Every
+   withdrawal blanks the stored excerpts as well, for this source and the earlier
+   versions it replaced, whatever the grounds (owner decision 3, Oct 23, 2026; until
+   then only a takedown on licence grounds did), and labels those versions' citations
+   withdrawn too; the citation, its provenance and its label stay. A supersession
+   keeps them: the document is still in the corpus;
+3. mark the register row ``withdrawn`` with its date and reason, audited (a paused
+   source is withdrawn the same way, its pause cleared: P2A-01);
+4. delete our stored copy of the file, unless another live source has the same content,
+   and a crawled page's raw HTML snapshot (P1b-04) likewise;
 5. purge every tenant's answer-cache entries that cite the source (cache values record
    their source IDs from P1b-03 on; older values are matched by their citations).
 
@@ -19,7 +27,7 @@ a supersession is enqueued by the ingestion of the replacing source.
 from __future__ import annotations
 
 import json
-from collections.abc import Container
+from collections.abc import Collection, Container
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -100,9 +108,51 @@ async def flag_citations(
     return int(getattr(result, "rowcount", 0) or 0)
 
 
+async def blank_excerpts(
+    factory: async_sessionmaker[AsyncSession], source_ids: Collection[UUID]
+) -> int:
+    """Blank the stored excerpts of the sources' citations in every tenant; the citation,
+    its provenance and its flags stay. ``askspore_content`` may write only ''."""
+    if not source_ids:
+        return 0
+    async with role_session(factory, CONTENT_ROLE) as session:
+        result = await session.execute(
+            update(Citation)
+            .where(Citation.source_id.in_(list(source_ids)))
+            .values(excerpt="")
+            .execution_options(synchronize_session=False)
+        )
+    return int(getattr(result, "rowcount", 0) or 0)
+
+
+async def _versions(session: AsyncSession, source_id: UUID) -> list[UUID]:
+    """The source and every earlier version it replaced, newest first."""
+    chain = [source_id]
+    current: UUID | None = await session.scalar(
+        select(Source.supersedes_id).where(Source.id == source_id)
+    )
+    while current is not None and current not in chain:
+        chain.append(current)
+        current = await session.scalar(select(Source.supersedes_id).where(Source.id == current))
+    return chain
+
+
+async def _gone(client: RagflowClient, dataset_id: str, document_id: str) -> bool:
+    """True when RAGFlow no longer has the document (deleted earlier, or by hand)."""
+    try:
+        await client.get_document(dataset_id, document_id)
+    except RagflowError as exc:
+        return exc.code in ("not_found", 404)
+    return False
+
+
 async def _kind(session: AsyncSession, source_id: UUID) -> Kind:
     replacement = await session.scalar(
-        select(Source.id).where(Source.supersedes_id == source_id, Source.status == "ingested")
+        select(Source.id).where(
+            Source.supersedes_id == source_id,
+            # P2A-03: a new version ingested paused replaces the old one all the same.
+            Source.status.in_(("ingested", "paused")),
+        )
     )
     return "superseded" if replacement is not None else "withdrawn"
 
@@ -120,14 +170,22 @@ async def withdraw_source(
         if row is None:
             return WithdrawResult(source_id, "refused", error_code="no_source")
         kind = await _kind(session, source_id)
-    if row.status not in ("ingested", "failed", "withdrawn"):
+        # Owner decision 3 (Oct 23, 2026): every withdrawal blanks, a supersession does not.
+        blank = kind == "withdrawn"
+        versions = await _versions(session, source_id) if blank else []
+    if row.status not in ("ingested", "failed", "paused", "withdrawn"):
         return WithdrawResult(source_id, "refused", kind, error_code="not_withdrawable")
 
     # 1. RAGFlow: every dataset the register maps the source into.
     remaining: dict[str, str] = dict(row.ragflow_document_ids or {})
     try:
         for dataset_id, document_id in list(remaining.items()):
-            await client.delete_documents(dataset_id, [document_id])
+            try:
+                await client.delete_documents(dataset_id, [document_id])
+            except RagflowError as exc:
+                # Not found means already deleted: done, not a failure to retry.
+                if exc.code != 404 and not await _gone(client, dataset_id, document_id):
+                    raise
             del remaining[dataset_id]
     except RagflowError as exc:
         async with factory() as session, session.begin():
@@ -138,8 +196,13 @@ async def withdraw_source(
             )
         return WithdrawResult(source_id, "failed", kind, error_code=exc.error_code)
 
-    # 2. Stored history, every tenant.
+    # 2. Stored history, every tenant; excerpts blanked unless superseded. The earlier
+    # versions are the same document: labelled withdrawn too (P1c-14).
     flagged = await flag_citations(factory, source_id, kind)
+    if blank:
+        for version in versions[1:]:
+            await flag_citations(factory, version, "withdrawn")
+        await blank_excerpts(factory, versions)
 
     # 3. The register row, audited.
     if row.status != "withdrawn":
@@ -158,6 +221,10 @@ async def withdraw_source(
                     chunk_count=None,
                     error=None,
                     stored_path=None,
+                    # A paused source withdrawn (P2A-01): the pause ends with it.
+                    paused_at=None,
+                    paused_by=None,
+                    pause_reason=None,
                     updated_at=func.now(),
                 )
             )
@@ -172,6 +239,7 @@ async def withdraw_source(
                     "after": {"status": "withdrawn"},
                     "outcome": kind,
                     "count": flagged,
+                    "excerpts_blanked": blank,
                 },
             )
 
@@ -192,6 +260,23 @@ async def withdraw_source(
                 remove(content_root, relative_path(row.file_sha256, row.type))
             except (StoredFileError, ValueError):
                 pass  # nothing usable to remove
+    # A crawled page's raw HTML snapshot (P1b-04) goes with it, unless shared.
+    if row.snapshot_path is not None:
+        async with factory() as session:
+            shared = await session.scalar(
+                select(func.count())
+                .select_from(Source)
+                .where(
+                    Source.snapshot_path == row.snapshot_path,
+                    Source.id != source_id,
+                    Source.status != "withdrawn",
+                )
+            )
+        if not shared:
+            try:
+                remove(content_root, row.snapshot_path)
+            except StoredFileError:
+                pass
 
     # 5. Cached answers, every tenant.
     try:

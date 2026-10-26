@@ -26,6 +26,9 @@ general_knowledge = "v1"
 rewrite = "v1"
 judge = "v1"
 
+[consent]
+version = "v1"
+
 [chat]
 history_messages = 6
 history_max_tokens = 2000
@@ -67,12 +70,24 @@ ENV = {
 }
 
 
+SYNTHETIC_NOTICE = (
+    "# Synthetic notice\n\n## Summary\n\nSynthetic summary.\n\n"
+    "## Full notice\n\nSynthetic notice text.\n"
+)
+
+
+HOLIDAYS_TOML = 'active = "none"\n\n[regions.none]\nname = "Monday to Friday"\ndates = []\n'
+
+
 def write_config(tmp_path: Path, text: str = VALID_TOML, *, prompts: bool = True) -> Path:
     (tmp_path / "models.toml").write_text(text, encoding="utf-8")
+    (tmp_path / "holidays.toml").write_text(HOLIDAYS_TOML, encoding="utf-8")
     if prompts:
         for name in ("corpus_only", "general_knowledge", "rewrite", "judge"):
             (tmp_path / "prompts" / name).mkdir(parents=True, exist_ok=True)
             (tmp_path / "prompts" / name / "v1.md").write_text("Synthetic prompt.\n")
+        (tmp_path / "consent").mkdir(exist_ok=True)
+        (tmp_path / "consent" / "v1.md").write_text(SYNTHETIC_NOTICE, encoding="utf-8")
     return tmp_path
 
 
@@ -207,7 +222,6 @@ provider = "scaleway"
 base_url = "https://api.scaleway.ai"
 chat_model = "deepseek-v4.1-flash"
 rewrite_model = "deepseek-v4.1-flash"
-judge_model = "deepseek-v4.1-flash"
 models = ["deepseek-v4.1-flash"]
 timeout_seconds = 30
 rate_limit_rps = 5
@@ -267,9 +281,50 @@ def test_only_the_active_providers_key_is_required(
 
 @pytest.mark.parametrize("model", ["deepseek-latest", "deepseek-v4.1-flash-latest", "Deep Seek"])
 def test_scaleway_rejects_alias_or_malformed_model_names(tmp_path: Path, model: str) -> None:
-    text = SCALEWAY_TOML.replace('judge_model = "deepseek-v4.1-flash"', f'judge_model = "{model}"')
-    [problem] = problems_for(tmp_path, text)
-    assert problem.startswith(f"scaleway.judge_model '{model}' must be a fixed model name")
+    text = SCALEWAY_TOML.replace(
+        'rewrite_model = "deepseek-v4.1-flash"', f'rewrite_model = "{model}"'
+    )
+    problems = problems_for(tmp_path, text)
+    assert any(
+        p.startswith(f"scaleway.rewrite_model '{model}' must be a fixed model name")
+        for p in problems
+    ), problems
+
+
+def test_repository_config_pins_a_separate_judge() -> None:
+    # P1b-15 c: [eval] names the judge on its own; owner decision 22 (Oct 22, 2026): a model
+    # other than the answer model, so the judge does not grade its own answers.
+    settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
+    assert settings.models.eval is not None
+    assert (settings.models.eval.judge_provider, settings.models.eval.judge_model) == (
+        "scaleway",
+        "qwen3.8-27b",
+    )
+    assert settings.models.eval.judge_model != settings.models.scaleway.chat_model
+
+
+@pytest.mark.parametrize(
+    ("section", "problem"),
+    [
+        (
+            'judge_provider = "scaleway"\njudge_model = "deepseek-latest"',
+            "eval.judge_model 'deepseek-latest' must be a fixed model name, not an alias",
+        ),
+        (
+            'judge_provider = "scaleway"\njudge_model = "qwen-unpinned-9"',
+            "eval.judge_model 'qwen-unpinned-9' is not pinned in [scaleway]",
+        ),
+        (
+            'judge_provider = "mistral"\njudge_model = "deepseek-v4.1-flash"',
+            "eval.judge_model 'deepseek-v4.1-flash' is not pinned in [mistral]",
+        ),
+    ],
+)
+def test_eval_judge_must_be_pinned_by_its_provider(
+    tmp_path: Path, section: str, problem: str
+) -> None:
+    text = SCALEWAY_TOML + "\n[eval]\n" + section + "\n"
+    assert problems_for(tmp_path, text) == [problem]
 
 
 def test_scaleway_host_must_be_allow_listed_and_https(tmp_path: Path) -> None:
@@ -301,3 +356,74 @@ def test_repository_config_uses_scaleway_on_an_allow_listed_host() -> None:
     assert settings.models.llm.provider == "scaleway"
     assert settings.models.scaleway is not None
     assert "latest" not in settings.models.scaleway.chat_model
+
+
+def test_ragflow_admin_ui_link_is_loopback_only(tmp_path: Path) -> None:
+    # P1b-05: the content console's link to the private RAGFlow UI (over an SSH tunnel).
+    base = 'embedding_model = "BAAI/bge-m3@Builtin"'
+    ok = VALID_TOML.replace(base, base + '\nadmin_ui_url = "http://127.0.0.1:8080"')
+    settings = load_settings(environ=ENV, config_dir=write_config(tmp_path, ok))
+    assert settings.models.ragflow.admin_ui_url == "http://127.0.0.1:8080"
+    for url in (
+        "https://ragflow.example.com",
+        "http://ragflow:80",
+        "http://0.0.0.0:8080",
+        "http://127.0.0.1:8080/admin",
+    ):
+        text = VALID_TOML.replace(base, base + f'\nadmin_ui_url = "{url}"')
+        assert [p for p in problems_for(tmp_path, text) if "admin_ui_url" in p], url
+    bad_path = VALID_TOML.replace(
+        base, base + '\nadmin_ui_document_path = "https://x/{dataset_id}"'
+    )
+    assert problems_for(tmp_path, bad_path) == [
+        "ragflow.admin_ui_document_path must be a path with {dataset_id}"
+    ]
+
+
+def test_repository_ragflow_admin_ui_is_on_the_loopback() -> None:
+    settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
+    assert settings.models.ragflow.admin_ui_url == "http://127.0.0.1:8080"
+
+
+# --- deploy version (P1b-13 e) ------------------------------------------------------------
+
+
+def test_deploy_version_comes_from_the_environment(tmp_path: Path) -> None:
+    env = {**ENV, "ASK_SPORE_DEPLOY_VERSION": "0f3e244a1b2c"}
+    assert load_settings(environ=env, config_dir=write_config(tmp_path)).deploy_version == (
+        "0f3e244a1b2c"
+    )
+
+
+def test_deploy_version_falls_back_to_a_hash_of_the_config(tmp_path: Path) -> None:
+    config = write_config(tmp_path)
+    first = load_settings(environ=ENV, config_dir=config).deploy_version
+    assert first.startswith("files-")
+    assert load_settings(environ=ENV, config_dir=config).deploy_version == first
+    (config / "prompts" / "corpus_only" / "v1.md").write_text("Changed prompt.\n")
+    assert load_settings(environ=ENV, config_dir=config).deploy_version != first
+
+
+def test_rejects_a_malformed_deploy_version(tmp_path: Path) -> None:
+    problems = problems_for(tmp_path, VALID_TOML, {**ENV, "ASK_SPORE_DEPLOY_VERSION": "a b;c"})
+    assert any("ASK_SPORE_DEPLOY_VERSION" in p for p in problems)
+
+
+# --- P1c-04: [retention] downloads_days is capped at a year ---------------------------------
+
+
+@pytest.mark.parametrize(
+    ("days", "ok"), [(1, True), (90, True), (365, True), (366, False), (3650, False), (0, False)]
+)
+def test_downloads_retention_is_capped_at_365_days(tmp_path: Path, days: int, ok: bool) -> None:
+    text = VALID_TOML + f"\n[retention]\ndownloads_days = {days}\n"
+    if ok:
+        settings = load_settings(environ=ENV, config_dir=write_config(tmp_path, text))
+        assert settings.models.retention.downloads_days == days
+    else:
+        assert any("downloads_days" in p for p in problems_for(tmp_path, text))
+
+
+def test_repository_downloads_retention_is_the_owners_90_days() -> None:
+    settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
+    assert settings.models.retention.downloads_days == 90

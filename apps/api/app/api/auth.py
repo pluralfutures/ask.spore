@@ -309,8 +309,12 @@ async def _finish_sso(
         )
         response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
         _session_cookies(request, response, signed_in)
-    except SignInRefused:
-        response = RedirectResponse(SSO_FAILED_REDIRECT, status_code=status.HTTP_303_SEE_OTHER)
+    except SignInRefused as refused:
+        # P1c-02: a coarse reason for the page, from our own fixed set; never the code.
+        response = RedirectResponse(
+            f"{SSO_FAILED_REDIRECT}&reason={sso.refusal_reason(refused.error_code)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
     for name in (SSO_BINDING_COOKIE, SSO_STATE_COOKIE):
         response.delete_cookie(name, path=SSO_COOKIE_PATH, secure=True, httponly=True)
     return response

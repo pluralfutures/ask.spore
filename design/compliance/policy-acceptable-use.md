@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 22, 2026 |
 | Author | Drafted for owner review (gap found in the Phase 1b document set: the compliance guide's SOC 2 policy list names "acceptable use"; owner request of Oct 22, 2026) |
-| Placeholders | [security lead name], [security contact email], [password manager], [document store], [5] (screen-lock minutes), [24] (hours to report an incident), [date] |
+| Placeholders | [security lead name], [password manager], [document store], [5] (screen-lock minutes), [24] (hours to report an incident), [date] |
 | To finalise, the owner must | (1) fill in the placeholders; (2) confirm the device rules in §3 match what is in use; (3) have counsel check §7 (monitoring) against Spanish employment and privacy law before any employee or contractor signs it; (4) approve and sign; (5) have every person with access sign §9 before access is granted (`policy-access-control.md`). |
 
 ---
@@ -33,7 +33,7 @@ It is the internal counterpart of the customers' acceptable-use rules in `terms-
 1. Work only on devices with **full-disk encryption**, a screen lock of [5] minutes or less, automatic operating-system security updates and a supported operating system.
 2. Use **multi-factor authentication** on every account that offers it: GitHub, Scaleway, OpenRouter, the mail provider, the document store, Authentik.
 3. Keep passwords in [password manager]; never reuse them; never share an account.
-4. Lost or stolen device: report to [security contact email] at once; credentials on it are rotated the same day.
+4. Lost or stolen device: report to security@myceliumgastronomy.com at once; credentials on it are rotated the same day.
 5. Personal use of work devices is allowed if it does not weaken these rules (no untrusted software, no sharing the device).
 
 ## 4. Handling client data
@@ -61,7 +61,7 @@ Platform access, operator and content actions are recorded in the audit log, whi
 
 ## 8. Reporting and breaches of this policy
 
-Report a suspected security incident, lost device, leaked secret or misdirected client data to [security contact email] within [24] hours, and at once if client data may be involved (`policy-incident-response.md`). Breaches of this policy may lead to removal of access and, for employees and contractors, to the measures in their contract.
+Report a suspected security incident, lost device, leaked secret or misdirected client data to security@myceliumgastronomy.com within [24] hours, and at once if client data may be involved (`policy-incident-response.md`). Breaches of this policy may lead to removal of access and, for employees and contractors, to the measures in their contract.
 
 ## 9. Acknowledgement
 

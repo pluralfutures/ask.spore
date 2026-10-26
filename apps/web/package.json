@@ -16,16 +16,19 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "gen:api": "openapi-typescript ../api/openapi.json -o src/api/schema.d.ts && prettier --write src/api/schema.d.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:visual": "sh e2e/visual/run-in-image.sh"
   },
   "dependencies": {
     "@tanstack/react-query": "5.104.1",
+    "lucide-react": "1.53.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-markdown": "10.1.0",
     "react-router-dom": "7.18.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "4.3.3",

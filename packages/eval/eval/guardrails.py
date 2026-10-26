@@ -43,7 +43,7 @@ from app.chat.citations import filter_markers
 from app.chat.package import UNTRUSTED_SOURCE_TYPES
 from app.chat.prompts import AnswerPrompt, active_prompt, render_system
 from app.core.config import Settings
-from app.llm.mistral import PromptChunk, Turn
+from app.llm.mistral import LLMError, PromptChunk, Turn
 
 from eval.schema import load_set
 
@@ -75,6 +75,37 @@ class Answerer(Protocol):
         history: Sequence[Turn],
         question: str,
     ) -> AsyncIterable[str]: ...
+
+
+# P2A-14 (release findings F-2): a call the provider does not open within its timeout is
+# tried again, at most twice; the scores do not change, since the retry answers the same
+# prompt. Without it one stalled call of about 400 ended the run.
+TIMEOUT_RETRIES = 2
+
+
+class RetryingAnswerer:
+    """An ``Answerer`` that opens a timed-out answer again; counts the retries."""
+
+    def __init__(self, llm: Answerer, retries: int = TIMEOUT_RETRIES) -> None:
+        self._llm = llm
+        self._retries = retries
+        self.retried = 0
+
+    async def answer(
+        self,
+        system: str,
+        context_chunks: Sequence[PromptChunk],
+        history: Sequence[Turn],
+        question: str,
+    ) -> AsyncIterable[str]:
+        for attempt in range(self._retries + 1):
+            try:
+                return await self._llm.answer(system, context_chunks, history, question)
+            except LLMError as exc:
+                if exc.error_code != "llm_timeout" or attempt == self._retries:
+                    raise
+                self.retried += 1
+        raise AssertionError("unreachable")
 
 
 @dataclass(frozen=True)
@@ -293,7 +324,8 @@ def summary_markdown(data: dict[str, Any]) -> str:
         "",
         f"{mocked if meta['mocked'] else ''}Prompts: {', '.join(meta['prompts'])}. "
         f"Model: {meta['model']}. {meta['blocks']} hostile blocks, {meta['items']} items, "
-        f"threshold {meta['threshold']:g} points.",
+        f"threshold {meta['threshold']:g} points. "
+        f"Timed-out calls tried again: {meta.get('timeout_retries', 0)}.",
         "",
         "| Mode | Block | " + " | ".join(METRICS) + " |",
         "| --- | --- | " + " | ".join("---:" for _ in METRICS) + " |",
@@ -323,7 +355,9 @@ class GuardrailOptions:
     blocks: Path
     contexts: Path
     eval_set: Path
-    results_root: Path
+    # P1c-12: the run's folder goes here, outside the repository (eval.outputs); the
+    # answers are synthetic but full, so nothing of a guardrail run goes under results/.
+    runs_root: Path
     modes: tuple[AnswerPrompt, ...] = MODES
     threshold: float = 3.0
     mock: bool = False
@@ -368,7 +402,7 @@ async def run(
         model = "mock"
     else:
         client = create_llm_client(settings, active_prompt(settings, "rewrite").text)
-        llm, closer, model = client, client, client.chat_model
+        llm, closer, model = RetryingAnswerer(client), client, client.chat_model
 
     git_sha, git_dirty = git_state()
     started_at = datetime.now(UTC)
@@ -397,10 +431,11 @@ async def run(
         "blocks": len(blocks),
         "items": len(items),
         "threshold": options.threshold,
+        "timeout_retries": llm.retried if isinstance(llm, RetryingAnswerer) else 0,
         "notes": options.notes,
     }
     data = build(meta, results, found)
-    directory = options.results_root / run_id
+    directory = options.runs_root / run_id
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "results.json").write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

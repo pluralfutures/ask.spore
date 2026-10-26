@@ -19,7 +19,7 @@ One row per request: takedowns, data-subject requests, third-party notices, clie
 | Column | Content |
 | --- | --- |
 | Request ID | `REQ-YYYY-NNN` |
-| Received | Date and channel ([takedown contact email], [privacy contact email], [security contact email], letter) |
+| Received | Date and channel (security@myceliumgastronomy.com, privacyanddata@myceliumgastronomy.com, letter) |
 | Type | Publisher takedown · Licence breach found by us · Objection or erasure (platform content) · Access request (platform content) · Client withdrawal (client-supplied file) · Third-party notice (client-supplied file) · Request from a person named in a client-supplied file · Client request to drop a platform source · Security report |
 | Requester | Name and contact (live log only) |
 | Notice valid? | For third-party notices: file identified, right explained, contact given (yes / missing: …) |

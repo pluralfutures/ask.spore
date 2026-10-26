@@ -17,6 +17,8 @@ import pytest
 
 from app.content import store
 from app.core.config import FilesConfig
+from app.core.db import tenant_session
+from app.files.service import workspace_files
 from tests.test_api import EDITOR, Harness, api  # noqa: F401 - fixture
 from tests.test_tenancy import make_tenant
 
@@ -299,3 +301,84 @@ def test_store_refuses_paths_outside_the_root(tmp_path: Path) -> None:
     with pytest.raises(store.StoredFileError) as missing:
         store.read(tmp_path, f"00/{sha}.pdf", sha)
     assert missing.value.code == "file_missing"
+
+
+# --- P2A-02: a paused source ------------------------------------------------------------
+
+
+async def set_paused(admin: asyncpg.Connection, source_id: uuid.UUID, paused: bool) -> None:
+    """The register row as ``register.pause`` / ``resume`` leave it (tested in test_pause)."""
+    if paused:
+        await admin.execute(
+            "UPDATE sources SET status = 'paused', paused_at = now(), "
+            "paused_by = gen_random_uuid(), pause_reason = 'synthetic' WHERE id = $1",
+            source_id,
+        )
+    else:
+        await admin.execute(
+            "UPDATE sources SET status = 'ingested', paused_at = NULL, paused_by = NULL, "
+            "pause_reason = NULL WHERE id = $1",
+            source_id,
+        )
+
+
+async def test_a_paused_file_is_refused_as_not_found_and_audited(files: Files) -> None:
+    source = await files.source()
+    await set_paused(files.admin, source, True)
+    response = await files.link(source)
+    assert (response.status_code, response.json()) == (404, {"detail": "not_found"})
+    assert await files.audit("download") == []
+    (event,) = await files.audit("download.refused")
+    assert (event["source_id"], event["error_code"]) == (str(source), "paused")
+    assert event["actor"] == files.api.world.user_id
+
+
+async def test_a_link_issued_before_the_pause_is_refused_and_audited(files: Files) -> None:
+    source = await files.source()
+    link = (await files.link(source)).json()
+    await set_paused(files.admin, source, True)
+    response = await files.fetch(link["url"])
+    assert (response.status_code, response.json()) == (404, {"detail": "not_found"})
+    (event,) = await files.audit("download.refused")
+    assert (event["source_id"], event["error_code"]) == (str(source), "paused")
+    served = await files.admin.fetchval(
+        "SELECT served_at FROM downloads WHERE source_id = $1", source
+    )
+    assert served is None
+
+
+async def test_a_paused_file_leaves_every_tenants_list_and_the_others_stay(
+    files: Files, admin_conn: asyncpg.Connection
+) -> None:
+    paused = await files.source(title="Synthetic paused report")
+    kept = await files.source(kind="docx", title="Synthetic kept report")
+    pages = [
+        await files.source(
+            kind="markdown",
+            stored=False,
+            downloadable=False,
+            url=f"https://site-a.example/page-{n}",
+        )
+        for n in range(3)
+    ]
+    other = await make_tenant(admin_conn)
+    await admin_conn.execute(
+        "UPDATE workspaces SET tag_ids = ARRAY['sample-reports'] WHERE tenant_id = $1", other.id
+    )
+    foreign = await admin_conn.fetchval("SELECT id FROM workspaces WHERE tenant_id = $1", other.id)
+    await set_paused(files.admin, paused, True)
+    await set_paused(files.admin, pages[0], True)
+
+    body = (await files.api.request("GET", f"/workspaces/{files.workspace}/files")).json()
+    listed = {f["id"] for f in body["files"]}
+    assert str(paused) not in listed and str(kept) in listed  # the tenant's others stay
+    assert {s["site"]: s["page_count"] for s in body["sites"]}["site-a.example"] == 2
+    async with tenant_session(files.api.app.state.db_factory, other.id) as session:
+        theirs, _ = await workspace_files(session, foreign)
+    ids = {s.id for s in theirs}
+    assert paused not in ids and kept in ids  # D1: the pause is corpus-wide
+
+    await set_paused(files.admin, paused, False)
+    body = (await files.api.request("GET", f"/workspaces/{files.workspace}/files")).json()
+    assert {str(paused), str(kept)} <= {f["id"] for f in body["files"]}
+    assert (await files.link(paused)).status_code == 201

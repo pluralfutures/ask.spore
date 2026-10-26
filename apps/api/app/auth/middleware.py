@@ -18,6 +18,7 @@ from typing import Any
 from starlette.requests import cookie_parser
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from app.auth.eval_service import EvalServiceValidator, is_eval_credential
 from app.auth.tokens import InvalidToken, TokenValidator
 from app.core.logging import log
 from app.core.phase0_auth import Phase0AuthMiddleware
@@ -94,7 +95,12 @@ class AuthMiddleware:
             await reject(send, "no_token")
             return
         try:
-            identity = await validator.validate(token)
+            # P1b-15 a: the eval harness's signed credential, only when configured.
+            service: EvalServiceValidator | None = getattr(state, "eval_service", None)
+            if service is not None and is_eval_credential(token):
+                identity = service.validate(token)
+            else:
+                identity = await validator.validate(token)
         except InvalidToken as exc:
             await reject(send, exc.error_code)
             return
@@ -105,6 +111,11 @@ class AuthMiddleware:
         )
         if context is None:
             await reject(send, "unknown_user")
+            return
+        if identity.service and context.role != "user":
+            # P1b-15 a: the eval harness acts with a user's rights only, whatever the
+            # user row was given since the identity was created.
+            await reject(send, "service_identity_privileged")
             return
         bind(scope, context)
         await self.app(scope, receive, send)

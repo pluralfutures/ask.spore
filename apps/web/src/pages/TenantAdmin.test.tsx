@@ -1,9 +1,19 @@
 import { renderToString } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { AdminUser, Me } from "../api/types";
-import { lastLogin, parseRetention, userActions } from "../lib/admin";
-import { AdminGate, VersionHistory } from "./TenantAdmin";
+import { adminApi } from "../api/client";
+import type { AdminUser, Me, SupportGrant } from "../api/types";
+import {
+  auditLogQuery,
+  consentStatus,
+  defaultAuditPeriod,
+  lastLogin,
+  parseRetention,
+  retentionSummary,
+  userActions,
+  usersHeading,
+} from "../lib/admin";
+import { AdminGate, SupportGrantRow, UsageView, VersionHistory } from "./TenantAdmin";
 
 // Synthetic people only (CLAUDE.md).
 const me = (role: Me["role"]): Me => ({
@@ -11,6 +21,8 @@ const me = (role: Me["role"]): Me => ({
   display_name: "Synthetic Admin",
   role,
   tenant_display_name: "Synthetic Client",
+  consent_required: false,
+  operator: false,
 });
 const user = (extra: Partial<AdminUser> = {}): AdminUser => ({
   id: "u1",
@@ -21,6 +33,8 @@ const user = (extra: Partial<AdminUser> = {}): AdminUser => ({
   last_login_at: "2026-10-18T09:00:00Z",
   last_login_method: "sign_in_link",
   created_at: "2026-10-01T09:00:00Z",
+  consent_version: "v1",
+  consent_current: true,
   ...extra,
 });
 
@@ -33,6 +47,8 @@ describe("AdminGate", () => {
     );
     expect(html).toContain("Tenant admins only.");
     expect(html).not.toContain("Users");
+    // UX-23: the sentence is the page's h1, in an empty state.
+    expect(html).toMatch(/<h1[^>]*>Tenant admins only\.<\/h1>/);
   });
 
   it("does not open them without a signed-in user", () => {
@@ -60,13 +76,22 @@ describe("retention", () => {
     expect(parseRetention("365")).toEqual({ error: "Retention cannot exceed 30 days." });
   });
 
-  it("accepts 1 to 30 whole days", () => {
+  it("accepts 0 to 30 whole days", () => {
     expect(parseRetention("30")).toEqual({ days: 30 });
     expect(parseRetention(" 7 ")).toEqual({ days: 7 });
     expect(parseRetention("1")).toEqual({ days: 1 });
-    expect("error" in parseRetention("0")).toBe(true);
+    expect(parseRetention("0")).toEqual({ days: 0 });
+    expect(parseRetention("-1")).toEqual({ error: "Retention cannot be negative." });
     expect("error" in parseRetention("2.5")).toBe(true);
     expect("error" in parseRetention("")).toBe(true);
+  });
+});
+
+describe("retention summary", () => {
+  it("says what 0 means", () => {
+    expect(retentionSummary(0)).toContain("No history");
+    expect(retentionSummary(1)).toBe("Conversations are deleted 1 day after they start.");
+    expect(retentionSummary(30)).toBe("Conversations are deleted 30 days after they start.");
   });
 });
 
@@ -84,15 +109,24 @@ describe("users", () => {
       canChangeRole: false,
       canDeactivate: false,
       canReactivate: false,
+      canResend: false,
+      canRemove: false,
     });
     expect(userActions(user(), "admin@client.example")).toEqual({
       canChangeRole: true,
       canDeactivate: true,
       canReactivate: false,
+      canResend: false,
+      canRemove: true,
     });
     expect(userActions(user({ status: "deactivated" }), "admin@client.example").canReactivate).toBe(
       true,
     );
+  });
+
+  it("offers a resend only while the user is invited (P1c-07)", () => {
+    expect(userActions(user({ status: "invited" }), "admin@client.example").canResend).toBe(true);
+    expect(userActions(user({ status: "active" }), "admin@client.example").canResend).toBe(false);
   });
 });
 
@@ -112,5 +146,160 @@ describe("VersionHistory", () => {
     expect(html).toContain("Synthetic second.");
     expect(html).not.toMatch(/<button/);
     expect(html.toLowerCase()).not.toContain("revert");
+  });
+});
+
+describe("usage section (P2A-05)", () => {
+  const base = {
+    since: "2026-09-26",
+    until: "2026-10-25",
+    questions: [{ day: "2026-10-25", mode: "corpus_only", questions: 4 }],
+    active_users: [{ day: "2026-10-25", users: 2 }],
+    top_sources: [{ title: "Synthetic Wind Report", publisher: "Synthetic Institute", answers: 3 }],
+    cost_month: null,
+    costs: null,
+  };
+
+  it("shows counts and cited sources, and no cost without external models", () => {
+    const html = renderToString(<UsageView usage={base} />);
+    expect(html).toContain("Synthetic Wind Report");
+    expect(html).toContain("Sources only");
+    expect(html).toContain("Most active users in a day");
+    expect(html).not.toContain("Cost this month");
+  });
+
+  it("shows the month's cost per model with external models", () => {
+    const html = renderToString(
+      <UsageView
+        usage={{
+          ...base,
+          cost_month: "2026-10",
+          costs: [
+            {
+              model: "openai/gpt-6.1-sol",
+              display_name: "Synthetic External",
+              external: true,
+              tokens_in: 100,
+              tokens_out: 50,
+              cost_cents: "1250.000000",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain("Cost this month (2026-10)");
+    expect(html).toContain("Synthetic External (external)");
+    expect(html).toContain("€12.50");
+  });
+
+  it("says when there were no questions", () => {
+    const html = renderToString(
+      <UsageView usage={{ ...base, questions: [], active_users: [], top_sources: [] }} />,
+    );
+    expect(html).toContain("No questions in this period.");
+    expect(html).toContain("No cited sources in this period.");
+  });
+});
+
+describe("consent status per user (P2A-06)", () => {
+  it("marks a user who accepted an older notice", () => {
+    expect(consentStatus(user({ consent_version: "v1", consent_current: false }))).toBe(
+      "v1 (older notice)",
+    );
+    expect(consentStatus(user({ consent_version: "v2", consent_current: true }))).toBe(
+      "v2 (current)",
+    );
+    expect(consentStatus(user({ consent_version: null, consent_current: false }))).toBe(
+      "Not accepted",
+    );
+  });
+
+  it("names the active notice version in the heading", () => {
+    expect(usersHeading("v2")).toBe("Users · notice v2");
+    expect(usersHeading(undefined)).toBe("Users");
+  });
+});
+
+describe("audit export (P2A-07)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("builds the query from the chosen dates and the next part's cursor", () => {
+    expect(auditLogQuery("2026-09-01", "2026-09-30")).toBe("?since=2026-09-01&until=2026-09-30");
+    expect(auditLogQuery("2026-09-01", "2026-09-30", "2026-09-02T00:00:00+00:00|e1")).toBe(
+      "?since=2026-09-01&until=2026-09-30&after=2026-09-02T00%3A00%3A00%2B00%3A00%7Ce1",
+    );
+    expect(auditLogQuery("", "")).toBe("");
+  });
+
+  it("defaults to the last 90 days", () => {
+    expect(defaultAuditPeriod(new Date("2026-10-25T10:00:00Z"))).toEqual({
+      since: "2026-07-27",
+      until: "2026-10-25",
+    });
+  });
+
+  it("downloads from the route with the chosen dates and reads the paging headers", async () => {
+    const fetchSpy = vi.fn(
+      async () =>
+        new Response("created_at,event,actor_user_id,metadata\n", {
+          status: 200,
+          headers: {
+            "content-type": "text/csv",
+            "content-disposition": 'attachment; filename="audit-log-2026-09-01-2026-09-30.csv"',
+            "x-audit-export-complete": "false",
+            "x-audit-export-next": "2026-09-02T00:00:00+00:00|e1",
+          },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+    const file = await adminApi.auditLog("2026-09-01", "2026-09-30");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/v1/admin/audit-log?since=2026-09-01&until=2026-09-30");
+    expect(init.method).toBe("GET");
+    expect(file).toMatchObject({
+      name: "audit-log-2026-09-01-2026-09-30.csv",
+      complete: false,
+      next: "2026-09-02T00:00:00+00:00|e1",
+    });
+  });
+});
+
+describe("support access (P2A-08)", () => {
+  const grant: SupportGrant = {
+    id: "g1",
+    scope: "conversation",
+    conversation_id: "c1",
+    conversation_title: "Synthetic shrimp yields",
+    duration_minutes: 60,
+    note: "Synthetic note.",
+    created_at: "2026-10-25T10:00:00Z",
+    expires_at: "2026-10-25T11:00:00Z",
+    revoked_at: null,
+    state: "used",
+    views: 2,
+    last_viewed_at: "2026-10-25T10:20:00Z",
+  };
+  const row = (g: SupportGrant) =>
+    renderToString(
+      <table>
+        <tbody>
+          <SupportGrantRow grant={g} busy={false} onRevoke={() => {}} />
+        </tbody>
+      </table>,
+    );
+
+  it("shows the operator's reads and a revoke button while open", () => {
+    const html = row(grant);
+    expect(html).toContain("Conversation: Synthetic shrimp yields");
+    expect(html).toContain("Open, viewed");
+    expect(html).toContain("Viewed 2 times");
+    expect(html).toContain("Revoke now");
+  });
+
+  it("has no revoke button once expired", () => {
+    const html = row({ ...grant, state: "expired" });
+    expect(html).toContain("Expired");
+    expect(html).not.toContain("Revoke now");
   });
 });

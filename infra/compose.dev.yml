@@ -22,7 +22,7 @@ include:
 
 services:
   postgres:
-    image: postgres:16.15-bookworm
+    image: postgres:16.15-bookworm@sha256:d81f7b51697014367236d07ec58b54153fc28f828b72bf247fe5c7487520bcb0
     environment:
       POSTGRES_DB: askspore
       POSTGRES_USER: askspore
@@ -43,7 +43,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7.4.11-alpine
+    image: redis:7.4.11-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
       - 127.0.0.1:${REDIS_PORT:-6379}:6379
@@ -93,6 +93,11 @@ services:
         required: false
     environment:
       ASK_SPORE_CONFIG_DIR: /srv/config
+      # P1b-13 (e): the deployed commit, in the answer cache key so a deploy never serves
+      # answers cached by the previous code. Deploy with
+      # ASK_SPORE_DEPLOY_VERSION=$(git rev-parse --short=12 HEAD) docker compose ... up -d;
+      # unset, the API uses a hash of its config and code instead.
+      ASK_SPORE_DEPLOY_VERSION: ${ASK_SPORE_DEPLOY_VERSION:-}
       DATABASE_URL: postgresql+asyncpg://askspore_app:${APP_DB_PASSWORD:-askspore-app-dev}@postgres:5432/askspore
       REDIS_URL: redis://redis:6379/0
     volumes:
@@ -109,9 +114,11 @@ services:
       - authentik  # http://authentik-server:9000, on this network only
     restart: unless-stopped
 
-  # Background jobs (P1b-02): ingestion of approved sources, one job at a time, from the
-  # `jobs` table. Same image, configuration and secrets as the API; no published port and
-  # no HTTP server, so the image's API healthcheck is turned off here.
+  # Background jobs (P1b-02): ingestion of approved sources, withdrawals and site crawls
+  # (P1b-04), one job at a time, from the `jobs` table; it also queues the crawls that are
+  # due. Same image, configuration and secrets as the API; no published port and no HTTP
+  # server, so the image's API healthcheck is turned off here. Crawls go out to the
+  # public internet over the `app` network, public addresses only (app.content.fetch).
   worker:
     build:
       context: ../apps/api
@@ -129,11 +136,17 @@ services:
         required: false
     environment:
       ASK_SPORE_CONFIG_DIR: /srv/config
+      # P1b-13 (e): the deployed commit, in the answer cache key so a deploy never serves
+      # answers cached by the previous code. Deploy with
+      # ASK_SPORE_DEPLOY_VERSION=$(git rev-parse --short=12 HEAD) docker compose ... up -d;
+      # unset, the API uses a hash of its config and code instead.
+      ASK_SPORE_DEPLOY_VERSION: ${ASK_SPORE_DEPLOY_VERSION:-}
       DATABASE_URL: postgresql+asyncpg://askspore_app:${APP_DB_PASSWORD:-askspore-app-dev}@postgres:5432/askspore
       REDIS_URL: redis://redis:6379/0
     volumes:
       - ../config:/srv/config:ro
-      # Reads the files staged at proposal and writes nothing else ([files] content_root).
+      # Reads the files staged at proposal; writes crawled pages and their raw HTML
+      # snapshots, and deletes withdrawn copies ([files] content_root).
       - content:/srv/ask-spore/content
     healthcheck:
       disable: true
@@ -159,6 +172,7 @@ services:
     volumes:
       - ../apps/web/src:/srv/web/src:ro
       - ../apps/web/index.html:/srv/web/index.html:ro
+      - ../apps/web/public:/srv/web/public:ro
       - ../apps/web/vite.config.ts:/srv/web/vite.config.ts:ro
       - ../apps/web/tsconfig.json:/srv/web/tsconfig.json:ro
       - ../apps/web/tsconfig.app.json:/srv/web/tsconfig.app.json:ro
@@ -181,7 +195,7 @@ services:
 
   caddy:
     profiles: ["public"]
-    image: caddy:2.11.7-alpine
+    image: caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
     depends_on:
       web-build:
         condition: service_completed_successfully
@@ -191,6 +205,10 @@ services:
       - 80:80
       - 443:443
       - 443:443/udp
+    environment:
+      # P2A-11: "published" serves the trust page at /trust; anything else but the
+      # default stops Caddy at start. Set in infra/.env by the owner (paperwork item 4).
+      ASKSPORE_TRUST_PAGE: ${ASKSPORE_TRUST_PAGE:-unpublished}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - web_dist:/srv/web:ro

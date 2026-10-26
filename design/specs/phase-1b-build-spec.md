@@ -81,6 +81,8 @@ Build in this order; items in a group can be parallelised. Every tenant-scoped t
 
 **P1b-16 Release checks.** Eval set v1 and the guardrail eval on the Phase 1b code against the Phase 1a baselines, no regression; isolation tests extended for the new tables (content roles, login policy, jobs, sites, consent) and reviewed independently as in Phase 1a §12; a live SSO sign-in per connector kind with a test tenant; the takedown drill end to end on a synthetic source; findings file `phase-1b-findings.md` with the signed review.
 
+**Status: Phase 1b closed on Oct 23, 2026** (findings §8; owner open items listed there: backup restore test, the pre-launch and before-first-client-user backlog lines, DPA clause 10.2 wording).
+
 ## Open items for the owner
 
 - **Backups (owner, Oct 21, 2026):** handled by the owner outside this spec (nightly encrypted backup of the PostgreSQL and RAGFlow volumes to Scaleway Object Storage in Paris, object lock, 30-day retention, recommended). Not a build item; the restore test is recorded in the Phase 1b findings when done.
@@ -120,4 +122,19 @@ Build in this order; items in a group can be parallelised. Every tenant-scoped t
 **P1b-18 Crawler network safety and the licence-letter rule (added Oct 22, 2026).** Decision 9: close the DNS-rebinding gap (findings A2-13) with tests that a host resolving to a private, loopback, link-local or metadata address is refused at connect time and after a redirect. Decision 10: remove `licence_file_required`; keep the optional letter. Decision 16: the invitation template may use the recipient's first name as a placeholder.
 
 **P1b-19 Client-supplied documents (added Oct 22, 2026).** Decision 11, in two steps: (1) a design addendum (architecture §6.1 and §14, compliance guide, terms, DPA, privacy notice, TIA, sub-processor wording) drafted for owner and counsel review; (2) after approval, the register's `client-supplied` basis with the supplying tenant, the tag restriction, the console and manifest support, and tests that a client-supplied source never reaches a shared tag or another tenant's workspace. *Step (1) drafted Oct 22, 2026 in commit 9ac7aae (architecture §15, compliance guide addendum of Oct 22, the `design/compliance/` drafts; DRAFT for owner and counsel review, questions in `open-questions.md` section J).*
+
+## Owner decisions of Oct 22, 2026, third set (after the Group E1 and E2 reviews)
+
+Questions from findings §5 and §6; the owner took the orchestrating session's
+recommendations ("2 to 8: proceed with your recommendations").
+
+| # | Decision | Applies to |
+| --- | --- | --- |
+| 17 | **Eval harness under the consent gate:** the harness's signed credential is a service identity, not consent-gated; every human user stays gated (findings §7 I-2). The Phase 0 eval account stays gated. | P1b-10, P1b-15 (a) |
+| 18 | **Tenant admin audit export includes download events** (`download`, `download.refused`: the tenant's own data, metadata only). | P1b-10 (E1-6), applied Oct 22 |
+| 19 | **Consent notice emails** go only to users who accepted an earlier version; a user who never accepted sees the notice at the next sign-in, as built. | P1b-10 (E1-7) |
+| 20 | **No-history tenants:** each question is its own conversation with no context from earlier ones and no answer caching, as built. | P1b-14 (E2-2) |
+| 21 | **Termination keeps the usage ledger** (aggregate tokens and cost, no user identifier) as the offboarding pack's usage and spend figures. | P1b-14 (E2-3) |
+| 22 | **Judge model: `qwen3.8-27b` on Scaleway**, so the judge no longer grades its own model's answers. | P1b-15 (c), applied Oct 22 |
+| 23 | **Tokenizer:** keep the third-party `deepseek-tokenizer` package (hash-pinned); vendoring DeepSeek's own file once compared goes to the backlog. | P1b-15 (f) |
 

@@ -4,10 +4,11 @@ from app.audit.models import AuditEvent
 from app.auth.models import MfaChallenge, RevokedSession, SignInLink, SsoAttempt
 from app.chat.models import Citation, Conversation, Feedback, Message
 from app.content.jobs import Job
-from app.content.models import ContentRole, Dataset, Source
+from app.content.models import ContentRole, Dataset, Site, SitePage, Source
 from app.core.db import Base
 from app.files.models import Download
 from app.operator.models import Operator, OperatorNotice
+from app.support.models import SupportGrant
 from app.tenancy.login_policy import TenantLoginPolicy
 from app.tenancy.models import Tenant, TenantEntitlements, TenantSettings, User
 from app.tenancy.workspaces import Workspace, WorkspacePrompt
@@ -29,9 +30,12 @@ __all__ = [
     "OperatorNotice",
     "RevokedSession",
     "SignInLink",
+    "Site",
+    "SitePage",
     "Source",
     "SpendNotice",
     "SsoAttempt",
+    "SupportGrant",
     "Tenant",
     "TenantEntitlements",
     "TenantLoginPolicy",

@@ -157,7 +157,14 @@ async def test_cache_misses_on_a_prompt_version_change(
 
 @pytest.mark.parametrize(
     "change",
-    ["workspace", "reasoning", "top_k", "similarity_threshold", "max_context_tokens"],
+    [
+        "workspace",
+        "reasoning",
+        "top_k",
+        "similarity_threshold",
+        "max_context_tokens",
+        "vector_similarity_weight",
+    ],
 )
 async def test_cache_misses_when_anything_in_the_key_changes(
     settings: Settings,
@@ -181,7 +188,12 @@ async def test_cache_misses_when_anything_in_the_key_changes(
         second = await world.new_conversation(reasoning=True)
     else:
         chat = settings.models.chat
-        value = {"top_k": 8, "similarity_threshold": 0.3, "max_context_tokens": 5000}[change]
+        value = {
+            "top_k": 8,
+            "similarity_threshold": 0.3,
+            "max_context_tokens": 5000,
+            "vector_similarity_weight": 0.5,
+        }[change]
         models = settings.models.model_copy(
             update={"chat": chat.model_copy(update={change: value})}
         )
@@ -194,6 +206,31 @@ async def test_cache_misses_when_anything_in_the_key_changes(
         chunks_for(world),
     )
     assert not cached and len(retriever.calls) == 2
+
+
+async def test_cache_misses_after_a_deploy(
+    settings: Settings, engine: AsyncEngine, world: World, redis: FakeRedis
+) -> None:
+    """P1b-13 (e), findings 1a F10: a new deploy version never serves the old answers."""
+    before = dataclasses.replace(settings, deploy_version="0f3e244a1b2c")
+    after = dataclasses.replace(settings, deploy_version="9cddd53d4e5f")
+    retriever, cached = await _ask_twice(
+        world,
+        (before, await world.new_conversation()),
+        (after, await world.new_conversation()),
+        engine,
+        chunks_for(world),
+    )
+    assert not cached and len(retriever.calls) == 2
+    assert len(redis.store) == 2
+    retriever, cached = await _ask_twice(  # positive control: the same version hits
+        world,
+        (after, await world.new_conversation()),
+        (after, await world.new_conversation()),
+        engine,
+        chunks_for(world),
+    )
+    assert cached
 
 
 async def test_same_settings_still_hit_the_cache(

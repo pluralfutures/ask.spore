@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [Client], [Client legal name], [support email], [privacy contact email], [security contact email], [termination date], [notice date], [export window days], [backup retention days], [certificate number], [signatory name], [signatory title], [recipient first name], [admin name], [Services Agreement], [export format], [secure transfer method], [n] (counts), [date] |
+| Placeholders | [Client], [Client legal name], [support email], [termination date], [notice date], [export window days], [backup retention days], [certificate number], [signatory name], [signatory title], [recipient first name], [admin name], [Services Agreement], [export format], [secure transfer method], [n] (counts), [date] |
 | To finalise, the owner must | (1) fill in the placeholders; set [export window days] (proposed 30) and [backup retention days] (30, matching the owner-run backup retention) and check both against `terms-of-service.md` and DPA clause 10.5; (2) decide the manual export format (section 1, step 3) until an export tool exists; (3) until P1b-14 passes its tests, use the manual purge in section 1.4 and the "manual" wording of the certificate; (4) decide how the 12-month audit retention is ended for a terminated tenant, since the audit table refuses deletion by design (open question); (5) have counsel check the certificate wording and the exit emails against the DPA. |
 
 ---
@@ -39,7 +39,7 @@ Conversations are never more than 30 days old (fewer if the client shortened ret
 
 ### 1.4 Purge
 
-**From Phase 1b (P1b-14):** the per-tenant termination purge deletes the tenant's conversations, messages, citations, feedback, downloads records, sign-in link records, tenant settings, workspaces and users, clears the tenant's answer-cache keys (all keys under the tenant's prefix), and writes the figures for the certificate (section 2). The tenant's Authentik users are removed by the operator in Authentik's admin interface as a separate, audited step (not part of P1b-14). It is tested: after the purge no row for the tenant remains outside the audit log.
+**From Phase 1b (P1b-14):** `ask-spore tenant purge --slug <slug> --confirm <slug>`, run by the operator as the schema owner (`MIGRATIONS_DATABASE_URL`), suspends the tenant, clears its verified domains and, in one transaction, deletes the tenant's conversations, messages, citations, feedback, downloads records, sign-in link records, tenant settings, workspaces and users, clears the tenant's answer-cache keys (all keys under the tenant's prefix), and writes the figures for the certificate (section 2) to `certificates/<certificate number>.json` under `[files] content_root`; the event `tenant.purged` under the internal tenant records the certificate number and the file's SHA-256. It also deletes the tenant's operator notices and the jobs that name it, and keeps the usage ledger and spend notices (aggregate figures). It refuses the internal tenant, a slug not repeated in `--confirm`, and any database table with a `tenant_id` column it does not know. The tenant's Authentik users are removed by the operator in Authentik's admin interface as a separate, audited step (not part of P1b-14). It is tested: after the purge no row for the tenant remains outside the audit log.
 
 **Until P1b-14 is live:** the operator runs the same deletions by hand as the schema owner, in one transaction per table group, following a written script [owner: attach the script], records the row counts before and after, deletes the Authentik users through Authentik's admin interface, and clears the cache keys under the tenant prefix through `app.core.cache` tooling. The certificate then says "manual procedure".
 
@@ -111,7 +111,7 @@ Subject: Your SporeBot access has ended
 >
 > Your conversations are no longer available to you. They are removed when your organisation's retention period ends, at most 30 days after each conversation started. A record that you used the service (sign-ins and similar events, without the content of your questions) is kept for 12 months for security reasons.
 >
-> If you think this is a mistake, contact your administrator, [admin name]. For questions about your data: [privacy contact email].
+> If you think this is a mistake, contact your administrator, [admin name]. For questions about your data: privacyanddata@myceliumgastronomy.com.
 >
 > SporeBot · Estefania Simon-Sasyk y Otro CB
 
@@ -153,7 +153,7 @@ Subject: SporeBot: deletion of [Client]'s data is complete
 >
 > Thank you for using SporeBot.
 >
-> SporeBot · Estefania Simon-Sasyk y Otro CB · [privacy contact email]
+> SporeBot · Estefania Simon-Sasyk y Otro CB · privacyanddata@myceliumgastronomy.com
 
 ---
 

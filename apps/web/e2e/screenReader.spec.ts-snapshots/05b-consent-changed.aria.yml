@@ -1,0 +1,30 @@
+- banner:
+    - note: AI-generated, verify against cited sources.
+    - text: Mycelium SporeBot Synthetic Client Synthetic Analyst
+- main:
+    - heading "Use and privacy notice" [level=1]
+    - paragraph: The notice has changed since you last accepted it. Please read and accept the new version to continue.
+    - region "In short":
+        - heading "In short" [level=2]
+        - list:
+            - listitem:
+                - text: Answers are
+                - strong: AI-generated
+                - text: from the research sources your organisation licenses. Check them against the cited sources.
+            - listitem: /Your questions and answers are kept for at most \d+ days, then deleted\./
+            - listitem: Questions are processed in the EU unless your organisation enables models served outside the EU.
+    - region "Full notice":
+        - heading "Full notice" [level=2]
+        - heading "1. What this service is" [level=3]
+        - paragraph: Synthetic paragraph describing processing, retention, sub-processors and rights. Synthetic paragraph describing processing, retention, sub-processors and rights. Synthetic paragraph describing processing, retention, sub-processors and rights. Synthetic paragraph describing processing, retention, sub-processors and rights. Synthetic paragraph describing processing, retention, sub-processors and rights. Synthetic paragraph describing processing, retention, sub-processors and rights. Synthetic paragraph describing processing, retention, sub-processors and rights. Synthetic paragraph describing processing, retention, sub-processors and rights. Synthetic paragraph describing processing, retention, sub-processors and rights. Synthetic paragraph describing processing, retention, sub-processors and rights.
+        - heading "2. Your data" [level=3]
+        - paragraph: Synthetic paragraph on personal data and retention. Synthetic paragraph on personal data and retention. Synthetic paragraph on personal data and retention. Synthetic paragraph on personal data and retention. Synthetic paragraph on personal data and retention. Synthetic paragraph on personal data and retention. Synthetic paragraph on personal data and retention. Synthetic paragraph on personal data and retention. Synthetic paragraph on personal data and retention. Synthetic paragraph on personal data and retention. Synthetic paragraph on personal data and retention. Synthetic paragraph on personal data and retention.
+        - heading "Kept for you" [level=3]
+        - list:
+            - listitem: Synthetic list item on conversations.
+            - listitem: Synthetic list item on audit records.
+        - heading "3. Your rights" [level=3]
+        - paragraph: Synthetic paragraph on rights and contacts. Synthetic paragraph on rights and contacts. Synthetic paragraph on rights and contacts. Synthetic paragraph on rights and contacts. Synthetic paragraph on rights and contacts. Synthetic paragraph on rights and contacts. Synthetic paragraph on rights and contacts. Synthetic paragraph on rights and contacts. Synthetic paragraph on rights and contacts. Synthetic paragraph on rights and contacts.
+    - checkbox "I have read the notice (v2) and accept it."
+    - text: I have read the notice (v2) and accept it.
+    - button "Accept and continue" [disabled]

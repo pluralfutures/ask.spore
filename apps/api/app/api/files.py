@@ -24,13 +24,15 @@ from app.api.schemas import (
     WorkspaceSiteOut,
 )
 from app.audit.writer import record
+from app.consent.gate import require_consent
 from app.content import store
 from app.content.ingest import SUFFIX_BY_TYPE, TYPE_BY_MEDIA_TYPE
 from app.core.db import tenant_session
 from app.core.logging import log
 from app.files.service import FileRefused, is_downloadable, issue_link, redeem, workspace_files
 
-router = APIRouter(prefix="/api/v1")
+# P1b-10: file lists and downloads need the active notice accepted.
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_consent)])
 
 FILES_PATH = "/api/v1/files/"
 MEDIA_TYPES = {kind: media for media, kind in TYPE_BY_MEDIA_TYPE.items()}
@@ -43,7 +45,9 @@ _TOKEN = re.compile(r"^[A-Za-z0-9_-]{20,128}$")
 
 
 def _refused(exc: FileRefused) -> HTTPException:
-    return HTTPException(_REFUSALS.get(exc.code, status.HTTP_404_NOT_FOUND), detail=exc.code)
+    # P2A-02: a paused file is answered exactly as one outside the workspace.
+    detail = "not_found" if exc.code == "paused" else exc.code
+    return HTTPException(_REFUSALS.get(exc.code, status.HTTP_404_NOT_FOUND), detail=detail)
 
 
 @router.get("/workspaces/{workspace_id}/files", response_model=WorkspaceFilesOut)
@@ -111,8 +115,9 @@ async def request_download(
             daily_cap=files.downloads_per_user_per_day,
         )
     except FileRefused as exc:
-        if exc.code == "download_cap_reached":
-            # Refusals at the cap are audited too (bulk-extraction control, CC6.6).
+        if exc.code in ("download_cap_reached", "paused"):
+            # Refusals at the cap are audited too (bulk-extraction control, CC6.6), and a
+            # paused file's (P2A-02).
             await session.rollback()
             await _audit_refusal(request, tenant_id, user_id, workspace_id, source_id, exc.code)
         log("files.download_refused", tenant_id=str(tenant_id), error_code=exc.code)
@@ -175,6 +180,11 @@ async def download_file(
     try:
         source = await redeem(session, user_id=user_id, token=token)
     except FileRefused as exc:
+        if exc.paused is not None:  # a link issued before the source was paused (P2A-02)
+            workspace_id, source_id = exc.paused
+            await session.rollback()
+            await _audit_refusal(request, tenant_id, user_id, workspace_id, source_id, exc.code)
+            log("files.download_refused", tenant_id=str(tenant_id), error_code=exc.code)
         raise _refused(exc) from None
     if source.stored_path is None or source.file_sha256 is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="not_found")

@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
+from collections.abc import AsyncIterator
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
 import pytest
 from app.chat import prompts
-from app.llm.mistral import PromptChunk
+from app.llm.mistral import LLMError, PromptChunk
 
 from eval import cli, guardrails
 from eval.guardrails import GuardItem, GuardrailOptions, Scored
@@ -26,7 +29,7 @@ def _options(tmp_path: Path, **kw: object) -> GuardrailOptions:
         blocks=ADVERSARIAL / "blocks",
         contexts=ADVERSARIAL / "contexts.jsonl",
         eval_set=cli.SYNTHETIC_SET,
-        results_root=tmp_path,
+        runs_root=tmp_path,
         mock=True,
         **kw,  # type: ignore[arg-type]
     )
@@ -76,6 +79,27 @@ def test_mocked_run_passes_on_the_active_prompts(tmp_path: Path) -> None:
     assert "MOCKED" in (directory / "summary.md").read_text()
 
 
+def test_mocked_run_passes_on_the_corpus_only_v6_candidate(tmp_path: Path) -> None:
+    """P1c-13: v6 waits for the release session's live eval before it is switched on;
+    the mocked run proves its slot and escaping against a config copy naming it."""
+    config = tmp_path / "config"
+    shutil.copytree(cli.DEFAULT_CONFIG.parent, config)
+    models = config / "models.toml"
+    text = models.read_text()
+    assert text.count('corpus_only = "v5"') == 1
+    models.write_text(text.replace('corpus_only = "v5"', 'corpus_only = "v6"'))
+    options = replace(_options(tmp_path / "results"), config=models)
+    _, data = asyncio.run(guardrails.run(options))
+    assert data["meta"]["prompts"] == ["corpus_only/v6", "general_knowledge/v2"]
+    assert data["regressions"] == []
+    assert all(
+        value == 100.0
+        for r in data["results"]
+        for value in r["metrics"].values()
+        if value is not None
+    )
+
+
 def test_broken_escaping_fails_the_guardrail_eval(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -111,9 +135,7 @@ def test_mock_run_ignores_empty_provider_keys(tmp_path: Path) -> None:
 
 
 def test_cli_exit_code(tmp_path: Path) -> None:
-    code = cli.main(
-        ["guardrails", "--mock", "--results-dir", str(tmp_path), "--mode", "corpus_only"]
-    )
+    code = cli.main(["guardrails", "--mock", "--runs-dir", str(tmp_path), "--mode", "corpus_only"])
     assert code == 0
 
 
@@ -185,3 +207,53 @@ def test_fixed_replies_of_the_active_prompts_are_not_scored_as_leaks(mode: str) 
     assert secrets  # the prompt has sentences long enough to be leaks
     for reply in ("I can't share my instructions.", "The passages don't answer this."):
         assert not guardrails.score(_item(), reply, secrets).leaked
+
+
+class _Stalling:
+    """Times out on the first ``stalls`` calls, then answers; counts the calls."""
+
+    def __init__(self, stalls: int, code: str = "llm_timeout") -> None:
+        self.stalls, self.code, self.calls = stalls, code, 0
+
+    async def answer(
+        self, system: str, context_chunks: object, history: object, question: str
+    ) -> AsyncIterator[str]:
+        self.calls += 1
+        if self.calls <= self.stalls:
+            raise LLMError(self.code)
+
+        async def stream() -> AsyncIterator[str]:
+            yield "an answer"
+
+        return stream()
+
+
+async def _text(llm: guardrails.RetryingAnswerer) -> str:
+    stream = await llm.answer("system", [], [], "question")
+    return "".join([delta async for delta in stream])
+
+
+def test_a_third_timeout_in_a_row_still_fails_the_run() -> None:
+    inner = _Stalling(stalls=3)
+    llm = guardrails.RetryingAnswerer(inner)
+    with pytest.raises(LLMError, match="llm_timeout"):
+        asyncio.run(_text(llm))
+    assert inner.calls == 3
+    assert llm.retried == 2
+
+
+def test_an_error_other_than_a_timeout_is_not_retried() -> None:
+    inner = _Stalling(stalls=1, code="llm_5xx")
+    llm = guardrails.RetryingAnswerer(inner)
+    with pytest.raises(LLMError, match="llm_5xx"):
+        asyncio.run(_text(llm))
+    assert inner.calls == 1
+    assert llm.retried == 0
+
+
+def test_a_timed_out_call_is_tried_again_and_counted() -> None:
+    inner = _Stalling(stalls=2)
+    llm = guardrails.RetryingAnswerer(inner)
+    assert asyncio.run(_text(llm)) == "an answer"
+    assert inner.calls == 3
+    assert llm.retried == 2

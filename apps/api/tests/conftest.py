@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import tomllib
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
@@ -23,6 +24,13 @@ from alembic import command
 from alembic.config import Config
 
 pytest_plugins = ("tests.chat_fixtures",)
+
+# P1b-10: users arranged by the tests have accepted the active use and privacy notice
+# unless a test says otherwise (the consent gate's own tests do).
+CONSENT_VERSION: str = tomllib.loads(
+    (Path(__file__).resolve().parents[3] / "config" / "models.toml").read_text(encoding="utf-8")
+)["consent"]["version"]
+CONSENT_DEFAULTS_SQL = f"consent_version = '{CONSENT_VERSION}', consented_at = now()"
 
 API_DIR = Path(__file__).resolve().parents[1]
 SEED_USERS = "analyst@example.org:Test Analyst,Editor@Example.org:Test Editor"
@@ -74,6 +82,17 @@ def migrate(db: MigratedDatabase, revision: str = "head", *, down: bool = False)
         command.downgrade(config, revision)
     else:
         command.upgrade(config, revision)
+        if revision == "head":
+            # The seeded internal users (revision 0001) have accepted the active notice
+            # (P1b-10), also after a test's downgrade and upgrade round trip.
+            asyncio.run(
+                _execute(
+                    db.dsn,
+                    f"UPDATE users SET consent_version = '{CONSENT_VERSION}', "
+                    "consented_at = now() WHERE consent_version IS NULL "
+                    "AND tenant_id = '00000000-0000-4000-8000-000000000001'",
+                )
+            )
 
 
 @pytest.fixture(scope="session")

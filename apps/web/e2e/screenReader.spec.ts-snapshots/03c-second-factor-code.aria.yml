@@ -1,0 +1,10 @@
+- banner:
+    - note: AI-generated, verify against cited sources.
+    - link "Skip to content":
+        - /url: "#main"
+- main:
+    - heading "Mycelium SporeBot" [level=1]
+    - paragraph: Enter the code from your authenticator app.
+    - text: Code
+    - textbox "Code"
+    - button "Confirm" [disabled]

@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 22, 2026 |
 | Author | Drafted for owner review (gap found in the Phase 1b document set: the compliance guide's SOC 2 policy list names "content sourcing"; owner request of Oct 22, 2026) |
-| Placeholders | [security lead name], [takedown contact email], [privacy contact email], [document store], [date] |
+| Placeholders | [security lead name], [document store], [date] |
 | To finalise, the owner must | (1) fill in the placeholders; (2) have counsel confirm §6 (third-party notices on client files, EU Digital Services Act) and §5.4 (special-category rule); (3) publish the short version of §6 on the trust page; (4) approve and sign; (5) set the review date. |
 
 ---
@@ -97,7 +97,7 @@ Aggregate figures that identify no one are not personal data. Nothing accepted i
 
 ### 6.1 How to reach us
 
-Notices and requests go to [takedown contact email] (or [privacy contact email]), published in the privacy notice and on the trust page. Every request is entered in the request log (`request-log-template.md`) the day it arrives.
+Notices and requests go to security@myceliumgastronomy.com (or privacyanddata@myceliumgastronomy.com), published in the privacy notice and on the trust page. Every request is entered in the request log (`request-log-template.md`) the day it arrives.
 
 ### 6.2 Request types and windows
 
@@ -107,7 +107,7 @@ Notices and requests go to [takedown contact email] (or [privacy contact email])
 | Licence breach we find ourselves | Us | Withdraw at once | Immediately |
 | Objection or erasure by a person named in platform content | Data subject | Assess under the LIA; withdraw the document or ingest a redacted copy; reply with the decision and reasons | 30 days |
 | Access request about platform content | Data subject | Search the register and corpus for the name; reply | One month |
-| Client's own withdrawal of a client-supplied file | Client (tenant admin, in writing) | Withdraw; delete our copies outside the platform; keep stored excerpts labelled "withdrawn" | 10 working days |
+| Client's own withdrawal of a client-supplied file | Client (tenant admin, in writing) | Withdraw; delete our copies outside the platform; blank stored excerpts, citations kept and labelled "withdrawn" (decision 3 of Oct 23, 2026) | 10 working days |
 | Third-party rights notice on a client-supplied file | Rights holder | §6.4 | Suspension at once on a valid notice |
 | Request by a person named in a client-supplied file | Data subject | Forward to the client (controller) without undue delay; tell the requester we forwarded it; do not name the client unless it agrees or a court or authority requires it | Forward without undue delay |
 | Client's request to drop a platform source from its own package | Client | One-tenant withdrawal (§6.3) | 10 working days |

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator, Awaitable, Callable
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -86,7 +87,9 @@ async def reset_register(admin_conn: asyncpg.Connection) -> None:
     # restrict deleting the sources they cite.
     await admin_conn.execute("DELETE FROM citations")
     await admin_conn.execute("DELETE FROM downloads")
+    await admin_conn.execute("DELETE FROM site_pages")
     await admin_conn.execute("DELETE FROM sources")
+    await admin_conn.execute("DELETE FROM sites")
     await admin_conn.execute("DELETE FROM datasets")
 
 
@@ -244,7 +247,15 @@ async def test_pptx_in_analysis_gets_presentation_method_docx_does_not(
 ) -> None:
     e, run = env
     pptx = await run(load_path(PPTX), meta("sample-analysis", title="Kestrel briefing"))
-    docx = await run(load_path(DOCX), meta("sample-analysis", title="Brightwater note"))
+    docx = await run(
+        load_path(DOCX),
+        SourceMetadata(
+            **{
+                **meta("sample-analysis", title="Brightwater note").__dict__,
+                "canonical_url": "https://example.org/brightwater",
+            }
+        ),
+    )
     assert (pptx.status, docx.status) == ("ingested", "ingested")
     [pptx_doc] = pptx.document_ids.values()
     [docx_doc] = docx.document_ids.values()
@@ -273,7 +284,9 @@ async def test_parse_failure_records_error_and_removes_documents(
     assert result.error_code == "parse_failed"
     row = await source_row(admin_conn, result.source_id)
     assert row["status"] == "failed"
-    assert "Insert chunk error" in row["error"]
+    # P2A-13: RAGFlow's progress message never reaches the row; the error is the code.
+    assert "Insert chunk error" not in row["error"] and "shard" not in row["error"]
+    assert row["error"] == result.error == "parse_failed: sample-reports FAIL"
     assert row["chunk_count"] is None
     assert json.loads(row["ragflow_document_ids"]) == {}
     assert e.fake.documents == {}  # nothing of a failed source stays retrievable
@@ -294,7 +307,7 @@ async def test_failure_in_one_tag_removes_documents_of_all_tags(
     e.fake.get_document = fail_web  # type: ignore[method-assign]
     result = await run(load_path(PDF), meta("sample-reports", "sample-web"))
     assert result.status == "failed"
-    assert "sample-web: parse CANCEL" in (result.error or "")
+    assert result.error == "parse_failed: sample-web CANCEL"
     assert len(e.fake.deleted) == 2
     assert e.fake.documents == {}
 
@@ -315,7 +328,8 @@ async def test_ragflow_error_is_recorded(
     assert (result.status, result.error_code) == ("failed", "ragflow_101")
     row = await source_row(admin_conn, result.source_id)
     assert row["status"] == "failed"
-    assert "file type not supported" in row["error"]
+    # P2A-13: the code only; RAGFlow's message text is not kept.
+    assert row["error"] == "ragflow_101" and "not supported" not in row["error"]
 
 
 async def test_parse_timeout(env: tuple[Env, Ingest]) -> None:
@@ -324,6 +338,39 @@ async def test_parse_timeout(env: tuple[Env, Ingest]) -> None:
     result = await run(load_path(PDF), meta("sample-reports"), parse_timeout=30, poll_interval=3)
     assert (result.status, result.error_code) == ("failed", "parse_timeout")
     assert e.fake.documents == {}
+
+
+async def test_a_ragflow_errors_text_never_reaches_the_source_row_or_the_log(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P2A-13: a RagflowError's detail is RAGFlow's own message; the row's error, the
+    result and the log keep its code only, also when the clean-up fails too."""
+    e, run = env
+    secret = "Synthetic RAGFlow detail naming tidewater.pdf at /var/lib/ragflow/x"
+    e.fake.fail_upload = RagflowError("upload_document", 102, secret)
+    result = await run(load_path(PDF), meta("sample-reports"))
+    row = await source_row(admin_conn, result.source_id)
+    assert (result.status, result.error_code) == ("failed", "ragflow_102")
+    assert row["error"] == result.error == "ragflow_102"
+
+    e.fake.fail_upload = None
+    e.fake.outcomes[".pdf"] = Outcome(run="FAIL", chunk_count=0, progress_msg=secret)
+    e.fake.fail_delete = RagflowError("delete_documents", 500, secret)
+    other = replace(meta("sample-reports"), title="Another synthetic report")
+    failed = await run(replace(load_path(PDF), content=load_path(PDF).content + b" "), other)
+    row = await source_row(admin_conn, failed.source_id)
+    assert failed.error_code == "parse_failed"
+    assert (
+        row["error"]
+        == failed.error
+        == (
+            "parse_failed: sample-reports FAIL; clean-up failed (ragflow_500), "
+            "documents left in RAGFlow"
+        )
+    )
+    out = capsys.readouterr().out
+    for text in (row["error"], result.error or "", out):
+        assert "Synthetic RAGFlow detail" not in text and "/var/lib" not in text
 
 
 async def test_failed_clean_up_is_recorded_with_the_document_ids(
@@ -335,7 +382,10 @@ async def test_failed_clean_up_is_recorded_with_the_document_ids(
     result = await run(load_path(PDF), meta("sample-reports"))
     row = await source_row(admin_conn, result.source_id)
     assert row["status"] == "failed"
-    assert "clean-up failed" in row["error"]
+    assert row["error"] == (
+        "parse_failed: sample-reports FAIL; clean-up failed (ragflow_unreachable), "
+        "documents left in RAGFlow"
+    )
     assert json.loads(row["ragflow_document_ids"]) == result.document_ids != {}
 
 
@@ -440,7 +490,7 @@ async def test_failure_in_the_new_dataset_leaves_the_source_as_it_was(
     result = await run(load_path(PDF), meta("sample-reports", "sample-web"))
     assert (result.status, result.error_code) == ("failed", "parse_failed")
     assert result.source_id == first.source_id
-    assert "sample-web: parse FAIL" in (result.error or "")
+    assert result.error == "parse_failed: sample-web FAIL"  # no RAGFlow message (P2A-13)
     [new_doc] = e.fake.deleted
     assert new_doc not in e.fake.documents  # the new document is gone
     assert result.document_ids == {}
@@ -672,6 +722,14 @@ def test_from_fetched_refuses_tdm_reserved_content(headers: dict[str, str], body
     with pytest.raises(IngestError) as excinfo:
         from_fetched(fetched("text/html", body, headers))
     assert excinfo.value.code == "tdm_reserved"
+    # The message reaches the CLI's exit text: a code and words, never the URL (P1c-04).
+    assert "://" not in str(excinfo.value)
+
+
+def test_from_fetched_messages_carry_no_url() -> None:
+    with pytest.raises(IngestError) as excinfo:
+        from_fetched(fetched("text/html", b"", {}))
+    assert excinfo.value.code == "empty" and "://" not in str(excinfo.value)
 
 
 def test_tdm_reservation_zero_is_allowed() -> None:

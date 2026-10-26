@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [security contact email], [security lead name], [date]; "[confirm]" marks a fact to check |
+| Placeholders | [security lead name], [date]; "[confirm]" marks a fact to check |
 | To finalise, the owner must | (1) name the security lead (today the owner); (2) fill in the placeholders; (3) approve and sign the approval line; (4) file it in the SOC 2 evidence set and set the review date. |
 
 ---
@@ -61,4 +61,4 @@ SOC 2 criteria are indicative; confirm with the auditor.
 
 Reviewed once a year, and on any change of vendor, hosting, model provider or data flow. Next review: [date].
 
-Approved by: [security lead name], for Estefania Simon-Sasyk y Otro CB, date [date]. Security contact: [security contact email].
+Approved by: [security lead name], for Estefania Simon-Sasyk y Otro CB, date [date]. Security contact: security@myceliumgastronomy.com.

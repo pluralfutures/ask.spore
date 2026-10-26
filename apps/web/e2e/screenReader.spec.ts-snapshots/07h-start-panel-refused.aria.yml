@@ -1,0 +1,55 @@
+- banner:
+    - note: AI-generated, verify against cited sources.
+    - link "Skip to content":
+        - /url: "#main"
+    - link "Mycelium SporeBot":
+        - /url: /
+    - text: Synthetic Client
+    - navigation "Main":
+        - list:
+            - listitem:
+                - link "Home":
+                    - /url: /
+    - text: Synthetic Analyst
+- main:
+    - navigation "Conversations":
+        - link "New conversation":
+            - /url: /new
+        - paragraph: Recent
+        - list:
+            - listitem:
+                - link /What drove synthetic fertiliser prices in \d+\? Expires \d+ Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000001
+                - button /Actions for What drove synthetic fertiliser prices in \d+\?/
+            - listitem:
+                - link /Compare synthetic maize and wheat planted area across the three synthetic regions, with a focus on the policy measures announced since the last synthetic harvest and their expected effect on export volumes Expires \d+ Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000002
+                - button "Actions for Compare synthetic maize and wheat planted area across the three synthetic regions, with a focus on the policy measures announced since the last synthetic harvest and their expected effect on export volumes"
+            - listitem:
+                - link /Untitled conversation Expires \d+ Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000003
+                - button "Actions for Untitled conversation"
+            - listitem:
+                - link /Synthetic cocoa supply outlook Expires 2 Nov \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000004
+                - button "Actions for Synthetic cocoa supply outlook"
+            - listitem:
+                - link /Summarise the synthetic trade observatory's latest note Expires \d+ Oct \d+/:
+                    - /url: /c/11111111-0000-4000-8000-000000000005
+                - button "Actions for Summarise the synthetic trade observatory's latest note"
+    - link "← Conversations":
+        - /url: /conversations
+    - heading "New conversation" [level=1]
+    - text: Question
+    - textbox "Question":
+        - /placeholder: Ask a question about this workspace's sources
+        - text: /What drove synthetic capacity growth in \d+\?/
+    - group "Settings":
+        - text: ""
+        - paragraph: "Workspace: Synthetic Markets"
+        - paragraph: "Model: Synthetic EU Standard"
+        - switch "Reasoning"
+        - text: Reasoning
+        - paragraph: These settings cannot be changed once the conversation has started.
+    - alert: That model is not available to your organisation.
+    - button "Start"

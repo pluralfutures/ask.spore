@@ -49,7 +49,7 @@ test("starts a conversation from the panel and gets a cited answer", async ({ pa
   const api = new FakeApi({ workspaces: WORKSPACES, models: MODELS });
   await api.install(page);
 
-  await page.goto("/");
+  await page.goto("/conversations");
   await page.getByRole("link", { name: "New conversation" }).click();
 
   const workspace = page.getByLabel("Workspace");
@@ -94,6 +94,7 @@ test("starts a conversation from the panel and gets a cited answer", async ({ pa
   await expect(page.getByTestId("reasoning-badge")).toHaveText("Reasoning on");
   await expect(page.getByRole("combobox")).toHaveCount(0);
   await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await expect(page.getByRole("switch")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Citation 1" }).click();
   const panel = page.getByRole("complementary", { name: "Citations" });
@@ -118,7 +119,10 @@ test("shows the spend-cap fallback notice from the create route", async ({ page 
   await page.getByLabel("Question").fill("How did synthetic capacity change?");
   await page.getByRole("button", { name: "Start" }).click();
 
-  await expect(page.getByRole("status")).toHaveText(spendCapNotice("Synthetic EU Fast"));
+  // "Searching your research package…" is a status region too while the answer starts.
+  await expect(
+    page.getByRole("status").filter({ hasText: spendCapNotice("Synthetic EU Fast") }),
+  ).toBeVisible();
   await expect(page.getByTestId("model-name")).toHaveText("Synthetic EU Fast");
   await expect(page.getByText("Synthetic capacity grew by 12% in 2025")).toBeVisible();
 });
@@ -137,4 +141,39 @@ test("hides the choosers with one workspace and one model", async ({ page }) => 
   expect(api.created).toEqual([
     { workspace_id: "aaaaaaaa-0000-4000-8000-000000000001", model: "eu-fast", reasoning: true },
   ]);
+});
+
+test("keeps no history when the tenant's retention is 0 days", async ({ page }) => {
+  // P1b-14: each question is a conversation of its own, deleted when its answer ends.
+  const api = new FakeApi({ workspaces: WORKSPACES, models: MODELS, noHistory: true });
+  await api.install(page);
+
+  await page.goto("/new");
+  await page.getByLabel("Workspace").selectOption({ label: "Synthetic Team Beta" });
+  await page.getByLabel("Question").fill("How did synthetic capacity change?");
+  await page.getByRole("button", { name: "Start" }).click();
+
+  await expect(page.getByText("Synthetic capacity grew by 12% in 2025")).toBeVisible();
+  await expect(page.getByTestId("no-history")).toContainText("keeps no chat history");
+  await expect(page.getByText("Conversation not found.")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Helpful" })).toHaveCount(0);
+
+  await page.getByLabel("Question").fill("And in 2026?");
+  await page.getByRole("button", { name: "Ask" }).click();
+  await expect(page.getByText("Synthetic capacity grew by 12% in 2025").nth(1)).toBeVisible();
+  await expect(page.getByText("How did synthetic capacity change?")).toBeVisible();
+
+  // The follow-up started a new conversation with the same fixed choice.
+  expect(api.created).toEqual([
+    { workspace_id: "aaaaaaaa-0000-4000-8000-000000000002", model: "eu-deep", reasoning: true },
+    {
+      workspace_id: "aaaaaaaa-0000-4000-8000-000000000002",
+      mode: "corpus_only",
+      model: "eu-deep",
+      reasoning: true,
+    },
+  ]);
+  expect(new Set(api.asked.map((a) => a.conversation)).size).toBe(2);
+  await page.goto("/");
+  await expect(page.getByText("How did synthetic capacity change?")).toHaveCount(0);
 });

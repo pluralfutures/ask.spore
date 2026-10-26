@@ -17,7 +17,9 @@ from app.content.ingest import SourceFile, SourceMetadata, load_path
 from app.content.register import (
     RegisterError,
     TakedownItem,
+    approve,
     record_takedown,
+    replacement_candidates,
     request_withdrawal,
     takedown_due_on,
     takedown_queue,
@@ -28,7 +30,7 @@ from app.content.withdraw import SUPERSEDED_REASON, purge_answer_cache
 from app.core import cache
 from app.core.db import tenant_session
 from app.tenancy.models import INTERNAL_TENANT_ID
-from tests.conftest import CONVERSATION_COLUMNS, CONVERSATION_DEFAULTS
+from tests.conftest import CONSENT_VERSION, CONVERSATION_COLUMNS, CONVERSATION_DEFAULTS
 from tests.fakes import FakeRedis
 from tests.test_api import Harness, api
 from tests.test_ingest import PDF, TAGS, Env, Ingest, content_user, env, meta, source_row
@@ -67,9 +69,11 @@ async def other_tenant(admin_conn: asyncpg.Connection) -> tuple[UUID, UUID]:
         f"c-{tenant_id.hex[:12]}",
     )
     user_id = await admin_conn.fetchval(
-        "INSERT INTO users (tenant_id, email, display_name) VALUES ($1, $2, 'Client') RETURNING id",
+        "INSERT INTO users (tenant_id, email, display_name, consent_version, consented_at) "
+        "VALUES ($1, $2, 'Client', $3, now()) RETURNING id",
         tenant_id,
         f"user-{tenant_id.hex[:8]}@example.com",
+        CONSENT_VERSION,
     )
     await admin_conn.execute(
         "INSERT INTO workspaces (tenant_id, slug, name, default_model) "
@@ -242,7 +246,7 @@ async def test_a_withdrawal_that_cannot_reach_ragflow_is_retried(
     assert (await source_row(admin_conn, ingested.source_id))["status"] == "withdrawn"
 
 
-async def test_reingesting_a_changed_file_supersedes_the_old_version(
+async def test_reingesting_a_changed_file_supersedes_the_old_version_when_the_reviewer_says_so(
     env: tuple[Env, Ingest], admin_conn: asyncpg.Connection, redis: FakeRedis, history: None
 ) -> None:
     e, run = env
@@ -252,22 +256,29 @@ async def test_reingesting_a_changed_file_supersedes_the_old_version(
     await cache.set(INTERNAL_TENANT_ID, "answer:corpus_only:x", cached([old], [old]), 60)
 
     changed = SourceFile("tidewater-v2.pdf", "pdf", PDF.read_bytes() + b"\n% revised")
-    second = await run(changed, meta("sample-reports", "sample-web"))  # same canonical link
-    assert second.status == "ingested" and second.source_id != first.source_id
-    new_row = await source_row(admin_conn, second.source_id)
-    assert new_row["supersedes_id"] == first.source_id
-    assert new_row["canonical_url"] == LINK
-    # Ingesting the new version enqueued the old one's withdrawal; the worker runs it.
-    assert await admin_conn.fetchval(
-        "SELECT count(*) FROM jobs WHERE type = 'withdraw_source' AND payload->>'source_id' = $1",
-        old,
-    )
+    # Same canonical link, another title.
+    second = await run(changed, meta("sample-reports", "sample-web", title="Revised title"))
+    # Owner decisions 4 and 3: flagged for the reviewer, nothing replaced or queued unasked.
+    assert (second.status, second.error_code) == ("proposed", "possible_replacement")
+    assert (await source_row(admin_conn, second.source_id))["supersedes_id"] is None
+    assert await admin_conn.fetchval("SELECT count(*) FROM jobs WHERE status = 'queued'") == 0
+
+    await approve(e.factory, second.source_id, e.user_id, replaces=first.source_id)
     await run_queue(e)
+    new_row = await source_row(admin_conn, second.source_id)
+    assert (new_row["status"], new_row["supersedes_id"]) == ("ingested", first.source_id)
+    assert new_row["canonical_url"] == LINK
+    approval = await admin_conn.fetchval(
+        "SELECT metadata FROM audit_events WHERE event = 'source.approved' "
+        "AND metadata->>'source_id' = $1",
+        str(second.source_id),
+    )
+    assert json.loads(approval)["replaces"] == old
 
     old_row = await source_row(admin_conn, first.source_id)
     assert (old_row["status"], old_row["withdrawal_reason"]) == ("withdrawn", SUPERSEDED_REASON)
     assert not set(first.document_ids.values()) & set(e.fake.documents)  # old chunks gone
-    assert set(second.document_ids.values()) <= set(e.fake.documents)  # new ones live
+    assert set(json.loads(new_row["ragflow_document_ids"]).values()) <= set(e.fake.documents)
     assert await flags(admin_conn, citation) == (True, False)  # superseded, not withdrawn
     assert redis.store == {}
     # The new version's own staged copy is kept.
@@ -275,22 +286,300 @@ async def test_reingesting_a_changed_file_supersedes_the_old_version(
     assert (e.content_root / f"{sha[:2]}/{sha}.pdf").is_file()
 
 
-async def test_a_link_shared_by_several_sources_supersedes_nothing(
+async def test_the_same_link_and_title_replace_the_old_version_without_a_choice(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection, redis: FakeRedis, history: None
+) -> None:
+    """Owner decision 3 (Oct 23, 2026, P1c-14): a new file with the canonical link and the
+    title of exactly one ingested source replaces it, also from the CLI; a link match under
+    another title is only flagged (the test above)."""
+    e, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    citation = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, first.source_id)
+    changed = SourceFile("tidewater-v2.pdf", "pdf", PDF.read_bytes() + b"\n% revised")
+    retitled = meta("sample-reports", title="  tidewater offshore  WIND outlook 2026 ")
+    second = await run(changed, retitled)  # the CLI path: propose, then approve
+    assert (second.status, second.error_code) == ("ingested", None)
+    await run_queue(e)
+    new_row = await source_row(admin_conn, second.source_id)
+    assert (new_row["status"], new_row["supersedes_id"]) == ("ingested", first.source_id)
+    old_row = await source_row(admin_conn, first.source_id)
+    assert (old_row["status"], old_row["withdrawal_reason"]) == ("withdrawn", SUPERSEDED_REASON)
+    assert await flags(admin_conn, citation) == (True, False)
+    approval = await admin_conn.fetchval(
+        "SELECT metadata FROM audit_events WHERE event = 'source.approved' "
+        "AND metadata->>'source_id' = $1",
+        str(second.source_id),
+    )
+    assert json.loads(approval)["replaces"] == str(first.source_id)
+    assert json.loads(approval)["method"] == "same_link_and_title"
+
+
+async def test_an_automatic_replacement_can_be_overridden_or_falls_back_to_a_choice(
     env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
 ) -> None:
-    _, run = env
-    pages = [SourceFile(f"p{n}.md", "markdown", f"# Synthetic page {n}".encode()) for n in range(3)]
-    await run(pages[0], meta("sample-web"))
-    await run(pages[1], meta("sample-web"))
-    third = await run(pages[2], meta("sample-web"), reviewer_id=None)
+    e, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    pages = [PDF.read_bytes() + f"\n% v{n}".encode() for n in range(3)]
+    # The reviewer may still keep both.
+    kept = await run(
+        SourceFile("v0.pdf", "pdf", pages[0]), meta("sample-reports"), reviewer_id=None
+    )
+    assert (await source_row(admin_conn, kept.source_id))["supersedes_id"] == first.source_id
+    await approve(e.factory, kept.source_id, e.user_id, keep_both=True)
+    await run_queue(e)
+    assert (await source_row(admin_conn, kept.source_id))["supersedes_id"] is None
+    assert (await source_row(admin_conn, first.source_id))["status"] == "ingested"
+    # Two ingested sources now share the link and the title: no automatic replacement.
+    third = await run(SourceFile("v1.pdf", "pdf", pages[1]), meta("sample-reports"))
+    assert (third.status, third.error_code) == ("proposed", "possible_replacement")
     assert (await source_row(admin_conn, third.source_id))["supersedes_id"] is None
-    # A link no ingested source has supersedes nothing either.
+    # A proposal recorded as an exact match whose target was withdrawn meanwhile.
+    await approve(e.factory, third.source_id, e.user_id, keep_both=True)
+    await run_queue(e)
+    for source in (kept.source_id, third.source_id):
+        await request_withdrawal(e.factory, source, e.user_id, reason="synthetic")
+    await run_queue(e)
+    late = await run(
+        SourceFile("v2.pdf", "pdf", pages[2]), meta("sample-reports"), reviewer_id=None
+    )
+    assert (await source_row(admin_conn, late.source_id))["supersedes_id"] == first.source_id
+    await request_withdrawal(e.factory, first.source_id, e.user_id, reason="synthetic")
+    await run_queue(e)
+    await approve(e.factory, late.source_id, e.user_id)  # nothing left to replace
+    assert (await source_row(admin_conn, late.source_id))["supersedes_id"] is None
+
+
+async def test_keep_both_leaves_the_ingested_source_in_place(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    e, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    other = await run(
+        SourceFile("other.pdf", "pdf", PDF.read_bytes() + b"\n% another report"),
+        meta("sample-reports", title="Another report at the landing page"),
+    )
+    assert other.error_code == "possible_replacement"
+    await approve(e.factory, other.source_id, e.user_id, keep_both=True)
+    await run_queue(e)
+    assert (await source_row(admin_conn, first.source_id))["status"] == "ingested"
+    second = await source_row(admin_conn, other.source_id)
+    assert (second["status"], second["supersedes_id"]) == ("ingested", None)
+    assert not await admin_conn.fetchval("SELECT count(*) FROM jobs WHERE type = 'withdraw_source'")
+    approval = await admin_conn.fetchval(
+        "SELECT metadata FROM audit_events WHERE event = 'source.approved' "
+        "AND metadata->>'source_id' = $1",
+        str(other.source_id),
+    )
+    assert json.loads(approval)["keep_both"] is True
+
+
+async def test_a_possible_replacement_needs_a_valid_choice(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    e, run = env
+    pages = [SourceFile(f"p{n}.md", "markdown", f"# Synthetic page {n}".encode()) for n in range(4)]
+    one = await run(pages[0], meta("sample-web"))
+    two = await run(pages[1], meta("sample-web"), reviewer_id=None)
+    await approve(e.factory, two.source_id, e.user_id, keep_both=True)
+    await run_queue(e)
+    third = await run(pages[2], meta("sample-web"), reviewer_id=None)
+    async with tenant_session(e.factory, INTERNAL_TENANT_ID) as session:
+        assert await replacement_candidates(session, LINK, exclude=third.source_id) == [
+            one.source_id,
+            two.source_id,
+        ]
+    for kwargs, code in (
+        ({}, "replacement_choice_required"),
+        ({"replaces": third.source_id}, "not_a_replacement_candidate"),
+        ({"replaces": uuid.uuid4()}, "not_a_replacement_candidate"),
+        ({"replaces": one.source_id, "keep_both": True}, "replace_or_keep_both"),
+    ):
+        with pytest.raises(RegisterError) as refused:
+            await approve(e.factory, third.source_id, e.user_id, **kwargs)
+        assert refused.value.code == code
+    assert (await source_row(admin_conn, third.source_id))["status"] == "proposed"
+    await approve(e.factory, third.source_id, e.user_id, replaces=two.source_id)
+    # A second proposal cannot replace the same source again.
+    rival = await run(
+        SourceFile("p5.md", "markdown", b"# Synthetic 5"), meta("sample-web"), reviewer_id=None
+    )
+    with pytest.raises(RegisterError) as twice:
+        await approve(e.factory, rival.source_id, e.user_id, replaces=two.source_id)
+    assert twice.value.code == "already_being_replaced"
+    assert (await source_row(admin_conn, third.source_id))["supersedes_id"] == two.source_id
+    # A link no ingested source has needs no choice.
     fourth = await run(
         SourceFile("p4.md", "markdown", b"# Synthetic 4"),
         linked("sample-web", "https://x.example/"),
-        reviewer_id=None,
     )
-    assert (await source_row(admin_conn, fourth.source_id))["supersedes_id"] is None
+    assert fourth.status == "ingested"
+
+
+async def test_withdrawal_on_licence_grounds_blanks_the_stored_excerpts(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection, redis: FakeRedis, history: None
+) -> None:
+    e, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    changed = SourceFile("tidewater-v2.pdf", "pdf", PDF.read_bytes() + b"\n% revised")
+    second = await run(changed, meta("sample-reports", title="Revised title"))
+    old_citation = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, first.source_id)
+    await approve(e.factory, second.source_id, e.user_id, replaces=first.source_id)
+    await run_queue(e)
+    client_tenant, client_user = await other_tenant(admin_conn)
+    here = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, second.source_id)
+    there = await cite(admin_conn, client_tenant, client_user, second.source_id)
+    keep = await run(
+        SourceFile("other.md", "markdown", b"# Synthetic other page"),
+        linked("sample-web", "https://example.org/other"),
+    )
+    unrelated = await cite(admin_conn, client_tenant, client_user, keep.source_id)
+
+    await record_takedown(
+        e.factory,
+        second.source_id,
+        e.user_id,
+        reference="TD-LIC-1",
+        requested_on=date(2026, 10, 22),
+        licence_breach=False,
+        licence_grounds=True,
+    )
+    await request_withdrawal(e.factory, second.source_id, e.user_id, reason="licence withdrawn")
+    await run_queue(e)
+
+    async def citation(citation_id: UUID) -> asyncpg.Record:
+        row = await admin_conn.fetchrow(
+            "SELECT excerpt, withdrawn_at, superseded_at, marker, source_id "
+            "FROM citations WHERE id = $1",
+            citation_id,
+        )
+        assert row is not None
+        return row
+
+    for blanked in (here, there):
+        row = await citation(blanked)
+        assert row["excerpt"] == ""  # the licensed text is gone
+        assert row["withdrawn_at"] is not None  # still labelled "withdrawn"
+        assert row["source_id"] == second.source_id and row["marker"] == 1
+    # The earlier version it replaced carried the same licensed text.
+    old = await citation(old_citation)
+    assert (old["excerpt"], old["superseded_at"] is not None) == ("", True)
+    assert (await citation(unrelated))["excerpt"] == "Synthetic excerpt."
+    done = await admin_conn.fetchval(
+        "SELECT metadata FROM audit_events WHERE event = 'source.withdrawn' "
+        "AND metadata->>'source_id' = $1",
+        str(second.source_id),
+    )
+    assert json.loads(done)["excerpts_blanked"] is True
+
+
+@pytest.mark.parametrize("takedown", [None, "TD-OTHER-1"])
+async def test_every_other_withdrawal_blanks_the_stored_excerpts_too(
+    env: tuple[Env, Ingest],
+    admin_conn: asyncpg.Connection,
+    redis: FakeRedis,
+    history: None,
+    takedown: str | None,
+) -> None:
+    """Owner decision 3 (Oct 23, 2026, P1c-14): a plain withdrawal, or a takedown not on
+    licence grounds, blanks the excerpt as a licence takedown does; the citation stays,
+    labelled withdrawn, in every tenant, and other sources' excerpts are untouched."""
+    e, run = env
+    first = await run(load_path(PDF), meta("sample-reports"))
+    old_citation = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, first.source_id)
+    changed = SourceFile("tidewater-v2.pdf", "pdf", PDF.read_bytes() + b"\n% revised")
+    ingested = await run(changed, meta("sample-reports", title="Revised title"))
+    await approve(e.factory, ingested.source_id, e.user_id, replaces=first.source_id)
+    await run_queue(e)
+    # The supersession kept the old version's excerpt: the document is still in.
+    assert (
+        await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", old_citation)
+        == "Synthetic excerpt."
+    )
+    cited = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, ingested.source_id)
+    client_tenant, client_user = await other_tenant(admin_conn)
+    there = await cite(admin_conn, client_tenant, client_user, ingested.source_id)
+    keep = await run(
+        SourceFile("other.md", "markdown", b"# Synthetic other page"),
+        linked("sample-web", "https://example.org/other"),
+    )
+    unrelated = await cite(admin_conn, client_tenant, client_user, keep.source_id)
+    if takedown:  # a takedown, but not on licence grounds (e.g. a privacy request)
+        await record_takedown(
+            e.factory,
+            ingested.source_id,
+            e.user_id,
+            reference=takedown,
+            requested_on=date(2026, 10, 22),
+            licence_breach=False,
+        )
+    await request_withdrawal(e.factory, ingested.source_id, e.user_id, reason="withdrawn")
+    await run_queue(e)
+    for blanked in (cited, there):
+        row = await admin_conn.fetchrow(
+            "SELECT excerpt, withdrawn_at, marker, source_id FROM citations WHERE id = $1",
+            blanked,
+        )
+        assert row["excerpt"] == "" and row["withdrawn_at"] is not None
+        assert (row["marker"], row["source_id"]) == (1, ingested.source_id)
+    # The earlier version it replaced is the same document: blanked and labelled too.
+    assert (
+        await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", old_citation) == ""
+    )
+    assert await flags(admin_conn, old_citation) == (True, True)
+    assert (
+        await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", unrelated)
+        == "Synthetic excerpt."
+    )
+    done = await admin_conn.fetchval(
+        "SELECT metadata FROM audit_events WHERE event = 'source.withdrawn' "
+        "AND metadata->>'source_id' = $1",
+        str(ingested.source_id),
+    )
+    assert json.loads(done)["excerpts_blanked"] is True
+    superseded = await admin_conn.fetchval(
+        "SELECT metadata FROM audit_events WHERE event = 'source.withdrawn' "
+        "AND metadata->>'source_id' = $1",
+        str(first.source_id),
+    )
+    assert json.loads(superseded)["excerpts_blanked"] is False
+
+
+async def test_a_licence_breach_is_on_licence_grounds(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection
+) -> None:
+    e, run = env
+    ingested = await run(load_path(PDF), meta("sample-reports"))
+    await record_takedown(
+        e.factory,
+        ingested.source_id,
+        e.user_id,
+        reference="INT-9",
+        requested_on=date(2026, 10, 22),
+        licence_breach=True,
+    )
+    row = await source_row(admin_conn, ingested.source_id)
+    assert row["takedown_licence_grounds"] is True
+    with pytest.raises(asyncpg.CheckViolationError):
+        await admin_conn.execute(
+            "UPDATE sources SET takedown_licence_grounds = true, takedown_reference = NULL, "
+            "takedown_requested_on = NULL, takedown_due_on = NULL WHERE id = $1",
+            ingested.source_id,
+        )
+
+
+async def test_a_document_ragflow_no_longer_has_counts_as_deleted(
+    env: tuple[Env, Ingest], admin_conn: asyncpg.Connection, redis: FakeRedis
+) -> None:
+    e, run = env
+    ingested = await run(load_path(PDF), meta("sample-reports", "sample-web"))
+    gone = next(iter(ingested.document_ids.values()))
+    del e.fake.documents[gone]  # deleted in the RAGFlow UI, or by an earlier attempt
+    job_id = await request_withdrawal(e.factory, ingested.source_id, e.user_id, reason="r")
+    await run_queue(e)
+    job = await admin_conn.fetchrow("SELECT status, attempts FROM jobs WHERE id = $1", job_id)
+    assert (job["status"], job["attempts"]) == ("succeeded", 1)
+    row = await source_row(admin_conn, ingested.source_id)
+    assert (row["status"], row["ragflow_document_ids"]) == ("withdrawn", "{}")
 
 
 async def test_superseded_and_withdrawn_citations_are_flagged_in_the_read_route(
@@ -317,6 +606,46 @@ async def test_superseded_and_withdrawn_citations_are_flagged_in_the_read_route(
     body = (await api.request("GET", f"/conversations/{conversation}")).json()
     [citation] = body["messages"][1]["citations"]
     assert (citation["superseded"], citation["withdrawn"]) == (True, True)
+
+
+async def test_a_paused_sources_citation_is_labelled_unavailable_until_resumed(
+    api: Harness, admin_conn: asyncpg.Connection
+) -> None:
+    """P2A-02 (D3): a pause keeps the excerpt and provenance; the label is read live."""
+    conversation = await api.conversation()
+    await api.ask(conversation, "How did capacity change?", "Capacity grew [1].")
+
+    async def citation() -> dict[str, Any]:
+        body = (await api.request("GET", f"/conversations/{conversation}")).json()
+        [found] = body["messages"][1]["citations"]
+        return dict(found)
+
+    before = await citation()
+    assert before["unavailable"] is False
+    source_id = UUID(before["source_id"])
+    await admin_conn.execute(
+        "UPDATE sources SET status = 'paused', paused_at = now(), paused_by = gen_random_uuid(), "
+        "pause_reason = 'synthetic' WHERE id = $1",
+        source_id,
+    )
+    try:
+        during = await citation()
+        assert (during["unavailable"], during["superseded"], during["withdrawn"]) == (
+            True,
+            False,
+            False,
+        )
+        # Nothing else changes: excerpt, provenance and link stay (a pause is not a
+        # withdrawal).
+        assert during | {"unavailable": False} == before
+        assert during["excerpt"]
+    finally:
+        await admin_conn.execute(
+            "UPDATE sources SET status = 'ingested', paused_at = NULL, paused_by = NULL, "
+            "pause_reason = NULL WHERE id = $1",
+            source_id,
+        )
+    assert await citation() == before  # resumed: the label is gone
 
 
 async def test_answer_cache_values_record_their_source_ids_and_are_purged(
@@ -349,8 +678,14 @@ async def test_cache_scan_stays_in_one_tenants_namespace(redis: FakeRedis) -> No
 
 
 async def test_the_content_role_sees_identifiers_and_flags_only(
-    env: tuple[Env, Ingest], app_conn: asyncpg.Connection, admin_conn: asyncpg.Connection
+    env: tuple[Env, Ingest],
+    app_conn: asyncpg.Connection,
+    admin_conn: asyncpg.Connection,
+    history: None,
 ) -> None:
+    e, run = env
+    ingested = await run(load_path(PDF), meta("sample-reports"))
+    cited = await cite(admin_conn, INTERNAL_TENANT_ID, e.user_id, ingested.source_id)
     await app_conn.execute("SET ROLE askspore_content")
     with pytest.raises(asyncpg.InsufficientPrivilegeError):
         await app_conn.fetch("SELECT excerpt FROM citations")
@@ -358,8 +693,13 @@ async def test_the_content_role_sees_identifiers_and_flags_only(
         await app_conn.fetch("SELECT content FROM messages")
     with pytest.raises(asyncpg.InsufficientPrivilegeError):
         await app_conn.fetch("SELECT slug FROM tenants")
-    with pytest.raises(asyncpg.InsufficientPrivilegeError):
+    # It may blank an excerpt (revision 0023, licence-ground takedowns), never write one.
+    with pytest.raises(asyncpg.RaiseError, match="may only blank"):
         await app_conn.execute("UPDATE citations SET excerpt = 'x'")
+    assert await app_conn.execute("UPDATE citations SET excerpt = ''") == "UPDATE 1"
+    assert await admin_conn.fetchval("SELECT excerpt FROM citations WHERE id = $1", cited) == ""
+    with pytest.raises(asyncpg.InsufficientPrivilegeError):
+        await app_conn.execute("UPDATE citations SET marker = 2")
     with pytest.raises(asyncpg.InsufficientPrivilegeError):
         await app_conn.execute("DELETE FROM citations")
     assert await app_conn.fetchval("SELECT count(*) FROM tenants") >= 1
@@ -433,6 +773,7 @@ async def test_takedown_queue_lists_requests_by_due_date(
     assert json.loads(audit["metadata"])["after"] == {
         "takedown_reference": "TD-2026-001",
         "takedown_due_on": "2026-11-04",
+        "takedown_licence_grounds": False,
     }
     # Withdrawn sources leave the queue.
     await request_withdrawal(e.factory, second.source_id, e.user_id, reason="licence breach")
@@ -443,6 +784,113 @@ async def test_takedown_queue_lists_requests_by_due_date(
         await admin_conn.execute(
             "UPDATE sources SET takedown_reference = NULL WHERE id = $1", first.source_id
         )
+
+
+def test_cli_site_withdrawal_and_restore_flags() -> None:
+    """P1c-14: ``sites withdraw`` and ``sources restore``."""
+    site, source = str(uuid.UUID(int=6)), str(uuid.UUID(int=7))
+    args = cli.build_parser().parse_args(
+        ["sites", "withdraw", site, "--as", "r@example.org", "--reason", "retired", "--wait"]
+    )
+    assert (args.command, args.sites_command, str(args.site_id)) == ("sites", "withdraw", site)
+    assert (args.reviewer, args.reason, args.wait) == ("r@example.org", "retired", True)
+    args = cli.build_parser().parse_args(["sources", "restore", source, "--as", "r@example.org"])
+    assert (args.sources_command, str(args.source_id), args.reviewer) == (
+        "restore",
+        source,
+        "r@example.org",
+    )
+    for missing in (["sites", "withdraw", site, "--as", "r@example.org"], ["sources", "restore"]):
+        with pytest.raises(SystemExit):
+            cli.build_parser().parse_args(missing)
+
+
+def test_cli_site_reinstatement_needs_a_note_and_logs_no_note(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P2A-12 (a): ``sites reinstate <id> --as <email> --note``; the note never reaches
+    the log line, and a refusal exits 1 with the code."""
+    from app.content.register import RegisterError
+    from app.core.config import load_settings
+    from tests.test_datasets_sync import ENV
+
+    site = str(uuid.UUID(int=9))
+    with pytest.raises(SystemExit):  # the note is required
+        cli.build_parser().parse_args(["sites", "reinstate", site, "--as", "r@example.org"])
+    args = cli.build_parser().parse_args(
+        ["sites", "reinstate", site, "--as", "r@example.org", "--note", "publisher agreed"]
+    )
+    assert (args.sites_command, str(args.site_id), args.note) == (
+        "reinstate",
+        site,
+        "publisher agreed",
+    )
+    calls: list[tuple[UUID, str]] = []
+    outcome: list[BaseException] = []
+
+    async def fake_reinstate(_f: Any, site_id: UUID, _r: UUID, *, note: str) -> tuple[int, int]:
+        calls.append((site_id, note))
+        if outcome:
+            raise outcome[0]
+        return 2, 1
+
+    async def reviewer(*_: Any) -> UUID:
+        return uuid.UUID(int=1)
+
+    monkeypatch.setattr(cli, "get_settings", lambda: load_settings(environ=ENV))
+    monkeypatch.setattr(cli, "user_by_email", reviewer)
+    monkeypatch.setattr(cli, "reinstate_site", fake_reinstate)
+    command = ["sites", "reinstate", site, "--as", "r@example.org", "--note", "publisher agreed"]
+    assert cli.main(command) == 0
+    assert calls == [(uuid.UUID(site), "publisher agreed")]
+    [line] = [json.loads(x) for x in capsys.readouterr().out.splitlines()]
+    assert (line["event"], line["site_id"], line["count"], line["status"]) == (
+        "sites.reinstate",
+        site,
+        2,
+        "proposed",
+    )
+    outcome.append(RegisterError("withdrawal_running"))
+    assert cli.main(command) == 1
+    output = capsys.readouterr().out
+    [line] = [json.loads(x) for x in output.splitlines()]
+    assert (line["event"], line["status"], line["error_code"]) == (
+        "sites.reinstate",
+        "refused",
+        "withdrawal_running",
+    )
+    assert "agreed" not in output
+
+
+def test_cli_takedown_uses_the_configured_calendar(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P2A-12 (b): ``sources takedown`` passes the startup calendar to the clock."""
+    from dataclasses import replace
+
+    from app.core.config import load_settings
+    from app.core.holidays import HolidayCalendar
+    from tests.test_datasets_sync import ENV
+
+    calendar = HolidayCalendar("test", frozenset({date(2026, 10, 21)}))
+    settings = replace(load_settings(environ=ENV), holidays=calendar)
+    seen: list[object] = []
+
+    async def fake_takedown(*_: Any, holidays: object, **__: Any) -> date:
+        seen.append(holidays)
+        return date(2026, 11, 4)
+
+    async def reviewer(*_: Any) -> UUID:
+        return uuid.UUID(int=1)
+
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+    monkeypatch.setattr(cli, "user_by_email", reviewer)
+    monkeypatch.setattr(cli, "record_takedown", fake_takedown)
+    source = str(uuid.UUID(int=5))
+    command = ["sources", "takedown", source, "--as", "r@example.org", "--reference", "TD-1"]
+    assert cli.main([*command, "--requested-on", "2026-10-20"]) == 0
+    assert seen == [calendar.dates]
+    capsys.readouterr()
 
 
 def test_cli_withdraw_and_takedown_flags() -> None:

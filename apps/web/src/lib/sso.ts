@@ -32,6 +32,30 @@ export function emptySourceForm(kind: SsoKind = "entra"): SourceForm {
   };
 }
 
+// P1c-02: after "Remove SSO source" the form forgets the removed source's kind, issuer,
+// client ID and the rest (Phase 1b release 2.4: it kept them while the summary said none).
+export function formAfterRemoval(): SourceForm {
+  return emptySourceForm();
+}
+
+interface SourceActionState {
+  isSuccess: boolean;
+  error: unknown;
+  submittedAt: number;
+}
+
+// P1c-08 (Phase 1c release F2): the source form shows the status of its latest action only,
+// so "SSO source removed." does not stay under a later "Saved." (and the reverse).
+export function latestSourceAction(
+  save: SourceActionState,
+  remove: SourceActionState,
+): { isSuccess: boolean; error: unknown; savedText: string } {
+  if (remove.submittedAt > save.submittedAt) {
+    return { isSuccess: remove.isSuccess, error: remove.error, savedText: "SSO source removed." };
+  }
+  return { isSuccess: save.isSuccess, error: save.error, savedText: "Saved." };
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // The request for PUT /operator/tenants/{id}/login-policy/sso. An empty secret is left
@@ -75,6 +99,9 @@ const KIND_NAMES: Record<string, string> = {
 };
 
 // Label and value pairs, non-secret fields only (the API never returns a secret).
+// The fixed rows of the summary; the SSO source's configuration and endpoints follow.
+export const POLICY_ROWS = 4;
+
 export function policySummary(policy: LoginPolicyOut): [string, string][] {
   const rows: [string, string][] = [
     ["Single sign-on", KIND_NAMES[policy.sso_source_kind] ?? policy.sso_source_kind],

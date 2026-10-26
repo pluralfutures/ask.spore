@@ -5,22 +5,34 @@
 # orchestrator reads only the table names; per-tag settings (chunking method,
 # P0-08) live inside each table.
 #
+# tenant (P1b-12) names the one tenant (by slug) whose workspaces may use the tag: a
+# client's own corpus. A tag shared with every tenant says so with shared = true (P1c-01);
+# a tag with neither is refused at startup (before P1c-01 an unset tenant meant shared).
+# The operator console offers a tenant its own and the shared tags and refuses any other
+# tag on a workspace save (422 tag_not_for_tenant). The sample-* tags hold our
+# own and test content (the Phase 0 corpus, synthetic fixtures, drill crawls) and belong
+# to the internal tenant, so no client workspace is offered them (owner, Oct 22, 2026,
+# Phase 1b release 5.1).
+#
 # chunk_method is the RAGFlow chunking method of the tag's dataset. RAGFlow sets it
 # per dataset with a per-document override; chunk_method_by_type gives that override
 # per source type (pdf, docx, pptx, html, markdown) and is applied at ingestion.
 
 [tags.sample-reports]
+tenant = "internal"
 # Third-party reports: PDF with "paper". The Phase 0 corpus also has third-party
 # DOCX and PPTX files under this tag; they get the methods sample-analysis uses.
 chunk_method = "paper"
 chunk_method_by_type = { docx = "naive", pptx = "presentation", markdown = "naive", html = "naive" }
 
 [tags.sample-analysis]
+tenant = "internal"
 # Own analysis: DOCX with "naive", PPTX with "presentation".
 chunk_method = "naive"
 chunk_method_by_type = { pptx = "presentation" }
 
 [tags.sample-web]
+tenant = "internal"
 # Crawled pages, rendered to Markdown.
 chunk_method = "naive"
 
@@ -31,21 +43,25 @@ chunk_method = "naive"
 # "naive" ("paper" parses PDF only, findings E6).
 
 [tags.cc-team1-healthcare-gpo]
+tenant = "cc"
 # Workspace "CC Team 1 Healthcare GPO".
 chunk_method = "paper"
 chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }
 
 [tags.cc-team2-college-universities]
+tenant = "cc"
 # Workspace "CC Team 2 College & Universities".
 chunk_method = "paper"
 chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }
 
 [tags.cc-team3-commercial-restaurants]
+tenant = "cc"
 # Workspace "CC Team 3 Commercial Restaurants".
 chunk_method = "paper"
 chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }
 
 [tags.cc-shared]
+tenant = "cc"
 # The test client's common corpus, shared by all three workspaces.
 chunk_method = "paper"
 chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }

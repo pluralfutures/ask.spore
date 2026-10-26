@@ -4,6 +4,9 @@ import type { Page, Route } from "@playwright/test";
 // page.route. Synthetic content only (CLAUDE.md): no real documents or queries. It keeps
 // what a test needs to assert: every request body the web app sent.
 
+// A saved workspace prompt answers after this long (P1b-13 f).
+const SLOW_SAVE_MS = 300;
+
 export interface FakeWorkspace {
   id: string;
   slug: string;
@@ -55,6 +58,11 @@ export interface FakeOptions {
   // External models fall back to this model, with the notice, as at the spend cap.
   spendCapFallback?: string;
   role?: "user" | "tenant_admin";
+  // P1b-10: the user has not accepted the active notice yet; the API refuses until then.
+  consentPending?: boolean;
+  // P1b-14: the tenant keeps no history (retention 0): conversations are never listed
+  // or readable, and each is deleted once its answer is sent.
+  noHistory?: boolean;
 }
 
 // The API's text (app.chat.selection.SPEND_CAP_TEXT).
@@ -83,6 +91,22 @@ function summary(c: Conversation) {
   };
 }
 
+function fakeUser(id: string, email: string, role: string, status = "active") {
+  const signedIn = status !== "invited";
+  return {
+    id,
+    email,
+    display_name: `Synthetic ${email.split("@")[0]}`,
+    role,
+    status,
+    last_login_at: signedIn ? NOW : null,
+    last_login_method: signedIn ? "sign_in_link" : null,
+    created_at: NOW,
+    consent_version: signedIn ? "v1" : null,
+    consent_current: signedIn,
+  };
+}
+
 function sse(events: [string, unknown][]): string {
   return events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
 }
@@ -92,13 +116,26 @@ export class FakeApi {
   // Tenant admin routes (P1a-13): saved prompt versions per workspace, and the calls.
   readonly prompts = new Map<string, { version: number; text: string; created_at: string }[]>();
   readonly adminCalls: { method: string; path: string; body: unknown }[] = [];
+  // P2A-07: the query string of each audit export the page asked for.
+  readonly auditExports: string[] = [];
   readonly downloads: string[] = []; // source IDs whose bytes were served
   private readonly links = new Map<string, string>(); // token -> source ID
   readonly asked: { conversation: string; body: unknown }[] = [];
   private readonly conversations = new Map<string, Conversation>();
   private next = 1;
+  readonly accepted: unknown[] = []; // P1b-10: bodies of POST /consent
+  // Tenant admin users (P1a-13, P1c-07): the admin, one invited and one active member.
+  readonly users = [
+    fakeUser("55555555-5555-4555-8555-555555555555", "analyst@example.org", "tenant_admin"),
+    fakeUser("55555555-5555-4555-8555-555555555556", "invited@example.org", "user", "invited"),
+    fakeUser("55555555-5555-4555-8555-555555555557", "member@example.org", "user"),
+  ];
+  readonly resent: string[] = []; // user IDs whose invitation was queued again
+  private consented: boolean;
 
-  constructor(private readonly options: FakeOptions) {}
+  constructor(private readonly options: FakeOptions) {
+    this.consented = !options.consentPending;
+  }
 
   private id(prefix: string): string {
     const n = String(this.next++).padStart(12, "0");
@@ -136,6 +173,7 @@ export class FakeApi {
       ...summary(conversation),
       notice: notice ? "external_spend_cap_reached" : null,
       notice_text: notice,
+      no_history: Boolean(this.options.noHistory),
     };
   }
 
@@ -215,20 +253,62 @@ export class FakeApi {
     if (this.options.role !== "tenant_admin") {
       return route.fulfill({ status: 403, json: { detail: "forbidden" } });
     }
-    if (path === "/admin/users") {
+    if (path === "/admin/users" && method === "POST") {
+      const { email, display_name, role } = body as Record<string, string>;
+      if (this.users.some((u) => u.email === email)) {
+        return route.fulfill({ status: 409, json: { detail: "email_taken" } });
+      }
+      const user = { ...fakeUser(this.id("55555555"), email, role ?? "user", "invited") };
+      this.users.push({ ...user, display_name });
+      return route.fulfill({ status: 201, json: user });
+    }
+    if (path === "/admin/users") return route.fulfill({ json: this.users });
+    const resend = path.match(/^\/admin\/users\/([^/]+)\/invitation$/);
+    if (resend && method === "POST") {
+      const user = this.users.find((u) => u.id === resend[1]);
+      if (!user) return route.fulfill({ status: 404, json: { detail: "not_found" } });
+      if (user.status !== "invited") {
+        return route.fulfill({ status: 422, json: { detail: "not_invited" } });
+      }
+      this.resent.push(user.id);
+      return route.fulfill({ status: 202, json: { user_id: user.id, status: "queued" } });
+    }
+    const removal = path.match(/^\/admin\/users\/([^/]+)$/);
+    if (removal && method === "DELETE") {
+      const index = this.users.findIndex((u) => u.id === removal[1]);
+      if (index < 0) return route.fulfill({ status: 404, json: { detail: "not_found" } });
+      this.users.splice(index, 1);
+      return route.fulfill({ status: 204 });
+    }
+    if (path === "/admin/audit-log") {
+      const query = new URL(route.request().url()).search;
+      this.auditExports.push(query);
+      const first = !query.includes("after=");
       return route.fulfill({
-        json: [
-          {
-            id: "55555555-5555-4555-8555-555555555555",
-            email: "analyst@example.org",
-            display_name: "Synthetic Analyst",
-            role: "tenant_admin",
-            status: "active",
-            last_login_at: NOW,
-            last_login_method: "sign_in_link",
-            created_at: NOW,
-          },
-        ],
+        status: 200,
+        contentType: "text/csv",
+        headers: {
+          "content-disposition": 'attachment; filename="audit-log-synthetic.csv"',
+          "x-audit-export-complete": first ? "false" : "true",
+          ...(first ? { "x-audit-export-next": "2026-09-02T00:00:00+00:00|synthetic" } : {}),
+        },
+        body: "created_at,event,actor_user_id,metadata\n",
+      });
+    }
+    if (path === "/admin/support-grants") {
+      return route.fulfill({ json: method === "GET" ? [] : { detail: "not_found" } });
+    }
+    if (path === "/admin/usage") {
+      return route.fulfill({
+        json: {
+          since: "2026-09-26",
+          until: "2026-10-25",
+          questions: [],
+          active_users: [],
+          top_sources: [],
+          cost_month: null,
+          costs: null,
+        },
       });
     }
     if (path === "/admin/settings") {
@@ -247,6 +327,9 @@ export class FakeApi {
           created_at: NOW,
         };
         this.prompts.set(prompt[1], [saved, ...versions]);
+        // Slow on purpose (P1b-13 f): a test that does not wait for the save to land
+        // fails every time instead of now and then.
+        await new Promise((resolve) => setTimeout(resolve, SLOW_SAVE_MS));
         return route.fulfill({ json: saved });
       }
       return route.fulfill({ json: versions });
@@ -266,8 +349,29 @@ export class FakeApi {
           display_name: "Synthetic Analyst",
           role: this.options.role ?? "user",
           tenant_display_name: "Synthetic Client",
+          consent_required: !this.consented,
         },
       });
+    }
+    if (path === "/consent") {
+      if (method === "POST") {
+        this.accepted.push(request.postDataJSON());
+        this.consented = true;
+      }
+      return route.fulfill({
+        json: {
+          version: "v1",
+          title: "Synthetic Notice",
+          summary: "Synthetic plain-language summary.",
+          text: "Synthetic full wording of the notice.",
+          accepted_version: this.consented ? "v1" : null,
+          accepted_at: this.consented ? NOW : null,
+          required: !this.consented,
+        },
+      });
+    }
+    if (!this.consented) {
+      return route.fulfill({ status: 403, json: { detail: "consent_required" } });
     }
     if (path === "/workspaces") return route.fulfill({ json: this.options.workspaces });
     if (path.startsWith("/admin") || /^\/workspaces\/[^/]+\/prompts?$/.test(path)) {
@@ -326,7 +430,7 @@ export class FakeApi {
     }
     if (path === "/conversations") {
       return route.fulfill({
-        json: [...this.conversations.values()].map(summary),
+        json: this.options.noHistory ? [] : [...this.conversations.values()].map(summary),
       });
     }
     const ask = path.match(/^\/conversations\/([^/]+)\/messages$/);
@@ -335,6 +439,7 @@ export class FakeApi {
       if (!conversation) return route.fulfill({ status: 404, json: { detail: "not_found" } });
       const body = request.postDataJSON() as { question: string };
       this.asked.push({ conversation: ask[1], body });
+      if (this.options.noHistory) this.conversations.delete(ask[1]);
       return route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -343,7 +448,7 @@ export class FakeApi {
     }
     const detail = path.match(/^\/conversations\/([^/]+)$/);
     if (detail) {
-      const conversation = this.conversations.get(detail[1]);
+      const conversation = this.options.noHistory ? undefined : this.conversations.get(detail[1]);
       return conversation
         ? route.fulfill({ json: conversation })
         : route.fulfill({ status: 404, json: { detail: "not_found" } });

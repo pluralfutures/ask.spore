@@ -7,8 +7,8 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [security lead name], [security contact email], [privacy contact email], [lead supervisory authority], [48] (DPA notification window, hours), [document store], [date] |
-| To finalise, the owner must | (1) confirm the client notification window with counsel (the DPA draft says [48] hours); (2) name the lead supervisory authority; (3) schedule the first tabletop; (4) approve and sign. |
+| Placeholders | [security lead name], [48] (DPA notification window, hours), [document store], [date] |
+| To finalise, the owner must | (1) confirm the client notification window with counsel (the DPA draft says [48] hours); (2) schedule the first tabletop; (3) approve and sign. |
 
 ---
 
@@ -18,11 +18,11 @@ How we detect, handle, notify and learn from security incidents and personal dat
 
 ## 2. Rules
 
-1. **Anyone who suspects an incident reports it at once** to [security contact email]. External reports arrive at the same address.
+1. **Anyone who suspects an incident reports it at once** to security@myceliumgastronomy.com. External reports arrive at the same address.
 2. **Severity** is set at triage: Sev 1 (client data exposed or likely exposed, e.g. a cross-tenant read; platform down), Sev 2 (control failure without known exposure, e.g. a body in a log line), Sev 3 (anything else).
 3. **Contain first, preserve evidence.** The audit log is append-only; do not delete logs or rows during an investigation.
 4. **Client notification.** As processor, we notify the affected client without undue delay and within **[48] hours** of becoming aware of a breach of their data (client DPA clause 9.1), with the Art. 33(3) facts known so far.
-5. **Authority notification.** For data where we are controller (corpus personal data, our own logs), we notify [lead supervisory authority] within 72 hours unless the breach is unlikely to result in a risk (Art. 33), and the people affected where the risk is high (Art. 34).
+5. **Authority notification.** For data where we are controller (corpus personal data, our own logs), we notify the AEPD (Spain) within 72 hours unless the breach is unlikely to result in a risk (Art. 33), and the people affected where the risk is high (Art. 34).
 6. **Every incident is recorded** in the incident log, including those not notified, with the reasoning (Art. 33(5)).
 7. **Vendor incidents** reported to us by a sub-processor are handled as our own.
 8. **Post-incident review** within 10 working days for Sev 1 and 2; actions go to `risk-register.md`.

@@ -46,8 +46,8 @@ OpenRouter: contracting entity in the United States; the API hop terminates at t
 
 | Model | Pinned provider | Region stated by the owner | Country |
 | --- | --- | --- | --- |
-| `anthropic/claude-opus-5.5` | `amazon-bedrock`, `allow_fallbacks = false` | eu-west-1 | Ireland |
-| `openai/gpt-6.1-sol` | `azure`, `allow_fallbacks = false` | "EU region" (not named) | [EU country, to fill in] |
+| `anthropic/claude-opus-5.5` | `amazon-bedrock`, `allow_fallbacks = false` | EU, EEA, UK or Switzerland (set by the request) | not pinned to one country |
+| `openai/gpt-6.1-sol` | `azure`, `allow_fallbacks = false` | EU, EEA, UK or Switzerland (set by the request) | not pinned to one country |
 
 Our client pins the **provider only**; no region field is sent, because OpenRouter's provider-routing documentation could not be read from the build container (findings C31). Whether OpenRouter's `amazon-bedrock` and `azure` endpoints for these slugs serve from the EU, and whether a region can be requested at all, is **unverified**. If 4A holds, processing is in the EU by US-parent vendors: still a restricted transfer to OpenRouter, and a residual US-law access exposure through all three parent companies.
 
@@ -57,7 +57,7 @@ Assume processing in the **United States** (default regions of both vendors), po
 
 ## 5. Transfer mechanism
 
-- OpenRouter DPA incorporating the EU Standard Contractual Clauses (Commission Implementing Decision (EU) 2021/914), module **[2 and/or 3]**, version/date **[ ]**, accepted on **[date]**, filed at **[location]**.
+- OpenRouter DPA incorporating the EU Standard Contractual Clauses (Commission Implementing Decision (EU) 2021/914), module **[2 and/or 3]**, version/date **[ ]**, signed on **Oct 23, 2026**, filed at **[location]**.
 - Onward transfers to AWS and Microsoft: under OpenRouter's flow-down terms, per its DPA; OpenRouter's published upstream list and retention terms checked on **[date]**.
 - EU–US Data Privacy Framework: if OpenRouter, AWS and Microsoft are certified (to check on the DPF list and record the date), the transfer to each also rests on the adequacy decision of July 10, 2023, upheld by the General Court in September 2025 (appeal possible). The SCCs remain the primary mechanism here so that the assessment does not depend on the framework surviving.
 
@@ -103,7 +103,7 @@ Each item records the date, who checked, and where the evidence is kept (see `pa
 
 1. From OpenRouter's provider-routing documentation: whether a request can pin a **region**, not only a provider; the exact field, and whether the EU endpoint restricts routing to EU regions by itself.
 2. One real request per external model through `eu.openrouter.ai`, with the production request shape: record the provider metadata OpenRouter returns (serving provider, and region if reported). Synthetic prompt only.
-3. That `amazon-bedrock` for `anthropic/claude-opus-5.5` serves from eu-west-1, and `azure` for `openai/gpt-6.1-sol` serves from a named EU region; fill the country into §4A.
+3. That the region setting on each external request (EU, EEA, UK and Switzerland; owner, Oct 26, 2026) is honoured for `amazon-bedrock` and `azure`: record one real request per model with its provider metadata. Note that the UK and Switzerland are outside the EU/EEA (adequacy decisions apply), so the SCCs and this assessment still apply.
 4. That both pinned endpoints are on OpenRouter's published zero-data-retention list, and that the Azure endpoint is not subject to prompt-retaining abuse monitoring.
 5. Where `eu.openrouter.ai` is hosted and whether OpenRouter retains any request content or only metadata.
 6. DPF certification status of OpenRouter, AWS and Microsoft on the date checked.

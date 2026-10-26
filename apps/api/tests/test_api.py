@@ -91,6 +91,7 @@ class _Settings:
 
         self.models = real.models
         self.config_dir = real.config_dir
+        self.holidays = real.holidays
         self.secrets = Secrets(
             mistral_api_key=SecretStr("unused"),
             ragflow_api_key=SecretStr("unused"),
@@ -161,6 +162,7 @@ async def test_create_and_list_conversations(api: Harness) -> None:
         "reasoning",
         "notice",
         "notice_text",
+        "no_history",
     }
     assert (body["notice"], body["notice_text"]) == (None, None)
     created = datetime.fromisoformat(body["created_at"])
@@ -202,8 +204,9 @@ async def test_ask_streams_tokens_then_citations_then_done(api: Harness) -> None
         "model",
         "reasoning",
         "truncated",
+        "failover",  # P1b-17: none here
     }
-    assert done["truncated"] is False
+    assert done["truncated"] is False and done["failover"] is None
     # Badge data (P1a-11): the tenant default, reasoning off.
     assert (done["model"], done["reasoning"]) == ("deepseek-v4.1-flash", False)
     assert done["unsupported"] is False

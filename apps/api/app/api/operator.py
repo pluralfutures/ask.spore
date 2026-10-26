@@ -1,9 +1,19 @@
-"""/api/v1/operator: the operator console, minimum (P1a-03).
+"""/api/v1/operator: the operator console (P1a-03; one tenant per page, P1b-12).
 
 Every route depends on ``require_operator`` (``app.operator.deps``), never on a
 tenant role, and runs as ``askspore_operator`` outside tenant RLS. The tenant a
 route acts on is named in the path, which is the operator's to choose; nothing here
 reads conversations, messages or the corpus (the role has no privileges on them).
+
+P1b-12: the console shows one tenant per page. Its routes are the tenant's (by ID in
+the path): the tenant, its entitlements (a save names the page's tenant, which must be
+the path's, Phase 1a findings F2), login policy, workspaces with the tags offered to
+that tenant only (its own and shared ones; another tenant's tags are refused), users,
+and month-to-date spend and token usage by model from ``usage_ledger``. P1c-07: a
+user still ``invited`` can be sent the invitation again, and any tenant's user can be
+removed (``app.tenancy.user_removal``), as the tenant admin can for their own tenant. Cross-tenant
+totals are on their own route and name no tenant. No route returns query text: the
+role cannot read conversations or messages, and the ledger holds counts and cost only.
 
 Every change writes an ``audit_events`` row under the affected tenant, with the
 operator's user ID and the setting values before and after. Enabling external models
@@ -15,36 +25,53 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.admin import disable_provider_user, removal_refused
 from app.api.policy import policy_out
 from app.api.schemas import (
     AdminInvitedOut,
     AdminInviteIn,
+    AdminUserOut,
+    AggregateModelOut,
+    AggregatesOut,
     EntitlementsIn,
     EntitlementsOut,
     EntraSourceIn,
     GoogleSourceIn,
+    InvitationResentOut,
     LoginPolicyIn,
     LoginPolicyOut,
+    ModelSpendOut,
     NoticeOut,
     OidcSourceIn,
     OperatorMeOut,
     OperatorOptionsOut,
     OperatorSourceOut,
+    OperatorSupportGrantOut,
+    OperatorTagOut,
     OperatorWorkspaceOut,
+    ProviderTotalOut,
     SourceDownloadableIn,
+    SpendThresholdOut,
     SsoSourceIn,
+    SupportConversationOut,
+    SupportSettingsOut,
     TenantCreateIn,
     TenantOut,
+    TenantSpendOut,
+    TerminatedTenantOut,
     WorkspaceCreateIn,
     WorkspaceTagsIn,
 )
+from app.audit.models import AuditEvent
 from app.audit.writer import AuditValue, Change, record
 from app.auth.links import normalise_email
 from app.auth.provider import ProviderError, SignInLinkProvider, SourceAdmin
@@ -58,16 +85,30 @@ from app.auth.sources import (
     saml_config,
     spec_for,
 )
+from app.consent.gate import active_version
 from app.content.models import Source
 from app.content.store import STORABLE_TYPES
-from app.content.tags import load_tags
+from app.content.tags import load_tags, tags_for_tenant
+from app.core.db import OPERATOR_ROLE
 from app.core.logging import log
+from app.llm import catalogue
+from app.mail.queue import enqueue_invitation
 from app.operator.deps import OperatorContext, operator_session, require_operator
 from app.operator.models import OperatorNotice
+from app.support.access import (
+    SupportNotFound,
+    open_grants,
+    refused,
+    view_conversation,
+    view_settings,
+)
 from app.tenancy.entitlements import available_answer_modes, available_models, default_model
 from app.tenancy.login_policy import TenantLoginPolicy
 from app.tenancy.models import INTERNAL_TENANT_ID, Tenant, TenantEntitlements, User
+from app.tenancy.user_removal import RemovalRefused, remove_user
 from app.tenancy.workspaces import Workspace
+from app.usage.ledger import THRESHOLDS, month_of
+from app.usage.models import SpendNotice, UsageLedger
 
 router = APIRouter(prefix="/api/v1/operator", dependencies=[Depends(require_operator)])
 
@@ -162,8 +203,81 @@ async def operator_options(request: Request) -> OperatorOptionsOut:
 async def list_tenants(
     request: Request, session: AsyncSession = Depends(operator_session)
 ) -> list[TenantOut]:
-    tenants = (await session.scalars(select(Tenant).order_by(Tenant.created_at))).all()
+    # A terminated tenant keeps its row (the audit log refers to it) but has no entitlements
+    # or login policy (P1b-14); it is not listed, so it cannot hide the others (P1b-16 F5).
+    tenants = (
+        await session.scalars(
+            select(Tenant)
+            .join(TenantEntitlements, TenantEntitlements.tenant_id == Tenant.id)
+            .join(TenantLoginPolicy, TenantLoginPolicy.tenant_id == Tenant.id)
+            .order_by(Tenant.created_at)
+        )
+    ).all()
     return [await _tenant_out(request, session, tenant) for tenant in tenants]
+
+
+@router.get("/terminated-tenants", response_model=list[TerminatedTenantOut])
+async def list_terminated_tenants(
+    session: AsyncSession = Depends(operator_session),
+) -> list[TerminatedTenantOut]:
+    """P1c-08 (Phase 1b F5): the tenants the termination purge emptied, shown as such.
+
+    A purged tenant keeps its ``tenants`` row, suspended, without entitlements or a login
+    policy. Its purge date and certificate number come from the ``tenant.purged`` event,
+    recorded under the internal tenant with the tenant's slug in ``before`` (the event
+    carries no other identifier of it)."""
+    has_entitlements = select(TenantEntitlements.tenant_id).where(
+        TenantEntitlements.tenant_id == Tenant.id
+    )
+    has_policy = select(TenantLoginPolicy.tenant_id).where(TenantLoginPolicy.tenant_id == Tenant.id)
+    tenants = (
+        await session.scalars(
+            select(Tenant)
+            # Suspended and emptied: a half-created tenant that merely lacks its
+            # entitlements or login policy is not a terminated one (B/C review item 5).
+            .where(Tenant.status == "suspended", ~has_entitlements.exists() | ~has_policy.exists())
+            .order_by(Tenant.created_at)
+        )
+    ).all()
+    purges: dict[str, tuple[Any, str | None]] = {}
+    if tenants:
+        rows = await session.execute(
+            select(AuditEvent.created_at, AuditEvent.metadata_)
+            .where(
+                AuditEvent.tenant_id == INTERNAL_TENANT_ID,
+                AuditEvent.event == "tenant.purged",
+                AuditEvent.metadata_["before"]["slug"].astext.in_([t.slug for t in tenants]),
+            )
+            .order_by(AuditEvent.created_at)
+        )
+        for created_at, metadata in rows:
+            certificate = metadata.get("certificate")
+            purges[metadata["before"]["slug"]] = (
+                created_at,
+                certificate if isinstance(certificate, str) else None,
+            )
+    return [
+        TerminatedTenantOut(
+            id=t.id,
+            slug=t.slug,
+            display_name=t.display_name,
+            status=t.status,
+            purged_at=purges.get(t.slug, (None, None))[0],
+            certificate=purges.get(t.slug, (None, None))[1],
+        )
+        for t in tenants
+    ]
+
+
+@router.get("/tenants/{tenant_id}", response_model=TenantOut)
+async def get_tenant(
+    tenant_id: UUID, request: Request, session: AsyncSession = Depends(operator_session)
+) -> TenantOut:
+    """One tenant, for its console page (P1b-12)."""
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise NOT_FOUND
+    return await _tenant_out(request, session, tenant)
 
 
 @router.post("/tenants", status_code=status.HTTP_201_CREATED, response_model=TenantOut)
@@ -237,11 +351,12 @@ async def invite_admin(
     operator: OperatorContext = Depends(require_operator),
     session: AsyncSession = Depends(operator_session),
 ) -> AdminInvitedOut:
-    """Create the tenant's admin as ``invited`` and provision them in Authentik.
+    """Create the tenant's admin as ``invited``, provision them in Authentik and queue
+    their invitation email (P1b-11).
 
-    They then sign in with a link from their own browser; the first sign-in makes
-    them ``active``. An email already used in any tenant is refused: Authentik's
-    usernames are emails, and an email maps to one tenant (findings A8).
+    They then sign in from their own browser; the first sign-in makes them ``active``.
+    An email already used in any tenant is refused: Authentik's usernames are emails,
+    and an email maps to one tenant (findings A8).
     """
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
@@ -276,6 +391,10 @@ async def invite_admin(
         # The transaction rolls back: no users row without its Authentik user.
         log("operator.invite_failed", tenant_id=str(tenant_id), error_code=exc.error_code)
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="provisioning_failed") from None
+    # P1b-11: the invitation email, sent by the worker; commits with the user (A15).
+    await enqueue_invitation(
+        session, tenant_id=tenant_id, user_id=user.id, created_by=operator.user_id
+    )
     await record(
         session,
         tenant_id=tenant_id,
@@ -299,6 +418,10 @@ async def set_entitlements(
     operator: OperatorContext = Depends(require_operator),
     session: AsyncSession = Depends(operator_session),
 ) -> TenantEntitlements:
+    if body.tenant_id != tenant_id:
+        # F2: a save made on one tenant's page never lands on another tenant.
+        log("operator.entitlements_refused", tenant_id=str(tenant_id), error_code="mismatch")
+        raise _conflict("tenant_mismatch")
     row = await session.get(TenantEntitlements, tenant_id, with_for_update=True)
     if row is None:
         raise NOT_FOUND
@@ -574,11 +697,37 @@ def _workspace_values(workspace: Workspace) -> Change:
     }
 
 
-def _check_tags(request: Request, tag_ids: list[str]) -> list[str]:
-    """Tags must exist in config/tags.toml; tags may repeat across workspaces."""
-    if set(tag_ids) - set(load_tags(request.app.state.settings.config_dir)):
+async def _tenant_tags(request: Request, session: AsyncSession, tenant_id: UUID) -> list[str]:
+    """The tags this tenant's workspaces may use: its own and the shared ones (P1b-12)."""
+    slug = await session.scalar(select(Tenant.slug).where(Tenant.id == tenant_id))
+    if slug is None:
+        raise NOT_FOUND
+    return tags_for_tenant(load_tags(request.app.state.settings.config_dir), slug)
+
+
+async def _check_tags(
+    request: Request, session: AsyncSession, tenant_id: UUID, tag_ids: list[str]
+) -> list[str]:
+    """Tags must exist in config/tags.toml and be the tenant's own or shared (P1b-12);
+    tags may repeat across workspaces."""
+    tags = load_tags(request.app.state.settings.config_dir)
+    if set(tag_ids) - set(tags):
         raise _unprocessable("unknown_tag")
+    if set(tag_ids) - set(await _tenant_tags(request, session, tenant_id)):
+        raise _unprocessable("tag_not_for_tenant")
     return sorted(set(tag_ids))
+
+
+@router.get("/tenants/{tenant_id}/tags", response_model=list[OperatorTagOut])
+async def list_tenant_tags(
+    tenant_id: UUID, request: Request, session: AsyncSession = Depends(operator_session)
+) -> list[OperatorTagOut]:
+    """What the tenant's workspace tag pickers offer (P1b-12)."""
+    tags = load_tags(request.app.state.settings.config_dir)
+    return [
+        OperatorTagOut(tag=tag, shared=tags[tag].shared)
+        for tag in await _tenant_tags(request, session, tenant_id)
+    ]
 
 
 @router.get("/tenants/{tenant_id}/workspaces", response_model=list[OperatorWorkspaceOut])
@@ -619,7 +768,7 @@ async def create_workspace(
         tenant_id=tenant_id,
         slug=body.slug,
         name=body.name.strip(),
-        tag_ids=_check_tags(request, body.tag_ids),
+        tag_ids=await _check_tags(request, session, tenant_id, body.tag_ids),
         default_mode=body.default_mode,
         default_model=body.default_model,
         default_reasoning=body.default_reasoning,
@@ -662,7 +811,7 @@ async def set_workspace_tags(
     if workspace is None:
         raise NOT_FOUND
     before = _workspace_values(workspace)
-    workspace.tag_ids = _check_tags(request, body.tag_ids)
+    workspace.tag_ids = await _check_tags(request, session, tenant_id, body.tag_ids)
     await session.flush()
     after = _workspace_values(workspace)
     if after != before:
@@ -675,6 +824,224 @@ async def set_workspace_tags(
         )
         log("operator.workspace_tags_changed", tenant_id=str(tenant_id), status="changed")
     return workspace
+
+
+# --- users, spend and cross-tenant totals (P1b-12) ----------------------------------------
+
+
+@router.get("/tenants/{tenant_id}/users", response_model=list[AdminUserOut])
+async def list_tenant_users(
+    tenant_id: UUID, request: Request, session: AsyncSession = Depends(operator_session)
+) -> list[AdminUserOut]:
+    """The tenant's users, as its admin sees them (no conversation data)."""
+    if await session.get(Tenant, tenant_id) is None:
+        raise NOT_FOUND
+    rows = await session.scalars(
+        select(User).where(User.tenant_id == tenant_id).order_by(User.display_name, User.email)
+    )
+    active = active_version(request)
+    return [AdminUserOut.of(user, active) for user in rows]
+
+
+@router.post(
+    "/tenants/{tenant_id}/users/{user_id}/invitation",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=InvitationResentOut,
+)
+async def resend_invitation(
+    tenant_id: UUID,
+    user_id: UUID,
+    operator: OperatorContext = Depends(require_operator),
+    session: AsyncSession = Depends(operator_session),
+) -> InvitationResentOut:
+    """P1c-07: queue the invitation email again for a user still ``invited``."""
+    user = await session.scalar(select(User).where(User.id == user_id, User.tenant_id == tenant_id))
+    if user is None:
+        raise NOT_FOUND
+    if user.status != "invited":
+        raise _unprocessable("not_invited")
+    job_id = await enqueue_invitation(
+        session, tenant_id=tenant_id, user_id=user.id, created_by=operator.user_id
+    )
+    values: Change = {"user_id": str(user.id), "role": user.role, "status": user.status}
+    await record(
+        session,
+        tenant_id=tenant_id,
+        actor_user_id=None,
+        event="operator.invitation_resent",
+        metadata={
+            "operator_id": str(operator.user_id),
+            "job_id": str(job_id),
+            "before": values,
+            "after": values,
+        },
+    )
+    log("operator.invitation_resent", tenant_id=str(tenant_id), user_id=str(user.id))
+    return InvitationResentOut(user_id=user.id, status="queued")
+
+
+@router.delete("/tenants/{tenant_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_tenant_user(
+    tenant_id: UUID,
+    user_id: UUID,
+    request: Request,
+    operator: OperatorContext = Depends(require_operator),
+    session: AsyncSession = Depends(operator_session),
+) -> Response:
+    """P1c-07: delete any tenant's user with their history; audited under the tenant."""
+    if await session.get(Tenant, tenant_id) is None:
+        raise NOT_FOUND
+    try:
+        removed = await remove_user(
+            session,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            actor_user_id=operator.user_id,
+            restore_role=OPERATOR_ROLE,
+        )
+    except RemovalRefused as exc:
+        log("operator.remove_refused", tenant_id=str(tenant_id), error_code=exc.code)
+        raise removal_refused(exc) from None
+    await disable_provider_user(request, removed.email, tenant_id)
+    await record(
+        session,
+        tenant_id=tenant_id,
+        actor_user_id=None,
+        event="operator.user_removed",
+        metadata={
+            "operator_id": str(operator.user_id),
+            "before": {"user_id": str(user_id), "role": removed.role, "status": removed.status},
+            "after": {},
+            "count": removed.total,
+        },
+    )
+    log(
+        "operator.user_removed",
+        tenant_id=str(tenant_id),
+        user_id=str(user_id),
+        count=removed.total,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _model_spend(request: Request, row: UsageLedger) -> ModelSpendOut:
+    entry = catalogue.entry(request.app.state.settings, row.model)
+    return ModelSpendOut(
+        model=row.model,
+        display_name=entry.display_name if entry else row.model,
+        external=entry.external if entry else False,
+        tokens_in=row.tokens_in,
+        tokens_out=row.tokens_out,
+        cost_cents=row.cost_cents,
+    )
+
+
+@router.get("/tenants/{tenant_id}/spend", response_model=TenantSpendOut)
+async def tenant_spend(
+    tenant_id: UUID, request: Request, session: AsyncSession = Depends(operator_session)
+) -> TenantSpendOut:
+    """Month-to-date token usage and cost by model, from ``usage_ledger``, and external
+    spend against the cap with the 80 and 100 percent notice thresholds (UTC month)."""
+    entitlements = await session.get(TenantEntitlements, tenant_id)
+    if entitlements is None:
+        raise NOT_FOUND
+    month = month_of()
+    rows = await session.scalars(
+        select(UsageLedger)
+        .where(UsageLedger.tenant_id == tenant_id, UsageLedger.month == month)
+        .order_by(UsageLedger.model)
+    )
+    models = [_model_spend(request, row) for row in rows]
+    spent = sum((m.cost_cents for m in models if m.external), Decimal(0))
+    notified = {
+        n.threshold: n.created_at
+        for n in await session.scalars(
+            select(SpendNotice).where(
+                SpendNotice.tenant_id == tenant_id, SpendNotice.month == month
+            )
+        )
+    }
+    cap = entitlements.external_spend_cap_cents
+    thresholds = (
+        [
+            SpendThresholdOut(
+                percent=percent,
+                cents=Decimal(cap) * percent / 100,
+                reached=spent * 100 >= cap * percent,
+                notified_at=notified.get(percent),
+            )
+            for percent in THRESHOLDS
+        ]
+        if cap is not None
+        else []
+    )
+    return TenantSpendOut(
+        tenant_id=tenant_id,
+        month=month.strftime("%Y-%m"),
+        models=models,
+        external_spent_cents=spent,
+        external_models_enabled=entitlements.external_models_enabled,
+        external_spend_cap_cents=cap,
+        thresholds=thresholds,
+    )
+
+
+@router.get("/aggregates", response_model=AggregatesOut)
+async def aggregates(
+    request: Request, session: AsyncSession = Depends(operator_session)
+) -> AggregatesOut:
+    """Cross-tenant totals for the month: per model and per provider, and how many
+    tenants used each. No tenant is named; there is no query text to show."""
+    settings = request.app.state.settings
+    month = month_of()
+    rows = (
+        await session.execute(
+            select(
+                UsageLedger.model,
+                func.count(func.distinct(UsageLedger.tenant_id)).label("tenants"),
+                func.sum(UsageLedger.tokens_in).label("tokens_in"),
+                func.sum(UsageLedger.tokens_out).label("tokens_out"),
+                func.sum(UsageLedger.cost_cents).label("cost_cents"),
+            )
+            .where(UsageLedger.month == month)
+            .group_by(UsageLedger.model)
+            .order_by(UsageLedger.model)
+        )
+    ).all()
+    models = []
+    providers: dict[str, ProviderTotalOut] = {}
+    for r in rows:
+        entry = catalogue.entry(settings, r.model)
+        provider = entry.provider if entry else "other"
+        model = AggregateModelOut(
+            model=r.model,
+            display_name=entry.display_name if entry else r.model,
+            external=entry.external if entry else False,
+            provider=provider,
+            tenants=r.tenants,
+            tokens_in=int(r.tokens_in),
+            tokens_out=int(r.tokens_out),
+            cost_cents=Decimal(r.cost_cents),
+        )
+        models.append(model)
+        total = providers.setdefault(
+            provider,
+            ProviderTotalOut(provider=provider, tokens_in=0, tokens_out=0, cost_cents=Decimal(0)),
+        )
+        total.tokens_in += model.tokens_in
+        total.tokens_out += model.tokens_out
+        total.cost_cents += model.cost_cents
+    with_usage = await session.scalar(
+        select(func.count(func.distinct(UsageLedger.tenant_id))).where(UsageLedger.month == month)
+    )
+    tenants = await session.scalar(select(func.count()).select_from(Tenant))
+    return AggregatesOut(
+        month=month.strftime("%Y-%m"),
+        tenants=tenants or 0,
+        tenants_with_usage=with_usage or 0,
+        models=models,
+        providers=sorted(providers.values(), key=lambda p: p.provider),
+    )
 
 
 # --- source register: the download switch (P1a-14) ---------------------------------------
@@ -758,3 +1125,59 @@ async def set_source_downloadable(
         log("operator.source_downloadable_changed", source_id=str(source_id), status="changed")
     (out,) = [s for s in await list_sources(session) if s.id == source_id]
     return out
+
+
+# --- support access (P2A-08) -------------------------------------------------------------
+
+
+@router.get("/tenants/{tenant_id}/support-grants", response_model=list[OperatorSupportGrantOut])
+async def list_open_support_grants(
+    tenant_id: UUID, request: Request
+) -> list[OperatorSupportGrantOut]:
+    """The tenant's open grants: what each covers and until when."""
+    return await open_grants(request.app.state.db_factory, tenant_id)
+
+
+@router.get(
+    "/tenants/{tenant_id}/support-grants/{grant_id}/settings", response_model=SupportSettingsOut
+)
+async def read_support_settings(
+    tenant_id: UUID,
+    grant_id: UUID,
+    request: Request,
+    operator: OperatorContext = Depends(require_operator),
+) -> SupportSettingsOut:
+    try:
+        return await view_settings(
+            request.app.state.db_factory,
+            tenant_id=tenant_id,
+            grant_id=grant_id,
+            operator_id=operator.user_id,
+        )
+    except SupportNotFound:
+        refused(tenant_id)
+        raise NOT_FOUND from None
+
+
+@router.get(
+    "/tenants/{tenant_id}/support-grants/{grant_id}/conversations/{conversation_id}",
+    response_model=SupportConversationOut,
+)
+async def read_support_conversation(
+    tenant_id: UUID,
+    grant_id: UUID,
+    conversation_id: UUID,
+    request: Request,
+    operator: OperatorContext = Depends(require_operator),
+) -> SupportConversationOut:
+    try:
+        return await view_conversation(
+            request.app.state.db_factory,
+            tenant_id=tenant_id,
+            grant_id=grant_id,
+            conversation_id=conversation_id,
+            operator_id=operator.user_id,
+        )
+    except SupportNotFound:
+        refused(tenant_id)
+        raise NOT_FOUND from None

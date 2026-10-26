@@ -1,6 +1,9 @@
 # Eval harness on demand (P0-19): runs packages/eval against a target API and RAGFlow and
-# uploads the results folder as an artifact. Manual only; automatic gating comes in
-# Phase 1 with staging.
+# uploads the results folder as an artifact. The run is the eval gate (P1b-15 b): it is
+# compared with the last accepted baseline (packages/eval/results/BASELINE, or the
+# `baseline` input) and the job fails on a regression of more than 3 points. To accept
+# the run as the new baseline, download the artifact and run
+# `python -m eval accept-baseline <folder> --reason "..."` (README), then commit.
 #
 # The runner must reach the API, RAGFlow and Postgres of the target. RAGFlow and Postgres
 # have no public listener, so for the Phase 0 Instance use a self-hosted runner on (or
@@ -8,7 +11,8 @@
 #
 # Secrets (repository or environment), read only at run time: MISTRAL_API_KEY,
 # RAGFLOW_API_KEY, EVAL_DATABASE_URL (read access to the target's database),
-# PHASE0_BEARER_TOKEN, EVAL_USER_EMAIL (a seeded internal user), and optionally
+# EVAL_USER_EMAIL, and EVAL_SERVICE_PRIVATE_KEY (an API in oidc mode with
+# [auth.eval_service], P1b-15 a) or PHASE0_BEARER_TOKEN (phase0 mode), and optionally
 # EVAL_API_URL / EVAL_RAGFLOW_URL when the inputs are left empty. None is needed for this
 # file to be valid; a missing one fails the run at the first step, by name.
 
@@ -38,7 +42,7 @@ on:
         required: false
         default: ""
       baseline:
-        description: "Results folder under packages/eval/results to compare against (empty: no comparison)"
+        description: "Results folder under packages/eval/results to compare against (empty: the one named in results/BASELINE)"
         required: false
         default: ""
 
@@ -62,6 +66,8 @@ jobs:
       RAGFLOW_API_KEY: ${{ secrets.RAGFLOW_API_KEY }}
       DATABASE_URL: ${{ secrets.EVAL_DATABASE_URL }}
       PHASE0_BEARER_TOKEN: ${{ secrets.PHASE0_BEARER_TOKEN }}
+      EVAL_SERVICE_PRIVATE_KEY: ${{ secrets.EVAL_SERVICE_PRIVATE_KEY }}
+      SCALEWAY_API_KEY: ${{ secrets.SCALEWAY_API_KEY }}
       EVAL_USER_EMAIL: ${{ secrets.EVAL_USER_EMAIL }}
       EVAL_API_URL: ${{ inputs.api_url || secrets.EVAL_API_URL }}
       EVAL_RAGFLOW_URL: ${{ inputs.ragflow_url || secrets.EVAL_RAGFLOW_URL }}
@@ -72,10 +78,16 @@ jobs:
       - name: Check secrets and inputs are set
         run: |
           missing=""
-          for name in MISTRAL_API_KEY RAGFLOW_API_KEY DATABASE_URL PHASE0_BEARER_TOKEN EVAL_USER_EMAIL EVAL_API_URL; do
+          for name in RAGFLOW_API_KEY DATABASE_URL EVAL_USER_EMAIL EVAL_API_URL; do
             eval "value=\${$name:-}"
             [ -n "$value" ] || missing="$missing $name"
           done
+          if [ -z "${EVAL_SERVICE_PRIVATE_KEY:-}" ] && [ -z "${PHASE0_BEARER_TOKEN:-}" ]; then
+            missing="$missing EVAL_SERVICE_PRIVATE_KEY(or PHASE0_BEARER_TOKEN)"
+          fi
+          if [ -z "${SCALEWAY_API_KEY:-}" ] && [ -z "${MISTRAL_API_KEY:-}" ]; then
+            missing="$missing SCALEWAY_API_KEY(or MISTRAL_API_KEY, the judge's provider)"
+          fi
           if [ -n "$missing" ]; then
             echo "::error::Not set:$missing (DATABASE_URL comes from secret EVAL_DATABASE_URL; EVAL_API_URL from input api_url or secret EVAL_API_URL)"
             exit 1
@@ -93,7 +105,9 @@ jobs:
         run: |
           set -- --set "$EVAL_SET" --note "Workflow run ${GITHUB_RUN_ID} on ${GITHUB_REF_NAME}"
           if [ -n "$EVAL_LIMIT" ]; then set -- "$@" --limit "$EVAL_LIMIT"; fi
-          uv run python -m eval run --config ../../config/models.toml "$@"
+          # P1c-12: full outputs outside the checkout; the redacted copy under results/.
+          uv run python -m eval run --config ../../config/models.toml \
+            --runs-dir "$RUNNER_TEMP/eval-runs" "$@"
       - name: Upload results
         if: always() && steps.run.outputs.results_dir != ''
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -102,11 +116,12 @@ jobs:
           path: ${{ steps.run.outputs.results_dir }}
           if-no-files-found: error
           retention-days: 30
-      - name: Compare with the baseline
-        if: inputs.baseline != ''
+      - name: Compare with the baseline (the gate)
         env:
           RESULTS_DIR: ${{ steps.run.outputs.results_dir }}
-        run: uv run python -m eval compare "results/$EVAL_BASELINE" "$RESULTS_DIR" --output "$RUNNER_TEMP/compare.md"
+        run: |
+          baseline="${EVAL_BASELINE:-$(head -n 1 results/BASELINE)}"
+          uv run python -m eval compare "results/$baseline" "$RESULTS_DIR" --output "$RUNNER_TEMP/compare.md"
       - name: Job summary
         if: always() && steps.run.outputs.results_dir != ''
         env:

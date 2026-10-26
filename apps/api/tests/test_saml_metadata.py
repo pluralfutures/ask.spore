@@ -192,19 +192,49 @@ def test_mapping_stamps_the_sources_tenant_never_a_claim() -> None:
     }
 
 
+# P1c-02: a refusal is a return value (no tenant, the code), never an exception, which
+# Authentik answers with HTTP 500 and configuration_error events.
+REFUSED = "ask_spore_refusal"
+
+
 def test_mapping_refuses_an_unverified_domain() -> None:
-    with pytest.raises(ValueError, match="domain_not_verified"):
-        run_mapping("entra", entra_config(TENANT, "c", []), info={"mail": "x@other.example"})
+    out = run_mapping("entra", entra_config(TENANT, "c", []), info={"mail": "x@other.example"})
+    assert out == {"attributes": {REFUSED: "domain_not_verified"}}
 
 
 @pytest.mark.parametrize("hd", ["", "other.example"])
 def test_mapping_refuses_a_google_hd_mismatch(hd: str) -> None:
-    with pytest.raises(ValueError, match="hd_mismatch"):
-        run_mapping(
+    out = run_mapping(
+        "google",
+        google_config("c"),
+        info={"email": "x@client.example", "hd": hd, "verified_email": True},
+    )
+    assert out == {"attributes": {REFUSED: "hd_mismatch"}}
+
+
+@pytest.mark.parametrize(
+    ("kind", "config", "info"),
+    [
+        ("oidc", oidc_config("https://idp.client.example", "c"), {"email": "x@client.example"}),
+        (
             "google",
             google_config("c"),
-            info={"email": "x@client.example", "hd": hd, "verified_email": True},
-        )
+            {"email": "x@client.example", "hd": "client.example", "verified_email": False},
+        ),
+    ],
+)
+def test_mapping_refuses_an_address_the_idp_did_not_verify(
+    kind: str, config: dict[str, Any], info: dict[str, Any]
+) -> None:
+    assert run_mapping(kind, config, info=info) == {"attributes": {REFUSED: "email_unverified"}}
+
+
+def test_a_refused_mapping_carries_no_tenant_and_no_address() -> None:
+    out = run_mapping("entra", entra_config(TENANT, "c", []), info={"mail": "x@other.example"})
+    flat = repr(out)
+    assert (
+        str(TENANT) not in flat and "other.example" not in flat and "ask_spore_tenant" not in flat
+    )
 
 
 def test_mapping_google_and_entra_groups() -> None:

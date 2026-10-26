@@ -57,7 +57,7 @@ Assume processing in the **United States** (default regions of both vendors), po
 
 ## 5. Transfer mechanism
 
-- OpenRouter DPA incorporating the EU Standard Contractual Clauses (Commission Implementing Decision (EU) 2021/914), module **[2 and/or 3]**, version/date **[ ]**, accepted on **[date]**, filed at **[location]**.
+- OpenRouter DPA incorporating the EU Standard Contractual Clauses (Commission Implementing Decision (EU) 2021/914), module **[2 and/or 3]**, version/date **[ ]**, signed on **Oct 23, 2026**, filed at **[location]**.
 - Onward transfers to AWS and Microsoft: under OpenRouter's flow-down terms, per its DPA; OpenRouter's published upstream list and retention terms checked on **[date]**.
 - EU–US Data Privacy Framework: if OpenRouter, AWS and Microsoft are certified (to check on the DPF list and record the date), the transfer to each also rests on the adequacy decision of July 10, 2023, upheld by the General Court in September 2025 (appeal possible). The SCCs remain the primary mechanism here so that the assessment does not depend on the framework surviving.
 

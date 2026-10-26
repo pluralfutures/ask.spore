@@ -1,10 +1,10 @@
-# AI Transparency Note — Draft
+# AI Transparency Note
 
-**DRAFT for owner and counsel review, Oct 21, 2026**
+**Version 1. Approved by counsel, Oct 26, 2026 (owner's report). Served at /legal once `ASKSPORE_LEGAL=published`.**
 
 | | |
 | --- | --- |
-| Status | **DRAFT** |
+| Status | **APPROVED by counsel, Oct 26, 2026** (version 1) |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Placeholders | none (filled in by the owner, Oct 26, 2026) |

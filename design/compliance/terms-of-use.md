@@ -1,10 +1,10 @@
-# Terms of Use (users) — Draft
+# Terms of Use (users)
 
-**DRAFT for owner and counsel review, Oct 26, 2026**
+**Version 1. Approved by counsel, Oct 26, 2026 (owner's report). Served at /legal once `ASKSPORE_LEGAL=published`.**
 
 | | |
 | --- | --- |
-| Status | **DRAFT — counsel must review before it is published** |
+| Status | **APPROVED by counsel, Oct 26, 2026** (version 1) |
 | Date | Oct 26, 2026 |
 | Author | Drafted for owner review (spec item P2A-L2; owner decision of Oct 26, 2026: users read a short "Terms of Use", the client MSA stays a signed contract) |
 | Source | `terms-of-service.md` §1, §3.2–3.4, §4, §5, §6, §8, §9.2 and §10. Every statement here restates a clause there; this text adds no term. If the two diverge, the MSA wins between the parties and this page must be corrected |

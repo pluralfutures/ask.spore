@@ -1,10 +1,10 @@
-# Privacy Notice — Draft
+# Privacy Notice
 
-**DRAFT for owner and counsel review, Oct 21, 2026**
+**Version 1. Approved by counsel, Oct 26, 2026 (owner's report). Served at /legal once `ASKSPORE_LEGAL=published`.**
 
 | | |
 | --- | --- |
-| Status | **DRAFT** |
+| Status | **APPROVED by counsel, Oct 26, 2026** (version 1) |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted. Oct 25, 2026, **DRAFT** (P2A-10): support access described in §2 and in the audit row, as built in P2A-08 (owner note 8) |

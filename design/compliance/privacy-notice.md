@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted. Oct 25, 2026, **DRAFT** (P2A-10): support access described in §2 and in the audit row, as built in P2A-08 (owner note 8) |
-| Placeholders | [24 months], [2 years] and the app cookie retention `[ ]` in §3 (the owner's values of Oct 26, 2026 filled in the rest) |
+| Placeholders | none (the owner's values of Oct 26, 2026 are filled in; the cookie row states the built lifetimes, to change if the trusted-browser cookie of P2A-L6 is built) |
 | To finalise, the owner must | (1) confirm the entity, contacts and supervisory authority (AEPD); (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) website facts given by the owner on Oct 22, 2026 (contact form, no cookies) are in §3; fill in [website host] and its log retention, and keep the no-cookie statement true (no third-party fonts, maps, videos or analytics loaded from other servers); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records (the wording goes in `config/consent/<version>.md`, the version in `[consent] version` of `config/models.toml`; P1b-10, findings E1-5). |
 
 ## Notes for the owner (delete before publishing)
@@ -73,11 +73,11 @@ We do **not** use your questions or conversations to train or improve any AI mod
 | Purpose | Data | Legal basis | Retention |
 | --- | --- | --- | --- |
 | Keeping the service secure and working | Technical logs: request ID, time, status, latency, token counts, error codes, a pseudonymous user or customer ID. No question, answer or prompt text, no email content | Our legitimate interest in running a secure, reliable service (Art. 6(1)(f)) | 12 months for application logs; security-relevant audit records 12 months |
-| Aggregated service metrics | Counts per customer (questions per day, active users, cost per model). No text | Legitimate interest (Art. 6(1)(f)) | [24 months], aggregated |
-| Answering your messages to us | Your name, email address, the content of your message | Legitimate interest in responding; legal obligation where you exercise a GDPR right (Art. 6(1)(c)) | [2 years] after the matter is closed |
-| Our website's contact form | Your name, email address, organisation if you give it, and your message | Our legitimate interest in answering enquiries (Art. 6(1)(f)); steps you ask for before a contract (Art. 6(1)(b)) | [2 years] after the matter is closed; if it leads to a contract, as a business contact for the contract's term |
+| Aggregated service metrics | Counts per customer (questions per day, active users, cost per model). No text | Legitimate interest (Art. 6(1)(f)) | 24 months, aggregated |
+| Answering your messages to us | Your name, email address, the content of your message | Legitimate interest in responding; legal obligation where you exercise a GDPR right (Art. 6(1)(c)) | 12 months after the matter is closed |
+| Our website's contact form | Your name, email address, organisation if you give it, and your message | Our legitimate interest in answering enquiries (Art. 6(1)(f)); steps you ask for before a contract (Art. 6(1)(b)) | 12 months after the matter is closed; if it leads to a contract, as a business contact for the contract's term |
 | Our website's server logs | IP address, time, page requested and browser type, kept by Scaleway | Our legitimate interest in running a secure website (Art. 6(1)(f)) | 7 days |
-| The SporeBot app (askspore.myceliumgastronomy.com) | Strictly necessary cookies only (sign-in). No analytics, advertising or tracking cookies. | Legitimate interest (strictly necessary; no consent needed) | [ ] |
+| The SporeBot app (askspore.myceliumgastronomy.com) | Strictly necessary cookies only (sign-in). No analytics, advertising or tracking cookies. | Legitimate interest (strictly necessary; no consent needed) | 8 hours for the sign-in session, 24 hours for its renewal |
 
 **Cookies.** Our public website sets no cookies and uses no analytics or tracking tools. The SporeBot app, which you use after signing in, uses only cookies that are strictly necessary to sign you in and keep you signed in; they need no consent and are not used for anything else.
 

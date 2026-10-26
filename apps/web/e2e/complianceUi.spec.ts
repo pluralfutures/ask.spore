@@ -64,7 +64,12 @@ test.describe("1. consent gate", () => {
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("Use and privacy notice");
       await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
       await expect(page.getByLabel("Question")).toHaveCount(0);
-      await expect(page.getByRole("link")).toHaveCount(0); // no way round the gate
+      // No way round the gate: the only link is the footer's Legal link (P2A-L1, owner
+      // decision Oct 26, 2026; before that the gate had no link at all).
+      await expect(page.getByRole("link")).toHaveCount(1);
+      await expect(
+        page.getByRole("contentinfo").getByRole("link", { name: "Legal" }),
+      ).toBeVisible();
     });
   }
 

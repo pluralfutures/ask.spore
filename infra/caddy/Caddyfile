@@ -19,6 +19,20 @@
 	file_server
 }
 
+# P2A-L2: the legal pages (/legal and the three documents), all four on one deploy-time flag
+# ASKSPORE_LEGAL ("published" or the default "unpublished", from infra/.env). The argument
+# names the file under /srv/web/legal. Any other value names no snippet and Caddy refuses to
+# start.
+(legal_unpublished) {
+	respond 404
+}
+(legal_published) {
+	root * /srv/web
+	header Cache-Control "no-cache"
+	rewrite * /legal/{args[0]}.html
+	file_server
+}
+
 askspore.myceliumgastronomy.com {
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -71,8 +85,24 @@ askspore.myceliumgastronomy.com {
 	handle /trust {
 		import trust_page_{$ASKSPORE_TRUST_PAGE:unpublished}
 	}
+	# P2A-L2: the footer's Legal link and the three documents it lists. Not published until
+	# the owner has the texts signed off and sets the flag (above). Public, like the privacy
+	# notice must be: no sign-in, no cookie, no API call.
+	@legal_index path /legal /legal/
+	handle @legal_index {
+		import legal_{$ASKSPORE_LEGAL:unpublished} index
+	}
+	handle /legal/privacy {
+		import legal_{$ASKSPORE_LEGAL:unpublished} privacy
+	}
+	handle /legal/ai {
+		import legal_{$ASKSPORE_LEGAL:unpublished} ai
+	}
+	handle /legal/terms {
+		import legal_{$ASKSPORE_LEGAL:unpublished} terms
+	}
 	# One address per page: the files' own names are not served.
-	@public_page_files path /security-disclosure.html /trust.html
+	@public_page_files path /security-disclosure.html /trust.html /legal/index.html /legal/privacy.html /legal/ai.html /legal/terms.html
 	handle @public_page_files {
 		respond 404
 	}

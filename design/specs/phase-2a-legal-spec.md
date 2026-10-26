@@ -1,83 +1,113 @@
-# Phase 2A-Legal Spec — Legal Links in the Page Footer
+# Phase 2A-Legal Spec — Legal Link in the Page Footer, Terms of Use, Sign-in Email and Repeat Sign-in
 
-Oct 26, 2026 · Status: **Proposed, for owner approval** · Target duration: 1–2 days · Part of Phase 2A (owner, Oct 26, 2026); built after P2A-11 (static trust and disclosure files), before the release item P2A-13
+Oct 26, 2026 · Status: **Owner decisions of Oct 26, 2026 taken (table below); P2A-L1 to L4 in build; L5 and L6 specified, waiting on the owner's choice in open items 1 and 2** · Target duration: L1–L4 1–2 days, L5 half a day, L6 2–3 days · Part of Phase 2A; built after P2A-11 (static trust and disclosure files), before the release item P2A-13
 
-Source: the owner's decisions of Oct 26, 2026 (add as Phase 2A-Legal; a link at the bottom of each user-accessible page), the compliance guide (transparency, GDPR Arts. 12–14, EU AI Act Art. 50), `design/compliance/privacy-notice.md`, `ai-transparency-note.md`, `terms-of-service.md`, `trust-page.md` (publishing mechanism), `ux-refresh-spec.md` (binding list items 1 and 2) and `home-page-spec.md`.
+Source: the owner's messages of Oct 26, 2026, the compliance guide (transparency, GDPR Arts. 12–14, EU AI Act Art. 50; "MFA for tenant admins" and the Oct 22 addendum on the admin second factor), `design/compliance/privacy-notice.md`, `ai-transparency-note.md`, `terms-of-service.md`, `terms-of-use.md` (new), `trust-page.md` (publishing mechanism), `ux-refresh-spec.md` (binding list items 1 and 2), `infra/authentik/` (template and blueprint) and `home-page-spec.md`.
+
+## Owner decisions of Oct 26, 2026
+
+| # | Decision |
+| --- | --- |
+| 1 | The footer link is worded **"Legal"**: one link at the bottom of every page, opening a page that lists the three documents (privacy notice, AI transparency note, Terms of Use). |
+| 2 | Users read a short **Terms of Use**, written for this purpose (`design/compliance/terms-of-use.md`, drafted Oct 26, 2026 from the MSA's clauses; counsel to review). The client MSA (`terms-of-service.md`) stays a signed contract and is not shown to users. |
+| 3 | The footer **also shows on the consent gate**. This changes the UX-03 contract ("the consent page shows no links at all") and binding list item 1 of `ux-refresh-spec.md`, which this phase amends (L4). |
+| 4 | Go ahead and build. |
+| 5 | Add two sign-in items (L5, L6) to this spec: a shorter sign-in email, and no emailed link on repeat sign-ins for a user who has an authenticator app. |
 
 ## Goal
 
-A signed-in user, tenant admin or end user, can read the three minimum notices at any time, not only at the consent gate: the **Privacy Notice**, the **AI Transparency Note** and the **Terms**. Today the privacy notice is shown at the gate and then not again, and the other two have no in-app place.
+A signed-in user, tenant admin or end user, can read the three minimum notices at any time, not only at the consent gate. The sign-in email is short and clean. A user who has set up an authenticator app signs in with their email address and the app's code.
 
 Exit criteria (all must hold):
 
-- Every page that shows the app shell, signed in, ends with a footer carrying the three links (L1).
-- Each link opens its document from a static file served by Caddy, with no API call, no cookie and no tenant or user identifier in the request (L2).
-- The footer is absent where the existing contract says the page shows no links (the consent gate), and the sign-in page carries the privacy-notice link the draft already requires (L1).
-- A link whose document is not yet published is not shown (L2, flag), so the build can ship before counsel signs the texts.
+- Every page that shows the app shell, signed in or not, the consent gate included, ends with a footer carrying the "Legal" link (L1).
+- `/legal` and the three documents are static files served by Caddy, with no API call, no cookie and no tenant or user identifier in the request (L2).
+- The sign-in email contains only the short text of L5 and one link, and no template comment.
+- Repeat sign-in for an enrolled user follows L6 as the owner decides it.
 
 ## Not in this phase
 
 Binding. Record ideas in `backlog.md`.
 
-- **Acceptance of the Terms by each user.** The gate keeps recording acceptance of the use and privacy notice only (consent v2). Binding users to the Terms directly is a consent v3 and counsel's call (backlog).
-- **Writing or changing the legal texts.** The owner and counsel finalise the three drafts; this phase only serves them.
-- Trust page, security disclosure, sub-processor list, DPA, cookie notice, help centre, status page (Phase 2 items, owner documents). The footer may link the sub-processor list only through the privacy notice's own text.
+- **Acceptance of the Terms of Use by each user.** The gate keeps recording acceptance of the use and privacy notice only (consent v2). Binding users to the Terms of Use directly is a consent v3 and counsel's call (backlog).
+- **Finalising the legal texts.** The owner and counsel finalise the three drafts; this phase only serves them.
+- Trust page, security disclosure, sub-processor list, DPA, cookie notice, help centre, status page (Phase 2 items, owner documents).
 - Per-tenant legal documents, per-tenant footer text, translations, a document version history page.
-- Any new tracking, analytics, cookie or third-party request. The footer is three plain links.
-- Any change to the AI notice strip (it stays the first element of every page), to prompts, models, retrieval, retention or the consent gate.
+- Any new tracking, analytics, cookie or third-party request. The footer is one plain link.
+- Any change to the AI notice strip (it stays the first element of every page), to prompts, models, retrieval, retention or the consent gate's content.
+- Passkeys and hardware keys (backlog, ideas 3.4). L6 stays with TOTP.
 
 ## Work items
 
 Build in this order. Every change keeps the CLAUDE.md rules and adds a test. Item IDs go in commit messages.
 
-**P2A-L1 Footer component and placement.** `components/AppFooter.tsx`, rendered by `Shell` after `<main>` so every page that uses the shell gets it once (the signed-in pages, the operator and content consoles included: staff are users too). It is a `<footer>` landmark (`contentinfo`) holding a `<nav aria-label="Legal">` with three links in this order and with these words (new copy, owner to approve, open item 1):
+**P2A-L1 Footer component and placement.** `components/AppFooter.tsx`, rendered by `Shell` after `<main>`, so every page that uses the shell gets it once: sign-in, loading, signed-in pages, the consent gate, the operator and content consoles. It is a `<footer>` landmark (`contentinfo`) holding `<nav aria-label="Legal">` with one link, "Legal", to `/legal`. The link opens in a new tab (`target="_blank"`, `rel="noopener"`, a visually hidden "(opens in a new tab)") so a user in the middle of a conversation or at the gate does not lose their place.
 
-| Link text | Document |
-| --- | --- |
-| Privacy notice | `privacy-notice.md` |
-| AI transparency | `ai-transparency-note.md` |
-| Terms | `terms-of-service.md` (user-facing form, open item 2) |
+- `<main>` keeps `flex-1`, so the footer sits at the bottom of the viewport on short pages and after the content on long ones. Pages with the conversation rail (UX-24) keep the composer visible; the footer is below the page, not over it.
+- The AI notice stays the first element in `body`. The skip link, banner and `<main>` order are unchanged; the footer adds no focus trap and no heading.
+- Style: the muted `text-ui` style, the top bar's `max-w-[70rem]` container, 4.5:1 contrast, the global focus ring, a target at least 24 px high.
+- The gate's own test "no links" becomes "the only link is the footer's Legal link" (decision 3).
 
-Placement rules:
+Tests: web render test and Playwright: one `contentinfo` landmark with one link "Legal" on the sign-in page, a signed-in page, a rail page and the gate; the AI notice is still the first element in `body`; the footer follows `<main>`; the gate still has no other link; an axe pass with no new violations.
 
-- The page's `<main>` keeps `flex-1`, so the footer sits at the bottom of the viewport on short pages and after the content on long ones. On pages with the conversation rail (UX-24), the footer is below the rail and the page, not inside the scrolling conversation, so it never covers the composer.
-- **Not shown on the consent gate** (`mustAccept`): the gate "shows no links at all" (UX-03 contract) and the notice is on the page in full. It is shown on the sign-in page, which has no shell nav: there it carries at least the privacy-notice link (privacy notice draft, finalise step 5), and the other two as above.
-- The AI notice stays the first element in `body`. The skip link, banner and `<main>` order is unchanged; the footer adds no focus trap and no new heading level 1.
-- Style: the existing small neutral text style (`text-ui`, muted), the `max-w-[70rem]` container of the top bar, 4.5:1 contrast in light and dark, visible focus ring, links at least 24 px high on touch (WCAG 2.2 target size).
+**P2A-L2 Static documents, the index and the publish flag.** Four static files in the web build under `public/legal/`, served by Caddy as plain files beside the trust page: `index.html` (`/legal`: the list of the three documents and the privacy contact), `privacy.html` (`/legal/privacy`), `ai.html` (`/legal/ai`) and `terms.html` (`/legal/terms`). The three documents are **generated** from `design/compliance/privacy-notice.md`, `ai-transparency-note.md` and `terms-of-use.md` (the text below each file's "Plain text below the line" marker) by `apps/web/scripts/render-legal.mjs`, so the source stays the one place to edit; the script supports only the markdown those files use. `--check` fails if a page is stale (run by a unit test); `--final` refuses a source that still has a `[placeholder]` or a DRAFT marker and is a release-runbook step before publishing.
 
-Tests (web): a render test per route listed in `App.test.tsx` asserts one `contentinfo` landmark, the three links in order with their exact text, and no footer on the consent gate; the AI notice is still the first element in `body`; the footer is after `<main>` in the DOM; an axe pass on one page with the footer (UX-23 baseline unchanged, no new violations).
+One deploy-time flag, `ASKSPORE_LEGAL` (`published` or the default `unpublished`, in `infra/.env`, passed by Compose, as `ASKSPORE_TRUST_PAGE` is), controls all four routes: unpublished answers 404 at Caddy, any other value stops Caddy at start. The footer link is always rendered (the web build cannot read a Caddy flag); the release runbook therefore publishes the flag **before** the Instance serves users. The files' own `.html` names are 404. The routes need no sign-in, no cookie and no API call (the privacy notice must be public anyway, Art. 12).
 
-**P2A-L2 Static documents and the publish flag.** The three documents are static HTML files served by Caddy beside the trust page, built the same way as `security-disclosure.html` and the trust page (P2A-11): plain HTML rendered by the owner from the final text, no inline script or style, no external resource, own CSS file under the existing content security policy.
+Tests: Playwright (the dev server mirrors the routes, as for P2A-11): `/legal` and the three documents answer 200 without an API call or a script; the `.html` names are 404; the index links to the three. Unit test: generated pages are current. Release runbook: the flag and the `--final` check.
 
-| Route | File | Flag |
+**P2A-L3 No tracking path.** The link carries no query string, fragment or identifier (asserted on its `href`). Caddy writes no access log (a `log` directive is never added, Caddyfile header), so nothing new is logged; no audit event is written for reading a legal document.
+
+**P2A-L4 Documentation.** Amend `ux-refresh-spec.md` (binding item 1: the gate shows the footer's Legal link and no other navigation; the UX-03 contract test), `privacy-notice.md` and `ai-transparency-note.md` finalise lists (the in-app link is met by the footer), `terms-of-service.md` (note: users read `terms-of-use.md`), `infra/caddy/README.md`, the architecture's UI section, and `phase-2a-release-runbook.md` (the flag, the `--final` check, publish only texts counsel signed).
+
+### Sign-in changes (added Oct 26, 2026)
+
+**P2A-L5 A short sign-in email.** Today the email shows, above or instead of its content, the template's own comment. Cause (found by reading `infra/authentik/templates/ask-spore-sign-in.html`): the file documents itself in a multi-line `{# … #}` comment, and Django's `{# #}` is single-line only, so Authentik prints the whole comment as text. It also contains `{{ url }}`, which the comment is meant to forbid linking to and which therefore expands to Authentik's own flow URL with the live `?flow_token=` in the query string. That is the exact thing the comment says must never reach a mail. The fix is in the file, not in the copy:
+
+- Replace the comment with `{% comment %}…{% endcomment %}` (multi-line, never rendered, its `{{ url }}` not evaluated) and write the explanation without the template variable.
+- New copy (new user-facing text, owner to approve; subject stays "Sign in to SporeBot"):
+
+  > **Sign in to SporeBot**
+  >
+  > [Sign in] (the one link, a button-style link to `https://askspore.myceliumgastronomy.com/auth/finish#token=…`)
+  >
+  > The link works once and expires in 15 minutes. If you didn't ask for it, you can ignore this email.
+
+  It drops "in the browser where you asked for it" from the email: the landing page already says what to do when opened in another browser. If the link opens in a different browser, `/auth/finish` shows the existing message.
+- The email carries nothing but the recipient's own address and the link (compliance addendum, "Platform mail"): no tenant, user, notice or job identifier.
+
+Tests (API or infra): a test reads the template and asserts it has no `{#`, that every `{{ … }}` outside a `{% comment %}` block is `{{ token }}`, and that it holds exactly one `href`; a render with Django's template engine (a dev-only dependency, or `jinja2`-free regex if the engine is not already available) asserts the output contains neither `flow_token` nor `{#` nor `authentik-server`. `infra/authentik/README.md` ("Email template") updated.
+
+**P2A-L6 Repeat sign-in with an authenticator app: email address, then code, no emailed link.** Today every sign-in is: email address → emailed link → (tenant admins only) authenticator code → signed in. The owner wants a user who has set up an authenticator app to enter their email address and then the code, with no link.
+
+How it would work: the flow `ask-spore-sign-in-link` gets a branch after the identification stage. If the identified user has a TOTP device, skip the email stage and go to the code stage, then login. If not, today's path: email link, and for tenant admins the setup of the app. Authentik does this with a policy on the email stage's binding (skip it when `ak_user_has_authenticator(pending_user, "totp")`) and the code stage placed before login (`not_configured_action: configure` stays for admins who have no device). The API relays the flow (`AuthentikProvider.send_sign_in_link`, `redeem_sign_in_link`, `answer_mfa`): a new request shape is needed, "email, then code" without the link redemption, and the sign-in page needs a code step after the email step. **A probe is the first task, as P2A-00 was**: confirm on the pinned Authentik version that the identification stage exposes the pending user to the policy without a leak, that the code stage works with no email stage before it, and what the unauthenticated response looks like for an unknown address, an enrolled address and an unenrolled address.
+
+**Decisions this needs from the owner (open items 1 and 2).** This change has a security consequence that the compliance guide's wording makes the owner's call, not ours:
+
+- *It turns a two-factor sign-in into a one-factor sign-in for tenant admins.* Today an admin proves control of their inbox (the link) **and** of their phone (the code). With the owner's proposal an email address, which is not secret, plus the code is the only check. The compliance guide says "MFA for … tenant admins" (§ access control; Oct 22 addendum), and SOC 2 CC6.1 is mapped to it. One factor plus a non-secret identifier is not MFA in the usual audit reading.
+- *It reveals which addresses have an app.* Unknown and unenrolled addresses would see the "check your email" page, enrolled addresses the code page. That is an account-enumeration signal for exactly the accounts worth attacking. The identification stage's "pretend user exists" protection no longer hides it. Mitigations to build whichever option is chosen: a rate limit and lockout on code attempts per address and per network, the same code page for an unknown address (it rejects every code), and code replay refused.
+- *Lost phone.* With no link, a user who has lost the device has no self-service path. Today the link plus operator reset covers it. The fall-back needs deciding: a visible "Use an emailed link instead" on the code page (which keeps the link as the fallback factor), or an operator-only reset.
+
+Options for the owner:
+
+| Option | What the user does | Factors for a tenant admin |
 | --- | --- | --- |
-| `/legal/privacy` | `apps/web/public/legal/privacy.html` | `ASKSPORE_LEGAL_PRIVACY` |
-| `/legal/ai` | `apps/web/public/legal/ai.html` | `ASKSPORE_LEGAL_AI` |
-| `/legal/terms` | `apps/web/public/legal/terms.html` | `ASKSPORE_LEGAL_TERMS` |
+| A. As asked | Email → code, for every enrolled user | One (code). Needs the compliance guide's MFA line changed for admins and counsel's agreement |
+| B. **Recommended** | Email → code for enrolled **non-admin** users only; tenant admins keep link + code | Admins stay at two. Non-admins who enrol are a voluntary extra, not a control. Today only admins can enrol, so this needs an opt-in enrolment for others and is the larger build |
+| C. Trusted browser | Link + code the first time on a browser (and at most every 30 days); email → code afterwards on that browser | Two (browser holds a device-bound trusted cookie, plus the code). Probe whether Authentik supports it without a custom stage; if not, a small API change |
+| D. Keep as is | No change | Two |
 
-Each flag is `published` or `unpublished` (default `unpublished`) in `infra/.env`, as `ASKSPORE_TRUST_PAGE` is; unpublished answers 404 at Caddy. The footer shows only the links whose flag is `published`: the web build reads the flags through the same build-time or config mechanism P2A-11 used for the trust page, and **no API endpoint is added** (an API call would be a request carrying a session). If no document is published, no footer is rendered. Links open in a new tab (`target="_blank"`, `rel="noopener"`) so a user in the middle of a conversation does not lose their place. The routes need no sign-in (the privacy notice must be public anyway, Art. 12 and the draft's step 5), so a link in an email or at the sign-in page works.
+Recommendation: **C if the probe shows it is cheap, else B.** C gives the owner the request (no link on the usual device) without dropping the admin to one factor. If the owner chooses A knowingly, record the decision and the compliance-guide amendment in the same PR, and ship the rate limit, lockout and "same page for unknown address" with it.
 
-Each document carries its version and date in the first lines. The file is replaced by the owner on a new version; the consent gate's `config/consent/v*.md` is a separate, shorter text and is not generated from these (open item 3).
-
-Tests: Caddy config test (the existing style): each route answers 200 when published and 404 when not; no `Set-Cookie`, the same security headers as the trust page; the page contains no `<script>` and no external URL. Web test: a link is rendered only for a published flag; with none, no footer.
-
-**P2A-L3 Privacy and logging guarantees.** The footer and its routes must not become a tracking path.
-
-- The links carry no query string, fragment or identifier (no tenant, user, workspace or session value), asserted by test on every rendered `href`.
-- Caddy's access log for these routes follows the existing allow-listed fields (path, status, time; no cookie or `Authorization` header). No request-body or header logging is added.
-- No audit event is written for reading a legal document (it would record a user's reading as personal data for no control gain). The consent acceptance remains the only legal event audited.
-
-Tests: `href` assertion above; a Caddy log-format test that the fields are the allow-listed ones for `/legal/*`.
-
-**P2A-L4 Documentation.** Update the design where the code now matches it: `ux-refresh-spec.md` binding list (the footer is a new element; the AI notice rule is unchanged), `privacy-notice.md` and `ai-transparency-note.md` finalise lists (step "link from the in-app AI notice and the consent gate" is met by the footer; the gate itself still shows the full notice), `terms-of-service.md` (note which form is served), the architecture's UI section, and `phase-2a-release-runbook.md` (the three flags and the order: publish a document only after counsel signs it).
+Tests (for the chosen option): an enrolled user signs in with email and code and never triggers an email send (fake provider counts sends); an unenrolled user still gets the link; the response for an unknown address cannot be told from an enrolled one (same status, same body shape, comparable timing within a stated bound); five wrong codes lock the address for a stated period with the audit event `auth.lockout` and no code in the log; a replayed code is refused; the admin MFA negative test still holds (an admin without a device cannot reach the app).
 
 ## Open items for the owner
 
-1. **Link wording** ("Privacy notice", "AI transparency", "Terms"). New user-facing copy, so it needs your approval or edits before build.
-2. **Which "Terms" users read.** `terms-of-service.md` is the client MSA, with placeholders for price, liability cap and the client's name; it cannot be served to every user as it stands. Options: (a) serve a user-facing "Terms of use" derived from it (acceptable use, output disclaimer, content ownership), the MSA staying a signed contract; (b) serve the MSA with commercial terms removed. **Recommended: (a)**, written with counsel; until it exists, leave `ASKSPORE_LEGAL_TERMS=unpublished` and the footer shows two links.
-3. **One source for the privacy notice.** The gate's text (`config/consent/v2.md`) and the public privacy notice can drift. Recommended: keep both, and add a test or release-runbook check that the version string in the gate and in `privacy.html` match.
-4. **Footer on the consent gate.** Kept off by the UX-03 contract. If you want it there too, the gate already contains the full notice; the other two would need links, which is a change to that contract.
+1. **L6: which option (A, B, C or D)?** See the table above. This is a security decision; the recommendation is C, else B.
+2. **L6: lost phone.** Offer "Use an emailed link instead" on the code page, or operator-only reset? (Recommended for A or C: the link stays as the fallback, which keeps C's second factor.)
+3. **L5 copy.** Approve the new email text above or edit it.
+4. **Keeping the gate's text and the public privacy notice in step.** The gate shows `config/consent/v2.md`; `/legal/privacy` is generated from `privacy-notice.md`. Recommended: a release-runbook check that the version strings match.
 
 ## Decisions to record in the findings file when built
 
-The final link wording, the chosen "Terms" form, the flags' values on the Instance, and the date counsel signed each published text.
+The flag's value on the Instance and the date counsel signed each published text; the L6 option chosen, the probe results and, for option A, the compliance-guide amendment.

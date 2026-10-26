@@ -43,7 +43,7 @@ These elements implement controls from the compliance guide (AI Act Art. 50 tran
    - It also shows the superseded or withdrawn status with its explanatory sentence, the excerpt or the "quoted passage was removed" note, and "View at source" when there is a canonical URL.
    - Activating a marker shows that source **in view** at every width (on phone, a bottom sheet over the thread; on desktop, the panel scrolls the selected source into view). Markers keep their accessible name "Citation n".
 4. **History and retention indicators.**
-   - "Expires {date}" stays on every conversation in the list and in the conversation header.
+   - "Expires {date}" stays on every conversation in the list and in the conversation header. *Home page phase (Oct 26, 2026):* that is both the home page's recent rows and the full list at `/conversations`.
    - The no-history note (`NO_HISTORY_NOTE`) stays in the chat for tenants with retention 0.
    - The tenant admin retention section keeps its explanation, its summary line and its 30-day maximum.
    - No control, label or placeholder may suggest a retention longer than 30 days. Delete conversation stays available from the list (behind a confirmation, as today).

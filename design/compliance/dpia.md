@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15): scope note in §1, risks R12 to R14, review trigger |
-| Placeholders | [DPO or privacy contact name], [privacy contact email], [takedown contact email], [Client], [supervisory authority], [date] |
+| Placeholders | [Client], [date] |
 | To finalise, the owner must | (1) confirm the scope in §1 and the risk ratings in §5; (2) decide the open points in §8; (3) ask the DPO or privacy contact for advice and record it (Art. 35(2)); (4) have counsel review; (5) sign §9; (6) set the review date. |
 
 ---
@@ -30,7 +30,7 @@ Scope: the platform as built on Oct 21, 2026 (Phase 1a, single Instance in Paris
 | --- | --- | --- |
 | Corpus building | Our team registers published PDFs, crawled public pages and our own analysis; files are parsed, chunked and embedded in RAGFlow | Scaleway Instance, Paris |
 | Sign-in | A user asks for a link; Authentik emails a single-use link through Scaleway Transactional Email (fr-par); SSO from Phase 1b (P1b-07) | Paris |
-| Question | The API retrieves passages from the workspace's datasets (chosen server-side), builds a prompt with no identifiers and calls a model | Scaleway Generative APIs, Paris; external models only if enabled |
+| Question | The API retrieves passages from the workspace's datasets (chosen server-side), builds a prompt with no identifiers and calls a model | Scaleway Generative APIs, European Union; external models only if enabled |
 | Answer | Streamed with citations; stored with the conversation for at most 30 days | PostgreSQL, Paris |
 | Downloads | Only files flagged `downloadable`; single-use 60-second link; 50 per user per day; audited | Paris |
 | Audit | Append-only events with metadata, never text, 12 months | Paris |
@@ -106,7 +106,7 @@ Likelihood and severity on a 1 to 3 scale; risk = likelihood × severity, before
 
 ## 7. Prior consultation (Art. 36)
 
-Not required, in our view. After the measures in §5 no risk is rated high. The highest residual risks (R2, R8, R9) are medium only until named Phase 1b items ship, and the external-models transfer is not in use. The owner should repeat this conclusion after Phase 1b. Counsel to confirm against the [supervisory authority]'s DPIA list.
+Not required, in our view. After the measures in §5 no risk is rated high. The highest residual risks (R2, R8, R9) are medium only until named Phase 1b items ship, and the external-models transfer is not in use. The owner should repeat this conclusion after Phase 1b. Counsel to confirm against the the AEPD (Spain)'s DPIA list.
 
 ## 8. Open points for the owner
 
@@ -120,7 +120,7 @@ Not required, in our view. After the measures in §5 no risk is rated high. The 
 | --- | --- | --- | --- |
 | Measures approved by | [ ] | [ ] | |
 | Residual risks accepted by | [ ] | [ ] | |
-| DPO or privacy contact advice | [DPO or privacy contact name] | [ ] | Summarise the advice and whether it was followed |
+| DPO or privacy contact advice | privacyanddata@myceliumgastronomy.com | [ ] | Summarise the advice and whether it was followed |
 | Counsel reviewed | [ ] | [ ] | |
 
 ## 10. Review

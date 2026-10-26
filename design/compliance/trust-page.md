@@ -21,7 +21,7 @@ Everything we store is hosted by Scaleway in Paris, France: the application, the
 
 ### Which models answer your questions
 
-By default, questions are answered by models run by Scaleway in Paris (DeepSeek V4.1 Flash and Qwen 3.8 27B). Nothing leaves the EU.
+By default, questions are answered by models run by Scaleway in the European Union (DeepSeek V4.1 Flash and Qwen 3.8 27B). Nothing leaves the EU.
 
 ### When data leaves the EU
 
@@ -71,6 +71,6 @@ The companies that process your data on our behalf are listed at [link to sub-pr
 - Security reports: security@myceliumgastronomy.com
 - Removal of content or personal data from our library (publishers and individuals): privacyanddata@myceliumgastronomy.com
 
-Mycelium Gastronomy Network (trade name) for Estefania Simon Sasyk u Otro CB, Hermanos Otamendi kalea 11, 20014 Donostia-San Sebastián, Guipúzcoa, Spain
+Mycelium Gastronomy Network (trade name) for Estefania Simon-Sasyk y Otro CB, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain
 
 Last updated: 26 October 2026

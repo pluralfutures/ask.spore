@@ -8,7 +8,7 @@
 | Date | Oct 26, 2026 |
 | Author | Drafted for owner review (spec item P2A-L2; owner decision of Oct 26, 2026: users read a short "Terms of Use", the client MSA stays a signed contract) |
 | Source | `terms-of-service.md` §1, §3.2–3.4, §4, §5, §6, §8, §9.2 and §10. Every statement here restates a clause there; this text adds no term. If the two diverge, the MSA wins between the parties and this page must be corrected |
-| Placeholders | [date], [version], [support email] |
+| Placeholders | none (version, date and contact filled in by the owner, Oct 26, 2026) |
 | To finalise, the owner must | (1) fill in the placeholders; (2) have counsel check that these terms bind users through their organisation without a separate acceptance (backlog: user acceptance of the Terms; consent v3); (3) check each statement against `terms-of-service.md` at publication, in particular the download cap (§6.2) and the models listed; (4) remove the "external models" sentence if the order forms never enable them |
 
 Plain text below the line is the text shown to users.
@@ -19,7 +19,7 @@ Plain text below the line is the text shown to users.
 
 SporeBot is run by **Estefania Simon-Sasyk y Otro CB**, a comunidad de bienes under Spanish law trading as Mycelium Gastronomy Network, NIF E19824093, Hermanos Otamendi kalea, 11, 20014 San Sebastián, Gipuzkoa, Spain ("**we**"). You use it through your organisation, which has signed an agreement with us. These terms summarise the rules that apply to you as a user. They do not replace that agreement; if they differ, the agreement applies to your organisation and we will correct this page.
 
-Version [version], last updated [date].
+Version 1, last updated 26 October 2026.
 
 ### What SporeBot is
 
@@ -66,4 +66,4 @@ We may suspend a user or an organisation, with notice where practical, if use br
 
 ### Contact
 
-Questions about these terms: [support email]. Privacy: privacyanddata@myceliumgastronomy.com. Security: security@myceliumgastronomy.com. Governing law and courts are those in your organisation's agreement with us (Spanish law; the courts of San Sebastián).
+Questions about these terms: privacyanddata@myceliumgastronomy.com. Privacy: privacyanddata@myceliumgastronomy.com. Security: security@myceliumgastronomy.com. Governing law and courts are those in your organisation's agreement with us (Spanish law; the courts of San Sebastián).

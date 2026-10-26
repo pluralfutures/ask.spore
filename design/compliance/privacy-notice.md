@@ -8,7 +8,7 @@
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
 | Revision | Oct 22, 2026, **DRAFT**: documents supplied by customers (§1, §2, §4, §7 and new §13), P1b-19 step 1. Publish the §13 text only once a customer supplies documents (P1b-19 step 2 built); until then the library holds no customer documents and §13 is omitted. Oct 25, 2026, **DRAFT** (P2A-10): support access described in §2 and in the audit row, as built in P2A-08 (owner note 8) |
-| Placeholders | [website host], [date], [version], [link to sub-processor list], [link to LIA summary], plus the retention and website values marked in §3 |
+| Placeholders | [24 months], [2 years] and the app cookie retention `[ ]` in §3 (the owner's values of Oct 26, 2026 filled in the rest) |
 | To finalise, the owner must | (1) confirm the entity, contacts and supervisory authority (AEPD); (2) decide whether a DPO is required or a privacy contact suffices (open-questions.md); (3) website facts given by the owner on Oct 22, 2026 (contact form, no cookies) are in §3; fill in [website host] and its log retention, and keep the no-cookie statement true (no third-party fonts, maps, videos or analytics loaded from other servers); (4) have counsel check §4 against the LIA and the Art. 14(5)(b) reasoning; (5) publish at a stable URL linked from the sign-in page and the consent gate (P1b-10); (6) set the version number the consent gate records (the wording goes in `config/consent/<version>.md`, the version in `[consent] version` of `config/models.toml`; P1b-10, findings E1-5). |
 
 ## Notes for the owner (delete before publishing)
@@ -37,7 +37,7 @@ This notice explains what personal data we handle and why. It has two parts:
 
 Privacy contact: privacyanddata@myceliumgastronomy.com.
 
-Version [version], last updated [date].
+Version 1, last updated 22 October 2026.
 
 ## Part A — Users of SporeBot and people who contact us
 
@@ -72,11 +72,11 @@ We do **not** use your questions or conversations to train or improve any AI mod
 
 | Purpose | Data | Legal basis | Retention |
 | --- | --- | --- | --- |
-| Keeping the service secure and working | Technical logs: request ID, time, status, latency, token counts, error codes, a pseudonymous user or customer ID. No question, answer or prompt text, no email content | Our legitimate interest in running a secure, reliable service (Art. 6(1)(f)) | [30 days for application logs]; security-relevant audit records 12 months |
+| Keeping the service secure and working | Technical logs: request ID, time, status, latency, token counts, error codes, a pseudonymous user or customer ID. No question, answer or prompt text, no email content | Our legitimate interest in running a secure, reliable service (Art. 6(1)(f)) | 12 months for application logs; security-relevant audit records 12 months |
 | Aggregated service metrics | Counts per customer (questions per day, active users, cost per model). No text | Legitimate interest (Art. 6(1)(f)) | [24 months], aggregated |
 | Answering your messages to us | Your name, email address, the content of your message | Legitimate interest in responding; legal obligation where you exercise a GDPR right (Art. 6(1)(c)) | [2 years] after the matter is closed |
 | Our website's contact form | Your name, email address, organisation if you give it, and your message | Our legitimate interest in answering enquiries (Art. 6(1)(f)); steps you ask for before a contract (Art. 6(1)(b)) | [2 years] after the matter is closed; if it leads to a contract, as a business contact for the contract's term |
-| Our website's server logs | IP address, time, page requested and browser type, kept by [website host] | Our legitimate interest in running a secure website (Art. 6(1)(f)) | [website host's log retention] |
+| Our website's server logs | IP address, time, page requested and browser type, kept by Scaleway | Our legitimate interest in running a secure website (Art. 6(1)(f)) | 7 days |
 | The SporeBot app (askspore.myceliumgastronomy.com) | Strictly necessary cookies only (sign-in). No analytics, advertising or tracking cookies. | Legitimate interest (strictly necessary; no consent needed) | [ ] |
 
 **Cookies.** Our public website sets no cookies and uses no analytics or tracking tools. The SporeBot app, which you use after signing in, uses only cookies that are strictly necessary to sign you in and keep you signed in; they need no consent and are not used for anything else.
@@ -91,7 +91,7 @@ Sign-in emails are sent by **Scaleway Transactional Email in Paris**. It receive
 
 **External models (only if your employer chose them).** Your employer can ask us to enable Claude Opus 5.5 and GPT-6.1 Sol. We do this only after your employer has signed for it. If you then pick one of these models for a conversation, that conversation's content (as above, still without identifiers) is sent through OpenRouter's EU endpoint to Amazon Web Services (for Claude) or Microsoft Azure (for GPT). These providers may process it outside the EU, including in the United States. The model picker labels these models "served outside the EU". The transfer relies on the EU Standard Contractual Clauses, and every request asks the providers to keep nothing (zero data retention) and not to use it for training. Today external models are not enabled for any customer.
 
-The full list of companies that process data for us is at [link to sub-processor list].
+The full list of companies that process data for us is available on request at privacyanddata@myceliumgastronomy.com.
 
 ### 5. Your rights
 
@@ -123,7 +123,7 @@ Our library contains published third-party material (research reports, industry 
 
 Purpose: providing a research service that helps businesses find and cite published information.
 
-Legal basis: our **legitimate interests** and those of our customers in research based on published sources (Art. 6(1)(f)). We assessed that the use is limited to what was already published, in its professional context, and that it is proportionate. The assessment is summarised at [link to LIA summary] and available in full on request.
+Legal basis: our **legitimate interests** and those of our customers in research based on published sources (Art. 6(1)(f)). We assessed that the use is limited to what was already published, in its professional context, and that it is proportionate. A summary of the assessment, and the assessment in full, are available on request at privacyanddata@myceliumgastronomy.com.
 
 ### 10. Why we publish this notice instead of contacting you
 

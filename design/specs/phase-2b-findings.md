@@ -94,11 +94,18 @@ URL during ingestion. This exposes the server's IP address and the time of inges
 whoever controls the host. With no vision model configured, the image itself goes no
 further. Crawled pages, stored as Markdown, already take the same path today.
 
-Not tested against a public host, to avoid sending any request out. Recorded for
-`backlog.md` as a decision for the owner, not built here. The options:
+Not tested against a public host, to avoid sending any request out.
 
-- refuse or strip remote image references in `check_file_content`;
-- or give RAGFlow no outbound route, if nothing else it does needs one.
+An image reference that is not `http(s)` is opened as a file path inside the RAGFlow
+container (`Image.open(url)`), so a local path is read too. It goes no further while no
+vision model is set.
+
+**Decision (owner, Oct 27, 2026; spec owner decision 6): uploaded Markdown with an image
+reference is refused.** `check_file_content` refuses any `![..](..)`, `![..][..]`, `<img>`
+or `src=` in a Markdown upload or manifest ingest with `image_reference` (code only, no
+file text). The patterns cover everything RAGFlow's extractor matches. Plain `[text](url)`
+links are still accepted, and `.txt` is not checked because RAGFlow's text parser loads
+nothing. Crawled pages still go through RAGFlow's image loading; that stays in `backlog.md`.
 
 ### Decision: "naive" stays
 

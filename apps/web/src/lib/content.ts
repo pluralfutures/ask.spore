@@ -110,6 +110,8 @@ const ERRORS = {
   // P2B-06: a file that is not what its extension says.
   not_text: "The file is not UTF-8 text. A .md or .txt file must be plain UTF-8 text.",
   type_mismatch: "The file does not match its extension or declared type.",
+  image_reference:
+    "The Markdown file contains an image. Remove image links and <img> tags, then upload it again.",
   tdm_reserved: "The page reserves text-and-data-mining rights.",
   no_dataset: "A tag has no dataset yet: sync the tags first.",
   site_exists: "That site is registered already.",

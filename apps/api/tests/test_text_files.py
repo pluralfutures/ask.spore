@@ -99,6 +99,59 @@ def test_a_mislabelled_file_is_refused_with_a_code_only(
     assert "Synthetic" not in str(refused.value)  # never the file's own text
 
 
+# RAGFlow's Markdown parser loads every image it finds: an http(s) one from the internet,
+# any other as a path inside its container (findings 2B section 1). Each form is refused.
+@pytest.mark.parametrize(
+    "line",
+    [
+        b"![Synthetic chart](https://img.example.org/chart.png)",
+        b"![](http://img.example.org/a.png)",
+        b"![Synthetic](/etc/synthetic.png)",  # a local path
+        b"![Synthetic](data:image/png;base64,AAAA)",
+        b"![Synthetic\nchart](https://img.example.org/a.png)",  # alt text over two lines
+        b"![Synthetic][chart]\n\n[chart]: https://img.example.org/a.png",  # reference form
+        b'<img src="https://img.example.org/a.png">',
+        b"<IMG SRC=https://img.example.org/a.png>",  # unquoted, upper case
+        b"<img\n  alt='Synthetic'\n  src='a.png'>",  # over several lines
+        b'<picture><source src="https://img.example.org/a.webp"></picture>',  # any src=
+    ],
+)
+def test_markdown_with_an_image_reference_is_refused_with_a_code_only(line: bytes) -> None:
+    content = b"# Synthetic\n\nSynthetic paragraph.\n\n" + line + b"\n"
+    for body in (content, b"\xef\xbb\xbf" + content):  # with and without a BOM
+        with pytest.raises(IngestError) as refused:
+            check_file_content("markdown", body, "text/markdown")
+        assert refused.value.code == "image_reference"
+        assert "example.org" not in str(refused.value)  # never the reference itself
+        assert "Synthetic" not in str(refused.value)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        b"[Synthetic link](https://example.org/report)",  # a plain link is not an image
+        b"Synthetic exclamation! [Synthetic](https://example.org/)",
+        b"Synthetic [footnote][1]\n\n[1]: https://example.org/",
+        b"Synthetic source code mentions srcset only in prose.",
+    ],
+)
+def test_markdown_with_links_but_no_image_is_accepted(line: bytes) -> None:
+    check_file_content("markdown", b"# Synthetic\n\n" + line + b"\n", "text/markdown")
+
+
+def test_plain_text_with_image_syntax_is_accepted() -> None:
+    # RAGFlow parses .txt with its text parser, which loads nothing.
+    check_file_content("text", b"Synthetic ![x](https://example.org/a.png)\n", "text/plain")
+
+
+def test_load_path_refuses_markdown_with_an_image(tmp_path: Path) -> None:
+    path = tmp_path / "notes.md"
+    path.write_bytes(b"# Synthetic\n\n![](https://img.example.org/a.png)\n")
+    with pytest.raises(IngestError) as refused:
+        load_path(path)
+    assert refused.value.code == "image_reference"
+
+
 def test_load_path_takes_md_markdown_and_txt_as_files(tmp_path: Path) -> None:
     for name, kind, content in (
         ("notes.md", "markdown", MARKDOWN),
@@ -216,6 +269,12 @@ async def test_an_editor_uploads_a_markdown_or_text_file(
         ("report.pdf", TEXT, "application/pdf", "type_mismatch"),  # text renamed .pdf
         ("report.docx", MARKDOWN, DOCX_MEDIA, "type_mismatch"),
         ("notes.rtf", TEXT, "text/plain", "unsupported_type"),
+        (
+            "notes.md",
+            b"# Synthetic\n\n![](https://img.example.org/a.png)\n",
+            "text/markdown",
+            "image_reference",
+        ),
     ],
     ids=[
         "pdf-as-txt",
@@ -227,6 +286,7 @@ async def test_an_editor_uploads_a_markdown_or_text_file(
         "text-as-pdf",
         "text-as-docx",
         "rtf",
+        "md-with-image",
     ],
 )
 async def test_a_mislabelled_upload_is_refused_and_nothing_is_recorded(

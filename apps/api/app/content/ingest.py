@@ -174,6 +174,12 @@ class _Failure(Exception):
 
 
 _ZIP_SIGNATURE = b"PK\x03\x04"
+# An image reference in Markdown. RAGFlow's Markdown parser loads every image it finds
+# while parsing: an http(s) one is fetched from the internet, any other is opened as a
+# path inside the RAGFlow container (phase-2b-findings.md section 1). The patterns are a
+# superset of RAGFlow's own (`![..](`, a quoted `src=` on any tag, `<img>`), plus the
+# reference form `![..][..]`, so nothing it would load gets through.
+_IMAGE_REFERENCE = re.compile(r"!\[[^\]]*\][(\[]|\bsrc\s*=|<img\b", re.IGNORECASE)
 
 
 def check_file_content(source_type: str, content: bytes, declared_media_type: str | None) -> None:
@@ -181,7 +187,8 @@ def check_file_content(source_type: str, content: bytes, declared_media_type: st
 
     The extension decides the type; this is the check that the file is what it says: a PDF
     starts ``%PDF-``, a DOCX or PPTX is a zip, and Markdown or text is UTF-8 (a byte-order
-    mark is allowed) with no NUL byte and some text in it. A media type the browser declared
+    mark is allowed) with no NUL byte and some text in it; Markdown also holds no image
+    reference, which RAGFlow would load while parsing. A media type the browser declared
     that names another kind of file is refused; a missing or generic one is not a conflict.
     Raises ``IngestError`` with a code only: neither the name nor the content is repeated.
     """
@@ -196,6 +203,8 @@ def check_file_content(source_type: str, content: bytes, declared_media_type: st
         ok = _is_text(content)
         if not ok:
             raise IngestError("not_text", "the file is not UTF-8 text")
+        if source_type == "markdown" and _IMAGE_REFERENCE.search(content.decode("utf-8-sig")):
+            raise IngestError("image_reference", "the Markdown file references an image")
     else:
         ok = True
     if not ok:

@@ -262,7 +262,11 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
   and choose the RAGFlow parse method per type (Markdown by headings, text by size) from it.
 - **Content checks before parsing.** UTF-8 (a UTF-8 byte-order mark allowed; any other
   encoding is refused, not guessed), no NUL bytes, non-empty after trimming, the same size
-  limit as other uploads. Markdown and text from a client or the web are untrusted input and
+  limit as other uploads. **Markdown holds no image reference** (owner decision 6): `![..](..)`,
+  `![..][..]`, `<img>` or any `src=` is refused with `image_reference`, because RAGFlow's
+  Markdown parser loads every image while parsing, from the internet or as a path in its
+  container (`phase-2b-findings.md` §1). Plain text is parsed by RAGFlow's text parser, which
+  loads nothing, so the rule is for Markdown only. Crawled pages are not covered (backlog). Markdown and text from a client or the web are untrusted input and
   stay wrapped as such in prompts (`UNTRUSTED_SOURCE_TYPES` in `chat/package.py` already lists
   `markdown`; add `text`).
 - **Mislabelled files are refused (the negative cases).** A PDF, DOCX, or other binary
@@ -329,7 +333,9 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
 - **Internal wording (content console, not the owner-approved list):** three error lines for
   the content team, "The file is not UTF-8 text. A .md or .txt file must be plain UTF-8
   text.", "The file does not match its extension or declared type.", and the file picker label
-  and "Only PDF, DOCX, PPTX, HTML, Markdown and text files." now naming text.
+  and "Only PDF, DOCX, PPTX, HTML, Markdown and text files." now naming text. Added with
+  owner decision 6: "The Markdown file contains an image. Remove image links and <img> tags,
+  then upload it again."
 
 ## Owner decisions
 
@@ -340,6 +346,7 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
 | 3 | Accept both `.md` and `.markdown`; no extra note on `.txt` citations. | Oct 27, 2026 | P2B-06 |
 | 4 | The "Sources in this workspace" card wording is approved as proposed. | Oct 27, 2026 | P2B-05 |
 | 5 | The summary cache is cleared and rebuilt on any change to the workspace library, and deleted when the workspace is closed or deleted. | Oct 27, 2026 | P2B-05 |
+| 6 | An uploaded Markdown file with an image reference is refused, so RAGFlow never loads an image from one. | Oct 27, 2026 | P2B-06 |
 
 ## Open items for the owner
 

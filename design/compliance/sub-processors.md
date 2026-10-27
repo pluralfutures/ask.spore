@@ -6,7 +6,7 @@
 | Date | Oct 19, 2026 |
 | Author | Drafted for owner review (spec item P1a-15) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15) add no sub-processor; the data received by Scaleway and, if enabled, the external-models chain widens |
-| To finalise, the owner must | (1) record the SCC module and version of the OpenRouter DPA (signed Oct 23, 2026) and the acceptance date of the Scaleway DPA (version of June 1, 2024) in `paperwork-checklist.md`; (2) keep a dated copy of Scaleway's published zero-retention policy (Scaleway issues no letter; findings M2); (3) verify the AWS and Azure region constraint with one real request each (findings C32); (4) set the "date added" to the date each service first receives client personal data; (5) publish the customer-facing version with the trust page. |
+| To finalise, the owner must | (1) record the acceptance date of the Scaleway DPA (version of June 1, 2024) and the acceptance of the OpenRouter DPA (version of Aug 26, 2026, signed Oct 23, 2026) in `paperwork-checklist.md`, and resolve the points under "DPA review notes" below; (2) keep a dated copy of Scaleway's published zero-retention policy (Scaleway issues no letter; findings M2); (3) verify the AWS and Azure region constraint with one real request each (findings C32); (4) set the "date added" to the date each service first receives client personal data; (5) publish the customer-facing version with the trust page. |
 
 Method: built from `config/models.toml` (allow-list, provider sections, catalogue), `infra/` (Compose files, Authentik SMTP settings, Caddy) and the Stack Decision. Every outbound host the API and workers reach is in `[allow_list]`; the API refuses to start otherwise.
 
@@ -37,7 +37,7 @@ Used only for a tenant whose signed acceptance is on file and for which the oper
 
 | Sub-processor | Service | Purpose | Data received | Location | Safeguard | Date added |
 | --- | --- | --- | --- | --- | --- | --- |
-| OpenRouter, Inc. (United States) | OpenAI-compatible API, EU endpoint `eu.openrouter.ai` | Routing prompts to the pinned upstream vendor | Prompt contents as above; our API key; no identifiers, no `user` field | Company: United States. API endpoint: EU (hosting location to verify) | OpenRouter DPA with SCCs, signed Oct 23, 2026 (SCC module [2/3] and version to record); TIA (`transfer-impact-assessment.md`); ZDR routing and `data_collection: deny` on every request | [date] |
+| OpenRouter, Inc. (United States) | OpenAI-compatible API, EU endpoint `eu.openrouter.ai` | Routing prompts to the pinned upstream vendor | Prompt contents as above; our API key; no identifiers, no `user` field | Company: United States. API endpoint: EU. Under Exhibit A of its DPA (EU-only processing; confirm it is elected for our account), prompts and answers are processed only in EU/EEA infrastructure; account data, billing and security logs are not covered and may be outside the EU (its own hosting is Google Cloud, US regions) | OpenRouter DPA, version of Aug 26, 2026, signed Oct 23, 2026, with EU SCCs Module 2 as drafted (Irish law, Dublin courts; see the module point below); TIA (`transfer-impact-assessment.md`); ZDR routing and `data_collection: deny` on every request | [date] |
 | Amazon Web Services (Bedrock), upstream of OpenRouter | Inference for `anthropic/claude-opus-5.5` (pinned, no fallback) | Model inference | Prompt contents | EU, EEA, UK or Switzerland, as constrained by the region setting of each API request (owner, Oct 26, 2026; one real request to verify) | OpenRouter flow-down terms; on OpenRouter's ZDR list (to verify); SCCs and TIA | [date] |
 | Microsoft (Azure), upstream of OpenRouter | Inference for `openai/gpt-6.1-sol` (pinned, no fallback) | Model inference | Prompt contents | EU, EEA, UK or Switzerland, as constrained by the region setting of each API request (owner, Oct 26, 2026; one real request to verify) | OpenRouter flow-down terms; on OpenRouter's ZDR list and free of prompt-retaining abuse monitoring (to verify); SCCs and TIA | [date] |
 
@@ -67,10 +67,24 @@ Used only for a tenant whose signed acceptance is on file and for which the oper
 
 *DRAFT, Oct 22, 2026 (P1b-19 step 1).* A client that supplies documents (architecture §15) adds no sub-processor and no new data flow: its files are stored and indexed on our Scaleway Instance in Paris, and excerpts are sent in prompts to the same providers as public-source excerpts, OpenRouter and its upstream vendors only where that client has accepted external models. In the customer-facing list, "data received" reads "prompt contents, which may include excerpts of documents you supplied" for every model provider.
 
+## DPA review notes (Oct 27, 2026; internal, owner and counsel)
+
+From the Scaleway DPA (version of June 1, 2024) and the OpenRouter DPA (last updated Aug 26, 2026).
+
+1. **Notice we are promised is not automatic.** Scaleway gives 30 days' notice of a sub-processor change only if we have subscribed to updates on its sub-processor page (art. 7.4). OpenRouter does the same only if we email support@openrouter.ai, and **excludes AI model providers** (Amazon, Microsoft) from that notice (s. 5.2). Our client DPA promises [30] days for every sub-processor (clause 5.2). Do both subscriptions and note the date in the checklist. For OpenRouter's upstream vendors, our own pinned routing (`provider_only`, no fallback) is the control; check trust.openrouter.ai at each annual review.
+2. **SCC module.** OpenRouter's DPA treats the customer as the controller, so its SCCs are Module 2 (controller to processor). We are a processor for our clients, which is Module 3 (processor to processor). Ask OpenRouter to confirm Module 3 or accept an amendment, or have counsel confirm Module 2 is enough. Update `transfer-impact-assessment.md` once decided.
+3. **EU-only addendum.** Exhibit A applies only if EU-only processing is elected in an order form or written agreement. Confirm it for our account in writing. It covers prompts and answers only, and says "EU or EEA" where this list says "EU, EEA, UK or Switzerland"; align the wording once the AWS and Azure region check (findings C32) is done.
+4. **OpenRouter's own sub-processors** (its DPA names Google Cloud hosting, Cloudflare in front, Datadog for logs; the full list is at trust.openrouter.ai) handle prompts in transit. Read that list and add the ones that touch prompt contents to the external-models table, or record why not.
+5. **Zero retention is narrower than our wording.** OpenRouter deletes payloads after each request, but may run automated risk classification first and may keep data where the law requires or to address misuse; it also states that a provider's ZDR listing is the provider's own policy, not OpenRouter's guarantee (s. 2.4). Keep the "on ZDR list (to verify)" caveats, and keep the trust page from saying "no retention" without them.
+6. **Breach notice.** OpenRouter notifies within 72 hours; Scaleway "as soon as possible", no figure. Our client DPA says [48] hours (clause 9.1, open question B7). We cannot promise a window shorter than our slowest sub-processor's; move it to 72 hours or say "without undue delay".
+7. **Scaleway's DPA says nothing on zero retention** for Generative APIs, only EU location by default (art. 11.1) and no transfer outside the EU without notice (art. 11.2.2). The published policy stays the evidence (findings M2).
+8. **Audit rights are limited:** once a year at our cost, 30 days' notice with Scaleway (art. 12) and reasonable request with OpenRouter (s. 6). The client DPA clause 11 should not promise more than we can pass on.
+
 ## Change log
 
 | Date | Change |
 | --- | --- |
 | Oct 19, 2026 | First draft (P1a-15) |
 | Oct 22, 2026 | DRAFT: client-supplied documents, no new sub-processor (P1b-19 step 1) |
+| Oct 27, 2026 | DRAFT: OpenRouter and Scaleway DPAs reviewed; OpenRouter version, SCC module and EU-only addendum recorded; notes added |
 | Oct 27, 2026 | DRAFT: Squarespace (domain, DNS) reviewed and recorded as not a sub-processor, owner to confirm; Scaleway Secret Manager and snapshots named; registries, Let's Encrypt, tenant identity providers and operator mailboxes added to the reviewed list |

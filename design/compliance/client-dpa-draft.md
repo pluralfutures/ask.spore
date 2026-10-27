@@ -46,9 +46,9 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 
 ## 5. Sub-processors
 
-5.1 [Client] gives general authorisation to the sub-processors listed in Annex 3.
+5.1 [Client] gives general authorisation to the sub-processors listed in Annex 3. The same list is published at `/legal/sub-processors` and kept current there.
 
-5.2 The Processor gives [Client] at least **[30] days'** written notice of an intended addition or replacement of a sub-processor. [Client] may object on reasonable data-protection grounds within that period; the parties then discuss in good faith, and if they cannot agree, [Client] may terminate the affected part of the Service without penalty.
+5.2 The Processor gives [Client] at least **[30] days'** written notice of an intended addition or replacement of a sub-processor, by email to [Client]'s contact and by updating the published list at the same time. [Client] may object on reasonable data-protection grounds within that period; the parties then discuss in good faith, and if they cannot agree, [Client] may terminate the affected part of the Service without penalty.
 
 5.3 The Processor imposes on each sub-processor data protection obligations no less protective than this DPA, and remains liable to [Client] for its sub-processors' performance.
 
@@ -175,7 +175,7 @@ Drawn from the Provider's Compliance & Privacy Design Guide; SOC 2 criteria are 
 
 ## Annex 3 — Sub-processors
 
-See `sub-processors.md` for the maintained list; at the date of this DPA. Client-supplied documents (clause 7A) add no sub-processor: they are stored and processed by Scaleway as below, and excerpts reach the language models listed here as part of prompts.
+See `sub-processors.md` for the maintained list (published as `/legal/sub-processors`); at the date of this DPA. Client-supplied documents (clause 7A) add no sub-processor: they are stored and processed by Scaleway as below, and excerpts reach the language models listed here as part of prompts.
 
 | Sub-processor | Purpose | Location | Safeguard |
 | --- | --- | --- | --- |

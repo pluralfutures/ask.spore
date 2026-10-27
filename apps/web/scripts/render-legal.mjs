@@ -1,5 +1,6 @@
-// P2A-L2: renders the three legal texts from design/compliance/*.md into the static pages
-// under public/legal/ that Caddy serves at /legal/privacy, /legal/ai and /legal/terms.
+// P2A-L2: renders the legal texts from design/compliance/*.md into the static pages
+// under public/legal/ that Caddy serves at /legal/privacy, /legal/ai, /legal/terms and
+// /legal/sub-processors.
 //
 //   node scripts/render-legal.mjs           write the pages (drafts allowed; the route stays
 //                                           unpublished until ASKSPORE_LEGAL=published)
@@ -10,7 +11,7 @@
 //                                           shows (run before publishing)
 //
 // The text is what follows the first "---" line of each source (the notice itself, not the
-// owner's front matter). Only the markdown the three sources use is supported: headings,
+// owner's front matter), up to a line starting "End of the page text" if the source has one. Only the markdown the three sources use is supported: headings,
 // paragraphs, bullet and numbered lists, tables, bold, italic, code and links.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -26,6 +27,7 @@ export const DOCUMENTS = [
   { slug: "privacy", source: "privacy-notice.md", title: "Privacy notice" },
   { slug: "ai", source: "ai-transparency-note.md", title: "AI transparency note" },
   { slug: "terms", source: "terms-of-use.md", title: "Terms of Use" },
+  { slug: "sub-processors", source: "sub-processors.md", title: "Sub-processors" },
 ];
 
 const escapeHtml = (text) =>
@@ -113,7 +115,9 @@ export function noticeText(markdown) {
   if (marker < 0) throw new Error("no 'Plain text below the line' marker");
   const rule = lines.findIndex((line, i) => i > marker && /^---\s*$/.test(line));
   if (rule < 0) throw new Error("no rule after the marker");
-  return lines.slice(rule + 1).join("\n");
+  // A source with an internal part after the page text ends the text at this line.
+  const end = lines.findIndex((line, i) => i > rule && /^End of the page text/.test(line));
+  return lines.slice(rule + 1, end < 0 ? undefined : end).join("\n");
 }
 
 // A placeholder is a bracketed phrase that is not a link; a DRAFT marker is the owner's.

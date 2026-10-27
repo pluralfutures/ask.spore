@@ -7,7 +7,7 @@
 | Author | Drafted for owner review (spec item P1a-15) |
 | Revision | Oct 22, 2026, **DRAFT**: "Your own documents" section and the first paragraph, for clients that supply documents (P1b-19 step 1, architecture §15); publish only once P1b-19 step 2 is built |
 | Publishing (P2A-11, Oct 25, 2026) | Caddy has a `/trust` route that answers 404 until the deploy-time flag `ASKSPORE_TRUST_PAGE=published` is set in `infra/.env`. To publish: render the final text as `apps/web/public/trust.html` (static, no inline script or style, like `security-disclosure.html`), deploy, set the flag, `restart caddy`. Until paperwork item 4 clears, neither is done |
-| To finalise, the owner must | (1) fill in the contact addresses and legal entity; (2) replace the "External models" location sentence with the outcome of the TIA verification (findings C32); (3) remove the sentence on deletion timing that does not match the build at publication (see the note under "Retention"); (4) link the published sub-processor list; (5) have counsel check it against the DPA and privacy notice. Plain text below the line is the page. |
+| To finalise, the owner must | (1) fill in the contact addresses and legal entity; (2) replace the "External models" location sentence with the outcome of the TIA verification (findings C32); (3) remove the sentence on deletion timing that does not match the build at publication (see the note under "Retention"); (4) the sub-processor list is linked at `/legal/sub-processors`: publish it first (`sub-processors.md`, Publishing); (5) have counsel check it against the DPA and privacy notice. Plain text below the line is the page. |
 
 ---
 
@@ -67,7 +67,7 @@ Some organisations send us their own documents to be searched in their workspace
 
 ### Sub-processors
 
-The companies that process your data on our behalf are listed at [link to sub-processor list]. We give customers [30] days' notice before adding one.
+The companies that process your data on our behalf are listed at [Sub-processors](/legal/sub-processors). We give customers [30] days' notice before adding one.
 
 ### Contact
 

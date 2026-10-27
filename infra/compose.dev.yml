@@ -209,9 +209,9 @@ services:
       # P2A-11: "published" serves the trust page at /trust; anything else but the
       # default stops Caddy at start. Set in infra/.env by the owner (paperwork item 4).
       ASKSPORE_TRUST_PAGE: ${ASKSPORE_TRUST_PAGE:-unpublished}
-      # P2A-L2: "published" serves /legal and the privacy notice, AI transparency note and
-      # Terms of Use under it; anything else but the default stops Caddy at start. Set in
-      # infra/.env by the owner once counsel has signed the three texts.
+      # P2A-L2: "published" serves /legal and the privacy notice, AI transparency note,
+      # Terms of Use and sub-processor list under it; anything else but the default stops Caddy at start. Set in
+      # infra/.env by the owner once counsel has signed the four texts.
       ASKSPORE_LEGAL: ${ASKSPORE_LEGAL:-unpublished}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro

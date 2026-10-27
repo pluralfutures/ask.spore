@@ -6,27 +6,22 @@
 | Date | Oct 19, 2026 |
 | Author | Drafted for owner review (spec item P1a-15) |
 | Revision | Oct 22, 2026, **DRAFT**: client-supplied documents (P1b-19 step 1, architecture §15) add no sub-processor; the data received by Scaleway and, if enabled, the external-models chain widens |
-| To finalise, the owner must | (1) record the acceptance date of the Scaleway DPA (version of June 1, 2024) and the acceptance of the OpenRouter DPA (version of Aug 26, 2026, signed Oct 23, 2026) in `paperwork-checklist.md`, and resolve the points under "DPA review notes" below; (2) keep a dated copy of Scaleway's published zero-retention policy (done: `evidence/`; Scaleway issues no letter; findings M2); (3) verify the AWS and Azure region constraint with one real request each (findings C32); (4) set the "date added" to the date each service first receives client personal data; (5) publish the customer-facing version with the trust page. |
+| To finalise, the owner must | (1) record the acceptance date of the Scaleway DPA (version of June 1, 2024) and the acceptance of the OpenRouter DPA (version of Aug 26, 2026, signed Oct 23, 2026) in `paperwork-checklist.md`, and resolve the points under "DPA review notes" below; (2) keep a dated copy of Scaleway's published zero-retention policy (done: `evidence/`; Scaleway issues no letter; findings M2); (3) verify the AWS and Azure region constraint with one real request each (findings C32); (4) set the "date added" to the date each service first receives client personal data; (5) fill in [30] and the publication date in the page text, remove the DRAFT markers, then publish (see Publishing). |
+| Publishing (Oct 27, 2026) | Rendered by `apps/web/scripts/render-legal.mjs` to `/legal/sub-processors`, served once `ASKSPORE_LEGAL=published` (Caddy). Only the text between the rule below and the line "End of the page text" is published; the rest of this file is internal. Run `node scripts/render-legal.mjs --final` before publishing: it refuses a leftover `[placeholder]` or DRAFT marker. Customer-facing text adapted from the form of Scaleway's published sub-processor page; aligned with client DPA clauses 5.1 to 5.3. The customer-facing tables are built from the working record below: change that first, then them. Mailgun is left out while inactive: add it, with notice, before it is switched on. |
 
-Method: built from `config/models.toml` (allow-list, provider sections, catalogue), `infra/` (Compose files, Authentik SMTP settings, Caddy) and the Stack Decision. Every outbound host the API and workers reach is in `[allow_list]`; the API refuses to start otherwise.
+Plain text below the line is the page.
 
-## Introduction (customer-facing text)
+---
 
-*DRAFT, Oct 27, 2026. Adapted from the form of Scaleway's published sub-processor page. Aligned with client DPA clauses 5.1 to 5.3 and `policy-vendor-management.md`; the [30] days is the same placeholder as in the DPA. Publish this text above the customer-facing list; the working notes elsewhere in this file stay internal.*
+To provide ask.spore, we use third-party service providers that may process personal data on our customers' behalf. This page tells our customers which sub-processors are likely to process their personal data as part of the service, in line with our Data Processing Agreement (DPA) and our [Privacy notice](/legal/privacy).
 
-To provide ask.spore, we use third-party service providers that may process personal data on our customers' behalf. This page tells our customers which sub-processors are likely to process their personal data as part of the service, in line with our Data Processing Agreement (DPA) and our Privacy Notice.
+Each sub-processor is reviewed for security and data protection before it receives any customer data, and we hold it to data protection obligations no less protective than those in our DPA. We stay responsible to our customers for how our sub-processors perform. Our language-model providers are bound by zero-data-retention terms: prompts and answers are not used for training and are not kept, apart from narrow exceptions such as investigating a failed or abusive request. Our systems can only reach providers on an approved list, and an external (non-EU) provider is used only for a customer that has accepted it in writing.
 
-Each sub-processor is reviewed for security and data protection before it receives any customer data, and we hold it to data protection obligations no less protective than those in our DPA. We stay responsible to our customers for how our sub-processors perform. Our language-model providers are also bound by zero-data-retention terms, so prompts and answers are not kept or used for training. Our systems can only reach providers on an approved list, and an external (non-EU) provider is used only for a customer that has accepted it in writing.
-
-**Authorisation to engage new sub-processors**
+## Authorisation to engage new sub-processors
 
 By using ask.spore and agreeing to our DPA, the customer gives us general authorisation to engage the sub-processors listed here. We will give the customer at least [30] days' written notice before adding or replacing a sub-processor, and this page will be updated at the same time. The customer may object on reasonable data-protection grounds within that period. If we cannot agree a solution, the customer may end the affected part of the service without penalty.
 
-## Customer-facing list (publish this; the tables below it are the working record)
-
-*DRAFT, Oct 27, 2026. Same layout as Scaleway's published list. Built from the working tables below; change those first, then this. Mailgun is left out while it is inactive: add it, with notice, before it is switched on.*
-
-### Hosting, language models and email
+## Hosting, language models and email
 
 | Name | Headquarters location | Processing location (region) | Purpose |
 | --- | --- | --- | --- |
@@ -34,9 +29,9 @@ By using ask.spore and agreeing to our DPA, the customer gives us general author
 | Scaleway SAS (Generative APIs) | EU (France) | EU (France, Paris) | Default language-model service: answers questions and rewrites queries. Receives the prompt, which has no names or identifiers |
 | Scaleway SAS (Transactional Email) | EU (France) | EU (France, Paris) | Sends sign-in links, invitations and service notices. Receives the recipient's email address |
 
-Scaleway uses its own sub-processors, such as data-centre operators. They are listed on Scaleway's website: [link to Scaleway's list].
+Scaleway uses its own sub-processors, such as data-centre operators. They are listed on [Scaleway's website](https://www.scaleway.com/).
 
-### Optional external models
+## Optional external models
 
 Used only for a workspace whose administrator has accepted external models in writing. Off by default.
 
@@ -47,6 +42,15 @@ Used only for a workspace whose administrator has accepted external models in wr
 | Microsoft (Azure) | US | EU, EEA, UK or Switzerland (set per request) | Runs GPT-6.1 Sol |
 
 Transfers to companies headquartered outside the EU rely on Standard Contractual Clauses.
+
+## Questions
+
+Write to privacyanddata@myceliumgastronomy.com. Last updated: [date of publication].
+
+End of the page text. Everything below is internal and is not published.
+
+
+Method: built from `config/models.toml` (allow-list, provider sections, catalogue), `infra/` (Compose files, Authentik SMTP settings, Caddy) and the Stack Decision. Every outbound host the API and workers reach is in `[allow_list]`; the API refuses to start otherwise.
 
 ## Active sub-processors (working record)
 

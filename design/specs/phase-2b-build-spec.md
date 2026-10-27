@@ -113,16 +113,21 @@ out of the refresh…)"). A user with many conversations can only scroll the lis
   never overwrites a title the user set. No-history conversations are never listed, so they
   cannot be renamed. Audit: none. A title is user content, so it is never logged and never in
   an audit event; the request log line carries the route and status only.
-- **Search.** A search box on `/conversations` filters the user's own conversations by title.
-  Title only (owner, Oct 27, 2026, open item 2); message text is not searched. It is a
-  `GET /v1/conversations?q=` on the existing list, `ILIKE` on `title` with the user's wildcard
-  characters escaped, inside the user's own rows by the existing policy. Searching message
-  text would read retained conversation content and needs its own index plan, so it is out. The query is never logged and never
-  put in a URL that is logged by the proxy (send it as a query string only if Caddy's access
-  log omits query strings; otherwise use `POST /v1/conversations/search`, check at build).
+- **Search.** A search box on `/conversations` filters the user's own conversations by
+  title. Title only (owner, Oct 27, 2026, open item 2); message text is not searched. The
+  owner's rule is that a search query is kept out of every log and exists only in the
+  browser session. The simplest way to keep it is to never send it: `GET /v1/conversations`
+  already returns every live conversation of the user with its title, unpaged, so the page
+  filters that list in the browser (case-insensitive, accents ignored, whitespace trimmed). No
+  new API route, no query string, no request per keystroke. The query lives in component state
+  only: not in the URL, not in local or session storage, gone when the page is left.
+  Searching message text would read retained conversation content and needs its own index
+  plan, so it is out. If the list ever becomes paged, search needs a server route; that is a
+  new decision (the query would then go in a POST body and Caddy's access log would have to
+  be checked), not part of this item.
 - **Isolation tests (the negative cases).** Another user's conversation cannot be renamed
-  (404, row unchanged); a search never returns another user's or another tenant's
-  conversations; a rename or a search leaves no title or query in the log capture; a title
+  (404, row unchanged); the search filters only the list the API returned for the user; typing in the search box
+  sends no request; a rename leaves no title in the log capture; a title
   containing Markdown or HTML renders as text.
 - **UX.** Rename in place (an edit field with Save and Cancel; Enter saves, Escape cancels;
   the saved title is announced in a polite live region). The search box is labelled, filters
@@ -130,8 +135,8 @@ out of the refresh…)"). A user with many conversations can only scroll the lis
   and keeps the three-item recent list on the home page unchanged. Both work at phone
   width and by keyboard.
 - Tests: API (rename, trim, length limits, the orchestrator's title does not overwrite,
-  cross-user and cross-tenant negatives, search escaping), web (rename flow, search flow and
-  its empty state), axe on `/conversations` with the search box, visual baselines for the
+  cross-user and cross-tenant negatives), web (rename flow; search flow, its empty state, and a test that no network request is made
+  while typing and that the query is not in the URL or storage), axe on `/conversations` with the search box, visual baselines for the
   list at desktop and phone width.
 
 **P2B-04 First conversation title stays "New conversation".** A real bug (`backlog.md`,
@@ -168,14 +173,30 @@ this item adds one block to it.
 - **Source.** A new `GET /v1/workspaces/{id}/summary`, computed by the files service from the
   same rows as the workspace file list (`app/files/service.py`), so the two cannot disagree.
   It takes no dataset or document ID from the request and returns aggregates only, never a
-  title or an excerpt. Cached under a tenant-prefixed key through `app.core.cache` and cleared
-  when the workspace's package or a source in it changes (decide the clearing hook at build,
-  or use a short TTL of a few minutes).
+  title or an excerpt. Cached under a tenant-prefixed key
+  through `app.core.cache` (`workspace_summary:{workspace_id}`). **Cache rule (owner, Oct 27,
+  2026):** the entry is cleared and rebuilt whenever the workspace's library changes, and
+  deleted outright when the workspace is closed or deleted.
+  - *Changes that clear and rebuild it:* a source in the workspace's package is ingested,
+    re-ingested, withdrawn, paused or resumed, re-tagged, or restored; a crawled site is
+    withdrawn or reinstated; the workspace's tag selection changes. The hook sits where those
+    changes are committed (the content toggle, ingest, withdrawal and tag-save code paths), so
+    no path is missed; a test lists the paths and fails when a new one does not call it. A
+    source change can touch several workspaces, so it clears every summary of that tenant
+    whose package holds the source (`cache.scan` on the `workspace_summary:` prefix, then
+    `cache.delete`). The next read rebuilds the entry; nothing is rebuilt in advance.
+  - *Closing or deleting a workspace deletes the entry.* The code has no workspace close or
+    delete action today; the tenant termination purge removes workspaces and already clears
+    the tenant's whole cache namespace (`cache.clear_tenant`). When a close or delete action
+    is built it must delete its summary key, and this item adds a test on the termination
+    path that no `workspace_summary:` key survives it.
+  - No time-based expiry is relied on; a long TTL (a day) only bounds a missed hook.
+
 - **UI.** A compact card under the question box that follows the workspace chooser. It is
   plain text with one link and does not push the recent conversations below the first screen
   at phone width. If the summary cannot be loaded the card is left out; the home page never
-  shows an error for it. Wording in the table below; it needs the owner's approval (open
-  item 3).
+  shows an error for it. Wording in the table below; approved by the
+  owner on Oct 27, 2026 (open item 3).
 
   | Where | Proposed wording | Note |
   |---|---|---|
@@ -251,7 +272,6 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
 2. ~~P2B-03: should search cover message text?~~ Decided Oct 27, 2026: titles only. Searching
    message text reads retained conversation content and needs its own index plan; it stays in
    the backlog if wanted later.
-3. P2B-05: approve the wording of the summary card (the table in P2B-05). Proposed Oct 27,
-   2026; waiting for the owner.
+3. ~~P2B-05: wording of the summary card.~~ Approved as proposed by the owner, Oct 27, 2026.
 4. ~~P2B-06: `.markdown` besides `.md`, and a note on `.txt` citations?~~ Decided Oct 27,
    2026, as proposed: accept both Markdown suffixes; no extra note in the citation panel.

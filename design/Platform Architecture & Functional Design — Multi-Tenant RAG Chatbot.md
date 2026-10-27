@@ -160,6 +160,7 @@ Policy:
 Deployed from the official Docker Compose on the retrieval host. Used for:
 
 - **Parsing**: DeepDoc for PDF (layout, tables, figures with captions), native DOCX and PPTX parsing, HTML/Markdown for crawled pages, and Markdown and plain-text files given to us as files (P2B-06; UTF-8, parsed with the "naive" method).
+- **No outbound network**: the retrieval tier's Compose network is internal, so RAGFlow, its stores and the embedding service have no route to the internet (P2B-06). Its Markdown parser fetches every image URL it finds, so a crawled or fetched page also has its image references removed before upload, and an uploaded Markdown file that holds one is refused.
 - **Chunking**: per-dataset chunking method ("paper" or "book" for reports, "presentation" for PPTX, "naive" for web pages); chunk size and overlap tuned per source type.
 - **Indexing**: hybrid dense + full-text index in Elasticsearch (default) or Infinity.
 - **Retrieval**: the HTTP retrieval endpoint, called with a list of dataset IDs, the query, `top_k`, similarity threshold and optional keyword re-ranking.

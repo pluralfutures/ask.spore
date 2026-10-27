@@ -105,7 +105,30 @@ reference is refused.** `check_file_content` refuses any `![..](..)`, `![..][..]
 or `src=` in a Markdown upload or manifest ingest with `image_reference` (code only, no
 file text). The patterns cover everything RAGFlow's extractor matches. Plain `[text](url)`
 links are still accepted, and `.txt` is not checked because RAGFlow's text parser loads
-nothing. Crawled pages still go through RAGFlow's image loading; that stays in `backlog.md`.
+nothing.
+
+**Decision (owner, Oct 27, 2026; spec owner decision 7): crawled and fetched pages are closed
+in two layers.** (1) `strip_image_references` (`app/content/markdown.py`) takes every image
+reference out of a crawled page's Markdown (`crawler.render`) and of a fetched `.md` page
+(`from_fetched`) before it is stored or hashed; the alt text stays as plain text, and any line
+the patterns still match is dropped, so the result passes the same check an upload must pass.
+(2) The `ragflow` Compose network (`infra/ragflow/docker-compose.yml`) is `internal: true`:
+RAGFlow, its stores and TEI reach each other and the API and workers, and nothing else, so a
+parser that tries a URL has no route. Docker publishes no port for a container that is only
+on an internal network, so the loopback web UI now runs through `ragflow-ui`, a Caddy
+reverse proxy (the image already pinned for the public proxy) on both the internal network
+and a second, ordinary one. `tests/test_compose_egress.py` fails if a tier service joins a
+network with internet access or publishes a port.
+
+**To check on the Instance at release (not testable in the build session, no Docker):**
+`docker compose up -d` recreates the `ragflow` network, which restarts the tier briefly;
+then (a) from inside the `ragflow` container an outbound request fails (`curl -m 5
+https://example.org`); (b) the API and worker still reach `http://ragflow:9380` (a parse of a
+PDF, a DOCX, a `.md` and a `.txt` completes); (c) a restart of the tier comes up healthy with
+no download attempt in its logs (the DeepDoc models and the embedding model are on disk);
+(d) the SSH tunnel to `127.0.0.1:${RAGFLOW_UI_PORT}` still opens the UI and a document page.
+If (c) shows a start-up download, the model must be baked into a volume first; do not remove
+`internal: true` without an owner decision.
 
 ### Decision: "naive" stays
 

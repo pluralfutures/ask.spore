@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.audit.writer import record
 from app.content.fetch import Fetched, tdm_reserved
 from app.content.jobs import enqueue
+from app.content.markdown import IMAGE_REFERENCE, strip_image_references
 from app.content.models import Dataset, SitePage, Source
 from app.content.store import StoredFileError, read, relative_path
 from app.content.tags import TagConfig
@@ -174,12 +175,6 @@ class _Failure(Exception):
 
 
 _ZIP_SIGNATURE = b"PK\x03\x04"
-# An image reference in Markdown. RAGFlow's Markdown parser loads every image it finds
-# while parsing: an http(s) one is fetched from the internet, any other is opened as a
-# path inside the RAGFlow container (phase-2b-findings.md section 1). The patterns are a
-# superset of RAGFlow's own (`![..](`, a quoted `src=` on any tag, `<img>`), plus the
-# reference form `![..][..]`, so nothing it would load gets through.
-_IMAGE_REFERENCE = re.compile(r"!\[[^\]]*\][(\[]|\bsrc\s*=|<img\b", re.IGNORECASE)
 
 
 def check_file_content(source_type: str, content: bytes, declared_media_type: str | None) -> None:
@@ -203,7 +198,7 @@ def check_file_content(source_type: str, content: bytes, declared_media_type: st
         ok = _is_text(content)
         if not ok:
             raise IngestError("not_text", "the file is not UTF-8 text")
-        if source_type == "markdown" and _IMAGE_REFERENCE.search(content.decode("utf-8-sig")):
+        if source_type == "markdown" and IMAGE_REFERENCE.search(content.decode("utf-8-sig")):
             raise IngestError("image_reference", "the Markdown file references an image")
     else:
         ok = True
@@ -255,7 +250,12 @@ def from_fetched(fetched: Fetched) -> SourceFile:
     if not fetched.content:
         raise IngestError("empty", "the page returned an empty body")
     stem = Path(name).stem or "index"
-    return SourceFile(stem + SUFFIX_BY_TYPE[source_type], source_type, fetched.content)
+    content = fetched.content
+    if source_type == "markdown":  # a page, not an upload: its images are removed, not refused
+        content = strip_image_references(content.decode("utf-8-sig", errors="replace")).encode()
+        if not content.strip():
+            raise IngestError("empty", "the page has no text once its images are removed")
+    return SourceFile(stem + SUFFIX_BY_TYPE[source_type], source_type, content)
 
 
 def upload_name(title: str, source_id: UUID, source_type: str) -> str:

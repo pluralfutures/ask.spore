@@ -180,9 +180,11 @@ Oct 26, 2026 so `phase-2a/release` can merge. Each line names where it is record
   §1). RAGFlow's Markdown parser requests every `http(s)` image reference during parsing (and
   opens any other as a path in its container); its SSRF guard allows public hosts and the
   RAGFlow network has outbound access. Uploaded Markdown is closed: an image reference is
-  refused (P2B-06, owner decision 6, Oct 27, 2026). **Still open for crawled pages**, which
-  are stored as Markdown: strip image references before upload, or remove RAGFlow's outbound
-  route if nothing else needs it.
+  refused (P2B-06, owner decision 6, Oct 27, 2026). **Crawled and fetched pages closed the
+  same day (owner decision 7):** image references are stripped before upload, and the
+  `ragflow` Compose network is `internal`, so RAGFlow has no route out. Left to the Instance
+  release: recreate the network, and check parsing and the UI tunnel still work (findings
+  §1).
 
 ## Enterprise requirements
 

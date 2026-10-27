@@ -9,7 +9,8 @@ Pinned RAGFlow retrieval tier. Version: see `VERSION` (currently `v0.27.2`).
 | --- | --- |
 | Only Elasticsearch, MySQL, MinIO, Redis (Valkey), TEI and RAGFlow (CPU) are kept; profiles removed | Phase 0 uses the Elasticsearch backend on CPU; the other engines are unused |
 | Services renamed with a `ragflow-` prefix; hosts passed via environment (`ES_HOST`, `MYSQL_HOST`, ...) | Avoids name clashes with the app's own `postgres` and `redis` when included from `infra/compose.dev.yml` |
-| No host ports except the web UI on `127.0.0.1:${RAGFLOW_UI_PORT}` | RAGFlow is internal (CLAUDE.md); the API and workers reach it on the `ragflow` network at `http://ragflow:9380` |
+| No host ports except the web UI on `127.0.0.1:${RAGFLOW_UI_PORT}`, published by the `ragflow-ui` proxy (Caddy, the public proxy's pinned image), not by RAGFlow | RAGFlow is internal (CLAUDE.md); the API and workers reach it on the `ragflow` network at `http://ragflow:9380` |
+| The `ragflow` network is `internal: true` | RAGFlow's Markdown parser fetches every image URL it finds and its guard allows public hosts (P2B-06, `phase-2b-findings.md`); the tier has no route to the internet. Docker publishes no port for a container only on an internal network, hence `ragflow-ui` on a second network. `tests/test_compose_egress.py` guards it. Applying it recreates the network and restarts the tier |
 | MCP, admin, Go and HTTPS ports not published | Not used |
 | `valkey/valkey:8` pinned to `8.1.10` | No floating tags |
 | TEI embedding service always on (upstream: optional `tei-cpu` profile), default model `BAAI/bge-m3` | The RAGFlow image no longer bundles an embedding model |

@@ -347,6 +347,7 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
 | 4 | The "Sources in this workspace" card wording is approved as proposed. | Oct 27, 2026 | P2B-05 |
 | 5 | The summary cache is cleared and rebuilt on any change to the workspace library, and deleted when the workspace is closed or deleted. | Oct 27, 2026 | P2B-05 |
 | 6 | An uploaded Markdown file with an image reference is refused, so RAGFlow never loads an image from one. | Oct 27, 2026 | P2B-06 |
+| 7 | Crawled and fetched Markdown pages have their image references stripped before upload, and the RAGFlow network is internal (no route to the internet), with the web UI behind a loopback proxy. | Oct 27, 2026 | P2B-06 |
 
 ## Open items for the owner
 

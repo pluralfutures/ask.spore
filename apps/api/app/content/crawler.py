@@ -39,6 +39,7 @@ import httpx
 import trafilatura
 
 from app.content.fetch import USER_AGENT, FetchError, fetch, require_http_url, tdm_reserved
+from app.content.markdown import strip_image_references
 
 DEFAULT_DELAY_SECONDS = 1.0
 MAX_DELAY_SECONDS = 30.0
@@ -255,6 +256,8 @@ def render(html: bytes, url: str) -> tuple[str, str] | None:
         include_tables=True,
         favor_precision=True,
     )
+    if markdown:
+        markdown = strip_image_references(markdown)  # RAGFlow loads any image it finds
     if not markdown or not markdown.strip():
         return None
     metadata = trafilatura.extract_metadata(text, default_url=url)

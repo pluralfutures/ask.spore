@@ -154,10 +154,9 @@ services:
       nproc:
         soft: 65535
         hard: 65535
-    # Web UI only, loopback only. The UI's nginx also proxies RAGFlow's /api/ paths,
-    # so this port must stay on loopback (dev) or behind the firewall (Phase 0 Instance).
-    ports:
-      - 127.0.0.1:${RAGFLOW_UI_PORT:-8080}:80
+    # No published port: the `ragflow` network is internal (see `networks:`), and Docker
+    # publishes no port for a container that is only on an internal network. The web UI is
+    # reached through `ragflow-ui` below.
     env_file: .env
     environment:
       - DOC_ENGINE=elasticsearch
@@ -195,6 +194,24 @@ services:
       - ragflow
     restart: unless-stopped
 
+  # The RAGFlow web UI, loopback only, over an SSH tunnel (P1b-05). A thin reverse proxy,
+  # because RAGFlow itself must not be on a network with internet access (P2B-06, findings
+  # 2b): its Markdown parser fetches every image URL it finds. The UI's nginx also proxies
+  # RAGFlow's /api/ paths, so this port must stay on loopback (dev) or behind the firewall
+  # (Phase 0 Instance). The image is the one Caddy runs on; no new component.
+  ragflow-ui:
+    image: caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
+    command: ["caddy", "reverse-proxy", "--from", ":80", "--to", "ragflow:80"]
+    depends_on:
+      ragflow:
+        condition: service_started
+    ports:
+      - 127.0.0.1:${RAGFLOW_UI_PORT:-8080}:80
+    networks:
+      - ragflow
+      - ragflow-ui
+    restart: unless-stopped
+
 volumes:
   ragflow_esdata:
   ragflow_mysql:
@@ -203,5 +220,13 @@ volumes:
   ragflow_logs:
 
 networks:
+  # Internal: the containers on it (RAGFlow, its stores and TEI) can talk to each other and
+  # to the API and workers that join it, and to nothing else. No route to the internet, so a
+  # parser that tries to fetch a URL cannot. Nothing here needs the internet once the images
+  # are pulled and the embedding model is on disk.
   ragflow:
+    driver: bridge
+    internal: true
+  # Only for the loopback web UI proxy above.
+  ragflow-ui:
     driver: bridge

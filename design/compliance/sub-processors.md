@@ -10,6 +10,18 @@
 
 Method: built from `config/models.toml` (allow-list, provider sections, catalogue), `infra/` (Compose files, Authentik SMTP settings, Caddy) and the Stack Decision. Every outbound host the API and workers reach is in `[allow_list]`; the API refuses to start otherwise.
 
+## Introduction (customer-facing text)
+
+*DRAFT, Oct 27, 2026. Adapted from the form of Scaleway's published sub-processor page. Aligned with client DPA clauses 5.1 to 5.3 and `policy-vendor-management.md`; the [30] days is the same placeholder as in the DPA. Publish this text above the customer-facing list; the working notes elsewhere in this file stay internal.*
+
+To provide ask.spore, we use third-party service providers that may process personal data on our customers' behalf. This page tells our customers which sub-processors are likely to process their personal data as part of the service, in line with our Data Processing Agreement (DPA) and our Privacy Notice.
+
+Each sub-processor is reviewed for security and data protection before it receives any customer data, and we hold it to data protection obligations no less protective than those in our DPA. We stay responsible to our customers for how our sub-processors perform. Our language-model providers are also bound by zero-data-retention terms, so prompts and answers are not kept or used for training. Our systems can only reach providers on an approved list, and an external (non-EU) provider is used only for a customer that has accepted it in writing.
+
+**Authorisation to engage new sub-processors**
+
+By using ask.spore and agreeing to our DPA, the customer gives us general authorisation to engage the sub-processors listed here. We will give the customer at least [30] days' written notice before adding or replacing a sub-processor, and this page will be updated at the same time. The customer may object on reasonable data-protection grounds within that period. If we cannot agree a solution, the customer may end the affected part of the service without penalty.
+
 ## Active sub-processors
 
 | Sub-processor | Service | Purpose | Data received | Location | Safeguard | When used | Date added |

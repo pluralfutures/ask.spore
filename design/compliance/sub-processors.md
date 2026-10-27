@@ -19,7 +19,7 @@ Each sub-processor is reviewed for security and data protection before it receiv
 
 ## Authorisation to engage new sub-processors
 
-By using ask.spore and agreeing to our DPA, the customer gives us general authorisation to engage the sub-processors listed here. We will give the customer at least [30] days' written notice before adding or replacing a sub-processor, and this page will be updated at the same time. The customer may object on reasonable data-protection grounds within that period. If we cannot agree a solution, the customer may end the affected part of the service without penalty.
+By using ask.spore and agreeing to our DPA, the customer gives us general authorisation to engage the sub-processors listed here. We will give the customer at least 30 days' written notice before adding or replacing a sub-processor, and this page will be updated at the same time, except where an urgent replacement is needed for security or continuity, when we notify as soon as possible and the objection right still applies. The customer may object on reasonable data-protection grounds within that period. If we cannot agree a solution, the customer may end the affected part of the service without penalty.
 
 ## Hosting, language models and email
 
@@ -45,7 +45,7 @@ Transfers to companies headquartered outside the EU rely on Standard Contractual
 
 ## Questions
 
-Write to privacyanddata@myceliumgastronomy.com. Last updated: [date of publication].
+Write to privacyanddata@myceliumgastronomy.com. Last updated: Oct 26, 2026.
 
 End of the page text. Everything below is internal and is not published.
 

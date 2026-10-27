@@ -67,7 +67,7 @@ Some organisations send us their own documents to be searched in their workspace
 
 ### Sub-processors
 
-The companies that process your data on our behalf are listed at [Sub-processors](/legal/sub-processors). We give customers [30] days' notice before adding one.
+The companies that process your data on our behalf are listed at [Sub-processors](/legal/sub-processors). We give customers 30 days' notice before adding one, except where an urgent replacement is needed for security or continuity, when we notify as soon as possible and the objection right still applies.
 
 ### Contact
 

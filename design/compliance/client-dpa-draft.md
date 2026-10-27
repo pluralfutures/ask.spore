@@ -48,7 +48,7 @@ This Data Processing Agreement ("**DPA**") forms part of the [Services Agreement
 
 5.1 [Client] gives general authorisation to the sub-processors listed in Annex 3. The same list is published at `/legal/sub-processors` and kept current there.
 
-5.2 The Processor gives [Client] at least **[30] days'** written notice of an intended addition or replacement of a sub-processor, by email to [Client]'s contact and by updating the published list at the same time. [Client] may object on reasonable data-protection grounds within that period; the parties then discuss in good faith, and if they cannot agree, [Client] may terminate the affected part of the Service without penalty.
+5.2 The Processor gives [Client] at least **30 days'** written notice of an intended addition or replacement of a sub-processor, by email to [Client]'s contact and by updating the published list at the same time. [Client] may object on reasonable data-protection grounds within that period; the parties then discuss in good faith, and if they cannot agree, [Client] may terminate the affected part of the Service without penalty. Where an urgent replacement is needed for security or continuity, the Processor notifies as soon as possible instead, and the objection right still applies.
 
 5.3 The Processor imposes on each sub-processor data protection obligations no less protective than this DPA, and remains liable to [Client] for its sub-processors' performance.
 

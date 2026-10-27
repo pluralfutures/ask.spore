@@ -89,14 +89,21 @@ then "SporeBot").
   change; only `render-legal.mjs`'s page template and the index page's markup do, and
   `--check` and `--final` keep working. The generated pages are regenerated in the same commit.
 - The same stylesheet serves `/security-disclosure` (P2A-11) and will serve the trust page,
-  so they take the new look too. The owner confirms that this is wanted (open item below).
+  so they take the new look too (decided, owner, Oct 27, 2026; decisions below).
+  `apps/web/public/security-disclosure.html` gets the same header and footer markup as the
+  legal pages; the trust page uses the same frame when it is added.
 - Tests: `e2e/legal.spec.ts` keeps passing; the axe baseline passes on all four legal pages
-  and `/security-disclosure`; new visual baselines for `/legal` and `/legal/privacy` at
+  and `/security-disclosure`; new visual baselines for `/legal`, `/legal/privacy` and
+  `/security-disclosure` at
   desktop and phone width, generated in the pinned Playwright image; a check that each page
   loads only same-origin resources and no script.
 
+## Owner decisions
+
+| # | Decision | Date | Items |
+| --- | --- | --- | --- |
+| 1 | `/security-disclosure`, and the trust page once published, take the app's look along with the legal pages: they share one stylesheet and are reached from the same footer. | Oct 27, 2026 | P2B-02 |
+
 ## Open items for the owner
 
-1. P2B-02: should `/security-disclosure` (and the trust page when it is published) take the
-   app's look along with the legal pages? Proposed: yes, since they share one stylesheet and
-   are reached from the same footer.
+None yet beyond the phase's scope, goal and exit criteria (Status above).

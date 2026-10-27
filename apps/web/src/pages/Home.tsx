@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import { ConversationLinks } from "../components/Conversations";
 import { StartForm } from "../components/StartForm";
 import { Welcome } from "../components/Welcome";
+import { WorkspaceSummaryCard } from "../components/WorkspaceSummaryCard";
 import { rememberWelcomeHidden, welcomeHidden } from "../lib/welcome";
 import { LINK } from "../ui/link";
 import { CONVERSATIONS_PATH } from "./ConversationList";
@@ -46,7 +47,10 @@ export function Home() {
         >
           What would you like to research?
         </AskHeading>
-        <StartForm submitLabel="Ask" />
+        <StartForm
+          submitLabel="Ask"
+          below={(workspaceId) => <WorkspaceSummaryCard workspaceId={workspaceId} />}
+        />
       </section>
       <section aria-labelledby="recent-title" className="flex flex-col gap-3">
         <h2 id="recent-title" className="text-heading font-strong">

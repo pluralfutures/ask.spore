@@ -62,6 +62,7 @@ import type {
   WorkspaceCreateIn,
   WorkspaceDefaultsIn,
   WorkspaceFiles,
+  WorkspaceSummary,
   WorkspacePrompt,
 } from "./types";
 
@@ -295,10 +296,14 @@ export const api = {
   createConversation: (body: ConversationCreateIn) =>
     json<ConversationCreated>("POST", "/conversations", body),
   getConversation: (id: string) => json<ConversationDetail>("GET", `/conversations/${id}`),
+  renameConversation: (id: string, title: string) =>
+    json<ConversationSummary>("PATCH", `/conversations/${id}`, { title }),
   deleteConversation: async (id: string) => {
     await send("DELETE", `/conversations/${id}`);
   },
   // Workspace file list and downloads (P1a-14).
+  workspaceSummary: (workspaceId: string) =>
+    json<WorkspaceSummary>("GET", `/workspaces/${workspaceId}/summary`),
   workspaceFiles: (workspaceId: string) =>
     json<WorkspaceFiles>("GET", `/workspaces/${workspaceId}/files`),
   async download(workspaceId: string, sourceId: string): Promise<{ blob: Blob; name: string }> {

@@ -5,33 +5,42 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api/client";
 import { SKIP_TARGET } from "./AppShell";
+import { matchesTitle, UNTITLED } from "../lib/conversationSearch";
 import { formatDate } from "../lib/format";
-import { ButtonLink } from "../ui/Button";
+import { Button, ButtonLink } from "../ui/Button";
 import { cx } from "../ui/controlClass";
 import { ConfirmDialog } from "../ui/Dialog";
 import { Menu } from "../ui/Menu";
 import { Notice } from "../ui/Notice";
 import { EmptyState, Skeleton } from "../ui/States";
-
-const UNTITLED = "Untitled conversation";
+import { RenameTitle } from "./RenameTitle";
 
 // UX-13: the conversation list, shown as the home page (and the only list on phone and
 // tablet) and as the chat's left rail from 1024 px. Each row links to its conversation,
 // shows its expiry (binding list item 4) and has a row menu whose "Delete" asks first.
 // HP-04: the home page shows the first `limit` rows (the API lists the latest first).
+// P2B-03: "Rename" in the row menu edits the title in place; `filter` (the page's search
+// box) keeps the rows whose title contains it. `onClearFilter` makes the empty result offer
+// a way back.
 export function ConversationLinks({
   variant,
   current = null,
   limit,
+  filter = "",
+  onClearFilter,
 }: {
   variant: "page" | "rail";
   current?: string | null;
   limit?: number;
+  filter?: string;
+  onClearFilter?: () => void;
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const conversations = useQuery({ queryKey: ["conversations"], queryFn: api.listConversations });
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [saved, setSaved] = useState("");
   const remove = useMutation({
     mutationFn: api.deleteConversation,
     onSuccess: (_, id) => {
@@ -47,48 +56,81 @@ export function ConversationLinks({
     body = <Notice tone="danger">Could not load conversations.</Notice>;
   else if (conversations.data.length === 0)
     body = rail ? null : <EmptyState title="No conversations yet." icon={MessageSquare} />;
+  else if (conversations.data.filter((c) => matchesTitle(c.title, filter)).length === 0)
+    body = (
+      <EmptyState title="No conversations match." icon={MessageSquare}>
+        {onClearFilter ? (
+          <Button onClick={onClearFilter} size="sm">
+            Clear search
+          </Button>
+        ) : null}
+      </EmptyState>
+    );
   else
     body = (
       <ul className={rail ? "flex flex-col gap-0.5" : "divide-y rounded-card border bg-surface"}>
-        {conversations.data.slice(0, limit).map((c) => {
-          const title = c.title ?? UNTITLED;
-          const here = c.id === current;
-          return (
-            <li
-              key={c.id}
-              className={cx(
-                "flex items-center gap-2",
-                rail ? "rounded-control pr-1 hover:bg-surface-subtle" : "py-2 pr-2 pl-4",
-                here && "bg-info-subtle hover:bg-info-subtle",
-              )}
-            >
-              <Link
-                to={`/c/${c.id}`}
-                aria-current={here ? "page" : undefined}
-                title={rail ? title : undefined}
-                className={cx("flex min-w-0 flex-1 flex-col gap-0.5", rail ? "p-2" : "py-1")}
+        {conversations.data
+          .filter((c) => matchesTitle(c.title, filter))
+          .slice(0, limit)
+          .map((c) => {
+            const title = c.title ?? UNTITLED;
+            const here = c.id === current;
+            return (
+              <li
+                key={c.id}
+                className={cx(
+                  "flex items-center gap-2",
+                  rail ? "rounded-control pr-1 hover:bg-surface-subtle" : "py-2 pr-2 pl-4",
+                  here && "bg-info-subtle hover:bg-info-subtle",
+                )}
               >
-                <span className={cx("truncate", here || !rail ? "font-strong" : null)}>
-                  {title}
-                </span>
-                <span className="flex items-center gap-1 text-meta text-fg-muted">
-                  <Clock size={14} strokeWidth={1.5} aria-hidden="true" />
-                  Expires {formatDate(c.expires_at)}
-                </span>
-              </Link>
-              <Menu
-                label={`Actions for ${title}`}
-                items={[{ label: "Delete", danger: true, onSelect: () => setDeleting(c.id) }]}
-              />
-            </li>
-          );
-        })}
+                {renaming === c.id ? (
+                  <RenameTitle
+                    conversationId={c.id}
+                    current={c.title ?? ""}
+                    className={cx("min-w-0 flex-1", rail ? "p-1" : "py-1")}
+                    onDone={(title) => {
+                      setRenaming(null);
+                      if (title) setSaved(`Renamed to ${title}.`);
+                    }}
+                  />
+                ) : (
+                  <>
+                    <Link
+                      to={`/c/${c.id}`}
+                      aria-current={here ? "page" : undefined}
+                      title={rail ? title : undefined}
+                      className={cx("flex min-w-0 flex-1 flex-col gap-0.5", rail ? "p-2" : "py-1")}
+                    >
+                      <span className={cx("truncate", here || !rail ? "font-strong" : null)}>
+                        {title}
+                      </span>
+                      <span className="flex items-center gap-1 text-meta text-fg-muted">
+                        <Clock size={14} strokeWidth={1.5} aria-hidden="true" />
+                        Expires {formatDate(c.expires_at)}
+                      </span>
+                    </Link>
+                    <Menu
+                      label={`Actions for ${title}`}
+                      items={[
+                        { label: "Rename", onSelect: () => setRenaming(c.id) },
+                        { label: "Delete", danger: true, onSelect: () => setDeleting(c.id) },
+                      ]}
+                    />
+                  </>
+                )}
+              </li>
+            );
+          })}
       </ul>
     );
 
   return (
     <>
       {body}
+      <p aria-live="polite" className="sr-only">
+        {saved}
+      </p>
       {/* UX-09: the confirmation is a dialog with the words of the former browser prompt. */}
       <ConfirmDialog
         open={deleting !== null}

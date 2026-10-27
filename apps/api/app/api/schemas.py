@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, StringConstraints, field_validator
 
 MAX_QUESTION_CHARS = 4000
 MAX_COMMENT_CHARS = 2000
@@ -73,6 +73,12 @@ class ConversationCreateIn(_In):
     mode: AnswerMode | None = None
     model: str | None = Field(default=None, min_length=1, max_length=128)
     reasoning: bool | None = None
+
+
+class ConversationRenameIn(_In):
+    """P2B-03: the one field a user can change on a conversation. Plain text, trimmed."""
+
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 
 
 class ConversationCreated(_Out):
@@ -687,6 +693,19 @@ class WorkspaceSiteOut(BaseModel):
     publisher: str
     page_count: int
     last_ingested_on: date
+
+
+class WorkspaceSummaryOut(BaseModel):
+    """P2B-05: what a workspace holds, for the home page card. Aggregates over the same
+    sources as the file list; publisher names are source metadata, and no title, excerpt or
+    document ID is returned."""
+
+    document_count: int
+    publisher_count: int
+    top_publishers: list[str]
+    first_year: int | None
+    last_year: int | None
+    last_updated: date | None
 
 
 class WorkspaceFilesOut(BaseModel):

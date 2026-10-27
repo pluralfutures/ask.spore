@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState, type ComponentProps, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -10,8 +11,10 @@ import { failoverNote } from "../lib/failover";
 import { NO_HISTORY_NOTE, sameChoice } from "../lib/noHistory";
 import { CitationPanel } from "../components/CitationPanel";
 import { ConversationHeader } from "../components/ConversationHeader";
+import { RenameTitle } from "../components/RenameTitle";
 import type { StartState } from "../components/StartForm";
 import { Button } from "../ui/Button";
+import { IconButton } from "../ui/IconButton";
 import { LINK } from "../ui/link";
 import { Textarea } from "../ui/Input";
 import { Notice } from "../ui/Notice";
@@ -77,6 +80,10 @@ export function Chat() {
   const [question, setQuestion] = useState("");
   const [live, setLive] = useState<Live | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
+  // P2B-03: renaming the open conversation from its header.
+  const [renaming, setRenaming] = useState(false);
+  const [renamed, setRenamed] = useState("");
+  const refocus = useRef(false); // focus returns to the Rename button once it is back
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
@@ -146,7 +153,10 @@ export function Chat() {
       return;
     }
     if (state.done) {
-      // The live answer stays on screen until the reloaded conversation holds it.
+      // The live answer stays on screen until the reloaded conversation holds it. A load
+      // still in flight was made before the answer (and its title) existed: drop it, so a
+      // late response cannot replace the reload (P2B-04).
+      await queryClient.cancelQueries({ queryKey: ["conversation", id] });
       await queryClient.refetchQueries({ queryKey: ["conversation", id] });
       await queryClient.invalidateQueries({ queryKey: ["conversations"] });
     }
@@ -181,9 +191,40 @@ export function Chat() {
           <Link to={CONVERSATIONS_PATH} className={`w-fit text-ui ${LINK}`}>
             ← Conversations
           </Link>
-          <h1 className="text-heading font-strong">
-            {conversation.data?.title ?? "New conversation"}
-          </h1>
+          {renaming && conversation.data ? (
+            <RenameTitle
+              conversationId={id}
+              current={conversation.data.title ?? ""}
+              onDone={(saved) => {
+                setRenaming(false);
+                refocus.current = true;
+                if (saved) setRenamed(`Renamed to ${saved}.`);
+              }}
+            />
+          ) : (
+            <div className="flex items-start gap-2">
+              <h1 className="min-w-0 text-heading font-strong [overflow-wrap:anywhere]">
+                {conversation.data?.title ?? "New conversation"}
+              </h1>
+              {conversation.data && !noHistory ? (
+                <IconButton
+                  ref={(button) => {
+                    if (button && refocus.current) {
+                      refocus.current = false;
+                      button.focus();
+                    }
+                  }}
+                  label="Rename this conversation"
+                  icon={Pencil}
+                  size="sm"
+                  onClick={() => setRenaming(true)}
+                />
+              ) : null}
+            </div>
+          )}
+          <p aria-live="polite" className="sr-only">
+            {renamed}
+          </p>
           {conversation.data ? <ConversationHeader conversation={conversation.data} /> : null}
           {noHistory ? <Notice data-testid="no-history">{NO_HISTORY_NOTE}</Notice> : null}
           {start?.notice ? (

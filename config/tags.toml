@@ -16,14 +16,14 @@
 #
 # chunk_method is the RAGFlow chunking method of the tag's dataset. RAGFlow sets it
 # per dataset with a per-document override; chunk_method_by_type gives that override
-# per source type (pdf, docx, pptx, html, markdown) and is applied at ingestion.
+# per source type (pdf, docx, pptx, html, markdown, text) and is applied at ingestion.
 
 [tags.sample-reports]
 tenant = "internal"
 # Third-party reports: PDF with "paper". The Phase 0 corpus also has third-party
 # DOCX and PPTX files under this tag; they get the methods sample-analysis uses.
 chunk_method = "paper"
-chunk_method_by_type = { docx = "naive", pptx = "presentation", markdown = "naive", html = "naive" }
+chunk_method_by_type = { docx = "naive", pptx = "presentation", markdown = "naive", text = "naive", html = "naive" }
 
 [tags.sample-analysis]
 tenant = "internal"
@@ -46,22 +46,22 @@ chunk_method = "naive"
 tenant = "cc"
 # Workspace "CC Team 1 Healthcare GPO".
 chunk_method = "paper"
-chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", text = "naive", html = "naive" }
 
 [tags.cc-team2-college-universities]
 tenant = "cc"
 # Workspace "CC Team 2 College & Universities".
 chunk_method = "paper"
-chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", text = "naive", html = "naive" }
 
 [tags.cc-team3-commercial-restaurants]
 tenant = "cc"
 # Workspace "CC Team 3 Commercial Restaurants".
 chunk_method = "paper"
-chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", text = "naive", html = "naive" }
 
 [tags.cc-shared]
 tenant = "cc"
 # The test client's common corpus, shared by all three workspaces.
 chunk_method = "paper"
-chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", html = "naive" }
+chunk_method_by_type = { pdf = "paper", pptx = "presentation", docx = "naive", markdown = "naive", text = "naive", html = "naive" }

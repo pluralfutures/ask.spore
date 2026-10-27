@@ -39,6 +39,9 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
+# Importing it installs the hook that clears cached workspace summaries (P2B-05).
+from app.core import library_events  # noqa: F401
+
 APP_ROLE = "askspore_app"
 AUTH_ROLE = "askspore_auth"
 OPERATOR_ROLE = "askspore_operator"

@@ -47,6 +47,7 @@ TYPE_BY_SUFFIX: Mapping[str, str] = {
     ".htm": "html",
     ".md": "markdown",
     ".markdown": "markdown",
+    ".txt": "text",
 }
 TYPE_BY_MEDIA_TYPE: Mapping[str, str] = {
     "application/pdf": "pdf",
@@ -62,6 +63,29 @@ SUFFIX_BY_TYPE: Mapping[str, str] = {
     "pptx": ".pptx",
     "html": ".html",
     "markdown": ".md",
+    "text": ".txt",
+}
+# What a download of each stored type is served as (text types as UTF-8; the response adds
+# the charset). Not the reverse of TYPE_BY_MEDIA_TYPE: a fetched URL served as text/plain
+# is not accepted as a source, only an uploaded .txt file is (P2B-06).
+MEDIA_TYPE_BY_TYPE: Mapping[str, str] = {
+    **{kind: media for media, kind in TYPE_BY_MEDIA_TYPE.items()},
+    "text": "text/plain",
+}
+# P2B-06: what a browser may declare for an uploaded file of each type. Browsers differ for
+# .md (text/markdown, text/x-markdown, text/plain, or nothing); an unknown or generic type
+# is not a conflict, a type that names another kind of file is.
+_GENERIC_MEDIA_TYPES = frozenset({"", "application/octet-stream", "binary/octet-stream"})
+_TEXT_MEDIA_TYPES = frozenset({"text/markdown", "text/x-markdown", "text/plain"})
+DECLARED_MEDIA_TYPES: Mapping[str, frozenset[str]] = {
+    "pdf": frozenset({"application/pdf"}),
+    "docx": frozenset({"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}),
+    "pptx": frozenset(
+        {"application/vnd.openxmlformats-officedocument.presentationml.presentation"}
+    ),
+    "html": frozenset({"text/html", "application/xhtml+xml"}),
+    "markdown": _TEXT_MEDIA_TYPES,
+    "text": _TEXT_MEDIA_TYPES,
 }
 POLL_INTERVAL_SECONDS = 3.0
 PARSE_TIMEOUT_SECONDS = 1800.0
@@ -95,6 +119,10 @@ class SourceFile:
     filename: str
     type: str  # one of app.content.models.SOURCE_TYPES
     content: bytes
+    # P2B-06: a file someone gave us (upload, manifest, CLI) as against a page we fetched or
+    # crawled. An uploaded Markdown or text file keeps a stored copy for download; a page
+    # does not. Only ``load_path`` and the upload route say so.
+    as_file: bool = False
 
     @property
     def sha256(self) -> str:
@@ -145,6 +173,45 @@ class _Failure(Exception):
         super().__init__(f"{code}: {context}" if context else code)
 
 
+_ZIP_SIGNATURE = b"PK\x03\x04"
+
+
+def check_file_content(source_type: str, content: bytes, declared_media_type: str | None) -> None:
+    """Refuse a file whose bytes or declared media type do not fit its type (P2B-06).
+
+    The extension decides the type; this is the check that the file is what it says: a PDF
+    starts ``%PDF-``, a DOCX or PPTX is a zip, and Markdown or text is UTF-8 (a byte-order
+    mark is allowed) with no NUL byte and some text in it. A media type the browser declared
+    that names another kind of file is refused; a missing or generic one is not a conflict.
+    Raises ``IngestError`` with a code only: neither the name nor the content is repeated.
+    """
+    media = (declared_media_type or "").split(";", 1)[0].strip().lower()
+    if media not in _GENERIC_MEDIA_TYPES and media not in DECLARED_MEDIA_TYPES[source_type]:
+        raise IngestError("type_mismatch", "the file's declared type does not match its extension")
+    if source_type == "pdf":
+        ok = b"%PDF-" in content[:1024]
+    elif source_type in ("docx", "pptx"):
+        ok = content.startswith(_ZIP_SIGNATURE)
+    elif source_type in ("markdown", "text"):
+        ok = _is_text(content)
+        if not ok:
+            raise IngestError("not_text", "the file is not UTF-8 text")
+    else:
+        ok = True
+    if not ok:
+        raise IngestError("type_mismatch", "the file's content does not match its extension")
+
+
+def _is_text(content: bytes) -> bool:
+    if b"\x00" in content:
+        return False
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return False
+    return bool(text.strip())
+
+
 def load_path(path: Path) -> SourceFile:
     source_type = TYPE_BY_SUFFIX.get(path.suffix.lower())
     if source_type is None:
@@ -159,7 +226,8 @@ def load_path(path: Path) -> SourceFile:
         raise IngestError("unreadable", f"cannot read {path}: {exc.strerror}") from None
     if not content:
         raise IngestError("empty", f"{path} is empty")
-    return SourceFile(filename=path.name, type=source_type, content=content)
+    check_file_content(source_type, content, None)
+    return SourceFile(filename=path.name, type=source_type, content=content, as_file=True)
 
 
 def from_fetched(fetched: Fetched) -> SourceFile:
@@ -173,7 +241,7 @@ def from_fetched(fetched: Fetched) -> SourceFile:
     source_type = TYPE_BY_MEDIA_TYPE.get(fetched.content_type) or TYPE_BY_SUFFIX.get(
         Path(name).suffix.lower()
     )
-    if source_type is None:
+    if source_type is None or source_type == "text":  # plain text is accepted as a file only
         raise IngestError("unsupported_type", f"unsupported content type '{fetched.content_type}'")
     if not fetched.content:
         raise IngestError("empty", "the page returned an empty body")

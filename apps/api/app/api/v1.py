@@ -22,7 +22,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,6 +35,7 @@ from app.api.schemas import (
     ConversationCreated,
     ConversationCreateIn,
     ConversationDetail,
+    ConversationRenameIn,
     ConversationSummary,
     FeedbackIn,
     FeedbackOut,
@@ -338,6 +339,29 @@ def _failover(request: Request, conversation_model: str, message: Message) -> Fa
         return None
     entry = catalogue.entry(request.app.state.settings, message.model)
     return "external" if entry is not None and entry.external else "eu"
+
+
+@router.patch("/conversations/{conversation_id}", response_model=ConversationSummary)
+async def rename_conversation(
+    conversation_id: UUID,
+    body: ConversationRenameIn,
+    request: Request,
+    session: AsyncSession = Depends(db_session),
+) -> ConversationSummary:
+    """P2B-03: rename one of the user's own live conversations. The title is the only field
+    a user can change; it is user content, so it is neither logged nor audited, and
+    ``updated_at`` stays as it is so a rename does not reorder the list."""
+    conversation = await session.scalar(
+        update(Conversation)
+        .where(Conversation.id == conversation_id, _live_conversation(current_user_id(request)))
+        .values(title=body.title)
+        .returning(Conversation)
+    )
+    if conversation is None:
+        raise NOT_FOUND
+    summary = ConversationSummary.model_validate(conversation)
+    await session.commit()
+    return summary
 
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)

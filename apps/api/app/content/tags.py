@@ -16,8 +16,8 @@ TAG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 # RAGFlow v0.27.2 chunking methods that apply to our source types.
 ChunkMethod = Literal["naive", "paper", "book", "presentation", "manual", "laws", "one"]
 # Must equal app.content.models.SOURCE_TYPES (tests/test_tags.py).
-SourceType = Literal["pdf", "docx", "pptx", "html", "markdown"]
-SOURCE_TYPES: tuple[SourceType, ...] = ("pdf", "docx", "pptx", "html", "markdown")
+SourceType = Literal["pdf", "docx", "pptx", "html", "markdown", "text"]
+SOURCE_TYPES: tuple[SourceType, ...] = ("pdf", "docx", "pptx", "html", "markdown", "text")
 # Methods whose RAGFlow parser accepts PDF only ("file type not supported yet"): a tag
 # defaulting to one of them must name a method for every other source type (findings E6).
 PDF_ONLY_METHODS: frozenset[str] = frozenset({"paper", "manual"})

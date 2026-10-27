@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { api } from "../api/client";
 import { ConversationLinks } from "../components/Conversations";
 import { ButtonLink } from "../ui/Button";
+import { Input } from "../ui/Input";
 import { LINK } from "../ui/link";
 import { PageHeader } from "../ui/PageHeader";
 
@@ -15,6 +17,10 @@ export const CONVERSATIONS_PATH = "/conversations";
 // files. The home page (HP-04) shows the latest three and links here.
 export function ConversationList() {
   const workspaces = useQuery({ queryKey: ["workspaces"], queryFn: api.workspaces });
+  const conversations = useQuery({ queryKey: ["conversations"], queryFn: api.listConversations });
+  // P2B-03: the query lives in this component only. It is filtered in the browser over the
+  // list already loaded: nothing is sent, and it is in no URL or storage.
+  const [search, setSearch] = useState("");
 
   return (
     <div className="mx-auto w-full flex max-w-3xl flex-col gap-6 p-4 md:px-8 md:py-6">
@@ -27,7 +33,26 @@ export function ConversationList() {
           </ButtonLink>
         }
       />
-      <ConversationLinks variant="page" />
+      {conversations.data?.length ? (
+        <div role="search" className="relative">
+          <Search
+            size={16}
+            strokeWidth={1.5}
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-fg-muted"
+          />
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search conversations by title"
+            placeholder="Search by title"
+            autoComplete="off"
+            className="w-full pl-9"
+          />
+        </div>
+      ) : null}
+      <ConversationLinks variant="page" filter={search} onClearFilter={() => setSearch("")} />
       {workspaces.data?.length ? (
         <section className="text-ui">
           <h2 className="mb-1 font-strong">Files behind each workspace</h2>

@@ -11,7 +11,7 @@ export const SOURCE_STATUSES = [
   "rejected",
   "paused",
 ] as const;
-export const SOURCE_TYPES = ["pdf", "docx", "pptx", "html", "markdown"] as const;
+export const SOURCE_TYPES = ["pdf", "docx", "pptx", "html", "markdown", "text"] as const;
 export const SCHEDULES = ["none", "weekly", "monthly"] as const;
 export const LICENCE_BASES = ["public", "open-licence", "publisher-terms", "own-work"];
 
@@ -106,7 +106,10 @@ const ERRORS = {
   file_or_url: "Give either a file or a URL.",
   not_public: "That address is not on the public internet.",
   note_required: "A note is required.",
-  unsupported_type: "Only PDF, DOCX, PPTX, HTML and Markdown files.",
+  unsupported_type: "Only PDF, DOCX, PPTX, HTML, Markdown and text files.",
+  // P2B-06: a file that is not what its extension says.
+  not_text: "The file is not UTF-8 text. A .md or .txt file must be plain UTF-8 text.",
+  type_mismatch: "The file does not match its extension or declared type.",
   tdm_reserved: "The page reserves text-and-data-mining rights.",
   no_dataset: "A tag has no dataset yet: sync the tags first.",
   site_exists: "That site is registered already.",

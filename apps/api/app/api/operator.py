@@ -87,7 +87,7 @@ from app.auth.sources import (
 )
 from app.consent.gate import active_version
 from app.content.models import Source
-from app.content.store import STORABLE_TYPES
+from app.content.store import is_file
 from app.content.tags import load_tags, tags_for_tenant
 from app.core.db import OPERATOR_ROLE
 from app.core.logging import log
@@ -1100,7 +1100,7 @@ async def set_source_downloadable(
     ).one_or_none()
     if row is None:
         raise NOT_FOUND
-    if body.downloadable and row.type not in STORABLE_TYPES:
+    if body.downloadable and not is_file(row.type, row.stored_path):
         raise _unprocessable("not_a_file")
     if body.downloadable and row.stored_path is None:
         raise _unprocessable("not_stored")

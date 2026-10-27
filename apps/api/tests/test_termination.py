@@ -108,6 +108,8 @@ async def test_termination_leaves_no_rows_for_the_tenant_and_writes_the_certific
     gone, other = await make_tenant(admin_conn), await make_tenant(admin_conn)
     await populate(admin_conn, gone, redis)
     await populate(admin_conn, other, redis)
+    # P2B-05: a cached workspace summary goes with the rest of the tenant's cache.
+    await cache.set(gone.id, f"workspace_summary:{uuid.uuid4()}", "{}", 60)
     other_before = await counts(admin_conn, other.id)
     gone_before = await counts(admin_conn, gone.id)
     slug = await admin_conn.fetchval("SELECT slug FROM tenants WHERE id = $1", gone.id)
@@ -155,7 +157,7 @@ async def test_termination_leaves_no_rows_for_the_tenant_and_writes_the_certific
         + gone_before["tenant_login_policy"]
         + gone_before["tenant_entitlements"]
     )
-    assert deleted["cached_answers_removed"] == 3
+    assert deleted["cached_answers_removed"] == 4  # three answers and the P2B-05 summary
     assert deleted["jobs"] == 1
     assert deleted["user_accounts_identity_service"] is None  # manual step
     assert body["table_counts"] == {t: gone_before[t] for t in body["table_counts"]}

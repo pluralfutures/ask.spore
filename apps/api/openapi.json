@@ -1357,6 +1357,23 @@
         "title": "ConversationDetail",
         "type": "object"
       },
+      "ConversationRenameIn": {
+        "additionalProperties": false,
+        "description": "P2B-03: the one field a user can change on a conversation. Plain text, trimmed.",
+        "properties": {
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ConversationRenameIn",
+        "type": "object"
+      },
       "ConversationSummary": {
         "properties": {
           "created_at": {
@@ -5284,6 +5301,70 @@
         "title": "WorkspaceSiteOut",
         "type": "object"
       },
+      "WorkspaceSummaryOut": {
+        "description": "P2B-05: what a workspace holds, for the home page card. Aggregates over the same\nsources as the file list; publisher names are source metadata, and no title, excerpt or\ndocument ID is returned.",
+        "properties": {
+          "document_count": {
+            "title": "Document Count",
+            "type": "integer"
+          },
+          "first_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Year"
+          },
+          "last_updated": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Updated"
+          },
+          "last_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Year"
+          },
+          "publisher_count": {
+            "title": "Publisher Count",
+            "type": "integer"
+          },
+          "top_publishers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Top Publishers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "document_count",
+          "publisher_count",
+          "top_publishers",
+          "first_year",
+          "last_year",
+          "last_updated"
+        ],
+        "title": "WorkspaceSummaryOut",
+        "type": "object"
+      },
       "WorkspaceTagsIn": {
         "additionalProperties": false,
         "properties": {
@@ -7414,6 +7495,55 @@
           }
         },
         "summary": "Get Conversation"
+      },
+      "patch": {
+        "description": "P2B-03: rename one of the user's own live conversations. The title is the only field\na user can change; it is user content, so it is neither logged nor audited, and\n``updated_at`` stays as it is so a rename does not reorder the list.",
+        "operationId": "rename_conversation_api_v1_conversations__conversation_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationRenameIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename Conversation"
       }
     },
     "/api/v1/conversations/{conversation_id}/messages": {
@@ -7492,7 +7622,8 @@
               "application/vnd.openxmlformats-officedocument.presentationml.presentation": {},
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {},
               "application/xhtml+xml": {},
-              "text/markdown": {}
+              "text/markdown": {},
+              "text/plain": {}
             },
             "description": "The file"
           },
@@ -8992,6 +9123,47 @@
           }
         },
         "summary": "List Workspace Prompts"
+      }
+    },
+    "/api/v1/workspaces/{workspace_id}/summary": {
+      "get": {
+        "description": "P2B-05: document count, publishers, years and last update of the workspace, for the\nhome page. Cached per workspace under a tenant-prefixed key; any change to the tenant's\nlibrary clears it (``app.core.library_events``). The cache is an aid: if it cannot be\nreached the summary is computed.",
+        "operationId": "get_workspace_summary_api_v1_workspaces__workspace_id__summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceSummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Workspace Summary"
       }
     }
   }

@@ -943,7 +943,13 @@ export interface paths {
     delete: operations["delete_conversation_api_v1_conversations__conversation_id__delete"];
     options?: never;
     head?: never;
-    patch?: never;
+    /**
+     * Rename Conversation
+     * @description P2B-03: rename one of the user's own live conversations. The title is the only field
+     *     a user can change; it is user content, so it is neither logged nor audited, and
+     *     ``updated_at`` stays as it is so a rename does not reorder the list.
+     */
+    patch: operations["rename_conversation_api_v1_conversations__conversation_id__patch"];
     trace?: never;
   };
   "/api/v1/conversations/{conversation_id}/messages": {
@@ -1645,6 +1651,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/workspaces/{workspace_id}/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Workspace Summary
+     * @description P2B-05: document count, publishers, years and last update of the workspace, for the
+     *     home page. Cached per workspace under a tenant-prefixed key; any change to the tenant's
+     *     library clears it (``app.core.library_events``). The cache is an aid: if it cannot be
+     *     reached the summary is computed.
+     */
+    get: operations["get_workspace_summary_api_v1_workspaces__workspace_id__summary_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2121,6 +2150,14 @@ export interface components {
       workspace_id: string;
       /** Workspace Name */
       workspace_name: string;
+    };
+    /**
+     * ConversationRenameIn
+     * @description P2B-03: the one field a user can change on a conversation. Plain text, trimmed.
+     */
+    ConversationRenameIn: {
+      /** Title */
+      title: string;
     };
     /** ConversationSummary */
     ConversationSummary: {
@@ -3685,6 +3722,26 @@ export interface components {
       publisher: string;
       /** Site */
       site: string;
+    };
+    /**
+     * WorkspaceSummaryOut
+     * @description P2B-05: what a workspace holds, for the home page card. Aggregates over the same
+     *     sources as the file list; publisher names are source metadata, and no title, excerpt or
+     *     document ID is returned.
+     */
+    WorkspaceSummaryOut: {
+      /** Document Count */
+      document_count: number;
+      /** First Year */
+      first_year: number | null;
+      /** Last Updated */
+      last_updated: string | null;
+      /** Last Year */
+      last_year: number | null;
+      /** Publisher Count */
+      publisher_count: number;
+      /** Top Publishers */
+      top_publishers: string[];
     };
     /** WorkspaceTagsIn */
     WorkspaceTagsIn: {
@@ -5336,6 +5393,41 @@ export interface operations {
       };
     };
   };
+  rename_conversation_api_v1_conversations__conversation_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conversation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConversationRenameIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConversationSummary"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   ask_api_v1_conversations__conversation_id__messages_post: {
     parameters: {
       query?: never;
@@ -6501,6 +6593,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["WorkspacePromptOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_workspace_summary_api_v1_workspaces__workspace_id__summary_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceSummaryOut"];
         };
       };
       /** @description Validation Error */

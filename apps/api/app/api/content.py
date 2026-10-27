@@ -89,7 +89,14 @@ from app.content.fetch import (
     require_http_url,
     resolve_host,
 )
-from app.content.ingest import TYPE_BY_SUFFIX, IngestError, SourceFile, SourceMetadata, from_fetched
+from app.content.ingest import (
+    TYPE_BY_SUFFIX,
+    IngestError,
+    SourceFile,
+    SourceMetadata,
+    check_file_content,
+    from_fetched,
+)
 from app.content.jobs import Job
 from app.content.models import Dataset, Site, SitePage, Source
 from app.content.register import RegisterError
@@ -589,8 +596,13 @@ async def propose_source(
         if source_type is None:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="unsupported_type")
         content = await _read_upload(file, MAX_BYTES)
+        try:
+            check_file_content(source_type, content, file.content_type)
+        except IngestError as exc:
+            log("content.refused", user_id=str(user.user_id), error_code=exc.code)
+            raise _refused(exc) from None
         source = SourceFile(
-            f"upload{Path(file.filename or '').suffix.lower()}", source_type, content
+            f"upload{Path(file.filename or '').suffix.lower()}", source_type, content, as_file=True
         )
     elif url is not None:
         resolve = _resolver(request)

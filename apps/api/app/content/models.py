@@ -29,7 +29,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.db import Base
 from app.tenancy.models import INTERNAL_TENANT_ID
 
-SOURCE_TYPES = ("pdf", "docx", "pptx", "html", "markdown")
+SOURCE_TYPES = ("pdf", "docx", "pptx", "html", "markdown", "text")
 # P1b-01: proposed -> approved -> ingested -> withdrawn; failed is retryable (back to
 # approved); rejected ends a proposal a reviewer declined.
 # P2A-01: ingested <-> paused, a reviewer's reversible pause (revision 0070); a paused
@@ -63,7 +63,8 @@ class Source(Base):
         CheckConstraint("error IS NULL OR status = 'failed'", name="error_only_when_failed"),
         CheckConstraint("chunk_count >= 0", name="chunk_count_non_negative"),
         CheckConstraint(
-            "stored_path IS NULL OR (type IN ('pdf', 'docx', 'pptx') AND stored_path = "
+            "stored_path IS NULL OR (type IN ('pdf', 'docx', 'pptx', 'markdown', 'text') "
+            "AND stored_path = "
             "substr(file_sha256, 1, 2) || '/' || file_sha256 || '.' || type)",
             name="stored_path_by_hash",
         ),

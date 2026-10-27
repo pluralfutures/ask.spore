@@ -26,7 +26,20 @@ import tempfile
 from pathlib import Path
 
 STORABLE_TYPES = ("pdf", "docx", "pptx")
-STAGED_TYPES = ("pdf", "docx", "pptx", "html", "markdown")
+STAGED_TYPES = ("pdf", "docx", "pptx", "html", "markdown", "text")
+# P2B-06: an uploaded Markdown or text file is kept for download like a PDF, DOCX or PPTX.
+# A crawled or fetched Markdown page is the same source type but is not a file: it has no
+# stored copy, so a stored copy is what makes a source a file.
+TEXT_FILE_TYPES = ("markdown", "text")
+
+
+def is_file(source_type: str, stored_path: str | None) -> bool:
+    """Whether a register row is a file (listed and downloadable) rather than a page."""
+    return source_type in STORABLE_TYPES or (
+        source_type in TEXT_FILE_TYPES and stored_path is not None
+    )
+
+
 LICENCE_DIR = "licences"
 SNAPSHOT_DIR = "snapshots"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")

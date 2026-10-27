@@ -64,6 +64,7 @@ export type ChatStreamEvent =
   | { event: "done"; data: DoneData }
   | { event: "error"; data: ErrorData };
 export type WorkspaceFiles = Schemas["WorkspaceFilesOut"];
+export type WorkspaceSummary = Schemas["WorkspaceSummaryOut"];
 export type WorkspaceFile = Schemas["WorkspaceFileOut"];
 export type WorkspaceSite = Schemas["WorkspaceSiteOut"];
 export type DownloadLink = Schemas["DownloadLinkOut"];

@@ -181,20 +181,27 @@ this item adds one block to it.
   through `app.core.cache` (`workspace_summary:{workspace_id}`). **Cache rule (owner, Oct 27,
   2026):** the entry is cleared and rebuilt whenever the workspace's library changes, and
   deleted outright when the workspace is closed or deleted.
-  - *Changes that clear and rebuild it:* a source in the workspace's package is ingested,
-    re-ingested, withdrawn, paused or resumed, re-tagged, or restored; a crawled site is
-    withdrawn or reinstated; the workspace's tag selection changes. The hook sits where those
-    changes are committed (the content toggle, ingest, withdrawal and tag-save code paths), so
-    no path is missed; a test lists the paths and fails when a new one does not call it. A
-    source change can touch several workspaces, so it clears every summary of that tenant
-    whose package holds the source (`cache.scan` on the `workspace_summary:` prefix, then
-    `cache.delete`). The next read rebuilds the entry; nothing is rebuilt in advance.
+  - *Changes that clear and rebuild it:* a source ingested, re-ingested, withdrawn, paused,
+    resumed, restored or re-tagged; a crawled page added or withdrawn; a workspace's tag
+    selection changed. As built, the hook is not in each of those code paths but on the
+    database session (`app/core/library_events.py`): any committed write to `sources` or
+    `workspaces`, by ORM object or bulk statement, schedules the clear, so a new code path is
+    covered without anyone remembering to call it. A rolled-back change clears nothing.
+    **Correction to the draft:** it clears every tenant's summaries, not only the writer's.
+    The source register is shared (a `sources` row has no tenant) and mapped to workspaces by
+    tag, so the internal tenant's content team ingesting a source changes what a client
+    tenant's workspace holds. The keys are deleted by prefix across tenants
+    (`cache.delete_prefix_all_tenants`, in the cache module like every Redis call); other cache
+    keys are untouched. Clears are coalesced (a burst of ingestions runs one clear and at most
+    one more). The next read rebuilds the entry; nothing is rebuilt in advance.
   - *Closing or deleting a workspace deletes the entry.* The code has no workspace close or
     delete action today; the tenant termination purge removes workspaces and already clears
     the tenant's whole cache namespace (`cache.clear_tenant`). When a close or delete action
     is built it must delete its summary key, and this item adds a test on the termination
     path that no `workspace_summary:` key survives it.
-  - No time-based expiry is relied on; a long TTL (a day) only bounds a missed hook.
+  - The entry's own expiry is one hour. It only bounds a missed clear (a Redis outage while
+    clearing is logged, never fails the write); the clear is the rule. The clear runs just after
+    the commit, so a read in that instant can still return the old entry once.
 
 - **UI.** A compact card under the question box that follows the workspace chooser. It is
   plain text with one link and does not push the recent conversations below the first screen
@@ -231,13 +238,16 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
   keeps them off the download list). Record at the start of the item which of
   upload, manifest ingest and download already work for Markdown and which do not, so only
   the gap is built. `.txt` is new (`text/plain`).
-- **Types.** A new source type `text`. A source type is listed in `SOURCE_TYPES`
-  (`content/models.py`), `STAGED_TYPES` (`content/store.py`), `SourceType`
-  (`content/tags.py`) and the type constraint of the database; the migration extends the
-  check constraint only if one exists, otherwise none is needed (decide at build). Uploaded
-  Markdown (a client's or the owner's own file) is stored as a file and downloadable; crawled
-  Markdown pages stay pages with no download, as today. Distinguish the two by origin
-  (upload versus crawl), not by adding a type, so existing rows do not change.
+- **Types.** A new source type `text`, in `SOURCE_TYPES` (`content/models.py`),
+  `STAGED_TYPES` (`content/store.py`), `SourceType` (`content/tags.py`), `config/tags.toml`
+  (every tag parses `text` with "naive") and the database: migration 0071 extends
+  `ck_sources_type_valid` and `ck_sources_stored_path_by_hash` (the stored path rule now
+  allows `markdown` and `text`). Uploaded Markdown is stored as a file and downloadable;
+  crawled or fetched Markdown pages stay pages with no download. The two are told apart by
+  origin, not by a new type: `SourceFile.as_file` (set by `load_path` and the upload route
+  only) decides whether a stored copy is kept, and a stored copy is what makes a source a
+  file (`store.is_file`). Existing rows do not change. Plain text is accepted as an uploaded
+  file only: a URL served as `text/plain` or ending `.txt` is still refused.
 - **Allow-list.** Upload extensions `.md`, `.markdown`, `.txt`; media types `text/markdown`,
   `text/x-markdown` (browsers vary) and `text/plain`. Download media types `text/markdown;
   charset=utf-8` and `text/plain; charset=utf-8` with the existing
@@ -256,9 +266,14 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
   stay wrapped as such in prompts (`UNTRUSTED_SOURCE_TYPES` in `chat/package.py` already lists
   `markdown`; add `text`).
 - **Mislabelled files are refused (the negative cases).** A PDF, DOCX, or other binary
-  renamed `.txt` or `.md` is refused (NUL bytes or invalid UTF-8); a text file renamed `.pdf`
-  or `.docx` is refused as today; a file whose extension and declared media type disagree
-  is refused; a `.md` file declared `application/pdf` is refused. Each refusal carries
+  renamed `.txt` or `.md` is refused (`not_text`: NUL bytes or invalid UTF-8). **Correction to
+  the draft:** a text file renamed `.pdf`, `.docx` or `.pptx` was not refused before this item
+  (nothing looked at the bytes until RAGFlow failed to parse it); it is now, by signature
+  (`%PDF-` in the first kilobyte, the zip signature for DOCX and PPTX; `type_mismatch`). A
+  file whose declared media type names another kind of file is refused (`type_mismatch`):
+  `.md` declared `application/pdf`. A missing or generic type (`application/octet-stream`) is
+  not a conflict, and `text/plain`, `text/markdown` and `text/x-markdown` are interchangeable
+  for `.md` and `.txt`, because browsers differ. Each refusal carries
   an error code only, never the filename content or the file's text, in the response and logs.
 - **Tests.** Upload, manifest ingest, re-ingest of an identical file (refused as today),
   withdrawal and download for each new type; the mislabelled cases above; the downloaded bytes
@@ -281,6 +296,35 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
   phone width, then review them by eye.
 - **Deviation: `role="group"`, not `role="region"`,** for the table scroll wrapper. Axe's
   landmark-unique rule failed on a page with several tables; a group has no such rule.
+
+## Build notes: P2B-03 to P2B-06 (Oct 27, 2026)
+
+- **Built on `claude/pensive-cori-mgqfmt`:** P2B-04 (the title race, `pages/Chat.tsx`: cancel
+  an in-flight load before the reload; `e2e/chatTitle.spec.ts` fails without the fix), P2B-03
+  (`PATCH /v1/conversations/{id}`, rename from the row menu and the chat header, search in the
+  browser; `e2e/conversationSearch.spec.ts`, `tests/test_conversation_rename.py`), P2B-05
+  (`GET /v1/workspaces/{id}/summary`, `app/core/library_events.py`, the home page card;
+  `tests/test_workspace_summary.py`, `e2e/workspaceSummary.spec.ts`) and P2B-06 (migration
+  0071, `check_file_content`, stored copies, list and download; `tests/test_text_files.py`).
+- **P2B-04's reproduction** holds the first load until after the answer has ended. The reload
+  now cancels it first. The UX scenario fake no longer delays its answer by 300 ms.
+- **P2B-03:** a rename does not change `updated_at`, so the list keeps its order; the
+  orchestrator's `coalesce` already left a user's title alone. No audit event, no log field.
+  Typing in the search box sends no request (tested), and the query is in no URL or storage.
+- **P2B-05:** the summary and the file list read the same rows (`_listed_sources`), so the
+  figures cannot disagree. Another tenant's workspace is a 404 before the cache is read.
+- **P2B-06, not done here: the real RAGFlow parse of `.md` and `.txt`.** The build session has
+  no RAGFlow. Both types are set to the "naive" method (as Markdown pages already are) and the
+  fake-RAGFlow ingestion path is tested; the parser and chunking check on the Instance (chunk
+  count, headings and table rows, encoding, citations without a page) is a release step, and
+  the method may change from its result. Record it in the findings file.
+- **Visual baselines not generated for P2B-03 and P2B-05** (no Docker daemon, as above): the
+  conversations page with the search box, and the home page with the summary card, at desktop
+  and phone width. Axe and the no-sideways-scroll checks pass in the browser suite.
+- **Internal wording (content console, not the owner-approved list):** three error lines for
+  the content team, "The file is not UTF-8 text. A .md or .txt file must be plain UTF-8
+  text.", "The file does not match its extension or declared type.", and the file picker label
+  and "Only PDF, DOCX, PPTX, HTML, Markdown and text files." now naming text.
 
 ## Owner decisions
 

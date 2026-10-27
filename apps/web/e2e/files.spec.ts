@@ -100,3 +100,48 @@ test.describe("UX-17 states", () => {
     }
   });
 });
+
+// P2B-06: an uploaded Markdown or text file is listed with its type and downloads like the
+// other files.
+test("lists a Markdown and a text file with their types and a download each", async ({ page }) => {
+  const extra: FakeFile[] = [
+    {
+      ...FILES[0],
+      id: "33333333-3333-4333-8333-000000000003",
+      type: "markdown",
+      title: "Synthetic Notes",
+    },
+    {
+      ...FILES[0],
+      id: "33333333-3333-4333-8333-000000000004",
+      type: "text",
+      title: "Synthetic Text",
+    },
+  ];
+  const api = new FakeApi({
+    workspaces: [
+      {
+        id: WORKSPACE,
+        slug: "team-alpha",
+        name: "Synthetic Team Alpha",
+        default_mode: "corpus_only",
+        default_model: "eu-fast",
+        default_reasoning: false,
+      },
+    ],
+    models: [],
+    files: { [WORKSPACE]: extra },
+  });
+  await api.install(page);
+  await page.goto(`/w/${WORKSPACE}/files`);
+  for (const [file, label] of [
+    [extra[0], "Markdown"],
+    [extra[1], "Text"],
+  ] as const) {
+    const row = page.getByTestId(`file-${file.id}`);
+    await expect(row).toContainText(`(${label})`);
+    await expect(row.getByRole("button")).toHaveCount(1);
+  }
+  await page.getByTestId(`file-${extra[1].id}`).getByRole("button").click();
+  await expect.poll(() => api.downloads).toEqual([extra[1].id]);
+});

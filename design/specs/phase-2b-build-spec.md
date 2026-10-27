@@ -6,7 +6,10 @@ Phase 2A release
 
 Source decisions: the owner's requests of Oct 27, 2026: schedule the `remark-gfm` option of
 the backlog's UX-12 item (`backlog.md`, "Unscheduled (UX-12 build, Oct 24, 2026)"), P2B-01;
-bring the public legal pages into the app's visual design, P2B-02.
+bring the public legal pages into the app's visual design, P2B-02; and of Oct 27, 2026, from
+the backlog: conversation search and rename, the first-conversation title bug, the "what this
+workspace knows" summary and Markdown and plain-text files for upload and download,
+P2B-03 to P2B-06.
 
 ## Goal
 
@@ -95,8 +98,149 @@ then "SporeBot").
   desktop and phone width, generated in the pinned Playwright image; a check that each page
   loads only same-origin resources and no script.
 
+### Group C — Chat and home page
+
+**P2B-03 Conversation search and rename.** The UX audit's largest everyday-use gap, left out
+of the UX refresh by its "not in" list (`backlog.md`, "Unscheduled (UX audit, Oct 23, 2026;
+out of the refresh…)"). A user with many conversations can only scroll the list on `/conversations`.
+
+- **Rename.** A user renames one of their own conversations from the list and from the
+  conversation header. New `PATCH /v1/conversations/{id}` with `{title}` only (1 to 120
+  characters after trimming, the title is plain text), so no other field can be changed
+  through it. It follows the rules of the other conversation routes: current user's own
+  conversations only, notice accepted, an unknown or other user's ID is 404. The title the
+  orchestrator sets from the first question (`coalesce(title, question[:TITLE_MAX_CHARS])`)
+  never overwrites a title the user set. No-history conversations are never listed, so they
+  cannot be renamed. Audit: none. A title is user content, so it is never logged and never in
+  an audit event; the request log line carries the route and status only.
+- **Search.** A search box on `/conversations` filters the user's own conversations by title.
+  Decide at build (open item 2) whether it also searches message text. Title-only is a
+  `GET /v1/conversations?q=` on the existing list, `ILIKE` on `title` with the user's wildcard
+  characters escaped, inside the user's own rows by the existing policy. Message text is a
+  second, larger step: it reads retained conversation content, so it needs the owner's
+  decision and a search index plan before it is built. The query is never logged and never
+  put in a URL that is logged by the proxy (send it as a query string only if Caddy's access
+  log omits query strings; otherwise use `POST /v1/conversations/search`, check at build).
+- **Isolation tests (the negative cases).** Another user's conversation cannot be renamed
+  (404, row unchanged); a search never returns another user's or another tenant's
+  conversations; a rename or a search leaves no title or query in the log capture; a title
+  containing Markdown or HTML renders as text.
+- **UX.** Rename in place (an edit field with Save and Cancel; Enter saves, Escape cancels;
+  the saved title is announced in a polite live region). The search box is labelled, filters
+  as the user types after a short delay, shows "No conversations match" and a Clear action,
+  and keeps the three-item recent list on the home page unchanged. Both work at phone
+  width and by keyboard.
+- Tests: API (rename, trim, length limits, the orchestrator's title does not overwrite,
+  cross-user and cross-tenant negatives, search escaping), web (rename flow, search flow and
+  its empty state), axe on `/conversations` with the search box, visual baselines for the
+  list at desktop and phone width.
+
+**P2B-04 First conversation title stays "New conversation".** A real bug (`backlog.md`,
+"Unscheduled (UX-01 build, Oct 24, 2026)"). `pages/Chat.tsx` loads a new conversation and
+sends its first question at the same time. The server sets the title when the answer ends
+(`orchestrator.py`, `coalesce(Conversation.title, question[:TITLE_MAX_CHARS])`); when the
+answer finishes before the page has handled the first load, the page never reloads and shows
+"New conversation" (`conversation.data?.title ?? "New conversation"`). Real answers take
+seconds, so it is rare; it is seen when an answer is fast or served from the cache.
+
+- Fix in `pages/Chat.tsx`: after the stream ends, always refetch `["conversation", id]` and
+  invalidate `["conversations"]`, whatever state the first load is in (await an in-flight
+  first load or cancel it before refetching, so a late first response cannot overwrite the
+  newer data). Fix the wait, not a retry or a delay.
+- Remove the 300 ms delay the UX scenario fake adds to its answer (`backlog.md`); the
+  scenario then reproduces the bug before the fix.
+- Test: a web test where the answer completes before the first load resolves; the title
+  shown is the server's, and the conversations list is refreshed. The same test fails on the
+  code before the fix.
+- No API change, no change to what is logged or sent to a model.
+
+**P2B-05 "What this workspace knows" summary on the home page.** From the backlog ("Unscheduled
+(home page spec, Oct 26, 2026; not in that spec)"; architecture §7.1, the package page). It
+tells a user what the workspace can answer and helps them decide what to ask. The home page
+spec (`home-page-spec.md`) listed it as not in that spec, so the home page stays as built and
+this item adds one block to it.
+
+- **What it shows**, for the workspace the question box has selected: number of documents,
+  the publishers (a short list with "and N more" and a link to the files page), the years
+  covered (earliest to latest publication year), and the date of the last update (the latest
+  ingestion). Counts are the documents a workspace's package includes and a user may see, so a
+  paused (P2A-01) or withdrawn document is not counted. A crawled site counts as one entry,
+  as on the files page.
+- **Source.** A new `GET /v1/workspaces/{id}/summary`, computed by the files service from the
+  same rows as the workspace file list (`app/files/service.py`), so the two cannot disagree.
+  It takes no dataset or document ID from the request and returns aggregates only, never a
+  title or an excerpt. Cached under a tenant-prefixed key through `app.core.cache` and cleared
+  when the workspace's package or a source in it changes (decide the clearing hook at build,
+  or use a short TTL of a few minutes).
+- **UI.** A compact card under the question box that follows the workspace chooser; a
+  workspace with no documents shows "No documents yet" and no figures. It is plain text with
+  one link, "See the files", and does not push the recent conversations below the first
+  screen at phone width. Wording needs the owner's approval before build (open item 3).
+- Tests: the summary equals the file list's count, publishers and years for a fixture
+  workspace; a paused and a withdrawn source are left out; another tenant's sources never
+  appear (cross-tenant negative); the response holds no titles; the cache key is
+  tenant-prefixed; axe and visual baselines for the home page with the card.
+
+### Group D — Documents and answers
+
+**P2B-06 Markdown and plain-text files for upload and download.** An owner request
+(`backlog.md`, "Phase 2 (owner, Oct 24, 2026)"). Today the proposed-file upload and the manifest/CLI ingest
+accept PDF, DOCX and PPTX (and HTML, Markdown from the crawler). Add `.md` and `.txt` for a
+reviewer's upload and manifest ingest, and make both downloadable from the workspace files page like the other stored files.
+
+- **Check what is there first.** `TYPE_BY_SUFFIX` and `TYPE_BY_MEDIA_TYPE` in
+  `app/content/ingest.py` already map `.md`/`.markdown` to `markdown`, because crawled pages
+  are stored as Markdown (`PAGE_TYPES = ("html", "markdown")` in `app/files/service.py`
+  keeps them off the download list). Record at the start of the item which of
+  upload, manifest ingest and download already work for Markdown and which do not, so only
+  the gap is built. `.txt` is new (`text/plain`).
+- **Types.** A new source type `text`. A source type is listed in `SOURCE_TYPES`
+  (`content/models.py`), `STAGED_TYPES` (`content/store.py`), `SourceType`
+  (`content/tags.py`) and the type constraint of the database; the migration extends the
+  check constraint only if one exists, otherwise none is needed (decide at build). Uploaded
+  Markdown (a client's or the owner's own file) is stored as a file and downloadable; crawled
+  Markdown pages stay pages with no download, as today. Distinguish the two by origin
+  (upload versus crawl), not by adding a type, so existing rows do not change.
+- **Allow-list.** Upload extensions `.md`, `.markdown`, `.txt`; media types `text/markdown`,
+  `text/x-markdown` (browsers vary) and `text/plain`. Download media types `text/markdown;
+  charset=utf-8` and `text/plain; charset=utf-8` with the existing
+  `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`, so a browser never
+  renders the file in our origin.
+- **Parser and chunking check, one per type.** Run a synthetic fixture of each type
+  (`packages/eval/fixtures/`, no real documents) through the real RAGFlow parser on the
+  Instance's pinned version and record chunk count, whether headings and table rows survive,
+  how page numbers are handled (neither type has pages: citations show publisher, title and
+  date without a page, as for HTML; check that the citation mapper and the panel handle a missing
+  page for these types), and the encoding handling. Record the result in the findings file
+  and choose the RAGFlow parse method per type (Markdown by headings, text by size) from it.
+- **Content checks before parsing.** UTF-8 (a UTF-8 byte-order mark allowed; any other
+  encoding is refused, not guessed), no NUL bytes, non-empty after trimming, the same size
+  limit as other uploads. Markdown and text from a client or the web are untrusted input and
+  stay wrapped as such in prompts (`UNTRUSTED_SOURCE_TYPES` in `chat/package.py` already lists
+  `markdown`; add `text`).
+- **Mislabelled files are refused (the negative cases).** A PDF, DOCX, or other binary
+  renamed `.txt` or `.md` is refused (NUL bytes or invalid UTF-8); a text file renamed `.pdf`
+  or `.docx` is refused as today; a file whose extension and declared media type disagree
+  is refused; a `.md` file declared `application/pdf` is refused. Each refusal carries
+  an error code only, never the filename content or the file's text, in the response and logs.
+- **Tests.** Upload, manifest ingest, re-ingest of an identical file (refused as today),
+  withdrawal and download for each new type; the mislabelled cases above; the downloaded bytes
+  equal the stored bytes; the download headers; an orphan check that no page-less citation
+  breaks the citation panel; the logging capture holds no text of the file.
+- No change to prompts or `config/models.toml`. Update `design/Stack Decision.md` or the
+  architecture's supported-formats line (§6.2) in the same change, since the list of accepted
+  formats changes.
+
 ## Open items for the owner
 
 1. P2B-02: should `/security-disclosure` (and the trust page when it is published) take the
    app's look along with the legal pages? Proposed: yes, since they share one stylesheet and
    are reached from the same footer.
+2. P2B-03: should search cover message text as well as titles? Proposed: titles only in this
+   phase. Searching message text reads retained conversation content and needs its own index
+   plan; record it in the backlog if wanted.
+3. P2B-05: approve the wording of the summary card (heading, the four figures, the empty
+   state, the link). It is new copy.
+4. P2B-06: is `.markdown` wanted besides `.md`, and should a `.txt` source carry a "plain text,
+   no page numbers" note in the citation panel? Proposed: accept both Markdown suffixes; no
+   extra note.

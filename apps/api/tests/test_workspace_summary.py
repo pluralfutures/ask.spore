@@ -316,25 +316,28 @@ async def test_a_source_change_clears_every_tenants_summaries_and_only_summaries
     assert [k for k in redis.store if k.startswith(f"t:{other.id}:answer:")]  # not touched
 
 
-async def test_a_burst_of_writes_runs_few_clears(
+async def test_a_burst_of_writes_runs_one_clear_and_one_follow_up(
     files: Files, redis: FakeRedis, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     source = await files.source()
     calls = 0
+    gate = asyncio.Event()
     real = cache.delete_prefix_all_tenants
 
-    async def counted(prefix: str) -> int:
+    async def held(prefix: str) -> int:
         nonlocal calls
         calls += 1
-        await asyncio.sleep(0.05)
+        if calls == 1:
+            await gate.wait()  # the first clear is still running while the burst commits
         return await real(prefix)
 
-    monkeypatch.setattr(cache, "delete_prefix_all_tenants", counted)
+    monkeypatch.setattr(cache, "delete_prefix_all_tenants", held)
     for n in range(10):
         async with tenant_session(files.api.app.state.db_factory, INTERNAL_TENANT_ID) as session:
             await session.execute(update(Source).where(Source.id == source).values(title=str(n)))
+    gate.set()
     await library_events.drain()
-    assert 1 <= calls <= 2
+    assert calls == 2  # the running clear, and one more for everything that landed meanwhile
 
 
 async def test_a_cache_fault_never_fails_the_read_or_the_write(

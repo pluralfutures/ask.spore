@@ -11,7 +11,7 @@ export const GFM_PLUGINS = [remarkGfm];
 export const TABLE_COMPONENTS: Pick<Components, "table" | "th" | "td"> = {
   table: ({ children }) => (
     <div
-      role="region"
+      role="group"
       aria-label="Table"
       tabIndex={0}
       className="max-w-full overflow-x-auto rounded-control focus-visible:outline-2 focus-visible:outline-offset-2"

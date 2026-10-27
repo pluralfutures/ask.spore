@@ -30,7 +30,7 @@ test("a table renders as a table with column headers and passes axe", async ({ p
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page);
   await expect(page.getByRole("columnheader")).toHaveCount(5);
-  await expect(page.getByRole("region", { name: "Table" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Table" })).toBeVisible();
   const result = await new AxeBuilder({ page })
     .include("[aria-label='Table']")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"])
@@ -42,7 +42,7 @@ test("at 390 px the table scrolls in its own region, not the page", async ({ pag
   await page.setViewportSize({ width: 390, height: 800 });
   await open(page);
   expect(await page.evaluate("document.documentElement.scrollWidth")).toBeLessThanOrEqual(390);
-  const region = page.getByRole("region", { name: "Table" });
+  const region = page.getByRole("group", { name: "Table" });
   expect(await region.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
   await region.focus();
   await expect(region).toBeFocused();

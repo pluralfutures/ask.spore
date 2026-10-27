@@ -1,8 +1,8 @@
 # Phase 2B Build Spec — Draft
 
-Oct 27, 2026 · Status: **Draft, collecting items. Not approved; nothing here is built.** The owner
-selects the phase's scope, goal and exit criteria before any item starts · Starts after the
-Phase 2A release
+Oct 27, 2026 · Status: **Draft, collecting items. P2B-01 and P2B-02 approved by the owner and built
+Oct 27, 2026 (see "Build notes"); the phase's goal and exit criteria are still to be set** ·
+Starts after the Phase 2A release
 
 Source decisions: the owner's requests of Oct 27, 2026: schedule the `remark-gfm` option of
 the backlog's UX-12 item (`backlog.md`, "Unscheduled (UX-12 build, Oct 24, 2026)"), P2B-01;
@@ -37,8 +37,9 @@ section 8 table (`config/consent/v1.md`, "What we hold").
   Raw HTML stays off (react-markdown's default); the plugin adds no HTML pass-through.
 - Table styling with the existing design tokens: header row in the emphasis weight, cell
   borders and padding, left-aligned text unless the column's alignment row says otherwise. A
-  wide table scrolls sideways inside its own container (`overflow-x: auto`, with a focusable,
-  labelled region for keyboard users) so the page never scrolls horizontally at phone width.
+  wide table scrolls sideways inside its own container (`overflow-x: auto`, in a focusable
+  `role="group"` labelled "Table" so keyboard users can scroll it; not `role="region"`, because
+  axe's landmark-unique rule fails when a page has several) so the page never scrolls horizontally at phone width.
 - Citation markers inside table cells keep working: `[n]` in a cell renders as the citation
   button and opens the panel (`linkMarkers` runs before parsing, so this should hold; the test
   proves it).
@@ -97,6 +98,20 @@ then "SporeBot").
   `/security-disclosure` at
   desktop and phone width, generated in the pinned Playwright image; a check that each page
   loads only same-origin resources and no script.
+
+## Build notes (Oct 27, 2026)
+
+- **P2B-01 and P2B-02 built** on `claude/pensive-cori-mgqfmt`: unit tests, lint, typecheck and
+  the whole Playwright suite (616 tests) pass, with the new `e2e/markdownTable.spec.ts` and
+  `e2e/publicPages.spec.ts` (axe, no sideways page scroll at 390 px, same-origin requests, Lato
+  and Poppins loaded). The drift test is `apps/web/scripts/public-page.test.mjs`.
+- **Visual baselines not yet generated.** The build session had no Docker daemon, and the
+  baselines must come from the pinned Playwright image (UX-05). Still to do, on a machine with
+  Docker: `pnpm test:visual --update-snapshots` for the consent page (now shows its table),
+  and new snapshots for `/legal`, `/legal/privacy` and `/security-disclosure` at desktop and
+  phone width, then review them by eye.
+- **Deviation: `role="group"`, not `role="region"`,** for the table scroll wrapper. Axe's
+  landmark-unique rule failed on a page with several tables; a group has no such rule.
 
 ## Owner decisions
 

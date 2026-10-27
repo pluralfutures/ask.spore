@@ -20,9 +20,9 @@ describe("GFM in answers (P2B-01)", () => {
     expect(html).not.toContain("|---|");
   });
 
-  it("puts the table in a labelled, focusable, sideways-scrolling region", () => {
+  it("puts the table in a labelled, focusable, sideways-scrolling group", () => {
     const html = answer(TABLE);
-    expect(html).toMatch(/<div[^>]*role="region"[^>]*aria-label="Table"[^>]*tabindex="0"/);
+    expect(html).toMatch(/<div[^>]*role="group"[^>]*aria-label="Table"[^>]*tabindex="0"/);
     expect(html).toContain("overflow-x-auto");
   });
 

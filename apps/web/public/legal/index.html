@@ -8,20 +8,31 @@
     <link rel="stylesheet" href="/public-page.css" />
   </head>
   <body>
-    <!-- P2A-L2. Static, outside the app: no script, no API call, no sign-in. -->
-    <main>
-      <h1>Legal</h1>
-      <ul>
-        <li><a href="/legal/privacy">Privacy notice</a></li>
-        <li><a href="/legal/ai">AI transparency note</a></li>
-        <li><a href="/legal/terms">Terms of Use</a></li>
-      </ul>
-      <p>
-        Security: <a href="/security-disclosure">report a vulnerability</a>. Privacy questions:
-        <a href="mailto:privacyanddata@myceliumgastronomy.com"
-          >privacyanddata@myceliumgastronomy.com</a
-        >.
-      </p>
+    <!-- P2A-L2, P2B-02. Static, outside the app: no script, no API call, no sign-in. -->
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="bar">
+        <a class="brand" href="/"><span class="brand-mark">Mycelium</span> SporeBot</a>
+      </div>
+    </header>
+    <main id="main">
+      <div class="card">
+        <h1>Legal</h1>
+        <ul>
+          <li><a href="/legal/privacy">Privacy notice</a></li>
+          <li><a href="/legal/ai">AI transparency note</a></li>
+          <li><a href="/legal/terms">Terms of Use</a></li>
+        </ul>
+        <p>
+          Security: <a href="/security-disclosure">report a vulnerability</a>. Privacy questions:
+          <a href="mailto:privacyanddata@myceliumgastronomy.com"
+            >privacyanddata@myceliumgastronomy.com</a
+          >.
+        </p>
+      </div>
     </main>
+    <footer class="site-footer">
+      <nav aria-label="Legal"><a href="/legal">Legal</a></nav>
+    </footer>
   </body>
 </html>

@@ -114,11 +114,10 @@ out of the refresh…)"). A user with many conversations can only scroll the lis
   cannot be renamed. Audit: none. A title is user content, so it is never logged and never in
   an audit event; the request log line carries the route and status only.
 - **Search.** A search box on `/conversations` filters the user's own conversations by title.
-  Decide at build (open item 2) whether it also searches message text. Title-only is a
+  Title only (owner, Oct 27, 2026, open item 2); message text is not searched. It is a
   `GET /v1/conversations?q=` on the existing list, `ILIKE` on `title` with the user's wildcard
-  characters escaped, inside the user's own rows by the existing policy. Message text is a
-  second, larger step: it reads retained conversation content, so it needs the owner's
-  decision and a search index plan before it is built. The query is never logged and never
+  characters escaped, inside the user's own rows by the existing policy. Searching message
+  text would read retained conversation content and needs its own index plan, so it is out. The query is never logged and never
   put in a URL that is logged by the proxy (send it as a query string only if Caddy's access
   log omits query strings; otherwise use `POST /v1/conversations/search`, check at build).
 - **Isolation tests (the negative cases).** Another user's conversation cannot be renamed
@@ -172,10 +171,23 @@ this item adds one block to it.
   title or an excerpt. Cached under a tenant-prefixed key through `app.core.cache` and cleared
   when the workspace's package or a source in it changes (decide the clearing hook at build,
   or use a short TTL of a few minutes).
-- **UI.** A compact card under the question box that follows the workspace chooser; a
-  workspace with no documents shows "No documents yet" and no figures. It is plain text with
-  one link, "See the files", and does not push the recent conversations below the first
-  screen at phone width. Wording needs the owner's approval before build (open item 3).
+- **UI.** A compact card under the question box that follows the workspace chooser. It is
+  plain text with one link and does not push the recent conversations below the first screen
+  at phone width. If the summary cannot be loaded the card is left out; the home page never
+  shows an error for it. Wording in the table below; it needs the owner's approval (open
+  item 3).
+
+  | Where | Proposed wording | Note |
+  |---|---|---|
+  | Card heading (`h2`) | Sources in this workspace | Not "What this workspace knows": in "General knowledge" mode the model also answers from its own knowledge, so "knows" would overstate what the sources cover. |
+  | Count line | {N} documents from {P} publishers (singular: 1 document from 1 publisher) | Crawled sites count as one document each, as on the files page. |
+  | Publishers line | Including {A}, {B}, {C} and {n} more | The three publishers with the most documents. With three or fewer publishers the line reads "From {A}, {B} and {C}", with no "more". |
+  | Years line | Published {first} to {last} (one year: Published in {year}) | Left out when no document has a publication date. Publication years only, never crawl dates. |
+  | Updated line | Last updated {date} | Date of the latest ingestion, in the user's locale format. |
+  | Link | See all files | Goes to the workspace files page. Accessible name: "See all files in this workspace". |
+  | Empty state | No documents have been added to this workspace yet. | No figures, no link. |
+
+  Pause and withdrawal never appear in the card's text; they only change the counts.
 - Tests: the summary equals the file list's count, publishers and years for a fixture
   workspace; a paused and a withdrawn source are left out; another tenant's sources never
   appear (cross-tenant negative); the response holds no titles; the cache key is
@@ -236,11 +248,10 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
 1. P2B-02: should `/security-disclosure` (and the trust page when it is published) take the
    app's look along with the legal pages? Proposed: yes, since they share one stylesheet and
    are reached from the same footer.
-2. P2B-03: should search cover message text as well as titles? Proposed: titles only in this
-   phase. Searching message text reads retained conversation content and needs its own index
-   plan; record it in the backlog if wanted.
-3. P2B-05: approve the wording of the summary card (heading, the four figures, the empty
-   state, the link). It is new copy.
-4. P2B-06: is `.markdown` wanted besides `.md`, and should a `.txt` source carry a "plain text,
-   no page numbers" note in the citation panel? Proposed: accept both Markdown suffixes; no
-   extra note.
+2. ~~P2B-03: should search cover message text?~~ Decided Oct 27, 2026: titles only. Searching
+   message text reads retained conversation content and needs its own index plan; it stays in
+   the backlog if wanted later.
+3. P2B-05: approve the wording of the summary card (the table in P2B-05). Proposed Oct 27,
+   2026; waiting for the owner.
+4. ~~P2B-06: `.markdown` besides `.md`, and a note on `.txt` citations?~~ Decided Oct 27,
+   2026, as proposed: accept both Markdown suffixes; no extra note in the citation panel.

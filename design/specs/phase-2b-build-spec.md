@@ -318,9 +318,14 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
   fake-RAGFlow ingestion path is tested; the parser and chunking check on the Instance (chunk
   count, headings and table rows, encoding, citations without a page) is a release step, and
   the method may change from its result. Record it in the findings file.
+  **Done Oct 27, 2026** (`phase-2b-findings.md` §1): "naive" stays for both types; RAGFlow
+  v0.27.2 gives these chunks running pseudo-pages, which `PAGED_SOURCE_TYPES` already drops;
+  remote images in Markdown are fetched by RAGFlow (for the owner).
 - **Visual baselines not generated for P2B-03 and P2B-05** (no Docker daemon, as above): the
   conversations page with the search box, and the home page with the summary card, at desktop
   and phone width. Axe and the no-sideways-scroll checks pass in the browser suite.
+  **Done Oct 27, 2026** (`phase-2b-findings.md` §2), together with the P2B-01 and P2B-02
+  baselines above: new scenarios `06k`, `09e`, `22`, `22b`, `22c`; `06`, `08` and `09` updated.
 - **Internal wording (content console, not the owner-approved list):** three error lines for
   the content team, "The file is not UTF-8 text. A .md or .txt file must be plain UTF-8
   text.", "The file does not match its extension or declared type.", and the file picker label

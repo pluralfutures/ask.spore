@@ -23,6 +23,23 @@ export const VIEWPORTS = {
 const C = (n: number) => `11111111-0000-4000-8000-0000000009${String(n).padStart(2, "0")}`;
 export const LONG_CONVERSATION = C(1);
 export const NOTES_CONVERSATION = C(2);
+export const TABLE_CONVERSATION = C(3);
+
+// P2B-01: an answer with a table wider than a phone screen; one marker sits in a cell.
+const WIDE_TABLE =
+  "| Role | What the passage says | Mechanism | Another long column heading | Yet another heading |\n" +
+  "|---|---|---|---|---|\n" +
+  "| Procuring hospital | Once the product specifications have been set, additional sustainable features could be identified as award criteria [1] | Tender specifications | A very long cell value that cannot wrap below its longest word: Supercalifragilisticexpialidocious_Supercalifragilisticexpialidocious | Internal stakeholder engagement |";
+
+// P2B-05: the home page card's figures for the default workspace.
+const SUMMARY = {
+  document_count: 128,
+  publisher_count: 14,
+  top_publishers: ["Synthetic Publisher A", "Synthetic Publisher B", "Synthetic Publisher C"],
+  first_year: 2019,
+  last_year: 2026,
+  last_updated: "2026-10-24",
+};
 
 const LONG_QUESTION =
   "What drove synthetic fertiliser prices in 2025, and what should a business development " +
@@ -74,6 +91,10 @@ export function conversationDetails(): ScenarioOptions["conversationDetail"] {
       ],
       { mode: "general_knowledge" },
     ),
+    [C(3)]: F.conversation(C(3), "Synthetic table", [
+      F.message("user", "Synthetic table question"),
+      F.message("assistant", WIDE_TABLE, { citations: F.MANY_CITATIONS }),
+    ]),
   };
 }
 
@@ -215,6 +236,14 @@ export const SCENARIOS: Scenario[] = [
   { name: "06h-home-single", url: "/" },
   { name: "06i-home-no-history", url: "/", options: { noHistory: true, conversations: [] } },
   { name: "06j-home-no-workspace", url: "/", options: { workspaces: [] } },
+  {
+    name: "06k-home-summary",
+    url: "/",
+    options: { summaries: { [F.WS_MARKETS.id]: SUMMARY } },
+    act: async (page) => {
+      await page.getByTestId("workspace-summary").waitFor();
+    },
+  },
   { name: "07-start-panel-single", url: "/new" },
   { name: "07b-start-panel-choices", url: "/new", options: CHOICES },
   {
@@ -330,6 +359,13 @@ export const SCENARIOS: Scenario[] = [
     url: `/c/${C(99)}`,
     act: async (page) => {
       await page.getByText("Conversation not found").waitFor();
+    },
+  },
+  {
+    name: "09e-chat-wide-table",
+    url: `/c/${TABLE_CONVERSATION}`,
+    act: async (page) => {
+      await page.getByRole("table").waitFor();
     },
   },
   { name: "10-files", url: FILES },

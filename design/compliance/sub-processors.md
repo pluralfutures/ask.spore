@@ -22,7 +22,33 @@ Each sub-processor is reviewed for security and data protection before it receiv
 
 By using ask.spore and agreeing to our DPA, the customer gives us general authorisation to engage the sub-processors listed here. We will give the customer at least [30] days' written notice before adding or replacing a sub-processor, and this page will be updated at the same time. The customer may object on reasonable data-protection grounds within that period. If we cannot agree a solution, the customer may end the affected part of the service without penalty.
 
-## Active sub-processors
+## Customer-facing list (publish this; the tables below it are the working record)
+
+*DRAFT, Oct 27, 2026. Same layout as Scaleway's published list. Built from the working tables below; change those first, then this. Mailgun is left out while it is inactive: add it, with notice, before it is switched on.*
+
+### Hosting, language models and email
+
+| Name | Headquarters location | Processing location (region) | Purpose |
+| --- | --- | --- | --- |
+| Scaleway SAS | EU (France) | EU (France, Paris) | Hosting of the application, databases, search index, documents, logs and backups; storage of deployment secrets |
+| Scaleway SAS (Generative APIs) | EU (France) | EU (France, Paris) | Default language-model service: answers questions and rewrites queries. Receives the prompt, which has no names or identifiers |
+| Scaleway SAS (Transactional Email) | EU (France) | EU (France, Paris) | Sends sign-in links, invitations and service notices. Receives the recipient's email address |
+
+Scaleway uses its own sub-processors, such as data-centre operators. They are listed on Scaleway's website: [link to Scaleway's list].
+
+### Optional external models
+
+Used only for a workspace whose administrator has accepted external models in writing. Off by default.
+
+| Name | Headquarters location | Processing location (region) | Purpose |
+| --- | --- | --- | --- |
+| OpenRouter, Inc. | US | EU (its EU endpoint; prompts and answers processed in EU/EEA infrastructure, account and billing data may be outside the EU) | Routes prompts to the model provider below; zero-data-retention routing on every request |
+| Amazon Web Services (Bedrock) | US | EU, EEA, UK or Switzerland (set per request) | Runs Claude Opus 5.5 |
+| Microsoft (Azure) | US | EU, EEA, UK or Switzerland (set per request) | Runs GPT-6.1 Sol |
+
+Transfers to companies headquartered outside the EU rely on Standard Contractual Clauses.
+
+## Active sub-processors (working record)
 
 | Sub-processor | Service | Purpose | Data received | Location | Safeguard | When used | Date added |
 | --- | --- | --- | --- | --- | --- | --- | --- |

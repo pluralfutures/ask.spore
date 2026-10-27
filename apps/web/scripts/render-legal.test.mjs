@@ -17,17 +17,19 @@ describe("legal pages (P2A-L2)", () => {
   });
 
   it("are static: no script, no external resource, no form", () => {
-    for (const name of ["index", "privacy", "ai", "terms"]) {
+    for (const name of ["index", "privacy", "ai", "terms", "sub-processors"]) {
       const html = readFileSync(join(OUT, `${name}.html`), "utf8");
       expect(html, name).not.toMatch(/<script|<form|<iframe|<img/i);
-      expect(html, name).not.toMatch(/(src|href)="https?:\/\/(?!askspore\.)/i);
+      // No external resource is loaded; an ordinary link to another site (the Scaleway link
+      // on the sub-processor page) is allowed.
+      expect(html, name).not.toMatch(/(src="|<link[^>]*href=")https?:\/\/(?!askspore\.)/i);
       expect(html, name).toContain('<link rel="stylesheet" href="/public-page.css" />');
     }
   });
 
-  it("index lists the three documents", () => {
+  it("index lists the four documents", () => {
     const html = readFileSync(join(OUT, "index.html"), "utf8");
-    for (const path of ["/legal/privacy", "/legal/ai", "/legal/terms"]) {
+    for (const path of ["/legal/privacy", "/legal/ai", "/legal/terms", "/legal/sub-processors"]) {
       expect(html).toContain(`href="${path}"`);
     }
   });

@@ -23,7 +23,7 @@ These terms ("**Agreement**") are between **Estefania Simon-Sasyk y Otro CB**, a
 
 1.3 The Customer's access is organised in **workspaces**. Each workspace searches a set of content tags (the "**Package**") listed in the order form. The Provider decides, server-side, which parts of the Library a workspace may search.
 
-1.4 The Provider may update the Library, models and features, provided the Service as a whole does not materially decline in what the order form describes. Model changes that alter where data is processed follow the DPA's sub-processor notice clause.
+1.4 The Provider may update the Library, models and features, provided the Service as a whole does not materially decline in what the order form describes. Model changes that alter where data is processed follow the DPA's sub-processor notice clause, and the published list at `/legal/sub-processors` (`sub-processors.md`) is updated at the same time.
 
 ## 2. Accounts and access
 

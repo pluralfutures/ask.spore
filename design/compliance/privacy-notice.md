@@ -91,7 +91,7 @@ Sign-in emails are sent by **Scaleway Transactional Email in Paris**. It receive
 
 **External models (only if your employer chose them).** Your employer can ask us to enable Claude Opus 5.5 and GPT-6.1 Sol. We do this only after your employer has signed for it. If you then pick one of these models for a conversation, that conversation's content (as above, still without identifiers) is sent through OpenRouter's EU endpoint to Amazon Web Services (for Claude) or Microsoft Azure (for GPT). These providers may process it outside the EU, including in the United States. The model picker labels these models "served outside the EU". The transfer relies on the EU Standard Contractual Clauses, and every request asks the providers to keep nothing (zero data retention) and not to use it for training. Today external models are not enabled for any customer.
 
-The full list of companies that process data for us is available on request at privacyanddata@myceliumgastronomy.com.
+The full list of companies that process data for us is published at [Sub-processors](/legal/sub-processors). Questions: privacyanddata@myceliumgastronomy.com.
 
 ### 5. Your rights
 

@@ -37,7 +37,7 @@ Only the owner or counsel can answer these. Duplicates across the documents are 
 | B4 | Prices: per seat, platform fee, onboarding and SSO setup, external-model usage (included or pass-through) | terms-of-service Annex A | |
 | B5 | Support channel, hours, first-response time; state an availability target at all on a single Instance? | terms-of-service | |
 | B6 | Export window at termination: the ToS drafts [10] working days on a request [15] days before the end, the offboarding pack proposes 30 days. Pick one; export is a manual operator job (no export feature is built), so offer it at all given 30-day retention? Format and delivery method? | terms-of-service, offboarding-pack | |
-| B7 | Client breach-notification window ([48] hours in DPA clause 9.1) and sub-processor notice period ([30] days, clause 5.2) | incident-runbook, policy-incident-response, policy-vendor-management | |
+| B7 | Client breach-notification window ([48] hours in DPA clause 9.1) and sub-processor notice period (30 days, decided Oct 27, 2026, with an urgent-replacement exception, clause 5.2) | incident-runbook, policy-incident-response, policy-vendor-management | |
 | B8 | Wording of the acceptable-use ban on special-category data and on Annex III (high-risk) uses without telling us first | terms-of-service | |
 | B9 | Customer-facing names of the three `cc` workspaces in Annex A, and which files carry `cc-shared` (P1b-13d) | terms-of-service | |
 

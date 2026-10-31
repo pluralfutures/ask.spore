@@ -33,7 +33,7 @@ from app.content.sites import (
     set_special_category_allow,
     update_site,
 )
-from app.content.uploadcrawl import reject_upload, release_upload
+from app.content.uploadcrawl import reject_upload, release_upload, upload_report
 from app.content.uploads import (
     Page,
     StagedUpload,
@@ -52,6 +52,7 @@ from tests.test_crawler import ROOT, resolver
 from tests.test_ingest import TAGS, content_user, env, source_row
 from tests.test_pause import REASON
 from tests.test_sites import PUBLIC, Crawls, crawls
+from tests.test_withdraw import cite, flags
 
 __all__ = ["crawls", "env"]  # the fixtures, imported for their use here
 
@@ -813,3 +814,129 @@ async def test_an_import_whose_zip_is_gone_or_altered_fails_and_changes_nothing(
     await up.release(again)
     await up.c.run()
     assert (await up.row(again))["error"] == "upload_missing"
+
+
+# --- P2SR01-04 second upload: supersession, full and partial -------------------------------
+
+GRAVIES = "https://www.example.org/Products/Gravies"
+BROTH = "https://www.example.org/Products/Broth"
+SOUP = "https://www.example.org/Recipes/Soup"
+STOCK = "https://www.example.org/Products/Stock"
+
+
+async def test_a_partial_second_upload_supersedes_adds_and_keeps_the_rest(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    first = await up.imported("markdown-new.zip")
+    site_id = first.site_id
+    old = await up.c.sources(site_id)
+    citation = await cite(admin_conn, INTERNAL_TENANT_ID, up.e.user_id, old[GRAVIES]["id"])
+    parsed = len(up.e.fake.parsed)
+    # Gravies changed, Broth's front matter only (unchanged), Stock new, Soup absent.
+    second = await up.imported(
+        "markdown-new-second.zip", site_id=site_id, crawled_on=date(2026, 10, 31)
+    )
+    row = await up.row(second)
+    counts = {k: row[f"{k}_count"] for k in ("new", "changed", "unchanged", "blocked")}
+    assert counts == {"new": 1, "changed": 1, "unchanged": 1, "blocked": 0}
+    assert row["withdrawn_count"] == 0
+    now = await up.c.sources(site_id)
+    assert set(now) == {GRAVIES, BROTH, SOUP, STOCK}  # partial: Soup kept
+    assert now[GRAVIES]["supersedes_id"] == old[GRAVIES]["id"]
+    assert (await source_row(admin_conn, old[GRAVIES]["id"]))["status"] == "withdrawn"
+    assert await flags(admin_conn, citation) == (True, False)  # labelled superseded
+    # The unchanged page is the same row, not re-ingested; its fetch date moved on.
+    assert now[BROTH]["id"] == old[BROTH]["id"]
+    assert len(up.e.fake.parsed) == parsed + 2  # Gravies v2 and Stock only
+    pages_ = await up.c.pages(site_id)
+    assert pages_[BROTH]["fetched_at"] == datetime(2026, 10, 31, tzinfo=UTC)
+    assert pages_[SOUP]["fetched_at"] == MIDNIGHT  # untouched
+    assert (await up.c.site_row(site_id))["page_count"] == 4
+
+
+async def test_a_full_upload_withdraws_the_absent_pages_and_says_how_many_first(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    first = await up.imported("markdown-new.zip")
+    site_id = first.site_id
+    soup = (await up.c.sources(site_id))[SOUP]
+    citation = await cite(admin_conn, INTERNAL_TENANT_ID, up.e.user_id, soup["id"])
+    staged = await up.stage("markdown-new-without-soup.zip", site_id=site_id, mode="full")
+    assert staged.would_withdraw == 1
+    pending = await upload_report(
+        up.e.factory, site_id, staged.upload_id, content_root=up.e.content_root
+    )
+    assert pending.would_withdraw == 1  # what the reviewer sees on the release button
+    await up.release(staged)
+    await up.c.run()
+    row = await up.row(staged)
+    assert (row["withdrawn_count"], row["unchanged_count"]) == (1, 2)
+    page = (await up.c.pages(site_id))[SOUP]
+    assert (page["state"], page["reason"]) == ("removed", "not_in_upload")
+    gone = await source_row(admin_conn, soup["id"])
+    assert (gone["status"], gone["withdrawal_reason"]) == (
+        "withdrawn",
+        "page absent from a full upload of the site's crawl",
+    )
+    assert await flags(admin_conn, citation) == (False, True)
+    requested = await up.c.events("source.withdrawal_requested", site_id)
+    assert [(r["source_id"], r["method"]) for r in requested] == [(str(soup["id"]), "crawl_upload")]
+    assert set(await up.c.sources(site_id)) == {GRAVIES, BROTH}
+    assert (await up.c.site_row(site_id))["page_count"] == 2
+
+
+async def test_the_same_zip_as_a_partial_upload_withdraws_nothing(up: Up) -> None:
+    first = await up.imported("markdown-new.zip")
+    staged = await up.stage("markdown-new-without-soup.zip", site_id=first.site_id)
+    assert staged.would_withdraw is None
+    await up.release(staged)
+    await up.c.run()
+    assert (await up.row(staged))["withdrawn_count"] == 0
+    assert set(await up.c.sources(first.site_id)) == {GRAVIES, BROTH, SOUP}
+
+
+async def test_a_full_upload_treats_held_pages_as_the_crawler_does(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    """A page under a takedown is never given a new version (the crawler's ``_held``
+    rule), and one absent from a full upload is withdrawn as a crawl withdraws a page
+    that is gone: the takedown's own withdrawal is not delayed or duplicated."""
+    first = await up.imported("markdown-new.zip")
+    site_id = first.site_id
+    rows = await up.c.sources(site_id)
+    for url, reference in ((GRAVIES, "TD-UP-2"), (SOUP, "TD-UP-3")):
+        await record_takedown(
+            up.e.factory,
+            rows[url]["id"],
+            up.e.user_id,
+            reference=reference,
+            requested_on=date(2026, 10, 30),
+            licence_breach=False,
+            licence_grounds=False,
+        )
+    changed = members_of("markdown-new-without-soup.zip")
+    changed["site/Products/Gravies.md"] = changed["site/Products/Gravies.md"].replace(
+        "six hours", "nine hours"
+    )
+    staged = await up.stage(zip_of(changed), site_id=site_id, mode="full")
+    assert staged.would_withdraw == 1
+    await up.release(staged)
+    await up.c.run()
+    now = await up.c.sources(site_id)
+    assert now[GRAVIES]["id"] == rows[GRAVIES]["id"]  # no new version past the takedown
+    assert now[GRAVIES]["takedown_reference"] == "TD-UP-2"
+    soup = await source_row(admin_conn, rows[SOUP]["id"])
+    assert (soup["status"], soup["takedown_reference"]) == ("withdrawn", "TD-UP-3")
+    assert (await up.row(staged))["withdrawn_count"] == 1
+
+
+async def test_an_upload_site_never_gets_a_next_crawl(up: Up) -> None:
+    staged = await up.imported("markdown-new.zip")
+    await up.imported("markdown-new-second.zip", site_id=staged.site_id, mode="full")
+    site = await up.c.site_row(staged.site_id)
+    assert (site["schedule"], site["next_crawl_at"], site["last_crawl_status"]) == (
+        "none",
+        None,
+        "imported",
+    )
+    assert await schedule_due_crawls(up.e.factory) == 0

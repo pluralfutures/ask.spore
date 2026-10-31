@@ -1,7 +1,7 @@
 """Source register and tag-to-dataset mapping. Shared corpus metadata, not tenant-scoped.
 
-Mirrors alembic revisions 0001, 0003, 0012, 0013, 0015, 0023, 0024, 0060 and 0070; the
-migrations are authoritative.
+Mirrors alembic revisions 0001, 0003, 0012, 0013, 0015, 0023, 0024, 0060, 0070 and 0080;
+the migrations are authoritative.
 """
 
 from __future__ import annotations
@@ -48,7 +48,13 @@ CONTENT_ROLES = ("content_editor", "content_reviewer")
 # P1c-14: withdrawn retires an approved site (revision 0060).
 SITE_STATUSES = ("proposed", "approved", "rejected", "withdrawn")
 SITE_SCHEDULES = ("none", "weekly", "monthly")
-ALLOW_DECISIONS = ("unchecked", "allowed", "robots_disallowed", "tdm_reserved")
+# P2SR01-01: ``declared`` marks an uploaded crawl's site, whose robots, TDM and noai checks
+# are the uploader's declaration released by a reviewer, not a platform check (D3).
+ALLOW_DECISIONS = ("unchecked", "allowed", "robots_disallowed", "tdm_reserved", "declared")
+# P2SR01-01: who fetches a site's pages: the platform's crawler, or an uploaded ZIP.
+SITE_ORIGINS = ("crawl", "upload")
+UPLOAD_MODES = ("full", "partial")
+UPLOAD_STATUSES = ("staged", "queued", "imported", "failed", "rejected")
 PAGE_STATES = ("live", "blocked", "removed")
 MAX_SITE_PAGES = 5000
 _CODE = "'^[a-z][a-z0-9_]{0,39}$'"
@@ -225,6 +231,11 @@ class Site(Base):
             name="last_crawl_status_code",
         ),
         CheckConstraint("page_count >= 0", name="page_count_non_negative"),
+        CheckConstraint(f"origin IN {SITE_ORIGINS}", name="origin_valid"),
+        CheckConstraint(
+            "origin <> 'upload' OR (schedule = 'none' AND next_crawl_at IS NULL)",
+            name="upload_unscheduled",
+        ),
         Index(None, "status", "next_crawl_at"),
     )
 
@@ -264,6 +275,9 @@ class Site(Base):
     # Revision 0060 (P1c-14): a reviewer withdrew the whole site.
     withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     withdrawal_reason: Mapped[str | None] = mapped_column(Text)
+    # Revision 0080 (P2SR01-01): ``upload`` sites take ZIPs of Markdown pages and are
+    # never crawled or scheduled; fixed at creation (a trigger refuses a change).
+    origin: Mapped[str] = mapped_column(Text, server_default=text("'crawl'"))
 
 
 class SitePage(Base):
@@ -302,3 +316,81 @@ class SitePage(Base):
     last_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class SiteUpload(Base):
+    """One uploaded ZIP of an upload site (P2SR01-01, revision 0080): counts and codes
+    only, never a member name, URL or title."""
+
+    __tablename__ = "site_uploads"
+    __table_args__ = (
+        CheckConstraint(f"mode IN {UPLOAD_MODES}", name="mode_valid"),
+        CheckConstraint("declared_robots_honoured", name="declaration_made"),
+        CheckConstraint("zip_sha256 ~ '^[0-9a-f]{64}$'", name="zip_sha256_hex"),
+        CheckConstraint(
+            "staged_path IS NULL OR staged_path = 'uploads/' || zip_sha256 || '.zip'",
+            name="staged_by_hash",
+        ),
+        CheckConstraint(f"status IN {UPLOAD_STATUSES}", name="status_valid"),
+        CheckConstraint(
+            "crawled_on <= (uploaded_at AT TIME ZONE 'UTC')::date",
+            name="crawled_not_after_upload",
+        ),
+        CheckConstraint(
+            "status IN ('staged', 'rejected') OR (released_by IS NOT NULL "
+            "AND released_at IS NOT NULL)",
+            name="release_recorded",
+        ),
+        CheckConstraint(
+            "status <> 'rejected' OR length(btrim(coalesce(review_note, ''))) > 0",
+            name="rejection_noted",
+        ),
+        CheckConstraint(
+            f"(error IS NULL) = (status <> 'failed') AND (error IS NULL OR error ~ {_CODE})",
+            name="error_when_failed",
+        ),
+        CheckConstraint(
+            "least(member_count, accepted_count, refused_count, skipped_count, new_count, "
+            "changed_count, unchanged_count, blocked_count, withdrawn_count) >= 0",
+            name="counts_non_negative",
+        ),
+        Index(None, "site_id", "uploaded_at"),
+        # D10: one upload waiting for a reviewer or the worker per site.
+        Index(
+            "uq_site_uploads_one_pending_per_site",
+            "site_id",
+            unique=True,
+            postgresql_where=text("status IN ('staged', 'queued')"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    site_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sites.id"))
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    crawled_on: Mapped[date] = mapped_column(Date)
+    mode: Mapped[str] = mapped_column(Text, server_default=text("'partial'"))
+    declared_robots_honoured: Mapped[bool] = mapped_column(Boolean)
+    zip_sha256: Mapped[str] = mapped_column(Text)
+    # ``uploads/<sha256>.zip`` under ``[files] content_root`` until the import deletes it.
+    staged_path: Mapped[str | None] = mapped_column(Text)
+    member_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    accepted_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    refused_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    skipped_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    status: Mapped[str] = mapped_column(Text, server_default=text("'staged'"))
+    released_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_note: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    new_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    changed_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    unchanged_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    blocked_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    withdrawn_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    imported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

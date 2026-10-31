@@ -476,6 +476,8 @@ async def crawl_site(
         site = await session.scalar(select(Site).where(Site.id == site_id))
     if site is None:
         return CrawlResult(site_id, "refused", "no_site")
+    if site.origin != "crawl":  # P2SR01-01: an upload site is never fetched by us
+        return CrawlResult(site_id, "refused", "origin_upload")
     if site.status != "approved" or site.approved_by is None:
         return CrawlResult(site_id, "refused", "site_not_approved")
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:

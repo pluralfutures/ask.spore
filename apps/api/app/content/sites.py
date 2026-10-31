@@ -28,6 +28,12 @@ crawled; its start URL is unchanged. Its withdrawn register rows stay withdrawn;
 page held out by a takedown stays blocked, a page a reviewer withdrew on its own stays
 out, and the pages the site withdrawal held out are released, so the first crawl after
 the approval admits them as new rows.
+
+P2SR01-01: a site's ``origin`` is ``crawl`` (the above) or ``upload``: its pages come from
+ZIPs of Markdown files an editor uploads and a reviewer releases (``app.content.uploads``,
+``app.content.uploadcrawl``). An upload site is never crawled by the platform: a crawl
+request, the scheduler and a schedule other than ``none`` refuse it (``origin_upload``),
+and it is approved by the release of its first upload, not by ``approve_site``.
 """
 
 from __future__ import annotations
@@ -47,7 +53,15 @@ from app.audit.writer import AuditValue, Change, record
 from app.content.crawler import normalise
 from app.content.fetch import Resolver, require_public_url, resolve_host
 from app.content.jobs import enqueue
-from app.content.models import MAX_SITE_PAGES, SITE_SCHEDULES, Dataset, Site, SitePage, Source
+from app.content.models import (
+    MAX_SITE_PAGES,
+    SITE_ORIGINS,
+    SITE_SCHEDULES,
+    Dataset,
+    Site,
+    SitePage,
+    Source,
+)
 from app.content.register import MAX_NOTE_LENGTH, RegisterError
 from app.content.roles import EDITOR, REVIEWER, require, roles_of
 from app.content.tags import TagConfig
@@ -63,6 +77,8 @@ RESTORED: Final = "restored"
 # kept out because a takedown was recorded on a version of it.
 REINSTATED: Final = "reinstated"
 TAKEN_DOWN: Final = "taken_down"
+# P2SR01-01: refused for an upload site (never crawled, scheduled or approved by a crawl).
+ORIGIN_UPLOAD: Final = "origin_upload"
 # A reinstatement releases only the pages the site withdrawal held out; a page a reviewer
 # withdrew on its own stays out (owner decision, Oct 25, 2026; "Restore page" brings it
 # back one by one after the fresh approval).
@@ -86,6 +102,7 @@ class SiteSpec:
     deny_patterns: tuple[str, ...] = ()
     schedule: str = "none"
     max_pages: int = 50
+    origin: str = "crawl"
 
 
 @dataclass(frozen=True)
@@ -198,6 +215,10 @@ async def register_site(
     licence = _text(spec.licence_basis, "missing_metadata")
     allow, deny = check_patterns(spec.allow_patterns), check_patterns(spec.deny_patterns)
     _check_settings(spec.schedule, spec.max_pages)
+    if spec.origin not in SITE_ORIGINS:
+        raise RegisterError("bad_origin")
+    if spec.origin == "upload" and spec.schedule != "none":
+        raise RegisterError(ORIGIN_UPLOAD)
     start_url = normalise(spec.start_url.strip())
     if len(start_url) > MAX_FIELD_LENGTH:
         raise RegisterError("bad_url")
@@ -222,6 +243,7 @@ async def register_site(
                 schedule=spec.schedule,
                 max_pages=spec.max_pages,
                 proposed_by=proposer_id,
+                origin=spec.origin,
             )
             .on_conflict_do_nothing(index_elements=["start_url"])
             .returning(Site.id)
@@ -237,7 +259,12 @@ async def register_site(
             "site.proposed",
             site_id,
             {},
-            {"status": "proposed", "tag_ids": list(tags), **_settings_values(allow, deny, spec)},
+            {
+                "status": "proposed",
+                "tag_ids": list(tags),
+                "origin": spec.origin,
+                **_settings_values(allow, deny, spec),
+            },
             method="cli" if proposer_id is None else "editor",
         )
     return site_id, True
@@ -259,41 +286,57 @@ async def approve_site(
     *,
     note: str | None = None,
 ) -> UUID:
-    """``proposed -> approved``; queues the first crawl and returns its job."""
+    """``proposed -> approved``; queues the first crawl and returns its job. An upload
+    site is approved by the release of its first upload instead (``origin_upload``)."""
     note = _note(note, required=False)
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         site = await _locked(session, site_id)
-        if site.status != "proposed":
-            raise RegisterError("not_proposed")
-        await session.execute(
-            update(Site)
-            .where(Site.id == site_id)
-            .values(
-                status="approved",
-                approved_by=reviewer_id,
-                approved_at=func.now(),
-                # A reinstated site keeps the reinstatement note unless the approver
-                # writes one (P2A-12 a); a new proposal has none.
-                review_note=func.coalesce(note, Site.review_note),
-                next_crawl_at=next_crawl(site.schedule, datetime.now(UTC)),
-                updated_at=func.now(),
-            )
-        )
+        if site.origin == "upload":
+            raise RegisterError(ORIGIN_UPLOAD)
+        await approve_locked(session, site, reviewer_id, roles, note=note)
         job_id = await enqueue(
             session, "crawl_site", {"site_id": str(site_id)}, created_by=reviewer_id
         )
-        await _audit(
-            session,
-            reviewer_id,
-            "site.approved",
-            site_id,
-            {"status": "proposed"},
-            {"status": "approved"},
-            roles=sorted(roles),
-            self_approval=site.proposed_by == reviewer_id,
-        )
     return job_id
+
+
+async def approve_locked(
+    session: AsyncSession,
+    site: Site,
+    reviewer_id: UUID,
+    roles: frozenset[str],
+    *,
+    note: str | None,
+) -> None:
+    """Approve ``site`` (locked by the caller, roles checked), audited ``site.approved``:
+    ``approve_site`` for a crawled site, the first upload's release for an upload site."""
+    if site.status != "proposed":
+        raise RegisterError("not_proposed")
+    await session.execute(
+        update(Site)
+        .where(Site.id == site.id)
+        .values(
+            status="approved",
+            approved_by=reviewer_id,
+            approved_at=func.now(),
+            # A reinstated site keeps the reinstatement note unless the approver
+            # writes one (P2A-12 a); a new proposal has none.
+            review_note=func.coalesce(note, Site.review_note),
+            next_crawl_at=next_crawl(site.schedule, datetime.now(UTC)),
+            updated_at=func.now(),
+        )
+    )
+    await _audit(
+        session,
+        reviewer_id,
+        "site.approved",
+        site.id,
+        {"status": "proposed"},
+        {"status": "approved"},
+        roles=sorted(roles),
+        self_approval=site.proposed_by == reviewer_id,
+    )
 
 
 async def reject_site(
@@ -337,6 +380,8 @@ async def update_site(
         site = await _locked(session, site_id)
         if site.status == "rejected":
             raise RegisterError("rejected")
+        if site.origin == "upload" and settings.schedule != "none":
+            raise RegisterError(ORIGIN_UPLOAD)
         before = _settings(site)
         values: dict[str, object] = {
             "allow_patterns": list(allow),
@@ -410,6 +455,8 @@ async def request_crawl(
         site = await session.scalar(select(Site).where(Site.id == site_id))
         if site is None:
             raise RegisterError("no_site")
+        if site.origin == "upload":
+            raise RegisterError(ORIGIN_UPLOAD)
         if site.status != "approved":
             raise RegisterError("not_approved")
         job_id = await enqueue(session, "crawl_site", {"site_id": str(site_id)}, created_by=user_id)
@@ -424,8 +471,9 @@ async def request_crawl(
 
 
 async def schedule_due_crawls(factory: async_sessionmaker[AsyncSession]) -> int:
-    """Queue a ``crawl_site`` job for every approved site whose next crawl is due, and
-    move its due date on (the crawl sets it again when it finishes)."""
+    """Queue a ``crawl_site`` job for every approved crawled site whose next crawl is due,
+    and move its due date on (the crawl sets it again when it finishes). An upload site
+    never has a due date (a check constraint), and is excluded here as well."""
     queued = 0
     async with factory() as session, session.begin():
         due = (
@@ -433,6 +481,7 @@ async def schedule_due_crawls(factory: async_sessionmaker[AsyncSession]) -> int:
                 select(Site.id, Site.schedule)
                 .where(
                     Site.status == "approved",
+                    Site.origin == "crawl",
                     Site.schedule != "none",
                     Site.next_crawl_at <= func.now(),
                 )

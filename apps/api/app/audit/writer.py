@@ -88,6 +88,18 @@ AUDIT_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         "grant_id",
         "scope",
         "duration_minutes",
+        # Uploaded crawls (P2SR01): which upload (with "site_id" and "mode"), and its
+        # counts. Never a member name, URL or title.
+        "upload_id",
+        "members",
+        "accepted",
+        "refused",
+        "skipped",
+        "new",
+        "changed",
+        "unchanged",
+        "blocked",
+        "withdrawn",
     }
 )
 # Keys allowed inside "before" and "after": tenant, entitlement and user settings.
@@ -135,6 +147,8 @@ CHANGE_FIELDS: Final[frozenset[str]] = frozenset(
         "schedule",
         "max_pages",
         "special_category_allow",
+        # Uploaded crawls (P2SR01-01): a site's origin (crawl or upload), fixed at creation.
+        "origin",
     }
 )
 CHANGE_KEYS: Final = frozenset({"before", "after"})

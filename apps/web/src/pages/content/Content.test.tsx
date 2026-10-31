@@ -320,6 +320,7 @@ describe("sites", () => {
     page_count: 0,
     blocked_count: 2,
     origin: "crawl",
+    last_crawled_on: null,
   };
 
   it("lists sites with their allow decision, last crawl and blocked count", () => {

@@ -3050,6 +3050,8 @@ export interface components {
       last_crawl_at: string | null;
       /** Last Crawl Status */
       last_crawl_status: string | null;
+      /** Last Crawled On */
+      last_crawled_on: string | null;
       /** Licence Basis */
       licence_basis: string;
       /** Max Pages */
@@ -3106,6 +3108,8 @@ export interface components {
       last_crawl_at: string | null;
       /** Last Crawl Status */
       last_crawl_status: string | null;
+      /** Last Crawled On */
+      last_crawled_on: string | null;
       /** Licence Basis */
       licence_basis: string;
       /** Max Pages */

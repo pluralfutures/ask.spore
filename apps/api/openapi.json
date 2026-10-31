@@ -3363,6 +3363,18 @@
             ],
             "title": "Last Crawl Status"
           },
+          "last_crawled_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawled On"
+          },
           "licence_basis": {
             "title": "Licence Basis",
             "type": "string"
@@ -3504,6 +3516,7 @@
           "page_count",
           "blocked_count",
           "origin",
+          "last_crawled_on",
           "allow_patterns",
           "deny_patterns",
           "special_category_allow",
@@ -3573,6 +3586,18 @@
               }
             ],
             "title": "Last Crawl Status"
+          },
+          "last_crawled_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawled On"
           },
           "licence_basis": {
             "title": "Licence Basis",
@@ -3648,7 +3673,8 @@
           "next_crawl_at",
           "page_count",
           "blocked_count",
-          "origin"
+          "origin",
+          "last_crawled_on"
         ],
         "title": "SiteOut",
         "type": "object"

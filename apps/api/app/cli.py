@@ -10,7 +10,10 @@ Runs where the API runs (inside the Compose network, e.g.
 ``docker compose -f infra/compose.dev.yml run --rm api ask-spore datasets sync``):
 it needs the same configuration and secrets, and reaches RAGFlow on the internal
 network. Output is metadata-only JSON log lines via app.core.logging.log();
-the exit status is non-zero when anything failed.
+the exit status is non-zero when anything failed. The one exception is the report of
+``sites upload-crawl`` (P2SR01-05): its member names, page URLs and titles are written to
+the controlling terminal (``/dev/tty``) only, never to standard output or error, which
+may be captured into logs; without a terminal it is not shown.
 """
 
 from __future__ import annotations
@@ -28,6 +31,7 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 import httpx
+from sqlalchemy import Text, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.auth.authentik import oidc_services
@@ -44,7 +48,7 @@ from app.content.ingest import (
     from_fetched,
     load_path,
 )
-from app.content.jobs import enqueue, wait_for
+from app.content.jobs import Job, enqueue, wait_for
 from app.content.manifest import (
     ManifestError,
     ManifestRow,
@@ -54,6 +58,7 @@ from app.content.manifest import (
     run_manifest,
     write_summary,
 )
+from app.content.models import Site, Source
 from app.content.register import (
     RegisterError,
     approve,
@@ -74,6 +79,14 @@ from app.content.sites import (
 )
 from app.content.submit import settle, settle_site, submit, submit_site
 from app.content.tags import TagConfig, load_tags
+from app.content.uploadcrawl import release_upload
+from app.content.uploads import (
+    MAX_ZIP_BYTES,
+    UploadRefused,
+    UploadReport,
+    declaration_text,
+    stage_upload,
+)
 from app.core import cache
 from app.core.config import get_settings
 from app.core.db import create_engine, session_factory
@@ -599,6 +612,170 @@ async def _sites(args: argparse.Namespace) -> int:
     return 1 if status == "failed" else 0
 
 
+# P2SR01-05: where the upload report with member names goes; never stdout or stderr.
+TERMINAL = "/dev/tty"
+
+
+def _to_terminal(lines: Sequence[str]) -> bool:
+    try:
+        with open(TERMINAL, "a", encoding="utf-8") as tty:
+            tty.write("\n".join(lines) + "\n")
+    except OSError:
+        return False
+    return True
+
+
+def _report_lines(report: UploadReport, would_withdraw: int | None) -> list[str]:
+    lines = []
+    for m in report.members:
+        line = f"{m.index:>5}  {m.outcome:<22} {m.name}"
+        if m.url:
+            line += f"  ->  {m.url}"
+        if m.note:
+            line += f"  [{m.note}{': ' + m.special_category if m.special_category else ''}]"
+        lines.append(line)
+    lines.append(f"{report.accepted} accepted, {report.refused} refused, {report.skipped} skipped")
+    if would_withdraw is not None:
+        lines.append(
+            f"full upload: {would_withdraw} live page(s) absent from the ZIP will be withdrawn"
+        )
+    return lines
+
+
+def _read_zip(path: Path) -> bytes:
+    try:
+        if path.stat().st_size > MAX_ZIP_BYTES:
+            raise SystemExit("ask-spore sites upload-crawl: the ZIP is larger than 200 MB")
+        return path.read_bytes()
+    except OSError:
+        raise SystemExit("ask-spore sites upload-crawl: cannot read the ZIP") from None
+
+
+async def _upload_crawl(args: argparse.Namespace) -> int:
+    """P2SR01-05: an uploaded crawl, through the same code path as the console: staged
+    (``app.content.uploads.stage_upload``), and with ``--approve-as`` released by that
+    reviewer (``app.content.uploadcrawl.release_upload``), who then also counts as the
+    uploader (self-approval, audited, as for ``ingest`` and ``crawl``)."""
+    settings = get_settings()
+    tags = load_tags(settings.config_dir)
+    content = _read_zip(Path(args.zip))
+    spec: SiteSpec | None = None
+    if args.site is None:
+        missing = [
+            flag
+            for flag, value in (
+                ("--start-url", args.start_url),
+                ("--name", args.name),
+                ("--publisher", args.publisher),
+                ("--licence-basis", args.licence_basis),
+                ("--tag", args.tag),
+            )
+            if not value
+        ]
+        if missing:
+            raise SystemExit(f"ask-spore sites upload-crawl: a new site needs {', '.join(missing)}")
+        spec = SiteSpec(
+            start_url=args.start_url,
+            name=args.name,
+            publisher=args.publisher,
+            licence_basis=args.licence_basis,
+            tags=tuple(args.tag),
+            origin="upload",
+        )
+    engine = create_engine(settings.secrets.database_url.get_secret_value())
+    status = "staged"
+    try:
+        factory = session_factory(engine)
+        if spec is not None:
+            host = urlsplit(spec.start_url.strip()).hostname or ""
+        else:
+            async with factory() as session:
+                site = await session.get(Site, args.site)
+            host = site.host if site is not None else ""
+        sentence = declaration_text(host, args.crawled_on.isoformat())
+        if not args.declare_robots_honoured:
+            raise SystemExit(
+                "ask-spore sites upload-crawl: --declare-robots-honoured is required, "
+                f"declaring: {sentence}"
+            )
+        _to_terminal([f"Declared: {sentence}"])
+        reviewer_id = await user_by_email(factory, args.approve_as) if args.approve_as else None
+        staged = await stage_upload(
+            factory,
+            tags,
+            content,
+            content_root=settings.models.files.content_root,
+            uploader_id=reviewer_id,
+            crawled_on=args.crawled_on,
+            mode="full" if args.full else "partial",
+            declared=True,
+            site_id=args.site,
+            spec=spec,
+        )
+        shown = _to_terminal(_report_lines(staged.report, staged.would_withdraw))
+        log(
+            "sites.upload_crawl",
+            upload_id=str(staged.upload_id),
+            site_id=str(staged.site_id),
+            status="staged",
+            count=staged.report.accepted,
+            error_code=None if shown else "report_not_shown_no_terminal",
+        )
+        if reviewer_id is None:
+            return 0
+        job_id = await release_upload(factory, staged.site_id, staged.upload_id, reviewer_id)
+        status = "queued"
+        if args.wait:
+            found = await wait_for(factory, [job_id])
+            job = found[job_id]
+            status = "imported" if job.status == "succeeded" else (job.error_code or "failed")
+            if status == "imported":
+                ingestions = await _upload_ingestions(factory, staged.site_id)
+                if ingestions:
+                    states = await wait_for(factory, ingestions)
+                    failed = sum(s.status != "succeeded" for s in states.values())
+                    log(
+                        "sites.upload_crawl",
+                        upload_id=str(staged.upload_id),
+                        status="ingested" if not failed else "failed",
+                        count=len(ingestions) - failed,
+                    )
+                    if failed:
+                        status = "ingestion_failed"
+    except UploadRefused as exc:
+        # The code and the member's index only; the name stays in the editor's ZIP.
+        log("sites.upload_crawl", level="error", status="refused", error_code=exc.code)
+        member = "" if exc.member is None else f" (member {exc.member})"
+        raise SystemExit(f"ask-spore sites upload-crawl: {exc.code}{member}") from None
+    except FetchError as exc:
+        log("sites.upload_crawl", level="error", status="refused", error_code=exc.code)
+        raise SystemExit(f"ask-spore sites upload-crawl: {exc.code}") from None
+    except (RoleError, RegisterError) as exc:
+        log("sites.upload_crawl", level="error", status="refused", error_code=exc.code)
+        raise SystemExit(f"ask-spore sites upload-crawl: {exc.code}") from None
+    finally:
+        await engine.dispose()
+    log("sites.upload_crawl", status=status, upload_id=str(staged.upload_id))
+    return 0 if status in ("staged", "queued", "imported") else 1
+
+
+async def _upload_ingestions(
+    factory: async_sessionmaker[AsyncSession], site_id: UUID
+) -> list[UUID]:
+    """The ingestion jobs still to run for the site's pages (after an import)."""
+    async with factory() as session:
+        rows = await session.scalars(
+            select(Job.id).where(
+                Job.type == "ingest_source",
+                Job.status.in_(("queued", "running")),
+                Job.payload["source_id"].astext.in_(
+                    select(func.cast(Source.id, Text)).where(Source.site_id == site_id)
+                ),
+            )
+        )
+        return list(rows)
+
+
 async def _tick(factory: async_sessionmaker[AsyncSession], notices: ConsentNoticeTick) -> None:
     """Between jobs: due crawls (P1b-04), the daily purge (P1b-14), consent notices (P1b-10)."""
     await schedule_due_crawls(factory)
@@ -994,7 +1171,8 @@ def build_parser() -> argparse.ArgumentParser:
     restore_cmd.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
 
     sites_parser = commands.add_parser(
-        "sites", help="a reviewer's decision on a registered site (P1c-14)"
+        "sites",
+        help="a reviewer's decision on a registered site (P1c-14), or an uploaded crawl (P2SR01)",
     )
     sites_commands = sites_parser.add_subparsers(dest="sites_command", required=True)
     site_withdraw = sites_commands.add_parser(
@@ -1015,6 +1193,43 @@ def build_parser() -> argparse.ArgumentParser:
     site_reinstate.add_argument("site_id", type=UUID)
     site_reinstate.add_argument("--as", dest="reviewer", required=True, metavar="EMAIL")
     site_reinstate.add_argument("--note", required=True, help="kept as the site's review note")
+    upload_cmd = sites_commands.add_parser(
+        "upload-crawl",
+        help="upload a crawl made outside the platform (P2SR01): a ZIP of Markdown pages, "
+        "each starting with its page URL; with --approve-as, release it for import",
+        description="Inspects the ZIP, stages it and records the upload for a reviewer to "
+        "release (the content console's site page shows it). The report with file names "
+        "goes to this terminal only; the log carries counts and codes.",
+    )
+    upload_cmd.add_argument("zip", help="the ZIP of Markdown pages (up to 200 MB)")
+    upload_cmd.add_argument("--site", type=UUID, help="an upload site already registered")
+    upload_cmd.add_argument("--start-url", help="a new upload site: its start URL")
+    upload_cmd.add_argument("--name", help="a new upload site: its name")
+    upload_cmd.add_argument("--publisher", help="a new upload site: its publisher")
+    upload_cmd.add_argument("--licence-basis", help="a new upload site: its licence basis")
+    upload_cmd.add_argument("--tag", action="append", help="a new upload site: a content tag")
+    upload_cmd.add_argument(
+        "--crawled-on", type=date.fromisoformat, required=True, help="crawl date, YYYY-MM-DD"
+    )
+    mode = upload_cmd.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--full", action="store_true", help="a full crawl: withdraw live pages absent from it"
+    )
+    mode.add_argument(
+        "--partial", action="store_true", help="a partial crawl (the default): touch nothing absent"
+    )
+    upload_cmd.add_argument(
+        "--declare-robots-honoured",
+        action="store_true",
+        help="declare that the crawl honoured robots.txt, the TDM reservation and page-level "
+        "noai and noindex directives (required; the full sentence is shown)",
+    )
+    upload_cmd.add_argument(
+        "--approve-as",
+        metavar="EMAIL",
+        help="a content reviewer who releases the upload in this run, audited",
+    )
+    _wait_flag(upload_cmd)
 
     takedown_cmd = sources_commands.add_parser(
         "takedown",
@@ -1134,6 +1349,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_content_roles(args))
     if args.command == "sources":
         return asyncio.run(_sources(args))
+    if args.command == "sites" and args.sites_command == "upload-crawl":
+        if args.site is not None and (args.start_url or args.name or args.tag):
+            raise SystemExit("ask-spore sites upload-crawl: --site or the new site's fields")
+        return asyncio.run(_upload_crawl(args))
     if args.command == "sites":
         return asyncio.run(_sites(args))
     if args.command == "worker":

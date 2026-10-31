@@ -134,6 +134,17 @@ _ESCAPES: Final = {
 _WANTED: Final = frozenset({"url", "title", "date"})
 
 
+def declaration_text(host: str, crawled_on: str) -> str:
+    """The declaration the uploader makes (owner decision 2, Oct 31, 2026), word for word;
+    the console's checkbox shows the same sentence (``apps/web/src/lib/content.ts``)."""
+    return (
+        f"I confirm that this crawl of {host or '<host>'} was made on "
+        f"{crawled_on or '<crawled_on>'} honouring the site's robots.txt, its "
+        "text-and-data-mining reservation if any, and page-level noai and noindex "
+        "directives, and that the pages are public and were fetched without signing in."
+    )
+
+
 class UploadRefused(Exception):
     """The whole upload is refused. ``code`` and ``member`` (an index, or None) are safe
     to log and to return; never a member's name."""
@@ -631,7 +642,7 @@ def _check_site(site: Site) -> None:
     if site.origin != "upload":
         raise RegisterError("origin_crawl")
     if site.status in ("withdrawn", "rejected"):
-        raise RegisterError("site_" + site.status)
+        raise RegisterError("site_withdrawn" if site.status == "withdrawn" else "site_rejected")
 
 
 __all__ = [

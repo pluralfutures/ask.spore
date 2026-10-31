@@ -205,8 +205,10 @@ class SiteOut(BaseModel):
     next_crawl_at: datetime | None
     page_count: int
     blocked_count: int
-    # P2SR01: ``crawl`` (the platform crawls it) or ``upload`` (uploaded crawls).
+    # P2SR01: ``crawl`` (the platform crawls it) or ``upload`` (uploaded crawls), and
+    # for an upload site the crawl date of its last imported upload.
     origin: str
+    last_crawled_on: date | None
 
 
 class SitePageOut(BaseModel):

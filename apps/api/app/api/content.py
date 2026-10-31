@@ -846,7 +846,7 @@ async def takedowns(
 # --- sites -------------------------------------------------------------------------------
 
 
-def _site_out(site: Site, blocked: int) -> dict[str, Any]:
+def _site_out(site: Site, blocked: int, crawled_on: date | None = None) -> dict[str, Any]:
     return {
         "id": site.id,
         "name": site.name,
@@ -866,6 +866,7 @@ def _site_out(site: Site, blocked: int) -> dict[str, Any]:
         "page_count": site.page_count,
         "blocked_count": blocked,
         "origin": site.origin,
+        "last_crawled_on": crawled_on,
     }
 
 
@@ -879,12 +880,24 @@ def _blocked_count() -> Any:
     )
 
 
+def _last_crawled_on() -> Any:
+    """P2SR01: the crawl date of an upload site's last imported upload."""
+    return (
+        select(func.max(SiteUpload.crawled_on))
+        .where(SiteUpload.site_id == Site.id, SiteUpload.status == "imported")
+        .correlate(Site)
+        .scalar_subquery()
+    )
+
+
 @router.get("/sites", response_model=list[SiteOut])
 async def list_sites(session: AsyncSession = Depends(content_session)) -> list[SiteOut]:
     rows = await session.execute(
-        select(Site, _blocked_count().label("blocked")).order_by(Site.name, Site.id)
+        select(
+            Site, _blocked_count().label("blocked"), _last_crawled_on().label("crawled_on")
+        ).order_by(Site.name, Site.id)
     )
-    return [SiteOut(**_site_out(r.Site, r.blocked)) for r in rows]
+    return [SiteOut(**_site_out(r.Site, r.blocked, r.crawled_on)) for r in rows]
 
 
 @router.post("/sites", status_code=status.HTTP_201_CREATED, response_model=SiteOut)
@@ -953,8 +966,9 @@ async def site_detail(
         + [u.uploaded_by for u in upload_rows]
         + [u.released_by for u in upload_rows],
     )
+    crawled_on = max((u.crawled_on for u in upload_rows if u.status == "imported"), default=None)
     return SiteDetail(
-        **_site_out(site, blocked),
+        **_site_out(site, blocked, crawled_on),
         allow_patterns=list(site.allow_patterns),
         deny_patterns=list(site.deny_patterns),
         special_category_allow=list(site.special_category_allow),

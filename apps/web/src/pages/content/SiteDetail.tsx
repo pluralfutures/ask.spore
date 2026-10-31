@@ -7,6 +7,7 @@ import type { ContentSiteDetail, SitePage } from "../../api/types";
 import {
   ALLOW_DECISIONS,
   SCHEDULES,
+  canEdit,
   canReview,
   errorMessage,
   pageReason,
@@ -19,7 +20,8 @@ import { LINK } from "../../ui/link";
 import { Field } from "../../ui/Field";
 import { Input, Select, Textarea } from "../../ui/Input";
 import { Notice } from "../../ui/Notice";
-import { StatusBadge } from "../../ui/Badge";
+import { Badge, StatusBadge } from "../../ui/Badge";
+import { SiteUploads, UploadCrawl } from "./Uploads";
 import { Card } from "../../ui/Card";
 import { Table, Td, Th } from "../../ui/Table";
 
@@ -27,7 +29,9 @@ import { Table, Td, Th } from "../../ui/Table";
 // crawl met (blocked ones with the reason), and the reviewer's actions: approve or
 // reject, scope rules, schedule and page budget, the special-category whitelist, and
 // withdrawing the whole site (P1c-14) and reinstating a withdrawn one (P2A-12). Any
-// content role may ask for a crawl now.
+// content role may ask for a crawl now. P2SR01-05: an upload site has no crawl, no
+// schedule and no page budget; it lists its uploads, an editor uploads the next crawl and
+// a reviewer releases each upload (which approves a proposed site).
 export function SiteDetail({ roles }: { roles: string[] }) {
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
@@ -37,10 +41,11 @@ export function SiteDetail({ roles }: { roles: string[] }) {
   if (site.error) return <Notice tone="danger">{errorMessage(site.error)}</Notice>;
   if (!site.data) return <Skeleton />;
   const data = site.data;
+  const uploaded = data.origin === "upload";
   return (
     <section className="flex flex-col gap-4">
       <SiteSummary site={data} />
-      {data.status === "approved" ? (
+      {data.status === "approved" && !uploaded ? (
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={() => crawl.mutate()} disabled={crawl.isPending}>
             Crawl now
@@ -52,6 +57,10 @@ export function SiteDetail({ roles }: { roles: string[] }) {
         </div>
       ) : null}
       {canReview(roles) ? <SiteReview site={data} /> : null}
+      {uploaded ? <SiteUploads site={data} roles={roles} /> : null}
+      {uploaded && canEdit(roles) && (data.status === "proposed" || data.status === "approved") ? (
+        <UploadCrawl site={data} />
+      ) : null}
       <PageTable pages={data.pages} />
     </section>
   );
@@ -69,13 +78,21 @@ export function SiteSummary({ site }: { site: ContentSiteDetail }) {
           {ALLOW_DECISIONS[site.allow_decision] ?? site.allow_decision}
         </span>
       </p>
-      <p>
-        Schedule {site.schedule} · budget {site.max_pages} pages · last crawl{" "}
-        {site.last_crawl_at
-          ? `${formatDate(site.last_crawl_at)} (${site.last_crawl_status})`
-          : "never"}
-        {site.next_crawl_at ? ` · next ${formatDate(site.next_crawl_at)}` : ""}
-      </p>
+      {site.origin === "upload" ? (
+        <p data-testid="site-uploaded">
+          <Badge>uploaded</Badge> pages come from uploaded crawls, never crawled by the platform ·{" "}
+          {site.last_crawled_on ? `crawled ${formatDate(site.last_crawled_on)}` : "no upload yet"} ·
+          uploaded, no snapshot
+        </p>
+      ) : (
+        <p>
+          Schedule {site.schedule} · budget {site.max_pages} pages · last crawl{" "}
+          {site.last_crawl_at
+            ? `${formatDate(site.last_crawl_at)} (${site.last_crawl_status})`
+            : "never"}
+          {site.next_crawl_at ? ` · next ${formatDate(site.next_crawl_at)}` : ""}
+        </p>
+      )}
       <p>
         {site.page_count} live pages · {site.blocked_count} blocked
       </p>
@@ -180,6 +197,7 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
     mutationFn: () => contentApi.reinstateSite(site.id, reinstateNote),
     onSuccess: refresh,
   });
+  const uploaded = site.origin === "upload";
   const error =
     errorMessage(reinstate.error) ??
     errorMessage(approve.error) ??
@@ -195,9 +213,13 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
           <Field label="Note (required to reject)">
             <Input value={note} onChange={(e) => setNote(e.target.value)} />
           </Field>
-          <Button variant="primary" onClick={() => approve.mutate()}>
-            Approve and crawl
-          </Button>
+          {uploaded ? (
+            <span className="text-fg-muted">Releasing its upload approves the site.</span>
+          ) : (
+            <Button variant="primary" onClick={() => approve.mutate()}>
+              Approve and crawl
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => reject.mutate()} disabled={!note.trim()}>
             Reject
           </Button>
@@ -227,18 +249,22 @@ function SiteReview({ site }: { site: ContentSiteDetail }) {
           <Field label="Paths never to crawl">
             <Textarea value={deny} onChange={(e) => setDeny(e.target.value)} />
           </Field>
-          <Field label="Schedule">
-            <Select value={schedule} onChange={(e) => setSchedule(e.target.value)}>
-              {SCHEDULES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Page budget">
-            <Input value={maxPages} onChange={(e) => setMaxPages(e.target.value)} />
-          </Field>
+          {uploaded ? null : (
+            <>
+              <Field label="Schedule">
+                <Select value={schedule} onChange={(e) => setSchedule(e.target.value)}>
+                  {SCHEDULES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Page budget">
+                <Input value={maxPages} onChange={(e) => setMaxPages(e.target.value)} />
+              </Field>
+            </>
+          )}
           <Button variant="secondary" className="w-fit" onClick={() => save.mutate()}>
             Save settings
           </Button>

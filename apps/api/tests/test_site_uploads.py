@@ -10,6 +10,7 @@ import io
 import json
 import uuid
 import zipfile
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -17,7 +18,11 @@ from uuid import UUID
 
 import asyncpg
 import pytest
+from pydantic import SecretStr
+from sqlalchemy import text as sql
 
+from app import cli
+from app.chat.package import provenance_by_document, workspace_package
 from app.content.crawler import HostLimiter, Scope
 from app.content.jobs import JOB_TYPES, PAYLOAD_KEYS, enqueue
 from app.content.register import RegisterError, pause, record_takedown, request_withdrawal
@@ -45,14 +50,18 @@ from app.content.uploads import (
     special_for,
     stage_upload,
 )
+from app.core.config import load_settings
 from app.core.db import tenant_session
+from app.files.service import FileRefused, issue_link, workspace_files
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.conftest import MigratedDatabase, _admin_dsn, _execute, _with_database, migrate
 from tests.test_crawler import ROOT, resolver
+from tests.test_datasets_sync import ENV
 from tests.test_ingest import TAGS, content_user, env, source_row
 from tests.test_pause import REASON
+from tests.test_pause_pipeline import web_tenant
 from tests.test_sites import PUBLIC, Crawls, crawls
-from tests.test_withdraw import cite, flags
+from tests.test_withdraw import cite, flags, other_tenant
 
 __all__ = ["crawls", "env"]  # the fixtures, imported for their use here
 
@@ -940,3 +949,228 @@ async def test_an_upload_site_never_gets_a_next_crawl(up: Up) -> None:
         "imported",
     )
     assert await schedule_due_crawls(up.e.factory) == 0
+
+
+# --- P2SR01-05 the CLI --------------------------------------------------------------------
+
+
+def test_cli_upload_crawl_flags() -> None:
+    args = cli.build_parser().parse_args(
+        [
+            "sites",
+            "upload-crawl",
+            "crawl.zip",
+            "--start-url",
+            UPLOAD_START,
+            "--name",
+            "n",
+            "--publisher",
+            "p",
+            "--licence-basis",
+            "l",
+            "--tag",
+            "sample-web",
+            "--crawled-on",
+            "2026-10-30",
+            "--full",
+            "--declare-robots-honoured",
+            "--approve-as",
+            "r@example.org",
+            "--wait",
+        ]
+    )
+    assert (args.full, args.partial, args.crawled_on, args.tag) == (
+        True,
+        False,
+        CRAWLED_ON,
+        ["sample-web"],
+    )
+    with pytest.raises(SystemExit):  # --full and --partial together
+        cli.build_parser().parse_args(
+            ["sites", "upload-crawl", "z", "--crawled-on", "2026-10-30", "--full", "--partial"]
+        )
+    with pytest.raises(SystemExit):  # the crawl date is required
+        cli.build_parser().parse_args(["sites", "upload-crawl", "z"])
+    with pytest.raises(SystemExit, match="--site or the new site"):
+        cli.main(
+            [
+                "sites",
+                "upload-crawl",
+                "z",
+                "--site",
+                str(uuid.uuid4()),
+                "--name",
+                "n",
+                "--crawled-on",
+                "2026-10-30",
+            ]
+        )
+
+
+async def test_cli_upload_crawl_goes_through_the_same_path(
+    up: Up,
+    database: MigratedDatabase,
+    admin_conn: asyncpg.Connection,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    settings = load_settings(environ=ENV)
+    secrets = replace(settings.secrets, database_url=SecretStr(database.sqlalchemy_url))
+    files = settings.models.files.model_copy(update={"content_root": up.e.content_root})
+    settings = replace(
+        settings, secrets=secrets, models=settings.models.model_copy(update={"files": files})
+    )
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+    terminal = tmp_path / "tty"
+    monkeypatch.setattr(cli, "TERMINAL", str(terminal))
+    first = await up.imported("markdown-new.zip")
+    site = str(first.site_id)
+
+    def parsed(*argv: str) -> Any:
+        return cli.build_parser().parse_args(["sites", "upload-crawl", *argv])
+
+    zip_path = str(UPLOADS / "markdown-new-second.zip")
+    base = (zip_path, "--site", site, "--crawled-on", "2026-10-31")
+    # Without the declaration nothing runs, and the sentence is shown.
+    with pytest.raises(SystemExit) as refused:
+        await cli._upload_crawl(parsed(*base))
+    assert "I confirm that this crawl of www.example.org was made on 2026-10-31" in str(
+        refused.value
+    )
+    assert await admin_conn.fetchval("SELECT count(*) FROM site_uploads") == 1
+    # A new site needs its fields.
+    with pytest.raises(SystemExit, match="needs --start-url"):
+        await cli._upload_crawl(parsed(zip_path, "--crawled-on", "2026-10-31"))
+    # An editor-less reviewer cannot be the uploader.
+    await content_user(admin_conn, "content_reviewer")
+    with pytest.raises(SystemExit, match="not_content_editor"):
+        await cli._upload_crawl(
+            parsed(*base, "--declare-robots-honoured", "--approve-as", "editor@example.org")
+        )
+    await content_user(admin_conn, "content_editor", "content_reviewer")
+    # Staged only, then released in the same run.
+    assert await cli._upload_crawl(parsed(*base, "--declare-robots-honoured", "--full")) == 0
+    row = await admin_conn.fetchrow(
+        "SELECT * FROM site_uploads WHERE status = 'staged' AND site_id = $1", first.site_id
+    )
+    assert (row["mode"], row["uploaded_by"]) == ("full", None)
+    shown = terminal.read_text()
+    assert "site/Products/Stock.md" in shown and "Declared: I confirm" in shown
+    assert "1 live page(s) absent from the ZIP will be withdrawn" in shown
+    logged = capsys.readouterr().out
+    no_names = ("Stock", "Gravies", "site/", "/Products")
+    assert not [n for n in no_names if n in logged]
+    assert '"event":"sites.upload_crawl"' in logged
+    with pytest.raises(SystemExit, match="upload_pending"):
+        await cli._upload_crawl(parsed(*base, "--declare-robots-honoured"))
+    await reject_upload(
+        up.e.factory,
+        first.site_id,
+        row["id"],
+        up.e.user_id,
+        note="n",
+        content_root=up.e.content_root,
+    )
+    reviewer = ("--approve-as", "editor@example.org")
+    assert await cli._upload_crawl(parsed(*base, "--declare-robots-honoured", *reviewer)) == 0
+    await up.c.run()
+    released = await admin_conn.fetchrow(
+        "SELECT * FROM site_uploads WHERE site_id = $1 ORDER BY uploaded_at DESC LIMIT 1",
+        first.site_id,
+    )
+    assert (released["status"], released["changed_count"], released["new_count"]) == (
+        "imported",
+        1,
+        1,
+    )
+    assert released["uploaded_by"] == released["released_by"] == up.e.user_id
+    # Whole-upload refusals exit with the code and the member index, never its name.
+    with pytest.raises(SystemExit) as dup:
+        await cli._upload_crawl(
+            parsed(
+                str(UPLOADS / "duplicate-url.zip"),
+                "--site",
+                site,
+                "--crawled-on",
+                "2026-10-31",
+                "--declare-robots-honoured",
+            )
+        )
+    assert str(dup.value) == "ask-spore sites upload-crawl: duplicate_url (member 1)"
+    # Without a terminal the report is not shown anywhere, and the log says so.
+    monkeypatch.setattr(cli, "TERMINAL", str(tmp_path / "missing" / "tty"))
+    await cli._upload_crawl(
+        parsed(
+            str(UPLOADS / "dated.zip"),
+            "--site",
+            site,
+            "--crawled-on",
+            "2026-10-31",
+            "--declare-robots-honoured",
+        )
+    )
+    logged = capsys.readouterr().out
+    assert "report_not_shown_no_terminal" in logged and "Dated" not in logged
+
+
+# --- P2SR01-05 the tenant-facing path (no new code) ---------------------------------------
+
+
+async def test_an_uploaded_site_reaches_tenants_exactly_as_a_crawled_one(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    staged = await up.imported("markdown-new.zip")
+    rows = await up.c.sources(staged.site_id)
+    web = await web_tenant(admin_conn)  # its workspace holds sample-web
+    reports, _ = await other_tenant(admin_conn)
+    await admin_conn.execute(
+        "UPDATE workspaces SET tag_ids = ARRAY['sample-reports'] WHERE tenant_id = $1", reports
+    )
+
+    async def listed(tenant_id: UUID) -> tuple[list[Any], list[Any], UUID]:
+        async with tenant_session(up.e.factory, tenant_id) as session:
+            workspace = await session.scalar(sql("SELECT id FROM workspaces LIMIT 1"))
+            files, sites = await workspace_files(session, workspace)
+        return files, sites, workspace
+
+    files, sites, workspace = await listed(web)
+    assert files == []  # pages are never files
+    assert [(s.site, s.publisher, s.page_count) for s in sites] == [
+        ("www.example.org", "Synthetic Pantry Co", 3)
+    ]
+    assert (await listed(reports))[1] == []  # a workspace without the tag sees nothing
+    # A page is never downloadable: refused as for a file outside the workspace.
+    async with tenant_session(up.e.factory, web) as session:
+        with pytest.raises(FileRefused, match="not_found"):
+            await issue_link(
+                session,
+                tenant_id=web,
+                ttl_seconds=60,
+                workspace_id=workspace,
+                user_id=up.e.user_id,
+                source_id=rows[GRAVIES]["id"],
+                daily_cap=10,
+            )
+    # Cited with the page URL as the canonical link ("View at source"), the site's
+    # publisher and the page's title, as a crawled page is.
+    documents = [d for r in rows.values() for d in json.loads(r["ragflow_document_ids"]).values()]
+    async with tenant_session(up.e.factory, web) as session:
+        provenance = await provenance_by_document(session, documents)
+    by_url = {p.canonical_url: p for p in provenance.values()}
+    assert set(by_url) == {GRAVIES, BROTH, SOUP}
+    assert (by_url[GRAVIES].title, by_url[GRAVIES].publisher, by_url[GRAVIES].type) == (
+        "Synthetic Pantry - Gravies and Au Jus",
+        "Synthetic Pantry Co",
+        "markdown",
+    )
+    assert by_url[GRAVIES].untrusted  # crawled text is wrapped as untrusted, so is this
+    # Retrieval through each tenant's own package: the pages for one, nothing for the other.
+    for tenant_id, expected in ((web, 3), (reports, 0)):
+        async with tenant_session(up.e.factory, tenant_id) as session:
+            workspace_id = await session.scalar(sql("SELECT id FROM workspaces LIMIT 1"))
+            package = await workspace_package(session, workspace_id)
+        chunks = await up.e.fake.retrieve_chunks(
+            dataset_ids=package.dataset_ids, question="q", top_k=100, similarity_threshold=0.2
+        )
+        assert len({c.document_id for c in chunks if c.document_id in documents}) == expected

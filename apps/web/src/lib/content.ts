@@ -82,6 +82,7 @@ export const PAGE_REASONS: Record<string, string> = {
   http_404: "gone (404)",
   http_410: "gone (410)",
   moved: "moved to another address",
+  not_in_upload: "absent from a full upload of the crawl",
 };
 
 export function pageReason(reason: string | null, category: string | null): string {
@@ -95,6 +96,7 @@ export const ALLOW_DECISIONS: Record<string, string> = {
   allowed: "allowed (robots.txt and TDM checked)",
   robots_disallowed: "robots.txt disallows us",
   tdm_reserved: "text-and-data mining reserved",
+  declared: "declared by the uploader (robots.txt, TDM and noai), released by a reviewer",
 };
 
 const ERRORS = {
@@ -124,6 +126,24 @@ const ERRORS = {
   withdrawal_running:
     "The site's pages are still being withdrawn: reinstate it once those jobs have finished.",
   too_large: "The file is too large.",
+  // P2SR01: uploaded crawls.
+  declaration_required: "Tick the declaration: it is the condition of every upload.",
+  crawled_in_future: "The crawl date cannot be in the future.",
+  upload_pending: "This site has an upload waiting for a reviewer or the worker already.",
+  origin_crawl: "This site is crawled by the platform; it takes no uploads.",
+  origin_upload: "This site's pages come from uploads; it is never crawled.",
+  site_withdrawn: "The site is withdrawn.",
+  site_rejected: "The site was rejected.",
+  not_staged: "This upload is no longer waiting for a reviewer.",
+  not_a_zip: "The file is not a readable ZIP.",
+  unsafe_member:
+    "The ZIP has an unsafe member (an absolute path, .., a link, an archive or encryption).",
+  duplicate_url: "Two files in the ZIP give the same page URL.",
+  too_many_members: "The ZIP has more than 2,000 Markdown files.",
+  total_too_large: "The ZIP's files come to more than 500 MB uncompressed.",
+  no_pages: "No file in the ZIP could be accepted.",
+  upload_missing: "The staged ZIP is missing.",
+  upload_altered: "The staged ZIP no longer matches what was uploaded.",
 } as const;
 const ERROR_TEXT: Record<string, string | undefined> = ERRORS;
 
@@ -131,6 +151,8 @@ export function errorMessage(error: unknown): string | null {
   if (error === null || error === undefined) return null;
   if (error instanceof ApiError) {
     const known = error.code ? ERROR_TEXT[error.code] : undefined;
+    // P2SR01: a whole-upload refusal names the member by its position in the ZIP.
+    if (known && error.member !== null) return `${known} (file ${error.member + 1} in the ZIP)`;
     if (known) return known;
     if (error.code?.startsWith("ragflow_"))
       return `RAGFlow refused the change (${error.code}); nothing was changed.`;
@@ -209,4 +231,99 @@ export function historyLine(entry: {
       : "";
   const who = entry.actor ?? (entry.method === "site_crawl" ? "site crawl" : "system");
   return `${entry.event.replace(/^source\./, "").replace(/_/g, " ")}${change} · ${who}`;
+}
+
+// --- P2SR01 uploaded crawls ------------------------------------------------------------
+
+/** The declaration the editor ticks (owner decision 2, Oct 31, 2026), word for word. */
+export function declarationText(host: string, crawledOn: string): string {
+  return (
+    `I confirm that this crawl of ${host || "<host>"} was made on ${crawledOn || "<crawled_on>"} ` +
+    "honouring the site's robots.txt, its text-and-data-mining reservation if any, and " +
+    "page-level noai and noindex directives, and that the pages are public and were " +
+    "fetched without signing in."
+  );
+}
+
+export function hostOf(url: string): string {
+  try {
+    return new URL(url.trim()).hostname;
+  } catch {
+    return "";
+  }
+}
+
+export const MEMBER_OUTCOMES: Record<string, string> = {
+  accepted: "accepted",
+  skipped_not_markdown: "skipped: not a Markdown page",
+  url_missing: "refused: no Source comment or url key",
+  url_mismatch: "refused: the Source comment and the url key disagree",
+  bad_url: "refused: not an absolute http(s) URL",
+  off_site: "refused: not on the site's host",
+  bad_date: "refused: the date is not YYYY-MM-DD",
+  front_matter_invalid: "refused: the front matter cannot be read",
+  empty: "refused: no text after the front matter",
+  not_utf8: "refused: not UTF-8 text",
+  member_too_large: "refused: larger than 5 MB",
+};
+
+export const MEMBER_NOTES: Record<string, string> = {
+  special_category: "will be blocked: special category",
+  out_of_scope: "will be blocked: outside the scope rules",
+};
+
+export interface UploadFields {
+  crawledOn: string;
+  mode: "full" | "partial";
+  declared: boolean;
+  startUrl: string;
+  name: string;
+  publisher: string;
+  licenceBasis: string;
+  tags: string[];
+}
+
+export const emptyUpload: UploadFields = {
+  crawledOn: "",
+  mode: "partial",
+  declared: false,
+  startUrl: "",
+  name: "",
+  publisher: "",
+  licenceBasis: "",
+  tags: [],
+};
+
+/** The multipart body of an upload, or the reason it cannot be sent. ``newSite``: the
+ * upload registers its site too. */
+export function uploadForm(
+  fields: UploadFields,
+  file: File | null,
+  newSite: boolean,
+): { form: FormData } | { error: string } {
+  if (file === null) return { error: "Choose the ZIP of the crawl." };
+  if (!fields.crawledOn) return { error: "Give the crawl date." };
+  if (!fields.declared) return { error: ERRORS.declaration_required };
+  const form = new FormData();
+  if (newSite) {
+    if (
+      !fields.startUrl.trim() ||
+      !fields.name.trim() ||
+      !fields.publisher.trim() ||
+      !fields.licenceBasis.trim()
+    ) {
+      return { error: "Start URL, name, publisher and licence basis are required." };
+    }
+    if (fields.tags.length === 0) return { error: "Choose at least one tag." };
+    form.append("start_url", fields.startUrl.trim());
+    form.append("name", fields.name.trim());
+    form.append("publisher", fields.publisher.trim());
+    form.append("licence_basis", fields.licenceBasis.trim());
+    for (const tag of fields.tags) form.append("tags", tag);
+  }
+  form.append("crawled_on", fields.crawledOn);
+  form.append("mode", fields.mode);
+  form.append("declared_robots_honoured", "true");
+  form.append("file", file);
+  return { form };
 }

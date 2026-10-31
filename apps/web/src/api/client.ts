@@ -12,6 +12,7 @@ import type {
   ContentMe,
   ContentSite,
   ContentSiteDetail,
+  UploadReport,
   ContentSource,
   ContentSourceDetail,
   ContentTag,
@@ -107,21 +108,33 @@ export function clearCredentials(): void {
 
 export class ApiError extends Error {
   // `code`: the API's `detail` when it is a short code such as "workspace_required".
+  // `member`: P2SR01, the index of the ZIP member a whole-upload refusal is about.
   constructor(
     readonly status: number,
     readonly code: string | null = null,
+    readonly member: number | null = null,
   ) {
     super(`API request failed with status ${status}`);
   }
 }
 
-async function errorCode(response: Response): Promise<string | null> {
+async function errorDetail(response: Response): Promise<[string | null, number | null]> {
   try {
     const body = (await response.json()) as { detail?: unknown };
-    return typeof body.detail === "string" ? body.detail : null;
+    if (typeof body.detail === "string") return [body.detail, null];
+    // P2SR01: a whole-upload refusal is {"code": ..., "member": index or null}.
+    const detail = body.detail as { code?: unknown; member?: unknown } | undefined;
+    if (detail && typeof detail.code === "string") {
+      return [detail.code, typeof detail.member === "number" ? detail.member : null];
+    }
+    return [null, null];
   } catch {
-    return null;
+    return [null, null];
   }
+}
+
+async function errorCode(response: Response): Promise<string | null> {
+  return (await errorDetail(response))[0];
 }
 
 let onUnauthorized: () => void = () => {};
@@ -179,7 +192,10 @@ async function sendForm(method: string, path: string, form: FormData): Promise<R
     credentials: "same-origin",
   });
   if (response.status === 401) onUnauthorized();
-  if (!response.ok) throw new ApiError(response.status, await errorCode(response));
+  if (!response.ok) {
+    const [code, member] = await errorDetail(response);
+    throw new ApiError(response.status, code, member);
+  }
   return response;
 }
 
@@ -511,6 +527,25 @@ export const contentApi = {
     json<{ released: number; kept_blocked: number }>("POST", `/content/sites/${id}/reinstate`, {
       note,
     }),
+  // P2SR01: uploaded crawls. An editor uploads a ZIP (for a new upload site, or one
+  // already registered); a reviewer reads the report again and releases or rejects it.
+  uploadCrawl: async (form: FormData, siteId?: string) =>
+    (await (
+      await sendForm(
+        "POST",
+        siteId ? `/content/sites/${siteId}/uploads` : "/content/sites/uploads",
+        form,
+      )
+    ).json()) as UploadReport,
+  uploadReport: (siteId: string, uploadId: string) =>
+    json<UploadReport>("GET", `/content/sites/${siteId}/uploads/${uploadId}/report`),
+  releaseUpload: (siteId: string, uploadId: string, note: string | null) =>
+    json<{ job_id: string }>("POST", `/content/sites/${siteId}/uploads/${uploadId}/release`, {
+      note,
+    }),
+  rejectUpload: async (siteId: string, uploadId: string, note: string) => {
+    await send("POST", `/content/sites/${siteId}/uploads/${uploadId}/reject`, { note });
+  },
   tags: () => json<ContentTag[]>("GET", "/content/tags"),
   syncTags: () => json<TagSync[]>("POST", "/content/tags/sync"),
 };

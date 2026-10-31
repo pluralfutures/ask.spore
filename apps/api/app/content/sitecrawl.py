@@ -88,6 +88,8 @@ WITHDRAWAL_REASONS: Final = {
     "no_content": "page has no readable content",
     "robots_disallowed": "robots.txt disallows the site",
     "tdm_reserved": "the site reserves text-and-data-mining rights",
+    # P2SR01-04: a full upload of an uploaded crawl that no longer has the page.
+    "not_in_upload": "page absent from a full upload of the site's crawl",
 }
 EARLIER_VERSION = "an earlier version of a crawled page"
 
@@ -150,6 +152,7 @@ async def _set_page(
     source_id: UUID | None = None,
     published_on: date | None = None,
     fetched: bool = True,
+    fetched_at: datetime | None = None,
 ) -> None:
     values: dict[str, object] = {
         "state": state,
@@ -162,7 +165,7 @@ async def _set_page(
     if state == "live":
         values["published_on"] = published_on
     if fetched:
-        values["fetched_at"] = func.now()
+        values["fetched_at"] = fetched_at if fetched_at is not None else func.now()
     await session.execute(
         insert(SitePage)
         .values(site_id=site_id, url=url, **values)
@@ -171,6 +174,13 @@ async def _set_page(
 
 
 class _Crawl:
+    """Keeps a site's pages in step with what a crawl met. The live crawl's own page
+    logic; ``app.content.uploadcrawl`` runs the same logic for an uploaded crawl (P2SR01),
+    with the class attributes below set for it."""
+
+    # The audit trail's ``method`` for the rows this admits and withdraws.
+    method: str = "site_crawl"
+
     def __init__(
         self,
         factory: async_sessionmaker[AsyncSession],
@@ -183,6 +193,15 @@ class _Crawl:
         self.known = known
         self.content_root = content_root
         self.counts: Counter[str] = Counter()
+        # Who a new register row is proposed and approved by: the site's own proposer
+        # and approver for a live crawl (their approval covers its pages).
+        self.proposer: UUID | None = site.proposed_by
+        self.approver: UUID | None = site.approved_by
+        # The fetch date recorded on pages and rows; None is now (a live fetch).
+        self.fetched_at: datetime | None = None
+
+    def _fetched(self) -> object:
+        return self.fetched_at if self.fetched_at is not None else func.now()
 
     async def apply(self, visit: Visit) -> None:
         async with self.factory() as session:
@@ -202,11 +221,19 @@ class _Crawl:
                     "blocked",
                     reason=visit.reason,
                     category=visit.special_category,
+                    fetched_at=self.fetched_at,
                 )
             self.counts["blocked"] += 1
         elif visit.kind == "missing" and known is not None and known.state != "removed":
             async with self.factory() as session, session.begin():
-                await _set_page(session, self.site.id, visit.url, "removed", reason=visit.reason)
+                await _set_page(
+                    session,
+                    self.site.id,
+                    visit.url,
+                    "removed",
+                    reason=visit.reason,
+                    fetched=self.fetched_at is None,
+                )
             self.counts["removed"] += 1
         # An error (timeout, server error) changes nothing: the page stays as it was.
 
@@ -229,7 +256,7 @@ class _Crawl:
                         .where(SitePage.site_id == self.site.id, SitePage.url == visit.url)
                         .values(
                             last_seen_at=func.now(),
-                            fetched_at=func.now(),
+                            fetched_at=self._fetched(),
                             published_on=visit.published_on,
                         )
                     )
@@ -265,7 +292,14 @@ class _Crawl:
             else:
                 reason = None
             if reason is not None:
-                await _set_page(session, self.site.id, visit.url, "blocked", reason=reason)
+                await _set_page(
+                    session,
+                    self.site.id,
+                    visit.url,
+                    "blocked",
+                    reason=reason,
+                    fetched_at=self.fetched_at,
+                )
                 self.counts["blocked"] += 1
                 return
             source_id = await self._admit(session, visit, content, sha, supersedes)
@@ -276,6 +310,7 @@ class _Crawl:
                 "live",
                 source_id=source_id,
                 published_on=visit.published_on,
+                fetched_at=self.fetched_at,
             )
         self.counts["changed" if supersedes else "new"] += 1
 
@@ -295,7 +330,9 @@ class _Crawl:
 
     async def _block(self, url: str, reason: str) -> None:
         async with self.factory() as session, session.begin():
-            await _set_page(session, self.site.id, url, "blocked", reason=reason)
+            await _set_page(
+                session, self.site.id, url, "blocked", reason=reason, fetched_at=self.fetched_at
+            )
         self.counts["blocked"] += 1
 
     async def _admit(
@@ -306,10 +343,11 @@ class _Crawl:
         sha: str,
         supersedes: UUID | None,
     ) -> UUID:
-        """The page as an approved register row, in the site approver's name, queued."""
+        """The page as an approved register row, in the approver's name, queued."""
         site = self.site
         stage(self.content_root, sha, "markdown", content)
-        snapshot = store_snapshot(self.content_root, visit.raw)
+        # An uploaded page has no HTML (P2SR01 D8): the staged Markdown is its copy.
+        snapshot = store_snapshot(self.content_root, visit.raw) if visit.raw else None
         source_id = await session.scalar(
             insert(Source)
             .values(
@@ -322,13 +360,13 @@ class _Crawl:
                 tags=list(site.tags),
                 status="approved",
                 file_sha256=sha,
-                proposed_by=site.proposed_by,
-                approved_by=site.approved_by,
+                proposed_by=self.proposer,
+                approved_by=self.approver,
                 approved_at=func.now(),
                 supersedes_id=supersedes,
                 site_id=site.id,
                 snapshot_path=snapshot,
-                fetched_at=func.now(),
+                fetched_at=self._fetched(),
             )
             .returning(Source.id)
         )
@@ -350,7 +388,7 @@ class _Crawl:
                     "site_id": str(site.id),
                     "before": before,
                     "after": after,
-                    "method": "site_crawl",
+                    "method": self.method,
                 },
             )
         new_id: UUID = source_id
@@ -414,7 +452,7 @@ class _Crawl:
                         "site_id": str(self.site.id),
                         "before": {"status": row.status},
                         "after": {"status": row.status},
-                        "method": "site_crawl",
+                        "method": self.method,
                     },
                 )
                 self.counts["withdrawn"] += 1

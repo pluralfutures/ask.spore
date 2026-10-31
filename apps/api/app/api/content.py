@@ -80,7 +80,7 @@ from app.api.schemas import _refuse_control_chars
 from app.audit.models import AuditEvent
 from app.audit.writer import record
 from app.auth.middleware import IDENTITY_KEY
-from app.content import register, sites, uploads
+from app.content import register, sites, uploadcrawl, uploads
 from app.content.datasets import status_mismatches, sync_datasets
 from app.content.fetch import (
     MAX_BYTES,
@@ -202,7 +202,7 @@ def _refused(exc: RegisterError | RoleError | IngestError | FetchError) -> HTTPE
     if isinstance(exc, RoleError):
         log("content.refused", error_code=exc.code)
         return FORBIDDEN
-    if exc.code in ("no_source", "no_site"):
+    if exc.code in ("no_source", "no_site", "no_upload"):
         return NOT_FOUND
     if exc.code.startswith("ragflow_") or exc.code.endswith("_undo_failed"):
         # P2A-01: RAGFlow refused or failed the pause or resume; nothing was recorded.
@@ -1254,6 +1254,72 @@ async def upload_crawl(
         declared=declared_robots_honoured,
         site_id=site_id,
     )
+
+
+@router.get("/sites/{site_id}/uploads/{upload_id}/report", response_model=UploadReportOut)
+async def upload_report(site_id: UUID, upload_id: UUID, request: Request) -> UploadReportOut:
+    """A staged upload's inspection report again (member names, URLs, titles and
+    outcomes), read from the staged ZIP for the reviewer's release (D7); never stored."""
+    try:
+        pending = await uploadcrawl.upload_report(
+            _factory(request),
+            site_id,
+            upload_id,
+            content_root=_settings(request).models.files.content_root,
+        )
+    except uploads.UploadRefused as exc:
+        raise _upload_refused(exc) from None
+    except RegisterError as exc:
+        raise _refused(exc) from None
+    upload = pending.upload
+    return _report_out(
+        upload.id,
+        upload.site_id,
+        upload.status,
+        upload.mode,
+        upload.crawled_on,
+        pending.report,
+        pending.would_withdraw,
+    )
+
+
+@router.post("/sites/{site_id}/uploads/{upload_id}/release", response_model=JobQueuedOut)
+async def release_upload(
+    site_id: UUID,
+    upload_id: UUID,
+    body: SiteApproveIn,
+    request: Request,
+    user: ContentUser = Depends(require_content_user),
+) -> JobQueuedOut:
+    """A reviewer releases a staged upload (D7); on a proposed site this approves the
+    site too. The worker imports the pages."""
+    job_id = await _decide(
+        uploadcrawl.release_upload(
+            _factory(request), site_id, upload_id, user.user_id, note=body.note
+        )
+    )
+    return JobQueuedOut(job_id=job_id)
+
+
+@router.post("/sites/{site_id}/uploads/{upload_id}/reject", status_code=status.HTTP_204_NO_CONTENT)
+async def reject_upload(
+    site_id: UUID,
+    upload_id: UUID,
+    body: NoteIn,
+    request: Request,
+    user: ContentUser = Depends(require_content_user),
+) -> Response:
+    await _decide(
+        uploadcrawl.reject_upload(
+            _factory(request),
+            site_id,
+            upload_id,
+            user.user_id,
+            note=body.note,
+            content_root=_settings(request).models.files.content_root,
+        )
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # --- tags --------------------------------------------------------------------------------

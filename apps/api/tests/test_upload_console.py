@@ -10,7 +10,7 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -270,3 +270,64 @@ async def test_an_upload_cannot_name_datasets_or_documents(uploads: Uploads) -> 
     )
     assert response.status_code == 201
     assert "ds-1" not in json.dumps(await uploads.audit_rows())
+
+
+# --- P2SR01-03 release, reject and the reviewer's report -------------------------------------
+
+
+async def test_a_reviewer_reads_the_report_again_and_releases_an_editor_cannot(
+    uploads: Uploads, capsys: pytest.CaptureFixture[str]
+) -> None:
+    await uploads.roles("content_editor")
+    staged = (await uploads.upload(uploads.editor())).json()
+    base = f"{API}/sites/{staged['site_id']}/uploads/{staged['upload_id']}"
+    editor = uploads.editor()
+    assert (await editor.post(f"{base}/release", json={})).status_code == 403
+    assert (await editor.post(f"{base}/reject", json={"note": "no"})).status_code == 403
+    # Any content role may read the report again; it is read from the staged ZIP.
+    report = (await editor.get(f"{base}/report")).json()
+    assert [m["name"] for m in report["members"]] == [m["name"] for m in staged["members"]]
+    assert (report["status"], report["accepted"]) == ("staged", 3)
+
+    await uploads.roles("content_reviewer")
+    reviewer = uploads.editor()
+    wrong_site = f"{API}/sites/{uuid4()}/uploads/{staged['upload_id']}"
+    assert (await reviewer.post(f"{wrong_site}/release", json={})).status_code == 404
+    # Extra fields are refused: no dataset or document ID is ever taken from the body.
+    refused = await reviewer.post(f"{base}/release", json={"dataset_ids": ["x"]})
+    assert refused.status_code == 422
+    released = await reviewer.post(f"{base}/release", json={"note": "checked the report"})
+    assert released.status_code == 200, released.text
+    assert (await reviewer.post(f"{base}/release", json={})).json()["detail"] == "not_staged"
+    assert (await reviewer.get(f"{base}/report")).json()["detail"] == "not_staged"
+    await uploads.run_jobs()
+    detail = (await reviewer.get(f"{API}/sites/{staged['site_id']}")).json()
+    assert (detail["status"], detail["allow_decision"], detail["page_count"]) == (
+        "approved",
+        "declared",
+        3,
+    )
+    [listed] = detail["uploads"]
+    assert (listed["status"], listed["new_count"], listed["released_by"]) == (
+        "imported",
+        3,
+        "editor@example.org",
+    )
+    assert listed["review_note"] == "checked the report"
+    assert all(p["fetched_at"].startswith("2026-10-30T00:00:00") for p in detail["pages"])
+    no_names("\n".join(await uploads.audit_rows()))
+    no_names(capsys.readouterr().out)
+
+
+async def test_a_reviewer_rejects_with_a_note(uploads: Uploads) -> None:
+    await uploads.roles("content_editor", "content_reviewer")
+    client = uploads.editor()
+    staged = (await uploads.upload(client)).json()
+    base = f"{API}/sites/{staged['site_id']}/uploads/{staged['upload_id']}"
+    assert (await client.post(f"{base}/reject", json={"note": " "})).status_code == 422
+    assert (
+        await client.post(f"{base}/reject", json={"note": "two placeholders"})
+    ).status_code == 204
+    row = await uploads.upload_row(staged["upload_id"])
+    assert (row["status"], row["staged_path"]) == ("rejected", None)
+    assert not list((uploads.e.content_root / "uploads").glob("*.zip"))

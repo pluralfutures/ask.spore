@@ -372,6 +372,7 @@ def test_crawl_and_mail_handlers_register_together(tmp_path: Path) -> None:
         "ingest_source",
         "withdraw_source",
         "crawl_site",
+        "import_crawl",
         "send_mail",
         "purge_retention",
     }

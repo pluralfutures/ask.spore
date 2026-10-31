@@ -77,6 +77,9 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     # P2SR01: uploaded crawls (multipart in use; refused before the body is read).
     ("POST", f"{API}/sites/uploads", None),
     ("POST", f"{API}/sites/{SITE}/uploads", None),
+    ("GET", f"{API}/sites/{SITE}/uploads/{SOURCE}/report", None),
+    ("POST", f"{API}/sites/{SITE}/uploads/{SOURCE}/release", {}),
+    ("POST", f"{API}/sites/{SITE}/uploads/{SOURCE}/reject", {"note": "no"}),
     ("POST", f"{API}/sources/{SOURCE}/restore", None),
     ("GET", f"{API}/tags", None),
     ("POST", f"{API}/tags/sync", None),

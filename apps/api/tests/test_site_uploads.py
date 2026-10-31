@@ -7,9 +7,10 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import io
+import json
 import uuid
 import zipfile
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -19,7 +20,8 @@ import pytest
 
 from app.content.crawler import HostLimiter, Scope
 from app.content.jobs import JOB_TYPES, PAYLOAD_KEYS, enqueue
-from app.content.register import RegisterError
+from app.content.register import RegisterError, pause, record_takedown, request_withdrawal
+from app.content.roles import RoleError
 from app.content.sitecrawl import crawl_site
 from app.content.sites import (
     SiteSettings,
@@ -28,22 +30,27 @@ from app.content.sites import (
     register_site,
     request_crawl,
     schedule_due_crawls,
+    set_special_category_allow,
     update_site,
 )
+from app.content.uploadcrawl import reject_upload, release_upload
 from app.content.uploads import (
     Page,
+    StagedUpload,
     UploadRefused,
     _MemberRefused,
     inspect_zip,
     pages,
     parse_page,
     special_for,
+    stage_upload,
 )
 from app.core.db import tenant_session
 from app.tenancy.models import INTERNAL_TENANT_ID
 from tests.conftest import MigratedDatabase, _admin_dsn, _execute, _with_database, migrate
 from tests.test_crawler import ROOT, resolver
-from tests.test_ingest import TAGS, env
+from tests.test_ingest import TAGS, content_user, env, source_row
+from tests.test_pause import REASON
 from tests.test_sites import PUBLIC, Crawls, crawls
 
 __all__ = ["crawls", "env"]  # the fixtures, imported for their use here
@@ -445,3 +452,364 @@ def test_the_committed_fixtures_are_what_the_script_builds(tmp_path: Path) -> No
     assert built == sorted(p.name for p in UPLOADS.glob("*.zip"))
     for name in built:
         assert contents(tmp_path / name) == contents(UPLOADS / name), name
+
+
+# --- P2SR01-03 release and the import job -------------------------------------------------
+
+UPLOAD_PUBLIC = PUBLIC | {
+    "www.example.org": ["93.184.215.14"],
+    "mirror.example.org": ["93.184.215.15"],
+}
+UPLOAD_START = "https://www.example.org/"
+CRAWLED_ON = date(2026, 10, 30)
+MIDNIGHT = datetime(2026, 10, 30, tzinfo=UTC)
+
+
+def zip_of(members: dict[str, str]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, text in members.items():
+            archive.writestr(name, text)
+    return buffer.getvalue()
+
+
+def members_of(name: str) -> dict[str, str]:
+    with zipfile.ZipFile(UPLOADS / name) as archive:
+        return {
+            i.filename: archive.read(i).decode()
+            for i in archive.infolist()
+            if i.filename.endswith((".md", ".markdown"))
+        }
+
+
+class Up:
+    """Uploads as the console makes them, released and imported as the worker does."""
+
+    def __init__(self, c: Crawls) -> None:
+        self.c = c
+        self.e = c.e
+
+    async def stage(
+        self,
+        content: bytes | str,
+        *,
+        site_id: UUID | None = None,
+        mode: str = "partial",
+        crawled_on: date = CRAWLED_ON,
+        uploader: UUID | str | None = "editor",
+        **spec: Any,
+    ) -> StagedUpload:
+        data = (UPLOADS / content).read_bytes() if isinstance(content, str) else content
+        fields: dict[str, Any] = {
+            "start_url": UPLOAD_START,
+            "name": "Synthetic Pantry",
+            "publisher": "Synthetic Pantry Co",
+            "licence_basis": "publisher-terms",
+            "tags": ("sample-web",),
+            "origin": "upload",
+        }
+        return await stage_upload(
+            self.e.factory,
+            TAGS,
+            data,
+            content_root=self.e.content_root,
+            uploader_id=self.e.user_id if uploader == "editor" else uploader,  # type: ignore[arg-type]
+            crawled_on=crawled_on,
+            mode=mode,
+            declared=True,
+            site_id=site_id,
+            spec=None if site_id else SiteSpec(**(fields | spec)),
+            resolve=resolver(UPLOAD_PUBLIC),
+        )
+
+    async def release(self, staged: StagedUpload) -> UUID:
+        return await release_upload(
+            self.e.factory, staged.site_id, staged.upload_id, self.e.user_id
+        )
+
+    async def imported(self, content: bytes | str, **kwargs: Any) -> StagedUpload:
+        staged = await self.stage(content, **kwargs)
+        await self.release(staged)
+        await self.c.run()
+        return staged
+
+    async def row(self, staged: StagedUpload) -> asyncpg.Record:
+        row = await self.c.admin.fetchrow(
+            "SELECT * FROM site_uploads WHERE id = $1", staged.upload_id
+        )
+        assert row is not None
+        return row
+
+
+@pytest.fixture
+def up(crawls: Crawls) -> Up:
+    return Up(crawls)
+
+
+async def test_a_released_upload_becomes_ingested_pages_of_the_site(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    staged = await up.stage("markdown-new-without-soup.zip")
+    site_id = staged.site_id
+    job_id = await up.release(staged)
+    # The release approved the proposed site, recorded the declaration and queued the
+    # import with the upload's ID only: no ZIP bytes, names or URLs in the payload.
+    site = await up.c.site_row(site_id)
+    assert (site["status"], site["approved_by"], site["allow_decision"]) == (
+        "approved",
+        up.e.user_id,
+        "declared",
+    )
+    assert site["allow_checked_at"] is not None and site["next_crawl_at"] is None
+    job = await admin_conn.fetchrow("SELECT type, payload FROM jobs WHERE id = $1", job_id)
+    assert (job["type"], json.loads(job["payload"])) == (
+        "import_crawl",
+        {"upload_id": str(staged.upload_id)},
+    )
+    assert (await up.row(staged))["status"] == "queued"
+    assert [e["after"] for e in await up.c.events("site.approved", site_id)] == [
+        {"status": "approved"}
+    ]
+    await up.c.run()
+
+    rows = await up.c.sources(site_id)
+    gravies = "https://www.example.org/Products/Gravies"
+    broth = "https://www.example.org/Products/Broth"
+    assert set(rows) == {gravies, broth}
+    for row in rows.values():
+        assert (row["status"], row["type"], row["approved_by"], row["proposed_by"]) == (
+            "ingested",
+            "markdown",
+            up.e.user_id,
+            up.e.user_id,
+        )
+        assert (row["fetched_at"], row["snapshot_path"], row["published_on"]) == (
+            MIDNIGHT,
+            None,
+            None,
+        )
+        assert row["site_id"] == site_id and row["tags"] == ["sample-web"]
+    assert rows[gravies]["title"] == "Synthetic Pantry - Gravies and Au Jus"
+    pages_ = await up.c.pages(site_id)
+    assert {u: (p["state"], p["fetched_at"]) for u, p in pages_.items()} == {
+        gravies: ("live", MIDNIGHT),
+        broth: ("live", MIDNIGHT),
+    }
+    # Two ingestions; RAGFlow got the body without the Source comment or the block.
+    ingestions = await admin_conn.fetchval(
+        "SELECT count(*) FROM jobs WHERE type = 'ingest_source' AND status = 'succeeded'"
+    )
+    assert ingestions == 2
+    sent = [content.decode() for _, _, content in up.e.fake.uploads]
+    assert len(sent) == 2
+    for body in sent:
+        assert body.startswith("[](https://www.example.org/)")
+        assert "<!-- Source" not in body and "meta:" not in body and "keywords" not in body
+    # The upload, the site's crawl record and the audit trail.
+    row = await up.row(staged)
+    assert (row["status"], row["new_count"], row["staged_path"]) == ("imported", 2, None)
+    assert row["imported_at"] is not None
+    assert not (up.e.content_root / "uploads" / f"{row['zip_sha256']}.zip").exists()
+    site = await up.c.site_row(site_id)
+    assert (site["last_crawl_status"], site["page_count"], site["next_crawl_at"]) == (
+        "imported",
+        2,
+        None,
+    )
+    [imported] = await up.c.events("site.upload_imported", site_id)
+    assert (imported["new"], imported["changed"], imported["withdrawn"]) == (2, 0, 0)
+    approvals = await admin_conn.fetch(
+        "SELECT metadata FROM audit_events WHERE event = 'source.approved' "
+        "AND metadata->>'site_id' = $1",
+        str(site_id),
+    )
+    assert {json.loads(a["metadata"])["method"] for a in approvals} == {"crawl_upload"}
+    [released] = await up.c.events("site.upload_released", site_id)
+    assert (released["actor"], released["status"], released["self_approval"]) == (
+        up.e.user_id,
+        "site_approved",
+        True,
+    )
+
+
+async def test_the_publication_date_comes_from_the_front_matter_only(up: Up) -> None:
+    staged = await up.imported("dated.zip")
+    rows = await up.c.sources(staged.site_id)
+    assert rows["https://www.example.org/Dated"]["published_on"] == date(2026, 3, 14)
+    assert rows["https://www.example.org/Products/Gravies"]["published_on"] is None
+
+
+async def test_only_a_reviewer_releases_and_never_onto_a_withdrawn_site(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    staged = await up.stage("markdown-new.zip")
+    await content_user(admin_conn, "content_editor")
+    with pytest.raises(RoleError):
+        await up.release(staged)
+    with pytest.raises(RoleError):
+        await reject_upload(
+            up.e.factory,
+            staged.site_id,
+            staged.upload_id,
+            up.e.user_id,
+            note="no",
+            content_root=up.e.content_root,
+        )
+    await content_user(admin_conn, "content_editor", "content_reviewer")
+    with pytest.raises(RegisterError, match="no_upload"):
+        await release_upload(up.e.factory, staged.site_id, uuid.uuid4(), up.e.user_id)
+    await admin_conn.execute(
+        "UPDATE sites SET status = 'withdrawn', withdrawn_at = now(), "
+        "withdrawal_reason = 'r', approved_at = now() WHERE id = $1",
+        staged.site_id,
+    )
+    with pytest.raises(RegisterError, match="site_withdrawn"):
+        await up.release(staged)
+    assert (await up.row(staged))["status"] == "staged"
+    assert await admin_conn.fetchval("SELECT count(*) FROM jobs") == 0
+
+
+async def test_a_rejected_upload_needs_a_note_and_leaves_nothing_behind(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    staged = await up.stage("markdown-new.zip")
+    reject = {
+        "factory": up.e.factory,
+        "site_id": staged.site_id,
+        "upload_id": staged.upload_id,
+        "reviewer_id": up.e.user_id,
+        "content_root": up.e.content_root,
+    }
+    with pytest.raises(RegisterError, match="note_required"):
+        await reject_upload(**reject, note=" ")
+    path = up.e.content_root / (await up.row(staged))["staged_path"]
+    assert path.exists()
+    await reject_upload(**reject, note="placeholder pages included")
+    row = await up.row(staged)
+    assert (row["status"], row["review_note"], row["staged_path"]) == (
+        "rejected",
+        "placeholder pages included",
+        None,
+    )
+    assert not path.exists()
+    with pytest.raises(RegisterError, match="not_staged"):
+        await up.release(staged)
+    site = await up.c.site_row(staged.site_id)
+    assert site["status"] == "proposed"  # the site waits for a next upload
+    [event] = await up.c.events("site.upload_rejected", staged.site_id)
+    assert "placeholder" not in json.dumps(event, default=str)
+    # A next upload for the site is accepted now that none is pending.
+    again = await up.stage("markdown-new.zip", site_id=staged.site_id)
+    assert again.site_id == staged.site_id
+
+
+async def test_a_special_category_member_is_blocked_until_whitelisted(up: Up) -> None:
+    staged = await up.imported("special-category.zip")
+    site_id = staged.site_id
+    health = "https://www.example.org/health/clinic"
+    page = (await up.c.pages(site_id))[health]
+    assert (page["state"], page["reason"], page["special_category"]) == (
+        "blocked",
+        "special_category",
+        "health",
+    )
+    assert health not in await up.c.sources(site_id)
+    assert (await up.row(staged))["blocked_count"] == 1
+    await set_special_category_allow(up.e.factory, site_id, up.e.user_id, ["/health/*"])
+    again = await up.imported("special-category.zip", site_id=site_id)
+    assert (await up.c.pages(site_id))[health]["state"] == "live"
+    assert (await up.row(again))["new_count"] == 1
+
+
+async def test_a_member_with_another_sources_content_is_a_duplicate(up: Up) -> None:
+    first = await up.imported("markdown-new.zip")
+    # The same pages under another host: the same bodies, another site.
+    # The same pages under another host: only the Source comment differs, so the
+    # bodies (navigation included) are the same bytes.
+    copy = {
+        n: t.replace(
+            "<!-- Source: https://www.example.org", "<!-- Source: https://mirror.example.org"
+        )
+        for n, t in members_of("markdown-new.zip").items()
+    }
+    staged = await up.stage(
+        zip_of(copy),
+        start_url="https://mirror.example.org/",
+        name="Mirror",
+    )
+    await up.release(staged)
+    await up.c.run()
+    pages_ = await up.c.pages(staged.site_id)
+    reasons = {p["reason"] for p in pages_.values()}
+    assert reasons == {"duplicate_content"}, reasons
+    assert len(await up.c.sources(first.site_id)) == 3
+
+
+async def test_a_member_at_a_url_with_a_takedown_is_blocked(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    staged = await up.imported("markdown-new.zip")
+    site_id = staged.site_id
+    gravies = "https://www.example.org/Products/Gravies"
+    row = (await up.c.sources(site_id))[gravies]
+    await record_takedown(
+        up.e.factory,
+        row["id"],
+        up.e.user_id,
+        reference="TD-UP-1",
+        requested_on=date(2026, 10, 30),
+        licence_breach=False,
+        licence_grounds=True,
+    )
+    await request_withdrawal(up.e.factory, row["id"], up.e.user_id, reason="takedown")
+    await up.c.run()
+    changed = members_of("markdown-new.zip")
+    changed["site/Products/Gravies.md"] = changed["site/Products/Gravies.md"].replace(
+        "six hours", "seven hours"
+    )
+    again = await up.imported(zip_of(changed), site_id=site_id)
+    page = (await up.c.pages(site_id))[gravies]
+    assert page["state"] == "blocked" and page["reason"] in ("taken_down", "withdrawn")
+    assert gravies not in await up.c.sources(site_id)
+    assert (await up.row(again))["new_count"] == 0
+
+
+async def test_a_paused_pages_new_version_is_ingested_paused(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    staged = await up.imported("markdown-new.zip")
+    site_id = staged.site_id
+    gravies = "https://www.example.org/Products/Gravies"
+    old = (await up.c.sources(site_id))[gravies]
+    await pause(up.e.factory, up.e.fake, old["id"], up.e.user_id, reason=REASON)  # type: ignore[arg-type]
+    again = await up.imported("markdown-new-second.zip", site_id=site_id)
+    new = await admin_conn.fetchrow("SELECT * FROM sources WHERE supersedes_id = $1", old["id"])
+    assert (new["status"], new["pause_reason"]) == ("paused", REASON)
+    assert (await source_row(admin_conn, old["id"]))["status"] == "withdrawn"
+    assert (await up.row(again))["changed_count"] == 1
+
+
+async def test_an_import_whose_zip_is_gone_or_altered_fails_and_changes_nothing(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    staged = await up.stage("markdown-new.zip")
+    await up.release(staged)
+    path = up.e.content_root / (await up.row(staged))["staged_path"]
+    path.write_bytes(b"altered")
+    await up.c.run()
+    row = await up.row(staged)
+    assert (row["status"], row["error"]) == ("failed", "upload_altered")
+    assert await up.c.sources(staged.site_id) == {}
+    assert await up.c.pages(staged.site_id) == {}
+    [failed] = await up.c.events("site.upload_failed", staged.site_id)
+    assert failed["error_code"] == "upload_altered"
+    job = await admin_conn.fetchrow(
+        "SELECT status, error_code FROM jobs WHERE type = 'import_crawl'"
+    )
+    assert tuple(job) == ("failed", "upload_altered")
+    # A failed upload is no longer pending: the editor may upload again.
+    again = await up.stage("markdown-new.zip", site_id=staged.site_id)
+    path.unlink()
+    await up.release(again)
+    await up.c.run()
+    assert (await up.row(again))["error"] == "upload_missing"

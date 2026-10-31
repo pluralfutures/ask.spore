@@ -639,6 +639,65 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/content/sites/{site_id}/uploads/{upload_id}/reject": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reject Upload */
+    post: operations["reject_upload_api_v1_content_sites__site_id__uploads__upload_id__reject_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}/uploads/{upload_id}/release": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Release Upload
+     * @description A reviewer releases a staged upload (D7); on a proposed site this approves the
+     *     site too. The worker imports the pages.
+     */
+    post: operations["release_upload_api_v1_content_sites__site_id__uploads__upload_id__release_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}/uploads/{upload_id}/report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Upload Report
+     * @description A staged upload's inspection report again (member names, URLs, titles and
+     *     outcomes), read from the staged ZIP for the reviewer's release (D7); never stored.
+     */
+    get: operations["upload_report_api_v1_content_sites__site_id__uploads__upload_id__report_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/content/sites/{site_id}/withdraw": {
     parameters: {
       query?: never;
@@ -4949,6 +5008,108 @@ export interface operations {
     responses: {
       /** @description Successful Response */
       201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadReportOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reject_upload_api_v1_content_sites__site_id__uploads__upload_id__reject_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+        upload_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NoteIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  release_upload_api_v1_content_sites__site_id__uploads__upload_id__release_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+        upload_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SiteApproveIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobQueuedOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  upload_report_api_v1_content_sites__site_id__uploads__upload_id__report_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+        upload_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
         headers: {
           [name: string]: unknown;
         };

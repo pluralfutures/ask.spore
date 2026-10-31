@@ -177,6 +177,25 @@ Oct 26, 2026 so `phase-2a/release` can merge. Each line names where it is record
 - **B-1, chunk list short of the chunk count** (Oct 26, 2026; `bugs-to-investigate.md`).
   Still open.
 
+## Phase 2SR01 (uploaded crawls) deferred ideas
+
+Raised while writing `phase-2sr01-build-spec.md` (Oct 31, 2026); its "Not in this phase" list
+is binding.
+
+- **Manifest file or path-derived URLs for uploaded crawls** (D1). Front matter only for now; a
+  CSV or JSON manifest at the ZIP root, or URLs derived from member paths, would serve converters
+  that emit no front matter.
+- **Domain-level robots and TDM re-check at release** of an uploaded crawl (D3). One fetch of
+  `robots.txt` and the start URL's headers as `SiteCrawler.check` does, recorded beside the
+  uploader's declaration; no schema change needed.
+- **HTML snapshot members in an uploaded crawl** (D8): an optional `.html` sibling per Markdown
+  member kept as the page's snapshot, as the live crawler keeps one.
+- **Switching a site between origins** (`crawl` to `upload` and back), for a site the platform
+  crawled once and an external tool must take over, or the reverse.
+- **PDF, DOCX and PPTX members in an uploaded crawl**, so a crawl's linked documents come in
+  the same ZIP; today they go one by one through the propose form.
+- **Several pending uploads per site** (D10) and per-file crawl dates.
+
 ## Enterprise requirements
 
 Items a client's security or procurement contact asks for at contract or renewal time, kept

@@ -1,8 +1,9 @@
 # Phase 2SR01 Build Spec — Uploaded Crawls (Markdown ZIP into the library)
 
-Oct 31, 2026 · Status: **draft for owner review**; owner decisions D1 to D6 taken Oct 31, 2026
-(table below), D7 to D10 proposed · Target duration: 1–2 weeks, one build session · Special
-request (SR): sits outside the normal phase cycle and does not reopen Phase 2A or start Phase 2B
+Oct 31, 2026 · Status: **approved for build, Oct 31, 2026**; owner decisions D1 to D10 and the
+declaration text taken (tables below) · Target duration: 1–2 weeks, one build session · Special
+request (SR): sits outside the normal phase cycle, does not reopen Phase 2A or start Phase 2B,
+and **is built now, ahead of every other spec phase** (owner, Oct 31, 2026)
 
 Source decisions: the owner's request of Oct 31, 2026 (a platform-side upload of a ZIP of
 Markdown files, one crawl of one domain converted to Markdown by an external tool, with the
@@ -72,14 +73,30 @@ Binding. Record ideas in `backlog.md`.
 
 ## Deployment target
 
-The Phase 2A Instance (single host, Compose, Caddy TLS, Authentik, RAGFlow `v0.27.2`, the
-worker) running `main` after the Phase 2A release (P2A-14). No new service, no Compose change.
+The Instance (single host, Compose, Caddy TLS, Authentik, RAGFlow `v0.27.2`, the worker)
+running `main`, which already carries the Phase 2A code this spec relies on (revision 0070, the
+inherited pause of P2A-03 and reinstatement of P2A-12 a). The build branches from `main` at
+once (owner, Oct 31, 2026); nothing waits for another phase. No new service, no Compose change.
 One migration: `sites.origin`, the `site_uploads` table, the `declared` allow decision and the
 `import_crawl` job type. The API container needs the ZIP's staged copy under `[files]
 content_root` and enough disk for 200 MB per upload plus its extracted pages, which the 100 GB
 volume has; the storage alert of architecture §15.3 stays a backlog item.
 
 ## The ZIP
+
+**The converter.** The owner's crawls are made with [markdown.new](https://markdown.new/),
+which fronts Cloudflare's Markdown for Agents conversion (one URL per call, `Accept:
+text/markdown`). Cloudflare's documented output begins with a YAML front-matter block drawn
+from the page's meta tags, present only when the page has at least one of them, with the keys
+`title` (from `meta name="title"`, falling back to `og:title`), `description` and `image`; it
+carries **no source URL and no date** in the body (the token counts and the `Content-Signal`
+policy travel as response headers, which a saved file loses). So the step that assembles the
+ZIP, the owner's own script around markdown.new, **adds the `url:` line** to each file's front
+matter, creating the block when the page had none, and may add `date:` when it knows the
+publication date. Cloudflare's `description` and `image` keys are accepted and dropped with
+the block. Should Cloudflare change its keys, the parser's rule below (unknown scalar keys
+ignored, block stripped) keeps the import working; a fixture ZIP under
+`packages/eval/fixtures/uploads/` mirrors the markdown.new output with the added `url:` line.
 
 One ZIP per upload, for one site. Every member that is to be imported is a Markdown file
 (`.md` or `.markdown`) in UTF-8 (a BOM is allowed) that starts with a front-matter block:
@@ -97,14 +114,17 @@ date: 2026-03-14
 | Key | Rule |
 | --- | --- |
 | `url` | **Required.** Absolute `http(s)` URL on the site's host (same rule as the live crawler's `_same_site`), normalised as the crawler normalises (`app.content.crawler.normalise`: tracking parameters stripped, fragment dropped). It is the page's canonical link and its key in `site_pages`. Two members with the same normalised URL: the whole upload is refused (`duplicate_url`). |
-| `title` | Optional. Falls back to the first `#` heading of the body, then to the URL path, as the crawler falls back to the path; cut to 500 characters. |
-| `date` | Optional. The page's **publication** date, `YYYY-MM-DD`, from the converter's explicit page metadata only (architecture §6.4); never the crawl date. Any other form is refused (`bad_date`). |
+| `title` | Optional (markdown.new emits it when the page has a title meta tag). Falls back to the first `#` heading of the body, then to the URL path, as the crawler falls back to the path; cut to 500 characters. |
+| `date` | Optional (markdown.new emits none). The page's **publication** date, `YYYY-MM-DD`, from explicit page metadata only (architecture §6.4); never the crawl date. Any other form is refused (`bad_date`). |
+| `description`, `image` | Cloudflare's other keys: accepted, dropped with the block, never stored or sent. |
+| any other key | A scalar `key: value` line with another key is ignored and dropped with the block. |
 
 The block is `key: value` scalar lines between two `---` lines, keys in lower case, values
 plain or in single or double quotes. It is parsed by a restricted parser of our own (no YAML
 library: the file is untrusted input, and nothing else of YAML is needed). Any other
-construction, a missing block, an unknown key or an empty body after the block refuses the file
-(`front_matter_invalid`, `front_matter_missing`, `unknown_key`, `empty`). The body **without
+construction (a nested mapping, a list, a multi-line value, an anchor or a tag), a missing
+block, or an empty body after the block refuses the file (`front_matter_invalid`,
+`front_matter_missing`, `empty`). The body **without
 the front matter** is what is staged, hashed and sent to RAGFlow, so the content hash matches
 what the live crawler would store for the same text and a change to the front matter alone
 does not count as a changed page.
@@ -160,7 +180,8 @@ upload at a time per site: a second upload while one is `staged` or `queued` is 
 (`upload_pending`). Tests: every refusal code has a fixture ZIP under
 `packages/eval/fixtures/uploads/` (synthetic pages; a member outside the host, a missing `url`,
 a bad date, a `..` name, a nested ZIP, an oversize member, a non-UTF-8 member, a duplicate URL,
-an unknown key, YAML constructs the restricted parser must refuse); the stage path is by hash
+an ignored key such as `description`, YAML constructs the restricted parser must refuse,
+and a file exactly as markdown.new emits it with the `url:` line added); the stage path is by hash
 and the ZIP bytes never reach the job payload; an editor can stage and a tenant admin, a
 tenant user and a reviewer-less internal user cannot.
 
@@ -278,31 +299,27 @@ import and the logging items.
 | D4 | **Taken, Oct 31, 2026. Content console and CLI; editor uploads, reviewer releases.** | CLI only; the operator console (rejected, as decision D4 of Phase 2A kept content actions out of operator pages). | P2SR01-05 |
 | D5 | **Taken, Oct 31, 2026. The uploader chooses full or partial per upload**, default partial, the choice audited and the withdrawal count shown before release. | Always full (as the live crawler); never withdraw on upload. | P2SR01-04 |
 | D6 | **Taken, Oct 31, 2026. Limits 200 MB per ZIP, 2,000 Markdown members, 5 MB per member**, plus a 500 MB uncompressed total of this spec's own. | 500 MB / 5,000 / 10 MB with streaming to disk; 50 MB / 500 / 2 MB. | The ZIP, P2SR01-02 |
-| D7 | **Proposed: every upload is released by a reviewer**, including uploads to a site already approved. A live crawl's pages are whatever the site publishes within the scope rules the reviewer approved; an upload's pages are whatever the editor put in the ZIP, so each batch is a reviewed act. The release is one click with the report in front of the reviewer. | Site approval covers later uploads, as it covers later crawls (P1b decision 8). Smaller, but an editor alone could then put content into RAGFlow. Not recommended. | P2SR01-03 |
-| D8 | **Proposed: no HTML snapshot for an uploaded page**; the staged Markdown (by hash, as every file is) is the provenance copy, `snapshot_path` stays null, and the site detail says "uploaded, no snapshot". | Accept an optional `.html` sibling per member as the snapshot. More ZIP rules and the HTML is untrusted; not now (backlog). | P2SR01-03 |
-| D9 | **Proposed: `fetched_at` is the upload's crawl date** (midnight UTC) on every page of that upload, shown as the fetch date in the console and the file list; the upload's own timestamp is `uploaded_at`. | Use the upload time as the fetch date. Rejected: the crawl date is the fact the owner asked to record. | P2SR01-03 |
-| D10 | **Proposed: one pending upload per site at a time**, and a second ZIP for a site waits until the first is imported, rejected or failed. | Queue several. Not needed for a hand-run process. | P2SR01-02 |
+| D7 | **Taken, Oct 31, 2026. Every upload is released by a reviewer**, including uploads to a site already approved. A live crawl's pages are whatever the site publishes within the scope rules the reviewer approved; an upload's pages are whatever the editor put in the ZIP, so each batch is a reviewed act. The release is one click with the report in front of the reviewer. | Site approval covers later uploads, as it covers later crawls (P1b decision 8). Smaller, but an editor alone could then put content into RAGFlow. Not recommended. | P2SR01-03 |
+| D8 | **Taken, Oct 31, 2026. No HTML snapshot for an uploaded page**; the staged Markdown (by hash, as every file is) is the provenance copy, `snapshot_path` stays null, and the site detail says "uploaded, no snapshot". | Accept an optional `.html` sibling per member as the snapshot. More ZIP rules and the HTML is untrusted; not now (backlog). | P2SR01-03 |
+| D9 | **Taken, Oct 31, 2026. `fetched_at` is the upload's crawl date** (midnight UTC) on every page of that upload, shown as the fetch date in the console and the file list; the upload's own timestamp is `uploaded_at`. | Use the upload time as the fetch date. Rejected: the crawl date is the fact the owner asked to record. | P2SR01-03 |
+| D10 | **Taken, Oct 31, 2026. One pending upload per site at a time**, and a second ZIP for a site waits until the first is imported, rejected or failed. | Queue several. Not needed for a hand-run process. | P2SR01-02 |
 
-## Open items for the owner
+## Owner decisions of Oct 31, 2026 (closing the open items)
 
-- **D7 to D10**: confirm or change before the build session starts.
-- **Declaration text** (D3, P2SR01-05): the sentence the editor ticks. Proposed: "I confirm
-  that this crawl of `<host>` was made on `<crawled_on>` honouring the site's robots.txt, its
-  text-and-data-mining reservation if any, and page-level noai and noindex directives, and that
-  the pages are public and were fetched without signing in." Counsel may want to see it.
-- **Licence basis for uploaded sites**: the site form's free-text basis, as for crawled sites
-  (`public_web` once P1b-19 step 2 adds the enumerated kinds). No change proposed.
-- **Which tool produces the ZIPs**, so the fixture ZIPs in `packages/eval/fixtures/uploads/`
-  mirror its front matter (key names and date format) and the owner needs no conversion step.
-  If the tool emits other key names (`source_url`, `published`), P2SR01-02 accepts them as
-  aliases of `url` and `date`; say which.
-- **Phase 2A dependency**: this spec assumes the Phase 2A release (P2A-14) is on `main` before
-  the build starts, so the inherited pause (P2A-03) and reinstatement (P2A-12 a) are in place.
-  If the build must start earlier, it branches from the Phase 2A integration branch.
+| # | Decision | Applies to |
+| --- | --- | --- |
+| 1 | D7 to D10 taken as proposed. | P2SR01-02, P2SR01-03 |
+| 2 | **Declaration text** (D3), as the editor ticks it: "I confirm that this crawl of `<host>` was made on `<crawled_on>` honouring the site's robots.txt, its text-and-data-mining reservation if any, and page-level noai and noindex directives, and that the pages are public and were fetched without signing in." The CLI flag `--declare-robots-honoured` prints the same sentence and refuses to run without it. | P2SR01-05 |
+| 3 | **The converter is markdown.new** (Cloudflare Markdown for Agents). Its output has no URL or date; the owner's ZIP step adds `url:` (see "The ZIP"). No key aliases are needed. | The ZIP, P2SR01-02 |
+| 4 | **Priority: immediate.** The build starts now from `main`, ahead of every other spec phase; the Phase 2A code it needs is already on `main`. | Deployment target, session plan |
+
+Still with the owner, not blocking: the licence basis for uploaded sites stays the site form's
+free-text basis, as for crawled sites (`public_web` once P1b-19 step 2 adds the enumerated
+kinds); counsel may want to see the declaration sentence.
 
 ## Session plan
 
-One build session on `claude/p2sr01-uploaded-crawls` off `main` after the Phase 2A release:
+One build session on `claude/p2sr01-uploaded-crawls` off `main`, starting now:
 P2SR01-01 to P2SR01-04 first (register, inspection, release and import, second upload), then
 P2SR01-05 and P2SR01-06, then P2SR01-07 in the same PR, then the release session for
 P2SR01-08 with findings and the short independent review. Builder questions go to

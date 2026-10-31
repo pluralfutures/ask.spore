@@ -423,6 +423,112 @@
         "title": "Body_propose_source_api_v1_content_sources_post",
         "type": "object"
       },
+      "Body_upload_crawl_api_v1_content_sites__site_id__uploads_post": {
+        "properties": {
+          "crawled_on": {
+            "format": "date",
+            "title": "Crawled On",
+            "type": "string"
+          },
+          "declared_robots_honoured": {
+            "default": false,
+            "title": "Declared Robots Honoured",
+            "type": "boolean"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "mode": {
+            "default": "partial",
+            "enum": [
+              "full",
+              "partial"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "crawled_on",
+          "file"
+        ],
+        "title": "Body_upload_crawl_api_v1_content_sites__site_id__uploads_post",
+        "type": "object"
+      },
+      "Body_upload_crawl_new_site_api_v1_content_sites_uploads_post": {
+        "properties": {
+          "crawled_on": {
+            "format": "date",
+            "title": "Crawled On",
+            "type": "string"
+          },
+          "declared_robots_honoured": {
+            "default": false,
+            "title": "Declared Robots Honoured",
+            "type": "boolean"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "licence_basis": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Licence Basis",
+            "type": "string"
+          },
+          "mode": {
+            "default": "partial",
+            "enum": [
+              "full",
+              "partial"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "publisher": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Publisher",
+            "type": "string"
+          },
+          "start_url": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Start Url",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "start_url",
+          "name",
+          "publisher",
+          "licence_basis",
+          "tags",
+          "crawled_on",
+          "file"
+        ],
+        "title": "Body_upload_crawl_new_site_api_v1_content_sites_uploads_post",
+        "type": "object"
+      },
       "ChatStreamEvents": {
         "description": "Documentation-only: the data payload of each SSE event name.",
         "properties": {
@@ -3281,6 +3387,10 @@
             ],
             "title": "Next Crawl At"
           },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
           "page_count": {
             "title": "Page Count",
             "type": "integer"
@@ -3344,6 +3454,13 @@
             "title": "Tags",
             "type": "array"
           },
+          "uploads": {
+            "items": {
+              "$ref": "#/components/schemas/SiteUploadOut"
+            },
+            "title": "Uploads",
+            "type": "array"
+          },
           "withdrawal_reason": {
             "anyOf": [
               {
@@ -3386,6 +3503,7 @@
           "next_crawl_at",
           "page_count",
           "blocked_count",
+          "origin",
           "allow_patterns",
           "deny_patterns",
           "special_category_allow",
@@ -3396,7 +3514,8 @@
           "withdrawn_at",
           "withdrawal_reason",
           "pages",
-          "jobs"
+          "jobs",
+          "uploads"
         ],
         "title": "SiteDetail",
         "type": "object"
@@ -3479,6 +3598,10 @@
             ],
             "title": "Next Crawl At"
           },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
           "page_count": {
             "title": "Page Count",
             "type": "integer"
@@ -3524,7 +3647,8 @@
           "last_crawl_status",
           "next_crawl_at",
           "page_count",
-          "blocked_count"
+          "blocked_count",
+          "origin"
         ],
         "title": "SiteOut",
         "type": "object"
@@ -3669,6 +3793,149 @@
           "max_pages"
         ],
         "title": "SiteSettingsIn",
+        "type": "object"
+      },
+      "SiteUploadOut": {
+        "description": "An upload's record: counts and codes only.",
+        "properties": {
+          "accepted_count": {
+            "title": "Accepted Count",
+            "type": "integer"
+          },
+          "blocked_count": {
+            "title": "Blocked Count",
+            "type": "integer"
+          },
+          "changed_count": {
+            "title": "Changed Count",
+            "type": "integer"
+          },
+          "crawled_on": {
+            "format": "date",
+            "title": "Crawled On",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "member_count": {
+            "title": "Member Count",
+            "type": "integer"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "new_count": {
+            "title": "New Count",
+            "type": "integer"
+          },
+          "refused_count": {
+            "title": "Refused Count",
+            "type": "integer"
+          },
+          "released_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released At"
+          },
+          "released_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released By"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "unchanged_count": {
+            "title": "Unchanged Count",
+            "type": "integer"
+          },
+          "uploaded_at": {
+            "format": "date-time",
+            "title": "Uploaded At",
+            "type": "string"
+          },
+          "uploaded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded By"
+          },
+          "withdrawn_count": {
+            "title": "Withdrawn Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "mode",
+          "crawled_on",
+          "uploaded_at",
+          "uploaded_by",
+          "released_by",
+          "released_at",
+          "review_note",
+          "error",
+          "member_count",
+          "accepted_count",
+          "refused_count",
+          "skipped_count",
+          "new_count",
+          "changed_count",
+          "unchanged_count",
+          "blocked_count",
+          "withdrawn_count"
+        ],
+        "title": "SiteUploadOut",
         "type": "object"
       },
       "SiteWithdrawnOut": {
@@ -4688,6 +4955,162 @@
           "text"
         ],
         "title": "TokenData",
+        "type": "object"
+      },
+      "UploadMemberOut": {
+        "description": "One member of an uploaded ZIP as the inspection judged it (P2SR01-02). Its name,\nURL and title are shown on the editor's or reviewer's screen only, never stored.",
+        "properties": {
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
+          "special_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special Category"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "index",
+          "name",
+          "outcome",
+          "url",
+          "title",
+          "published_on",
+          "note",
+          "special_category"
+        ],
+        "title": "UploadMemberOut",
+        "type": "object"
+      },
+      "UploadReportOut": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "crawled_on": {
+            "format": "date",
+            "title": "Crawled On",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/UploadMemberOut"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "refused": {
+            "title": "Refused",
+            "type": "integer"
+          },
+          "site_id": {
+            "format": "uuid",
+            "title": "Site Id",
+            "type": "string"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "upload_id": {
+            "format": "uuid",
+            "title": "Upload Id",
+            "type": "string"
+          },
+          "would_withdraw": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Would Withdraw"
+          }
+        },
+        "required": [
+          "upload_id",
+          "site_id",
+          "status",
+          "mode",
+          "crawled_on",
+          "accepted",
+          "refused",
+          "skipped",
+          "would_withdraw",
+          "members"
+        ],
+        "title": "UploadReportOut",
         "type": "object"
       },
       "UsageActiveUsersOut": {
@@ -6197,6 +6620,45 @@
         "summary": "Create Site"
       }
     },
+    "/api/v1/content/sites/uploads": {
+      "post": {
+        "description": "An editor registers an upload site (``proposed``) and stages its first ZIP in one\ntransaction; a reviewer's release approves the site and imports the pages.",
+        "operationId": "upload_crawl_new_site_api_v1_content_sites_uploads_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_crawl_new_site_api_v1_content_sites_uploads_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Crawl New Site"
+      }
+    },
     "/api/v1/content/sites/{site_id}": {
       "get": {
         "description": "The site, its settings and every page a crawl met (blocked ones with the reason).",
@@ -6506,6 +6968,57 @@
           }
         },
         "summary": "Site Whitelist"
+      }
+    },
+    "/api/v1/content/sites/{site_id}/uploads": {
+      "post": {
+        "description": "An editor stages a ZIP for an upload site, for a reviewer to release.",
+        "operationId": "upload_crawl_api_v1_content_sites__site_id__uploads_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_crawl_api_v1_content_sites__site_id__uploads_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Crawl"
       }
     },
     "/api/v1/content/sites/{site_id}/withdraw": {

@@ -101,6 +101,13 @@ OPERATOR_ONLY_EVENTS: Final[frozenset[str]] = frozenset(
         "site.settings_changed",
         "site.special_category_allow_changed",
         "site.withdrawn",
+        # Uploaded crawls (P2SR01): counts and codes only, never a member name, URL or
+        # title. Classified with P2SR01-02, ahead of the items that record the others.
+        "site.upload_failed",
+        "site.upload_imported",
+        "site.upload_rejected",
+        "site.upload_released",
+        "site.upload_staged",
         "source.approved",
         "source.failed",  # f"source.{result.status}" in app.content.ingest
         "source.ingested",  # likewise

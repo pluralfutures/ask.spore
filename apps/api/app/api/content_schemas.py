@@ -205,6 +205,8 @@ class SiteOut(BaseModel):
     next_crawl_at: datetime | None
     page_count: int
     blocked_count: int
+    # P2SR01: ``crawl`` (the platform crawls it) or ``upload`` (uploaded crawls).
+    origin: str
 
 
 class SitePageOut(BaseModel):
@@ -215,6 +217,58 @@ class SitePageOut(BaseModel):
     source_id: UUID | None
     published_on: date | None
     fetched_at: datetime | None
+
+
+class UploadMemberOut(BaseModel):
+    """One member of an uploaded ZIP as the inspection judged it (P2SR01-02). Its name,
+    URL and title are shown on the editor's or reviewer's screen only, never stored."""
+
+    index: int
+    name: str
+    outcome: str  # accepted, skipped_not_markdown, or a refusal code
+    url: str | None
+    title: str | None
+    published_on: date | None
+    note: str | None  # an accepted member the import will block: special_category, ...
+    special_category: str | None
+
+
+class UploadReportOut(BaseModel):
+    upload_id: UUID
+    site_id: UUID
+    status: str
+    mode: str
+    crawled_on: date
+    accepted: int
+    refused: int
+    skipped: int
+    # A full upload: the live pages absent from the ZIP, which the import withdraws.
+    would_withdraw: int | None
+    members: list[UploadMemberOut]
+
+
+class SiteUploadOut(BaseModel):
+    """An upload's record: counts and codes only."""
+
+    id: UUID
+    status: str
+    mode: str
+    crawled_on: date
+    uploaded_at: datetime
+    uploaded_by: str | None
+    released_by: str | None
+    released_at: datetime | None
+    review_note: str | None
+    error: str | None
+    member_count: int
+    accepted_count: int
+    refused_count: int
+    skipped_count: int
+    new_count: int
+    changed_count: int
+    unchanged_count: int
+    blocked_count: int
+    withdrawn_count: int
 
 
 class SiteDetail(SiteOut):
@@ -229,6 +283,7 @@ class SiteDetail(SiteOut):
     withdrawal_reason: str | None
     pages: list[SitePageOut]
     jobs: list[JobOut]
+    uploads: list[SiteUploadOut]  # P2SR01: an upload site's ZIPs, newest first
 
 
 Schedule = Literal["none", "weekly", "monthly"]

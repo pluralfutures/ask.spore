@@ -45,6 +45,7 @@ def test_allow_list_matches_spec() -> None:
         "job_type",
         "attempts",
         "site_id",
+        "upload_id",
         "template",
         "consent_version",
         "grant_id",

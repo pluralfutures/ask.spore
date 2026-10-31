@@ -25,7 +25,7 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import (
@@ -64,12 +64,15 @@ from app.api.content_schemas import (
     SitePageOut,
     SiteReinstatedOut,
     SiteSettingsIn,
+    SiteUploadOut,
     SiteWithdrawnOut,
     SourceRef,
     TagOut,
     TagSyncOut,
     TakedownIn,
     TakedownOut,
+    UploadMemberOut,
+    UploadReportOut,
     WithdrawIn,
 )
 from app.api.deps import request_context
@@ -77,7 +80,7 @@ from app.api.schemas import _refuse_control_chars
 from app.audit.models import AuditEvent
 from app.audit.writer import record
 from app.auth.middleware import IDENTITY_KEY
-from app.content import register, sites
+from app.content import register, sites, uploads
 from app.content.datasets import status_mismatches, sync_datasets
 from app.content.fetch import (
     MAX_BYTES,
@@ -91,7 +94,7 @@ from app.content.fetch import (
 )
 from app.content.ingest import TYPE_BY_SUFFIX, IngestError, SourceFile, SourceMetadata, from_fetched
 from app.content.jobs import Job
-from app.content.models import Dataset, Site, SitePage, Source
+from app.content.models import Dataset, Site, SitePage, SiteUpload, Source
 from app.content.register import RegisterError
 from app.content.roles import EDITOR, REVIEWER, RoleError, roles_of
 from app.content.store import StoredFileError, read, store_licence
@@ -108,6 +111,7 @@ MAX_LIST = 500
 MAX_PAGES_SHOWN = 2000
 MAX_HISTORY = 200
 MAX_JOBS = 20
+MAX_UPLOADS_SHOWN = 50
 MAX_ERROR_SHOWN = 500
 MAX_LICENCE_BYTES = 20 * 1024 * 1024
 LICENCE_EXTENSIONS = frozenset({"pdf", "docx", "txt", "eml", "png", "jpg", "jpeg"})
@@ -129,6 +133,11 @@ INPUT_CODES = frozenset(
         "not_a_replacement_candidate",
         "replacement_choice_required",
         "already_being_replaced",
+        # Uploaded crawls (P2SR01-02).
+        "bad_origin",
+        "bad_mode",
+        "declaration_required",
+        "crawled_in_future",
     }
 )
 
@@ -856,6 +865,7 @@ def _site_out(site: Site, blocked: int) -> dict[str, Any]:
         "next_crawl_at": site.next_crawl_at,
         "page_count": site.page_count,
         "blocked_count": blocked,
+        "origin": site.origin,
     }
 
 
@@ -929,7 +939,20 @@ async def site_detail(
         )
     ).all()
     blocked = sum(1 for p in pages if p.state == "blocked")
-    emails = await _emails(session, [site.proposed_by, site.approved_by])
+    upload_rows = (
+        await session.scalars(
+            select(SiteUpload)
+            .where(SiteUpload.site_id == site_id)
+            .order_by(SiteUpload.uploaded_at.desc(), SiteUpload.id)
+            .limit(MAX_UPLOADS_SHOWN)
+        )
+    ).all()
+    emails = await _emails(
+        session,
+        [site.proposed_by, site.approved_by]
+        + [u.uploaded_by for u in upload_rows]
+        + [u.released_by for u in upload_rows],
+    )
     return SiteDetail(
         **_site_out(site, blocked),
         allow_patterns=list(site.allow_patterns),
@@ -954,6 +977,7 @@ async def site_detail(
             for p in pages
         ],
         jobs=await _jobs(session, "site_id", str(site_id)),
+        uploads=[_upload_out(u, emails) for u in upload_rows],
     )
 
 
@@ -1049,6 +1073,187 @@ async def crawl_now(
 ) -> JobQueuedOut:
     job_id = await _decide(sites.request_crawl(_factory(request), site_id, user.user_id))
     return JobQueuedOut(job_id=job_id)
+
+
+# --- uploaded crawls (P2SR01) -------------------------------------------------------------
+
+
+def _upload_out(row: SiteUpload, emails: dict[UUID, str]) -> SiteUploadOut:
+    return SiteUploadOut(
+        id=row.id,
+        status=row.status,
+        mode=row.mode,
+        crawled_on=row.crawled_on,
+        uploaded_at=row.uploaded_at,
+        uploaded_by=emails.get(row.uploaded_by) if row.uploaded_by else None,
+        released_by=emails.get(row.released_by) if row.released_by else None,
+        released_at=row.released_at,
+        review_note=row.review_note,
+        error=row.error,
+        member_count=row.member_count,
+        accepted_count=row.accepted_count,
+        refused_count=row.refused_count,
+        skipped_count=row.skipped_count,
+        new_count=row.new_count,
+        changed_count=row.changed_count,
+        unchanged_count=row.unchanged_count,
+        blocked_count=row.blocked_count,
+        withdrawn_count=row.withdrawn_count,
+    )
+
+
+def _report_out(
+    upload_id: UUID,
+    site_id: UUID,
+    status_: str,
+    mode: str,
+    crawled_on: date,
+    report: uploads.UploadReport,
+    would_withdraw: int | None,
+) -> UploadReportOut:
+    return UploadReportOut(
+        upload_id=upload_id,
+        site_id=site_id,
+        status=status_,
+        mode=mode,
+        crawled_on=crawled_on,
+        accepted=report.accepted,
+        refused=report.refused,
+        skipped=report.skipped,
+        would_withdraw=would_withdraw,
+        members=[
+            UploadMemberOut(
+                index=m.index,
+                name=m.name,
+                outcome=m.outcome,
+                url=m.url,
+                title=m.title,
+                published_on=m.published_on,
+                note=m.note,
+                special_category=m.special_category,
+            )
+            for m in report.members
+        ],
+    )
+
+
+def _upload_refused(exc: uploads.UploadRefused) -> HTTPException:
+    """A whole-upload refusal: the code and the offending member's index, never its name."""
+    log("content.upload_refused", error_code=exc.code)
+    if exc.code == "zip_too_large":
+        return HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, detail="too_large")
+    return HTTPException(
+        status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": exc.code, "member": exc.member}
+    )
+
+
+async def _stage(
+    request: Request,
+    user: ContentUser,
+    file: UploadFile,
+    *,
+    crawled_on: date,
+    mode: str,
+    declared: bool,
+    site_id: UUID | None = None,
+    spec: sites.SiteSpec | None = None,
+) -> UploadReportOut:
+    # Cheap refusals first, before the body is read.
+    try:
+        uploads.check_upload(crawled_on=crawled_on, mode=mode, declared=declared, today=None)
+    except RegisterError as exc:
+        raise _refused(exc) from None
+    content = await _read_upload(file, uploads.MAX_ZIP_BYTES)
+    settings = _settings(request)
+    try:
+        staged = await uploads.stage_upload(
+            _factory(request),
+            load_tags(settings.config_dir),
+            content,
+            content_root=settings.models.files.content_root,
+            uploader_id=user.user_id,
+            crawled_on=crawled_on,
+            mode=mode,
+            declared=declared,
+            site_id=site_id,
+            spec=spec,
+            resolve=_resolver(request),
+        )
+    except uploads.UploadRefused as exc:
+        raise _upload_refused(exc) from None
+    except (RegisterError, RoleError, FetchError) as exc:
+        raise _refused(exc) from None
+    return _report_out(
+        staged.upload_id,
+        staged.site_id,
+        "staged",
+        mode,
+        crawled_on,
+        staged.report,
+        staged.would_withdraw,
+    )
+
+
+UploadMode = Literal["full", "partial"]
+
+
+@router.post("/sites/uploads", status_code=status.HTTP_201_CREATED, response_model=UploadReportOut)
+async def upload_crawl_new_site(
+    request: Request,
+    start_url: str = Form(min_length=1, max_length=300),
+    name: str = Form(min_length=1, max_length=300),
+    publisher: str = Form(min_length=1, max_length=300),
+    licence_basis: str = Form(min_length=1, max_length=300),
+    tags: list[str] = Form(min_length=1, max_length=20),
+    crawled_on: date = Form(),
+    mode: UploadMode = Form(default="partial"),
+    declared_robots_honoured: bool = Form(default=False),
+    file: UploadFile = File(),
+    user: ContentUser = Depends(require_content_user),
+) -> UploadReportOut:
+    """An editor registers an upload site (``proposed``) and stages its first ZIP in one
+    transaction; a reviewer's release approves the site and imports the pages."""
+    spec = sites.SiteSpec(
+        start_url=_text_field(start_url, limit=300) or "",
+        name=_text_field(name, limit=300) or "",
+        publisher=_text_field(publisher, limit=300) or "",
+        licence_basis=_text_field(licence_basis, limit=300) or "",
+        tags=tuple(tags),
+        origin="upload",
+    )
+    return await _stage(
+        request,
+        user,
+        file,
+        crawled_on=crawled_on,
+        mode=mode,
+        declared=declared_robots_honoured,
+        spec=spec,
+    )
+
+
+@router.post(
+    "/sites/{site_id}/uploads", status_code=status.HTTP_201_CREATED, response_model=UploadReportOut
+)
+async def upload_crawl(
+    site_id: UUID,
+    request: Request,
+    crawled_on: date = Form(),
+    mode: UploadMode = Form(default="partial"),
+    declared_robots_honoured: bool = Form(default=False),
+    file: UploadFile = File(),
+    user: ContentUser = Depends(require_content_user),
+) -> UploadReportOut:
+    """An editor stages a ZIP for an upload site, for a reviewer to release."""
+    return await _stage(
+        request,
+        user,
+        file,
+        crawled_on=crawled_on,
+        mode=mode,
+        declared=declared_robots_honoured,
+        site_id=site_id,
+    )
 
 
 # --- tags --------------------------------------------------------------------------------

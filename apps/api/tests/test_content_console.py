@@ -74,6 +74,9 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", f"{API}/sites/{SITE}/crawl", None),
     ("POST", f"{API}/sites/{SITE}/withdraw", {"reason": "r"}),
     ("POST", f"{API}/sites/{SITE}/reinstate", {"note": "n"}),
+    # P2SR01: uploaded crawls (multipart in use; refused before the body is read).
+    ("POST", f"{API}/sites/uploads", None),
+    ("POST", f"{API}/sites/{SITE}/uploads", None),
     ("POST", f"{API}/sources/{SOURCE}/restore", None),
     ("GET", f"{API}/tags", None),
     ("POST", f"{API}/tags/sync", None),

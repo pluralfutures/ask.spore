@@ -205,6 +205,22 @@ async def register_site(
     same start URL is returned as it is). ``proposer_id`` must hold ``content_editor``;
     None is the operator's shell (the manifest CLI). Raises RegisterError, or
     FetchError for a start URL that is not public."""
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        return await register_in(
+            session, tags_config, spec, proposer_id=proposer_id, resolve=resolve
+        )
+
+
+async def register_in(
+    session: AsyncSession,
+    tags_config: Mapping[str, TagConfig],
+    spec: SiteSpec,
+    *,
+    proposer_id: UUID | None,
+    resolve: Resolver = resolve_host,
+) -> tuple[UUID, bool]:
+    """``register_site`` in the caller's transaction (scoped to the internal tenant): an
+    upload registers its new site and stages itself in one transaction (P2SR01-02)."""
     tags = tuple(dict.fromkeys(spec.tags))
     if not tags:
         raise RegisterError("no_tag")
@@ -222,51 +238,50 @@ async def register_site(
     start_url = normalise(spec.start_url.strip())
     if len(start_url) > MAX_FIELD_LENGTH:
         raise RegisterError("bad_url")
-    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
-        if proposer_id is not None:
-            await require(session, proposer_id, EDITOR)
-        await require_public_url(start_url, resolve)
-        synced = set(await session.scalars(select(Dataset.tag).where(Dataset.tag.in_(tags))))
-        if set(tags) - synced:
-            raise RegisterError("no_dataset")
-        site_id = await session.scalar(
-            insert(Site)
-            .values(
-                start_url=start_url,
-                host=urlsplit(start_url).hostname or "",
-                name=name,
-                publisher=publisher,
-                licence_basis=licence,
-                tags=list(tags),
-                allow_patterns=list(allow),
-                deny_patterns=list(deny),
-                schedule=spec.schedule,
-                max_pages=spec.max_pages,
-                proposed_by=proposer_id,
-                origin=spec.origin,
-            )
-            .on_conflict_do_nothing(index_elements=["start_url"])
-            .returning(Site.id)
+    if proposer_id is not None:
+        await require(session, proposer_id, EDITOR)
+    await require_public_url(start_url, resolve)
+    synced = set(await session.scalars(select(Dataset.tag).where(Dataset.tag.in_(tags))))
+    if set(tags) - synced:
+        raise RegisterError("no_dataset")
+    site_id = await session.scalar(
+        insert(Site)
+        .values(
+            start_url=start_url,
+            host=urlsplit(start_url).hostname or "",
+            name=name,
+            publisher=publisher,
+            licence_basis=licence,
+            tags=list(tags),
+            allow_patterns=list(allow),
+            deny_patterns=list(deny),
+            schedule=spec.schedule,
+            max_pages=spec.max_pages,
+            proposed_by=proposer_id,
+            origin=spec.origin,
         )
-        if site_id is None:
-            existing = await session.scalar(select(Site.id).where(Site.start_url == start_url))
-            if existing is None:
-                raise AssertionError("a conflicting site exists")
-            return existing, False
-        await _audit(
-            session,
-            proposer_id,
-            "site.proposed",
-            site_id,
-            {},
-            {
-                "status": "proposed",
-                "tag_ids": list(tags),
-                "origin": spec.origin,
-                **_settings_values(allow, deny, spec),
-            },
-            method="cli" if proposer_id is None else "editor",
-        )
+        .on_conflict_do_nothing(index_elements=["start_url"])
+        .returning(Site.id)
+    )
+    if site_id is None:
+        existing = await session.scalar(select(Site.id).where(Site.start_url == start_url))
+        if existing is None:
+            raise AssertionError("a conflicting site exists")
+        return existing, False
+    await _audit(
+        session,
+        proposer_id,
+        "site.proposed",
+        site_id,
+        {},
+        {
+            "status": "proposed",
+            "tag_ids": list(tags),
+            "origin": spec.origin,
+            **_settings_values(allow, deny, spec),
+        },
+        method="cli" if proposer_id is None else "editor",
+    )
     return site_id, True
 
 

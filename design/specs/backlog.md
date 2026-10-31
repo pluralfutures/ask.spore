@@ -195,6 +195,10 @@ is binding.
 - **PDF, DOCX and PPTX members in an uploaded crawl**, so a crawl's linked documents come in
   the same ZIP; today they go one by one through the propose form.
 - **Several pending uploads per site** (D10) and per-file crawl dates.
+- **Boilerplate trim for uploaded Markdown** (D11): markdown.new keeps the site navigation,
+  footer and shop controls in every page; a trim step belongs in the owner's ZIP script first,
+  and in the platform only if eval shows retrieval suffers and the trim can be made visible to
+  the reviewer.
 
 ## Enterprise requirements
 

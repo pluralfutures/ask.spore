@@ -85,27 +85,47 @@ volume has; the storage alert of architecture §15.3 stays a backlog item.
 ## The ZIP
 
 **The converter.** The owner's crawls are made with [markdown.new](https://markdown.new/),
-which fronts Cloudflare's Markdown for Agents conversion (one URL per call, `Accept:
-text/markdown`). Cloudflare's documented output begins with a YAML front-matter block drawn
-from the page's meta tags, present only when the page has at least one of them, with the keys
-`title` (from `meta name="title"`, falling back to `og:title`), `description` and `image`; it
-carries **no source URL and no date** in the body (the token counts and the `Content-Signal`
-policy travel as response headers, which a saved file loses). So the step that assembles the
-ZIP, the owner's own script around markdown.new, **adds the `url:` line** to each file's front
-matter, creating the block when the page had none, and may add `date:` when it knows the
-publication date. Cloudflare's `description` and `image` keys are accepted and dropped with
-the block. Should Cloudflare change its keys, the parser's rule below (unknown scalar keys
-ignored, block stripped) keeps the import working; a fixture ZIP under
-`packages/eval/fixtures/uploads/` mirrors the markdown.new output with the added `url:` line.
-
-One ZIP per upload, for one site. Every member that is to be imported is a Markdown file
-(`.md` or `.markdown`) in UTF-8 (a BOM is allowed) that starts with a front-matter block:
+which fronts Cloudflare's Markdown for Agents conversion (one URL per call). Five real files
+from the owner's first crawl (Oct 31, 2026) show the actual output, which the spec follows
+rather than Cloudflare's documentation:
 
 ```
+<!-- Source: https://www.example.org/Products/Gravies -->
+
 ---
-url: https://example.org/reports/2026/annual-review
-title: Annual review 2026
+title: "Example - Gravies and Au Jus"
+meta:
+  description: "…"
+  keywords: "…"
+---
+
+[](https://www.example.org/)
+…
+```
+
+So the file begins with an HTML comment `<!-- Source: <url> -->` carrying the page URL,
+then a blank line, then a YAML front-matter block with `title` and a nested `meta` mapping
+(`description`, `keywords`); there is no date. The body keeps the site's navigation, footer
+and "Buy now" controls as Markdown. The import therefore takes the URL from the `Source`
+comment (a `url:` key in the block is accepted as an alternative, and must agree with the
+comment when both are present), takes the title from the block, strips both the comment and
+the block before hashing and staging, and treats the body as is: boilerplate removal is the
+converter's job, not the platform's (the live crawler's trafilatura step is not applied to
+uploaded text, decision D11). A fixture ZIP under `packages/eval/fixtures/uploads/` is built
+from synthetic pages in exactly this shape.
+
+One ZIP per upload, for one site. Every member that is to be imported is a Markdown file
+(`.md` or `.markdown`) in UTF-8 (a BOM is allowed) that starts with the `Source` comment, the
+front-matter block, or both, in that order, blank lines between them allowed:
+
+```
+<!-- Source: https://example.org/reports/2026/annual-review -->
+
+---
+title: "Annual review 2026"
 date: 2026-03-14
+meta:
+  description: "…"
 ---
 # Annual review 2026
 …
@@ -113,18 +133,20 @@ date: 2026-03-14
 
 | Key | Rule |
 | --- | --- |
-| `url` | **Required.** Absolute `http(s)` URL on the site's host (same rule as the live crawler's `_same_site`), normalised as the crawler normalises (`app.content.crawler.normalise`: tracking parameters stripped, fragment dropped). It is the page's canonical link and its key in `site_pages`. Two members with the same normalised URL: the whole upload is refused (`duplicate_url`). |
+| `Source` comment or `url` | **One is required.** The URL in the leading `<!-- Source: … -->` comment (markdown.new's form) or a `url:` key in the block; when both are present they must agree (`url_mismatch`). Absolute `http(s)` URL on the site's host (same rule as the live crawler's `_same_site`), normalised as the crawler normalises (`app.content.crawler.normalise`: tracking parameters stripped, fragment dropped). It is the page's canonical link and its key in `site_pages`. Two members with the same normalised URL: the whole upload is refused (`duplicate_url`). |
 | `title` | Optional (markdown.new emits it when the page has a title meta tag). Falls back to the first `#` heading of the body, then to the URL path, as the crawler falls back to the path; cut to 500 characters. |
 | `date` | Optional (markdown.new emits none). The page's **publication** date, `YYYY-MM-DD`, from explicit page metadata only (architecture §6.4); never the crawl date. Any other form is refused (`bad_date`). |
-| `description`, `image` | Cloudflare's other keys: accepted, dropped with the block, never stored or sent. |
-| any other key | A scalar `key: value` line with another key is ignored and dropped with the block. |
+| `meta` and its indented `description`, `keywords` | markdown.new's nested mapping: skipped as a whole (the key and every indented line under it), dropped with the block, never stored or sent. |
+| any other key | A top-level scalar `key: value` line, or a key with an indented block under it, is ignored and dropped with the block. |
 
-The block is `key: value` scalar lines between two `---` lines, keys in lower case, values
-plain or in single or double quotes. It is parsed by a restricted parser of our own (no YAML
-library: the file is untrusted input, and nothing else of YAML is needed). Any other
-construction (a nested mapping, a list, a multi-line value, an anchor or a tag), a missing
-block, or an empty body after the block refuses the file (`front_matter_invalid`,
-`front_matter_missing`, `empty`). The body **without
+The block is lines between two `---` lines: top-level `key: value` scalars (keys in lower
+case, values plain or in single or double quotes) and keys whose value is an indented block,
+which is skipped without being interpreted. It is read by a restricted parser of our own (no
+YAML library: the file is untrusted input, and only `title`, `date` and an optional `url` are
+wanted from it). An unterminated block, a `title` or `date` whose value is not a plain or
+quoted scalar, a file with neither a `Source` comment nor a `url` key (`url_missing`), or an
+empty body after the block refuses the file (`front_matter_invalid`, `url_missing`, `empty`).
+A file with a `Source` comment and no block at all is accepted (title from the first heading). The body **without
 the front matter** is what is staged, hashed and sent to RAGFlow, so the content hash matches
 what the live crawler would store for the same text and a change to the front matter alone
 does not count as a changed page.
@@ -180,8 +202,9 @@ upload at a time per site: a second upload while one is `staged` or `queued` is 
 (`upload_pending`). Tests: every refusal code has a fixture ZIP under
 `packages/eval/fixtures/uploads/` (synthetic pages; a member outside the host, a missing `url`,
 a bad date, a `..` name, a nested ZIP, an oversize member, a non-UTF-8 member, a duplicate URL,
-an ignored key such as `description`, YAML constructs the restricted parser must refuse,
-and a file exactly as markdown.new emits it with the `url:` line added); the stage path is by hash
+the nested `meta` mapping skipped, a `Source` comment that disagrees with a `url:` key, a
+file with the comment and no block, an unterminated block, and a file exactly as markdown.new
+emits it); the stage path is by hash
 and the ZIP bytes never reach the job payload; an editor can stage and a tenant admin, a
 tenant user and a reviewer-less internal user cannot.
 
@@ -302,6 +325,7 @@ import and the logging items.
 | D7 | **Taken, Oct 31, 2026. Every upload is released by a reviewer**, including uploads to a site already approved. A live crawl's pages are whatever the site publishes within the scope rules the reviewer approved; an upload's pages are whatever the editor put in the ZIP, so each batch is a reviewed act. The release is one click with the report in front of the reviewer. | Site approval covers later uploads, as it covers later crawls (P1b decision 8). Smaller, but an editor alone could then put content into RAGFlow. Not recommended. | P2SR01-03 |
 | D8 | **Taken, Oct 31, 2026. No HTML snapshot for an uploaded page**; the staged Markdown (by hash, as every file is) is the provenance copy, `snapshot_path` stays null, and the site detail says "uploaded, no snapshot". | Accept an optional `.html` sibling per member as the snapshot. More ZIP rules and the HTML is untrusted; not now (backlog). | P2SR01-03 |
 | D9 | **Taken, Oct 31, 2026. `fetched_at` is the upload's crawl date** (midnight UTC) on every page of that upload, shown as the fetch date in the console and the file list; the upload's own timestamp is `uploaded_at`. | Use the upload time as the fetch date. Rejected: the crawl date is the fact the owner asked to record. | P2SR01-03 |
+| D11 | **Proposed: uploaded Markdown is ingested as supplied**, boilerplate included (navigation, footer, "Buy now" controls, as the real files show). The converter decides what the page's text is; the platform does not run its own readability pass on text it did not fetch, so what is cited is what the uploader saw. The reviewer's release covers the content. | Run trafilatura or a heading-based trim on the uploaded text. Rejected for now: it would silently change the uploader's content and cannot be checked against HTML the platform never had. A trim step in the owner's ZIP script, before upload, is the place for it if retrieval quality suffers; recorded in the backlog. | P2SR01-03 |
 | D10 | **Taken, Oct 31, 2026. One pending upload per site at a time**, and a second ZIP for a site waits until the first is imported, rejected or failed. | Queue several. Not needed for a hand-run process. | P2SR01-02 |
 
 ## Owner decisions of Oct 31, 2026 (closing the open items)
@@ -310,10 +334,17 @@ import and the logging items.
 | --- | --- | --- |
 | 1 | D7 to D10 taken as proposed. | P2SR01-02, P2SR01-03 |
 | 2 | **Declaration text** (D3), as the editor ticks it: "I confirm that this crawl of `<host>` was made on `<crawled_on>` honouring the site's robots.txt, its text-and-data-mining reservation if any, and page-level noai and noindex directives, and that the pages are public and were fetched without signing in." The CLI flag `--declare-robots-honoured` prints the same sentence and refuses to run without it. | P2SR01-05 |
-| 3 | **The converter is markdown.new** (Cloudflare Markdown for Agents). Its output has no URL or date; the owner's ZIP step adds `url:` (see "The ZIP"). No key aliases are needed. | The ZIP, P2SR01-02 |
+| 3 | **The converter is markdown.new** (Cloudflare Markdown for Agents). Five real files checked Oct 31, 2026: each starts with `<!-- Source: <url> -->`, then a block with `title` and a nested `meta` mapping, no date. The import reads the URL from that comment, so the owner's files need **no pre-processing** (see "The ZIP"). | The ZIP, P2SR01-02 |
 | 4 | **Priority: immediate.** The build starts now from `main`, ahead of every other spec phase; the Phase 2A code it needs is already on `main`. | Deployment target, session plan |
 
-Still with the owner, not blocking: the licence basis for uploaded sites stays the site form's
+Two observations from the five files, for the owner and the reviewer, not for the code: two of
+them (`Products/Bases-en/Broth` and `Products/Bases-en/Vegetable`) are "page deleted"
+placeholders whose body is the site's navigation plus the sentence that the page was deleted;
+they differ by one line, so the duplicate-content check does not catch them, and the reviewer
+should leave them out of the ZIP or reject them from the report. Every file also carries the
+whole site navigation and footer in its body (D11).
+
+Still with the owner, not blocking: D11; the licence basis for uploaded sites stays the site form's
 free-text basis, as for crawled sites (`public_web` once P1b-19 step 2 adds the enumerated
 kinds); counsel may want to see the declaration sentence.
 

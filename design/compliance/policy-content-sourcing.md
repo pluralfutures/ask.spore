@@ -53,6 +53,7 @@ The two content roles are recorded in `content_roles` (P1b-01). With one interna
 - Descriptive user agent with a contact address; rate limit per host; never crawl behind a login; strip tracking parameters.
 - Network safety: the crawler connects only to the address it resolved and re-checks on every redirect; private, loopback, link-local and metadata addresses are refused (decision 9, P1b-18). No site outside our own list is registered before that fix is live.
 - Pages matching special-category path patterns are skipped and listed unless a reviewer whitelists the path (P1b-04).
+- **Uploaded crawls** (Phase 2SR01, owner decision D3 of Oct 31, 2026). A site crawled outside the platform and uploaded as a ZIP of Markdown pages is not checked by us for robots.txt, the TDM reservation or `noai`/`noindex` directives: the editor declares, per upload, that the crawl honoured them and that the pages are public and were fetched without signing in (the fixed declaration sentence of the Phase 2SR01 spec), and a reviewer releases every upload. The declaration is recorded on the upload (`site_uploads.declared_robots_honoured`) and the site's allow decision reads `declared`. This is a narrower control than the crawler's own check (risk R-38): an editor must not upload a crawl of a site they know reserves its rights, and a takedown or reservation brought to our attention is handled as in §6. Special-category, scope, takedown and duplicate checks apply to uploaded pages as to crawled ones.
 
 ### 4.3 Approval, ingestion, re-ingestion
 
@@ -139,6 +140,7 @@ The request log holds the request, our decision, the reasons and the dates. It c
 | Approved register row before ingestion (CC2.3, C1.1) | `sources` status constraint; ingestion job refuses unapproved sources (P1b-02 tests) | Phase 1b (P1b-01, P1b-02) |
 | Audited content roles and transitions (CC6.3) | `content_roles`; `source.*` audit events | Phase 1b (P1b-01) |
 | robots.txt, TDM reservation, `noai` honoured (DSM Art. 4) | Crawler tests (P1b-04) | robots.txt, TDM and `noai` built before Phase 1b; per-site rules Phase 1b (P1b-04) |
+| Uploaded crawl declaration (robots, TDM, `noai`) | `site_uploads.declared_robots_honoured` (constrained true), `site.upload_staged` and `site.upload_released` audit events | Phase 2SR01 (P2SR01-01 to P2SR01-03) |
 | Crawler network safety (CC6.6) | P1b-18 tests | Phase 1b (P1b-18) |
 | Withdrawal cascade and takedown timer (CC6.5) | P1b-03 tests; takedown queue | Phase 1b (P1b-03) |
 | Takedown scope per tenant | Per-copy status; scoped withdrawal tests | Designed (P1b-19 step 2) |

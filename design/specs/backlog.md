@@ -200,6 +200,19 @@ is binding.
   and in the platform only if eval shows retrieval suffers and the trim can be made visible to
   the reviewer.
 
+Raised during the build (Oct 31 to Nov 1, 2026, `phase-2sr01-findings.md` §1):
+
+- **Confirm the withdrawal count at release** of a full upload: the reviewer's button shows the
+  count read when the report loads; the release could carry that number and be refused if the
+  live pages changed since (`withdraw_count_changed`). Not built: one pending upload per site
+  and a hand-run process make a change between the two rare.
+- **A crawl date or a "crawled" column per page** on the site detail of an upload site; today
+  the fetch date column shows the crawl date (D9) and the site shows its last crawl date.
+- **Re-inspect a staged upload asynchronously** for very large ZIPs: the reviewer's report is
+  read again from the staged ZIP on each view (up to 200 MB, inside the request).
+- **CLI `--propose-as` for `sites upload-crawl`**, to name an uploading editor other than the
+  releasing reviewer; today the uploader is the operator's shell, or the `--approve-as` reviewer.
+
 ## Enterprise requirements
 
 Items a client's security or procurement contact asks for at contract or renewal time, kept

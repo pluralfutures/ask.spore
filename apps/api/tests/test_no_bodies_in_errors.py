@@ -160,3 +160,28 @@ def test_control_characters_are_refused_in_free_text(char: str) -> None:
 def test_tab_and_newline_are_allowed() -> None:
     assert AskIn(question="line one\n\tline two").question == "line one\n\tline two"
     assert WorkspacePromptIn(text="Rule 1\nRule 2").text == "Rule 1\nRule 2"
+
+
+# P2SR01-06: an uploaded crawl's whole-upload refusal leaves the API as a code and a
+# member index; the member's name never travels in the exception or the 422 body.
+def test_an_upload_refusal_carries_the_code_and_member_index_only() -> None:
+    import io
+    import zipfile
+
+    from app.api.content import _upload_refused
+    from app.content.uploads import UploadRefused, inspect_zip
+
+    name = f"site/{SECRET}.md"
+    page = "<!-- Source: https://www.example.org/a -->\n\nBody.\n"
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("site/first.md", page)
+        archive.writestr(name, page)
+        archive.writestr(f"../{SECRET}.md", page)
+    with pytest.raises(UploadRefused) as refused:
+        inspect_zip(buffer.getvalue(), host="www.example.org")
+    assert (refused.value.code, refused.value.member) == ("unsafe_member", 2)
+    assert SECRET not in str(refused.value) and SECRET not in repr(refused.value.args)
+    response = _upload_refused(refused.value)
+    assert response.status_code == 422
+    assert response.detail == {"code": "unsafe_member", "member": 2}

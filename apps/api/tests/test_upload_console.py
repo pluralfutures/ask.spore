@@ -5,7 +5,9 @@ that no member name, URL or title is logged or audited."""
 
 from __future__ import annotations
 
+import io
 import json
+import zipfile
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -331,3 +333,66 @@ async def test_a_reviewer_rejects_with_a_note(uploads: Uploads) -> None:
     row = await uploads.upload_row(staged["upload_id"])
     assert (row["status"], row["staged_path"]) == ("rejected", None)
     assert not list((uploads.e.content_root / "uploads").glob("*.zip"))
+
+
+# --- P2SR01-06 no member name, URL or title in any log line, audit row or job -------------
+
+ODD_NAME = "site/Zebra Quokka-Ünïcode «name» 42.md"
+ODD_TITLE = "Quokka Marmalade Odd Title 9f2c"
+ODD_PATH = "/Zebra-Path-7d1e"
+
+
+def odd_zip(*, duplicate: bool = False) -> bytes:
+    page = (
+        f"<!-- Source: https://www.example.org{ODD_PATH} -->\n\n---\n"
+        f'title: "{ODD_TITLE}"\nmeta:\n  description: "x"\n---\n\nSynthetic odd body text.\n'
+    )
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(ODD_NAME, page)
+        if duplicate:
+            archive.writestr("site/Another Zebra Copy.md", page.replace("odd body", "copy"))
+    return buffer.getvalue()
+
+
+async def test_a_full_import_with_odd_names_logs_and_audits_none_of_them(
+    uploads: Uploads, capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture
+) -> None:
+    await uploads.roles("content_editor", "content_reviewer")
+    client = uploads.editor()
+    staged = await uploads.upload(client, content=odd_zip(), mode="full")
+    assert staged.status_code == 201, staged.text
+    body = staged.json()
+    # The report shows them, once, to the editor.
+    assert body["members"][0]["name"] == ODD_NAME and body["members"][0]["title"] == ODD_TITLE
+    base = f"{API}/sites/{body['site_id']}/uploads/{body['upload_id']}"
+    assert (await client.post(f"{base}/release", json={})).status_code == 200
+    await uploads.run_jobs()
+    row = await uploads.upload_row(body["upload_id"])
+    assert (row["status"], row["new_count"]) == ("imported", 1)
+    # A whole-upload refusal with odd names: code and index only.
+    refused = await uploads.upload(client, content=odd_zip(duplicate=True), site_id=body["site_id"])
+    assert refused.json() == {"detail": {"code": "duplicate_url", "member": 1}}
+
+    secrets = ("Zebra", "Quokka", "Ünïcode", "«name»", "Marmalade", ODD_PATH, "Another")
+    logged = capsys.readouterr().out + capsys.readouterr().err + caplog.text
+    assert [s for s in secrets if s in logged] == []
+    stored = "\n".join(await uploads.audit_rows())
+    stored += json.dumps(
+        [
+            dict(r)
+            for r in await uploads.auth.admin.fetch(
+                "SELECT type, payload::text, error_code FROM jobs"
+            )
+        ],
+        default=str,
+    )
+    stored += json.dumps(
+        [dict(r) for r in await uploads.auth.admin.fetch("SELECT * FROM site_uploads")],
+        default=str,
+    )
+    assert [s for s in secrets if s in stored] == []
+    # The register row has the page's title and URL, as for a crawled page; that is the
+    # register, not a log.
+    source = await uploads.auth.admin.fetchrow("SELECT title, canonical_url FROM sources")
+    assert source["title"] == ODD_TITLE

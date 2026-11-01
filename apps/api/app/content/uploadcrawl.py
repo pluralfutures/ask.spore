@@ -140,7 +140,7 @@ async def release_upload(
         if site.origin != "upload":
             raise RegisterError("origin_crawl")
         if site.status in ("withdrawn", "rejected"):
-            raise RegisterError("site_" + site.status)
+            raise RegisterError("site_withdrawn" if site.status == "withdrawn" else "site_rejected")
         approves_site = site.status == "proposed"
         if approves_site:
             await approve_locked(session, site, reviewer_id, roles, note=None)
@@ -401,7 +401,11 @@ async def import_crawl(
             before={"status": "queued"},
             after={"status": "imported"},
             method=METHOD,
-            **{k: counts[k] for k in COUNTED},
+            new=counts["new"],
+            changed=counts["changed"],
+            unchanged=counts["unchanged"],
+            blocked=counts["blocked"],
+            withdrawn=counts["withdrawn"],
         )
     await _discard(factory, content_root, staged)
     log(

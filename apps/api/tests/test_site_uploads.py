@@ -1174,3 +1174,23 @@ async def test_an_uploaded_site_reaches_tenants_exactly_as_a_crawled_one(
             dataset_ids=package.dataset_ids, question="q", top_k=100, similarity_threshold=0.2
         )
         assert len({c.document_id for c in chunks if c.document_id in documents}) == expected
+
+
+async def test_an_import_that_crashes_fails_the_upload_instead_of_blocking_the_site(
+    up: Up, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.content import uploadcrawl
+
+    staged = await up.stage("markdown-new.zip")
+    await up.release(staged)
+
+    async def boom(*_: Any, **__: Any) -> None:
+        raise RuntimeError("synthetic failure")
+
+    monkeypatch.setattr(uploadcrawl._UploadImport, "sweep", boom)
+    await up.c.run()
+    row = await up.row(staged)
+    assert (row["status"], row["error"]) == ("failed", "internal_error")
+    monkeypatch.undo()
+    again = await up.stage("markdown-new.zip", site_id=staged.site_id)
+    assert again.site_id == staged.site_id  # the site takes its next upload

@@ -334,12 +334,36 @@ async def import_crawl(
         return ImportResult(upload_id, "refused", "no_upload")
     if upload.status != "queued" or upload.released_by is None:
         return ImportResult(upload_id, "refused", "not_queued", site.id)
+    try:
+        return await _import(factory, upload, site, content_root)
+    except Exception:
+        # Never leave the upload queued: it would block the site's next upload (D10).
+        # Pages admitted before the error stay, as after an interrupted crawl.
+        log(
+            "content.upload_failed",
+            level="error",
+            upload_id=str(upload.id),
+            error_code="internal_error",
+        )
+        await _fail(factory, upload, "internal_error")
+        raise
+
+
+async def _import(
+    factory: async_sessionmaker[AsyncSession],
+    upload: SiteUpload,
+    site: Site,
+    content_root: Path,
+) -> ImportResult:
     if site.origin != "upload":
         return await _fail(factory, upload, "origin_crawl")
     if site.status != "approved":
         return await _fail(factory, upload, "site_not_approved")
+    releaser = upload.released_by
+    if releaser is None:
+        return await _fail(factory, upload, "not_released")
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
-        if REVIEWER not in await roles_of(session, upload.released_by):
+        if REVIEWER not in await roles_of(session, releaser):
             return await _fail(factory, upload, "releaser_lacks_role")
     try:
         path = _staged_file(content_root, upload)

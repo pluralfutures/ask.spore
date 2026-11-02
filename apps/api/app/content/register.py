@@ -34,7 +34,7 @@ from app.content.ingest import IngestError, SourceFile, SourceMetadata
 from app.content.jobs import Job, enqueue
 from app.content.models import Dataset, SitePage, Source
 from app.content.roles import EDITOR, REVIEWER, RoleError, require, roles_of
-from app.content.store import STORABLE_TYPES, stage
+from app.content.store import STORABLE_TYPES, is_file, stage
 from app.content.tags import TagConfig
 from app.content.toggle import set_enabled_everywhere
 from app.content.withdraw import purge_answer_cache
@@ -92,6 +92,12 @@ class RegisterError(ValueError):
         self.code = code
 
 
+def _keeps_copy(source: SourceFile) -> bool:
+    """Whether we keep a stored copy of this file for downloads (P2B-06): a PDF, DOCX or PPTX,
+    or a Markdown or text file we were given as a file (a fetched page is not kept)."""
+    return source.type in STORABLE_TYPES or (source.as_file and is_file(source.type, "kept"))
+
+
 def _validate(
     tags_config: Mapping[str, TagConfig], source: SourceFile, metadata: SourceMetadata
 ) -> tuple[str, ...]:
@@ -108,8 +114,11 @@ def _validate(
     ):
         if not value.strip():
             raise IngestError("missing_metadata", f"--{name} must not be empty")
-    if metadata.downloadable and source.type not in STORABLE_TYPES:
-        raise IngestError("not_downloadable", "only PDF, DOCX and PPTX files can be downloadable")
+    if metadata.downloadable and not _keeps_copy(source):
+        raise IngestError(
+            "not_downloadable",
+            "only PDF, DOCX, PPTX, Markdown and text files can be downloadable",
+        )
     return tags
 
 
@@ -263,7 +272,7 @@ async def propose(
         if ingested is not None:
             # A re-tag reads the staged copy; sources ingested before P1b-02 have none.
             path = staged()
-            if ingested.stored_path is None and source.type in STORABLE_TYPES:
+            if ingested.stored_path is None and _keeps_copy(source):
                 await session.execute(
                     update(Source).where(Source.id == ingested.id).values(stored_path=path)
                 )
@@ -291,7 +300,7 @@ async def propose(
             tags=list(tags),
             status="proposed",
             file_sha256=source.sha256,
-            stored_path=path if source.type in STORABLE_TYPES else None,
+            stored_path=path if _keeps_copy(source) else None,
             downloadable=metadata.downloadable,
             proposed_by=proposer_id,
             licence_file_path=licence_file_path,

@@ -3,6 +3,7 @@ import Markdown, { type Components } from "react-markdown";
 
 import { linkMarkers, markerFromHref } from "../lib/citations";
 import { LINK } from "../ui/link";
+import { GFM_PLUGINS, TABLE_COMPONENTS } from "./markdownTable";
 
 interface Props {
   text: string;
@@ -11,7 +12,7 @@ interface Props {
 }
 
 // Answers are model output: rendered as Markdown without raw HTML (react-markdown's
-// default), with valid [n] markers as buttons that open the citation panel.
+// default) and GFM tables (P2B-01), with valid [n] markers as buttons that open the citation panel.
 export function AnswerMarkdown({ text, markers, onCite }: Props) {
   // UX-16: one components object per answer, so a re-render (opening the citation panel)
   // keeps the same marker buttons and the focus stays on the one activated.
@@ -21,6 +22,7 @@ export function AnswerMarkdown({ text, markers, onCite }: Props) {
   });
   const components = useMemo<Components>(
     () => ({
+      ...TABLE_COMPONENTS,
       h1: ({ children }) => <h2>{children}</h2>,
       a: ({ href, children }) => {
         const marker = markerFromHref(href);
@@ -49,7 +51,9 @@ export function AnswerMarkdown({ text, markers, onCite }: Props) {
     // UX-15: reading type (16/26) with the answer's own structure: headings (the model's
     // # renders as h2, under the conversation title), lists with markers, spaced items.
     <div className="flex flex-col gap-3 text-reading [&_h2,&_h3]:mt-2 [&_h2,&_h3]:text-heading [&_h2,&_h3]:font-strong [&_h4,&_h5,&_h6]:font-strong [&_li]:mt-1.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6 [&>:first-child]:mt-0">
-      <Markdown components={components}>{linkMarkers(text, markers)}</Markdown>
+      <Markdown remarkPlugins={GFM_PLUGINS} components={components}>
+        {linkMarkers(text, markers)}
+      </Markdown>
     </div>
   );
 }

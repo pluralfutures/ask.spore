@@ -11,6 +11,7 @@ Logs carry source IDs only, never titles or file names.
 from __future__ import annotations
 
 import re
+from dataclasses import asdict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -22,20 +23,32 @@ from app.api.schemas import (
     WorkspaceFileOut,
     WorkspaceFilesOut,
     WorkspaceSiteOut,
+    WorkspaceSummaryOut,
 )
 from app.audit.writer import record
 from app.consent.gate import require_consent
 from app.content import store
-from app.content.ingest import SUFFIX_BY_TYPE, TYPE_BY_MEDIA_TYPE
+from app.content.ingest import MEDIA_TYPE_BY_TYPE, SUFFIX_BY_TYPE
+from app.core import cache
 from app.core.db import tenant_session
 from app.core.logging import log
-from app.files.service import FileRefused, is_downloadable, issue_link, redeem, workspace_files
+from app.files.service import (
+    SUMMARY_KEY,
+    SUMMARY_TTL_SECONDS,
+    FileRefused,
+    is_downloadable,
+    issue_link,
+    redeem,
+    require_workspace,
+    workspace_files,
+    workspace_summary,
+)
 
 # P1b-10: file lists and downloads need the active notice accepted.
 router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_consent)])
 
 FILES_PATH = "/api/v1/files/"
-MEDIA_TYPES = {kind: media for media, kind in TYPE_BY_MEDIA_TYPE.items()}
+MEDIA_TYPES = MEDIA_TYPE_BY_TYPE
 _REFUSALS = {
     "not_found": status.HTTP_404_NOT_FOUND,
     "not_downloadable": status.HTTP_403_FORBIDDEN,
@@ -84,6 +97,35 @@ async def list_workspace_files(
             for s in sites
         ],
     )
+
+
+@router.get("/workspaces/{workspace_id}/summary", response_model=WorkspaceSummaryOut)
+async def get_workspace_summary(
+    workspace_id: UUID, request: Request, session: AsyncSession = Depends(db_session)
+) -> WorkspaceSummaryOut:
+    """P2B-05: document count, publishers, years and last update of the workspace, for the
+    home page. Cached per workspace under a tenant-prefixed key; any change to the tenant's
+    library clears it (``app.core.library_events``). The cache is an aid: if it cannot be
+    reached the summary is computed."""
+    tenant_id = current_tenant_id(request)
+    key = f"{SUMMARY_KEY}{workspace_id}"
+    try:
+        await require_workspace(session, workspace_id)  # 404 for another tenant's
+    except FileRefused as exc:
+        raise _refused(exc) from None
+    try:
+        cached = await cache.get(tenant_id, key)
+        if cached is not None:
+            return WorkspaceSummaryOut.model_validate_json(cached)
+    except Exception as exc:  # a cache fault or a stale shape: compute instead
+        log("workspace_summary.cache_read_failed", "warning", error_code=type(exc).__name__)
+    summary = await workspace_summary(session, workspace_id)
+    out = WorkspaceSummaryOut(**asdict(summary))
+    try:
+        await cache.set(tenant_id, key, out.model_dump_json(), SUMMARY_TTL_SECONDS)
+    except Exception as exc:
+        log("workspace_summary.cache_write_failed", "warning", error_code=type(exc).__name__)
+    return out
 
 
 @router.post(

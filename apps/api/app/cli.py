@@ -1007,8 +1007,9 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_cmd = commands.add_parser(
         "ingest",
         help="register one source and ingest it into the datasets of its tags",
-        description="Supported: PDF, DOCX, PPTX, HTML and Markdown files, or an http(s) URL "
-        "serving one of them. The source's error, if any, is recorded on its sources row.",
+        description="Supported: PDF, DOCX, PPTX, HTML, Markdown and text files, or an http(s) URL "
+        "serving PDF, DOCX, PPTX, HTML or Markdown. The source's error, if any, is recorded on "
+        "its sources row.",
     )
     ingest_cmd.add_argument("location", help="file path or http(s) URL")
     ingest_cmd.add_argument(

@@ -22,7 +22,7 @@ from app.content.models import Dataset
 from app.tenancy.workspaces import Workspace
 
 # Crawled or rendered web pages: untrusted text in prompts (CLAUDE.md).
-UNTRUSTED_SOURCE_TYPES = frozenset({"html", "markdown"})
+UNTRUSTED_SOURCE_TYPES = frozenset({"html", "markdown", "text"})
 
 
 class WorkspaceNotFound(LookupError):

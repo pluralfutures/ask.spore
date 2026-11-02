@@ -11,6 +11,7 @@ import { Checkbox } from "../ui/Checkbox";
 import { Notice } from "../ui/Notice";
 import { PageError, Skeleton } from "../ui/States";
 import { cardClass } from "../ui/cardClass";
+import { GFM_PLUGINS, TABLE_COMPONENTS } from "./markdownTable";
 
 // The first-login consent gate (P1b-10): until the active use and privacy notice is
 // accepted, the app shows the notice instead of any conversation, file or admin page.
@@ -130,6 +131,7 @@ const heading = (level: 3 | 4 | 5 | 6) => {
 };
 
 const NOTICE_COMPONENTS: Components = {
+  ...TABLE_COMPONENTS,
   h1: heading(3),
   h2: heading(3),
   h3: heading(3),
@@ -141,7 +143,9 @@ const NOTICE_COMPONENTS: Components = {
 function NoticeMarkdown({ text }: { text: string }) {
   return (
     <div className="flex flex-col gap-2 [&_li]:mt-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&>h3]:mt-2 [&>h4]:mt-1">
-      <Markdown components={NOTICE_COMPONENTS}>{text}</Markdown>
+      <Markdown remarkPlugins={GFM_PLUGINS} components={NOTICE_COMPONENTS}>
+        {text}
+      </Markdown>
     </div>
   );
 }

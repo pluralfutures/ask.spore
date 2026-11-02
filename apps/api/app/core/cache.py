@@ -100,6 +100,24 @@ async def delete(tenant_id: UUID, key: str) -> None:
     await _require_client().delete(tenant_key(tenant_id, key))
 
 
+async def delete_prefix_all_tenants(prefix: str) -> int:
+    """Delete the keys starting with ``prefix`` in every tenant's namespace; how many went.
+    For a change to something every tenant reads, such as the platform's source register
+    (P2B-05): never on a chat request path."""
+    if not prefix or any(c in prefix for c in "*?[]\\"):
+        raise ValueError("prefix must be a non-empty literal")
+    client = _require_client()
+    names = [
+        name.decode("utf-8") if isinstance(name, bytes) else name
+        async for name in client.scan_iter(match=f"{KEY_PREFIX}:*:{prefix}*", count=500)
+    ]
+    # ``*`` also spans colons: keep only t:<uuid>:<prefix>…, so another key shape is safe.
+    names = [n for n in names if n.split(":", 2)[2].startswith(prefix)]
+    for start in range(0, len(names), 500):
+        await client.delete(*names[start : start + 500])
+    return len(names)
+
+
 async def clear_tenant(tenant_id: UUID) -> int:
     """Delete every key in ``tenant_id``'s namespace; how many went. For the termination
     purge and the switch to "no history" (P1b-14): rare administrative actions, never on

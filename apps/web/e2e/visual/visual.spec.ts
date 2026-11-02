@@ -20,6 +20,21 @@ for (const scenario of SCENARIOS) {
   });
 }
 
+// P2B-02: the static public pages (plain HTML, no fake API); they share public-page.css.
+const STATIC_PAGES = [
+  { name: "22-legal-index", url: "/legal" },
+  { name: "22b-legal-privacy", url: "/legal/privacy" },
+  { name: "22c-security-disclosure", url: "/security-disclosure" },
+];
+
+for (const { name, url } of STATIC_PAGES) {
+  test(name, async ({ page }) => {
+    await page.goto(url);
+    await page.evaluate("document.fonts.ready.then(() => undefined)");
+    await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: true });
+  });
+}
+
 // The negative case: a one-colour change is caught, so a passing run means "no change".
 test("a changed background colour fails the comparison", async ({ page }, testInfo) => {
   // When updating snapshots the comparison cannot fail, and would save the altered page.

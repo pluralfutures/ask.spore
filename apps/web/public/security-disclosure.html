@@ -8,85 +8,96 @@
     <link rel="stylesheet" href="/public-page.css" />
   </head>
   <body>
-    <!-- P2A-11. Source text: design/compliance/security-disclosure.md (draft). Static, outside the app: no script, no API call, no sign-in. -->
-    <main>
-      <h1>Reporting a security vulnerability</h1>
-      <p>
-        We take the security of SporeBot and of our clients' data seriously. If you believe you have
-        found a security vulnerability in our service, please tell us. We will work with you to
-        understand and fix it.
-      </p>
-
-      <h2>How to report</h2>
-      <p>
-        Email
-        <a href="mailto:security@myceliumgastronomy.com">security@myceliumgastronomy.com</a>. Please
-        include:
-      </p>
-      <ul>
-        <li>what you found and where (the page, the request or the component);</li>
-        <li>the steps to reproduce it, and what an attacker could do with it;</li>
-        <li>how we can reach you for follow-up questions.</li>
-      </ul>
-      <p>Please write in English.</p>
-
-      <h2>What we ask of you</h2>
-      <ul>
-        <li>
-          Test only against accounts you own or have permission to use. Never access, change or
-          delete another person's or another organisation's data. If you reach such data by
-          accident, stop, do not keep a copy, and tell us in your report.
-        </li>
-        <li>
-          Do not run denial-of-service tests, spam, social engineering, or physical tests against
-          our staff, offices or hosting providers.
-        </li>
-        <li>Do not use automated scanners at a volume that degrades the service for others.</li>
-        <li>
-          Give us reasonable time to fix the issue before you disclose it publicly. We suggest 90
-          days from your report, or earlier once we confirm a fix.
-        </li>
-      </ul>
-
-      <h2>What we will do</h2>
-      <ul>
-        <li>Acknowledge your report within three working days.</li>
-        <li>Tell you whether we can reproduce it and keep you informed of our progress.</li>
-        <li>Credit you, if you wish, once the issue is fixed.</li>
-      </ul>
-      <p>We do not offer payment for reports at this time.</p>
-
-      <h2>Safe harbour</h2>
-      <p>
-        If you act in good faith and follow this policy, we will consider your research authorised,
-        we will not pursue or support legal action against you for it, and we will not report you to
-        law enforcement. If a third party brings action against you for research done under this
-        policy, we will make it known that you acted with our authorisation. This does not authorise
-        you to act against third parties, including our hosting and model providers, whose own
-        policies apply.
-      </p>
-
-      <h2>Out of scope</h2>
-      <ul>
-        <li>
-          Findings that need a compromised device or a man-in-the-middle position on the user's own
-          network.
-        </li>
-        <li>Missing best-practice headers or settings with no demonstrated impact.</li>
-        <li>Reports from automated tools without a working proof of concept.</li>
-        <li>
-          Content in our library: to ask for the removal of content or personal data, write to
-          <a href="mailto:security@myceliumgastronomy.com">security@myceliumgastronomy.com</a>.
-        </li>
-      </ul>
-
-      <footer>
+    <!-- P2A-11, P2B-02. Source text: design/compliance/security-disclosure.md (draft). Static, outside the app: no script, no API call, no sign-in. -->
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="bar">
+        <a class="brand" href="/"><span class="brand-mark">Mycelium</span> SporeBot</a>
+      </div>
+    </header>
+    <main id="main">
+      <div class="card">
+        <h1>Reporting a security vulnerability</h1>
         <p>
-          Machine-readable contact:
-          <a href="/.well-known/security.txt">/.well-known/security.txt</a>. Last updated: Oct 25,
-          2026.
+          We take the security of SporeBot and of our clients' data seriously. If you believe you
+          have found a security vulnerability in our service, please tell us. We will work with you
+          to understand and fix it.
         </p>
-      </footer>
+
+        <h2>How to report</h2>
+        <p>
+          Email
+          <a href="mailto:security@myceliumgastronomy.com">security@myceliumgastronomy.com</a>.
+          Please include:
+        </p>
+        <ul>
+          <li>what you found and where (the page, the request or the component);</li>
+          <li>the steps to reproduce it, and what an attacker could do with it;</li>
+          <li>how we can reach you for follow-up questions.</li>
+        </ul>
+        <p>Please write in English.</p>
+
+        <h2>What we ask of you</h2>
+        <ul>
+          <li>
+            Test only against accounts you own or have permission to use. Never access, change or
+            delete another person's or another organisation's data. If you reach such data by
+            accident, stop, do not keep a copy, and tell us in your report.
+          </li>
+          <li>
+            Do not run denial-of-service tests, spam, social engineering, or physical tests against
+            our staff, offices or hosting providers.
+          </li>
+          <li>Do not use automated scanners at a volume that degrades the service for others.</li>
+          <li>
+            Give us reasonable time to fix the issue before you disclose it publicly. We suggest 90
+            days from your report, or earlier once we confirm a fix.
+          </li>
+        </ul>
+
+        <h2>What we will do</h2>
+        <ul>
+          <li>Acknowledge your report within three working days.</li>
+          <li>Tell you whether we can reproduce it and keep you informed of our progress.</li>
+          <li>Credit you, if you wish, once the issue is fixed.</li>
+        </ul>
+        <p>We do not offer payment for reports at this time.</p>
+
+        <h2>Safe harbour</h2>
+        <p>
+          If you act in good faith and follow this policy, we will consider your research
+          authorised, we will not pursue or support legal action against you for it, and we will not
+          report you to law enforcement. If a third party brings action against you for research
+          done under this policy, we will make it known that you acted with our authorisation. This
+          does not authorise you to act against third parties, including our hosting and model
+          providers, whose own policies apply.
+        </p>
+
+        <h2>Out of scope</h2>
+        <ul>
+          <li>
+            Findings that need a compromised device or a man-in-the-middle position on the user's
+            own network.
+          </li>
+          <li>Missing best-practice headers or settings with no demonstrated impact.</li>
+          <li>Reports from automated tools without a working proof of concept.</li>
+          <li>
+            Content in our library: to ask for the removal of content or personal data, write to
+            <a href="mailto:security@myceliumgastronomy.com">security@myceliumgastronomy.com</a>.
+          </li>
+        </ul>
+
+        <footer>
+          <p>
+            Machine-readable contact:
+            <a href="/.well-known/security.txt">/.well-known/security.txt</a>. Last updated: Oct 25,
+            2026.
+          </p>
+        </footer>
+      </div>
     </main>
+    <footer class="site-footer">
+      <nav aria-label="Legal"><a href="/legal">Legal</a></nav>
+    </footer>
   </body>
 </html>

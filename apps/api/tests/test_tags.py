@@ -66,9 +66,9 @@ def test_pdf_only_default_needs_an_override_for_every_other_type(
         f"[tags.a]\nchunk_method = '{method}'\nshared = true\n"
         "chunk_method_by_type = { docx = 'naive', pptx = 'presentation', html = 'naive' }\n"
     )
-    with pytest.raises(TagsConfigError, match=r"\['markdown'\].*PDF-only"):
+    with pytest.raises(TagsConfigError, match=r"\['markdown', 'text'\].*PDF-only"):
         load_tags(write(tmp_path, text))
-    covered = text.replace("html = 'naive'", "html = 'naive', markdown = 'naive'")
+    covered = text.replace("html = 'naive'", "html = 'naive', markdown = 'naive', text = 'naive'")
     assert load_tags(write(tmp_path, covered))["a"].chunk_method_for("markdown") == "naive"
 
 

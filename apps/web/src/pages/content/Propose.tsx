@@ -49,8 +49,12 @@ export function Propose({ roles }: { roles: string[] }) {
   return (
     <form onSubmit={submit} className={cardClass("flex max-w-2xl flex-col gap-4")}>
       <h2 className="text-heading font-strong">Propose a source</h2>
-      <Field label="File (PDF, DOCX, PPTX, HTML, Markdown)">
-        <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      <Field label="File (PDF, DOCX, PPTX, HTML, Markdown, text)">
+        <Input
+          type="file"
+          accept=".pdf,.docx,.pptx,.html,.htm,.md,.markdown,.txt"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
       </Field>
       <Field label="or URL">
         <Input value={fields.url} onChange={(e) => set("url")(e.target.value)} />

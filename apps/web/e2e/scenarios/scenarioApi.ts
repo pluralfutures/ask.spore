@@ -42,6 +42,9 @@ export interface ScenarioOptions {
   spendCapNotice: boolean;
   noHistory: boolean;
   feedbackFails: boolean;
+  renameFails: boolean;
+  // P2B-05: the home page card's figures per workspace ID; none means the route is a 404.
+  summaries: Record<string, Json>;
   contentRoles: string[] | null;
   contentSources: Json[];
   discover: Json;
@@ -67,6 +70,8 @@ export const DEFAULTS: ScenarioOptions = {
   spendCapNotice: false,
   noHistory: false,
   feedbackFails: false,
+  renameFails: false,
+  summaries: {},
   contentRoles: null,
   contentSources: F.CONTENT_SOURCES,
   discover: { methods: ["sign_in_link"], sso_kind: null },
@@ -91,8 +96,6 @@ const CONSENT_TEXT =
   "\n\n## 3. Your rights\n\n" +
   "Synthetic paragraph on rights and contacts. ".repeat(10);
 
-const ANSWER_DELAY_MS = 300;
-
 function sse(events: [string, unknown][]): string {
   return events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
 }
@@ -106,9 +109,15 @@ export class ScenarioApi {
   private readonly loaded = new Set<string>();
   private consented: boolean;
   private next = 100;
+  /** P2B-03: the titles the page asked to save, in order. */
+  readonly renamed: { id: string; title: string }[] = [];
+  /** P2B-05: the workspace IDs whose summary the page asked for. */
+  readonly summaryRequests: string[] = [];
 
   constructor(options: Partial<ScenarioOptions> = {}) {
     this.options = { ...DEFAULTS, ...options };
+    // A rename changes the list in place: each test gets its own copy of the shared fixture.
+    this.options.conversations = structuredClone(this.options.conversations);
     this.consented = !this.options.consentPending;
   }
 
@@ -202,9 +211,16 @@ export class ScenarioApi {
     const detail = path.match(/^\/conversations\/([^/]+)$/);
     if (detail) {
       if (method === "DELETE") return route.fulfill({ status: 204 });
+      if (method === "PATCH") return this.rename(route, detail[1]);
       const found = this.created.get(detail[1]) ?? o.conversationDetail[detail[1]];
       this.loaded.add(detail[1]);
       return found && !o.noHistory ? json(found) : json({ detail: "not_found" }, 404);
+    }
+    const summary = path.match(/^\/workspaces\/([^/]+)\/summary$/);
+    if (summary) {
+      this.summaryRequests.push(summary[1]);
+      const found = o.summaries[summary[1]];
+      return found ? json(found) : json({ detail: "not_found" }, 404);
     }
     if (/^\/workspaces\/[^/]+\/files$/.test(path)) {
       return json({
@@ -276,6 +292,24 @@ export class ScenarioApi {
     });
   }
 
+  // P2B-03: as app/api/v1.py rename_conversation: a trimmed title of 1 to 120 characters.
+  private async rename(route: Route, id: string): Promise<void> {
+    const o = this.options;
+    const { title } = route.request().postDataJSON() as { title: string };
+    if (o.renameFails) return route.fulfill({ status: 500, json: { detail: "synthetic_error" } });
+    const summary = o.conversations.find((c) => c.id === id);
+    const detail = this.created.get(id) ?? o.conversationDetail[id];
+    if (!summary && !detail) return route.fulfill({ status: 404, json: { detail: "not_found" } });
+    this.renamed.push({ id, title });
+    const kept = title.trim();
+    if (summary) summary.title = kept;
+    if (detail) detail.title = kept;
+    return route.fulfill({
+      status: 200,
+      json: { ...(summary ?? detail), messages: undefined, title: kept },
+    });
+  }
+
   private async answer(route: Route, conversationId: string): Promise<void> {
     const o = this.options;
     const target = this.created.get(conversationId) ?? o.conversationDetail[conversationId];
@@ -283,9 +317,6 @@ export class ScenarioApi {
     for (let i = 0; i < 40 && !o.noHistory && !this.loaded.has(conversationId); i++) {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
-    // A real answer takes seconds; answering at once can beat the page's handling of that
-    // load, and the page then keeps "New conversation" as the title (backlog, Oct 24).
-    await new Promise((resolve) => setTimeout(resolve, ANSWER_DELAY_MS));
     const messageId = this.id("22222222");
     let body: string;
     if (o.answerError) {

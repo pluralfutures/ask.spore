@@ -11,7 +11,13 @@ export function fileAction(file: WorkspaceFile): FileAction {
   return { kind: "none" };
 }
 
-const TYPE_LABELS: Record<string, string> = { pdf: "PDF", docx: "DOCX", pptx: "PPTX" };
+const TYPE_LABELS: Record<string, string> = {
+  pdf: "PDF",
+  docx: "DOCX",
+  pptx: "PPTX",
+  markdown: "Markdown",
+  text: "Text",
+};
 
 export function typeLabel(type: string): string {
   return TYPE_LABELS[type] ?? type.toUpperCase();

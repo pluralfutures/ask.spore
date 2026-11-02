@@ -124,7 +124,9 @@ function Sources() {
       operatorApi.setDownloadable(id, downloadable),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["operator", "sources"] }),
   });
-  const files = sources.data?.filter((s) => ["pdf", "docx", "pptx"].includes(s.type)) ?? [];
+  // P2B-06: an uploaded Markdown or text file has a stored copy, a crawled page does not.
+  const files =
+    sources.data?.filter((s) => ["pdf", "docx", "pptx"].includes(s.type) || s.stored) ?? [];
   return (
     <Card title="Downloadable files" className="text-ui">
       <SaveStatus isSuccess={toggle.isSuccess} error={toggle.error} />

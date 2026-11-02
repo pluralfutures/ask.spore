@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { ApiError, api } from "../api/client";
@@ -25,7 +25,15 @@ export interface StartState {
 // P1a-12: the conversation is created with its first question, so the panel's choice
 // stays editable until that first message and is fixed from then on. HP-01: shared by the
 // start page ("Start") and the home page ("Ask"); each page keeps its own heading.
-export function StartForm({ submitLabel }: { submitLabel: string }) {
+// P2B-05: `below` draws something under the form for the workspace the panel has selected
+// (the home page's summary card); it follows the chooser.
+export function StartForm({
+  submitLabel,
+  below,
+}: {
+  submitLabel: string;
+  below?: (workspaceId: string) => ReactNode;
+}) {
   const navigate = useNavigate();
   const workspaces = useQuery({ queryKey: ["workspaces"], queryFn: api.workspaces });
   const models = useQuery({ queryKey: ["models"], queryFn: api.models });
@@ -58,37 +66,40 @@ export function StartForm({ submitLabel }: { submitLabel: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-6">
-      {/* UX-14 (mockup 2): the question first, with a visible label, then the settings. */}
-      <Field label="Question">
-        <Textarea
-          id="first-question"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          maxLength={4000}
-          rows={5}
-          placeholder="Ask a question about this workspace's sources"
+    <>
+      <form onSubmit={submit} className="flex flex-col gap-6">
+        {/* UX-14 (mockup 2): the question first, with a visible label, then the settings. */}
+        <Field label="Question">
+          <Textarea
+            id="first-question"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            maxLength={4000}
+            rows={5}
+            placeholder="Ask a question about this workspace's sources"
+          />
+        </Field>
+        <StartPanel
+          workspaces={workspaces.data}
+          models={models.data}
+          choice={choice}
+          onChange={setEdited}
         />
-      </Field>
-      <StartPanel
-        workspaces={workspaces.data}
-        models={models.data}
-        choice={choice}
-        onChange={setEdited}
-      />
-      {create.error ? (
-        <Notice tone="danger" role="alert">
-          {refusalText(create.error instanceof ApiError ? create.error.code : null)}
-        </Notice>
-      ) : null}
-      <Button
-        variant="primary"
-        className="self-end"
-        type="submit"
-        disabled={create.isPending || !question.trim() || !choice.model}
-      >
-        {submitLabel}
-      </Button>
-    </form>
+        {create.error ? (
+          <Notice tone="danger" role="alert">
+            {refusalText(create.error instanceof ApiError ? create.error.code : null)}
+          </Notice>
+        ) : null}
+        <Button
+          variant="primary"
+          className="self-end"
+          type="submit"
+          disabled={create.isPending || !question.trim() || !choice.model}
+        >
+          {submitLabel}
+        </Button>
+      </form>
+      {choice.workspaceId && below ? below(choice.workspaceId) : null}
+    </>
   );
 }

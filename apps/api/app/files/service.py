@@ -36,11 +36,26 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.content.models import Source
-from app.content.store import STORABLE_TYPES
+from app.content.store import STORABLE_TYPES, TEXT_FILE_TYPES, is_file
 from app.files.models import Download
 from app.tenancy.workspaces import Workspace
 
 PAGE_TYPES = ("html", "markdown")
+_LISTED_TYPES = (*STORABLE_TYPES, *PAGE_TYPES, "text")
+
+
+def _is_file(source: Source) -> bool:
+    """A file (PDF, DOCX, PPTX, or an uploaded Markdown or text file) as against a crawled
+    page: an uploaded Markdown file has a stored copy, a page does not (P2B-06)."""
+    return is_file(source.type, source.stored_path)
+
+
+def _file_clause() -> Any:
+    return Source.type.in_(STORABLE_TYPES) | (
+        Source.type.in_(TEXT_FILE_TYPES) & Source.stored_path.is_not(None)
+    )
+
+
 UTC_MIDNIGHT = text("date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'")
 
 
@@ -76,7 +91,9 @@ def token_digest(token: str) -> str:
 
 def is_downloadable(source: Source) -> bool:
     """The licence gate is open and our own copy exists."""
-    return bool(source.downloadable and source.stored_path and source.type in STORABLE_TYPES)
+    return bool(
+        source.downloadable and source.stored_path and is_file(source.type, source.stored_path)
+    )
 
 
 async def _workspace_tags(session: AsyncSession, workspace_id: uuid.UUID) -> list[str]:
@@ -86,30 +103,45 @@ async def _workspace_tags(session: AsyncSession, workspace_id: uuid.UUID) -> lis
     return list(tags)
 
 
+async def require_workspace(session: AsyncSession, workspace_id: uuid.UUID) -> None:
+    """Raise ``FileRefused("not_found")`` unless the workspace is the session tenant's."""
+    await _workspace_tags(session, workspace_id)
+
+
 def _in_workspace(tags: list[str]) -> Any:
     return Source.tags.overlap(tags) & (Source.status == "ingested")
+
+
+async def _listed_sources(session: AsyncSession, workspace_id: uuid.UUID) -> list[Source]:
+    """The sources the file list shows, files and crawled pages: the one query behind both
+    the list and the home page summary, so the two cannot disagree."""
+    tags = await _workspace_tags(session, workspace_id)
+    if not tags:
+        return []
+    rows = await session.scalars(
+        select(Source)
+        .where(_in_workspace(tags), Source.type.in_(_LISTED_TYPES))
+        .order_by(Source.publisher, Source.title, Source.id)
+    )
+    return list(rows)
+
+
+def _site_of(source: Source) -> str:
+    return urlsplit(source.canonical_url or "").hostname or source.publisher
 
 
 async def workspace_files(
     session: AsyncSession, workspace_id: uuid.UUID
 ) -> tuple[list[Source], list[SiteRollup]]:
     """The workspace's files, and its crawled sites rolled up (one entry per site)."""
-    tags = await _workspace_tags(session, workspace_id)
-    if not tags:
+    rows = await _listed_sources(session, workspace_id)
+    if not rows:
         return [], []
-    rows = (
-        await session.scalars(
-            select(Source)
-            .where(_in_workspace(tags), Source.type.in_((*STORABLE_TYPES, *PAGE_TYPES)))
-            .order_by(Source.publisher, Source.title, Source.id)
-        )
-    ).all()
-    files = [s for s in rows if s.type in STORABLE_TYPES]
+    files = [s for s in rows if _is_file(s)]
     pages: dict[str, list[Source]] = defaultdict(list)
     for source in rows:
-        if source.type in PAGE_TYPES:
-            host = urlsplit(source.canonical_url or "").hostname
-            pages[host or source.publisher].append(source)
+        if not _is_file(source):
+            pages[_site_of(source)].append(source)
     sites = [
         SiteRollup(
             site=site,
@@ -122,14 +154,57 @@ async def workspace_files(
     return files, sites
 
 
+SUMMARY_KEY = "workspace_summary:"  # + workspace ID; cleared by app.core.library_events
+SUMMARY_TTL_SECONDS = 3600  # only bounds a missed clear: changes clear the entry at once
+TOP_PUBLISHERS = 3
+
+
+@dataclass(frozen=True)
+class WorkspaceSummary:
+    """Aggregates over what the file list shows (P2B-05): never a title or an excerpt."""
+
+    document_count: int
+    publisher_count: int
+    top_publishers: list[str]
+    first_year: int | None
+    last_year: int | None
+    last_updated: date | None
+
+
+async def workspace_summary(session: AsyncSession, workspace_id: uuid.UUID) -> WorkspaceSummary:
+    """What the workspace holds. A crawled site counts as one document, as on the file
+    list; a paused or withdrawn source is not counted (the list does not show it)."""
+    rows = await _listed_sources(session, workspace_id)
+    sites = {_site_of(s) for s in rows if not _is_file(s)}
+    documents = [s for s in rows if _is_file(s)]
+    # One entry per document: the files, and the first page of each site for its publisher.
+    per_publisher: dict[str, int] = defaultdict(int)
+    seen_sites: set[str] = set()
+    for source in rows:
+        if not _is_file(source):
+            site = _site_of(source)
+            if site in seen_sites:
+                continue
+            seen_sites.add(site)
+        per_publisher[source.publisher] += 1
+    years = [s.published_on.year for s in rows if s.published_on is not None]
+    top = sorted(per_publisher.items(), key=lambda item: (-item[1], item[0].casefold()))
+    return WorkspaceSummary(
+        document_count=len(documents) + len(sites),
+        publisher_count=len(per_publisher),
+        top_publishers=[name for name, _ in top[:TOP_PUBLISHERS]],
+        first_year=min(years) if years else None,
+        last_year=max(years) if years else None,
+        last_updated=max(s.created_at for s in rows).date() if rows else None,
+    )
+
+
 async def _file_in_workspace(
     session: AsyncSession, workspace_id: uuid.UUID, source_id: uuid.UUID
 ) -> Source:
     tags = await _workspace_tags(session, workspace_id)
     source = await session.scalar(
-        select(Source).where(
-            Source.id == source_id, _in_workspace(tags), Source.type.in_(STORABLE_TYPES)
-        )
+        select(Source).where(Source.id == source_id, _in_workspace(tags), _file_clause())
     )
     if source is None:
         paused = await session.scalar(
@@ -137,7 +212,7 @@ async def _file_in_workspace(
                 Source.id == source_id,
                 Source.tags.overlap(tags),
                 Source.status == "paused",
-                Source.type.in_(STORABLE_TYPES),
+                _file_clause(),
             )
         )
         raise FileRefused("not_found" if paused is None else "paused")

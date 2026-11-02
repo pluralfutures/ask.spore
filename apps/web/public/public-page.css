@@ -1,60 +1,298 @@
-/* P2A-11: the static public pages (/security-disclosure). No inline styles: the CSP allows 'self' only. */
-:root {
-  color-scheme: light dark;
-  --bg: #ffffff;
-  --fg: #1f2328;
-  --muted: #59636e;
-  --link: #0b5cad;
+/*
+ * The static public pages (/legal and its documents, /security-disclosure, later /trust):
+ * plain files outside the app, so no Tailwind and no inline style (the CSP allows 'self'
+ * only). P2B-02: the look is the app's. The values below are copied from the theme tokens in
+ * src/index.css, and src/publicPage.test.ts fails if they drift apart. The app is light only,
+ * so there is no dark scheme here.
+ */
+
+/*
+ * Lato and Poppins (SIL Open Font License 1.1, /fonts/OFL-lato.txt and /fonts/OFL-poppins.txt):
+ * copies of the app's vendored files at stable addresses, because the app's own are hashed
+ * by the build. The same file names and unicode ranges as src/index.css.
+ */
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/lato-latin-ext-400-normal.woff2") format("woff2");
+  unicode-range:
+    U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14171a;
-    --fg: #e6e8ea;
-    --muted: #a0a8b0;
-    --link: #79b8ff;
-  }
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/lato-latin-ext-400-italic.woff2") format("woff2");
+  unicode-range:
+    U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/lato-latin-ext-700-normal.woff2") format("woff2");
+  unicode-range:
+    U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/lato-latin-400-normal.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/lato-latin-400-italic.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/lato-latin-700-normal.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/poppins-latin-700-normal.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: light;
+  --font-sans:
+    "Lato", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  --font-brand:
+    "Poppins", "Lato", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f6f7f9;
+  --color-fg: #171b22;
+  --color-fg-secondary: #3b4250;
+  --color-fg-muted: #5d6573;
+  --color-primary: #2e5bba;
+  --color-link: #2e5bba;
+  --color-line: #e2e5ea;
+  --color-line-strong: #c9ced6;
+  --text-ui: 0.875rem;
+  --text-ui--line-height: 1.25rem;
+  --text-reading: 1rem;
+  --text-reading--line-height: 1.625rem;
+  --text-heading: 1.0625rem;
+  --text-heading--line-height: 1.5rem;
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.75rem;
+  --text-display: 1.75rem;
+  --text-display--line-height: 2.25rem;
+  --radius-control: 0.375rem;
+  --radius-card: 0.5rem;
+}
+
+*,
+::before,
+::after {
+  box-sizing: border-box;
 }
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font:
-    16px/1.6 system-ui,
-    -apple-system,
-    "Segoe UI",
-    sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-canvas);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: var(--text-reading);
+  line-height: var(--text-reading--line-height);
 }
-main {
-  max-width: 44rem;
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* The app's banner (AppShell): the product name, with "Mycelium" in the logo typeface. */
+.site-header {
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+.site-header .bar {
+  display: flex;
+  align-items: center;
+  min-height: 3.5rem;
+  width: 100%;
+  max-width: 70rem;
   margin: 0 auto;
-  padding: 2rem 1rem 4rem;
+  padding: 0 1rem;
+}
+.brand {
+  color: var(--color-fg);
+  font-size: var(--text-heading);
+  line-height: var(--text-heading--line-height);
+  font-weight: 700;
+  text-decoration: none;
+}
+.brand-mark {
+  font-family: var(--font-brand);
+  font-weight: 700;
+}
+.skip {
+  position: absolute;
+  left: -999px;
+  top: 0.5rem;
+}
+.skip:focus {
+  left: 1rem;
+  z-index: 30;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  font-size: var(--text-ui);
+}
+
+main {
+  flex: 1;
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+.card {
+  padding: 1.5rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
 }
 h1 {
-  font-size: 1.75rem;
-  line-height: 1.25;
+  margin: 0 0 1rem;
+  font-size: var(--text-display);
+  line-height: var(--text-display--line-height);
+  font-weight: 700;
 }
 h2 {
-  font-size: 1.2rem;
-  margin-top: 2rem;
+  margin: 2rem 0 0.5rem;
+  font-size: var(--text-heading);
+  line-height: var(--text-heading--line-height);
+  font-weight: 700;
+}
+h3 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: var(--text-reading);
+  line-height: var(--text-reading--line-height);
+  font-weight: 700;
+}
+p,
+ul,
+ol {
+  margin: 0.75rem 0;
+}
+ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+li {
+  margin-top: 0.375rem;
 }
 a {
-  color: var(--link);
+  color: var(--color-link);
+  text-underline-offset: 2px;
 }
-footer {
-  color: var(--muted);
-  font-size: 0.875rem;
-  margin-top: 3rem;
+hr {
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  margin: 1.5rem 0;
+}
+code {
+  padding: 0 0.25rem;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+  font-size: 0.9em;
+}
+
+/* A wide table scrolls inside its own region, so the page never scrolls sideways (P2B-01). */
+.table-scroll {
+  max-width: 100%;
+  margin: 1rem 0;
+  overflow-x: auto;
 }
 table {
-  border-collapse: collapse;
   width: 100%;
-  margin: 1rem 0;
-  font-size: 0.9375rem;
+  border-collapse: collapse;
+  font-size: var(--text-ui);
+  line-height: var(--text-ui--line-height);
 }
 th,
 td {
-  border: 1px solid var(--muted);
-  padding: 0.4rem 0.6rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-line);
   text-align: left;
   vertical-align: top;
+}
+th {
+  background: var(--color-surface-subtle);
+  font-weight: 700;
+}
+
+/* The app's footer (AppFooter). */
+.site-footer {
+  border-top: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+.site-footer nav {
+  display: flex;
+  align-items: center;
+  min-height: 2.5rem;
+  width: 100%;
+  max-width: 70rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+.site-footer a {
+  color: var(--color-fg-muted);
+  font-size: var(--text-ui);
+}
+.site-footer a:hover {
+  color: var(--color-fg);
+}
+
+@media (min-width: 48rem) {
+  .site-header .bar,
+  .site-footer nav {
+    padding: 0 2rem;
+  }
+  .card {
+    padding: 2rem;
+  }
+}
+
+main footer {
+  color: var(--color-fg-muted);
+  font-size: var(--text-ui);
+  margin-top: 2rem;
 }

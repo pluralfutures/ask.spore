@@ -273,6 +273,15 @@ export function importCounts(upload: SiteUpload): string {
   );
 }
 
+/** The release button: it names the withdrawals of a full upload, the one release that
+ * removes pages, and only when there are any. */
+export function releaseLabel(siteStatus: string, withdraws: number | null | undefined): string {
+  const approves = siteStatus === "proposed";
+  if (!withdraws) return approves ? "Approve site and release" : "Release";
+  const pages = `${withdraws} page${withdraws === 1 ? "" : "s"}`;
+  return approves ? `Approve site, release and withdraw ${pages}` : `Release and withdraw ${pages}`;
+}
+
 /** A reviewer's release (D7): the report read again from the staged ZIP, then one click;
  * on a proposed site the release approves the site too. */
 export function ReleaseUpload({ site, upload }: { site: ContentSiteDetail; upload: SiteUpload }) {
@@ -308,8 +317,7 @@ export function ReleaseUpload({ site, upload }: { site: ContentSiteDetail; uploa
           onClick={() => release.mutate()}
           disabled={release.isPending || !report.data}
         >
-          {site.status === "proposed" ? "Approve site and release" : "Release"}
-          {withdraws !== undefined && withdraws !== null ? ` (withdraws ${withdraws})` : ""}
+          {releaseLabel(site.status, withdraws)}
         </Button>
         <Button
           variant="secondary"

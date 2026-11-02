@@ -68,7 +68,7 @@ Built and tested on the Instance's host against a throwaway PostgreSQL 16.15 con
 | Spec says | Built |
 | --- | --- |
 | Full and partial | The code is in the P2SR01-03 commit (one import function); the P2SR01-04 commit is its tests. `full` passes every live page absent from the ZIP to the crawler's own `apply` as a `missing` visit (`not_in_upload`), then the crawler's sweep withdraws, holding back what a pending supersession needs and honouring `_held` as for a crawl. A removed page keeps its last fetch date |
-| The count before release | Computed at staging (returned to the editor) and again each time the reviewer's report is read; shown on the release button ("Release (withdraws N)"). The release does not re-check that the number is unchanged; backlog |
+| The count before release | Computed at staging (returned to the editor) and again each time the reviewer's report is read; shown on the release button, only when it is above zero ("Release and withdraw N pages"; it was "Release (withdraws N)" until the owner's copy review of Nov 2, 2026). The release does not re-check that the number is unchanged; backlog |
 | An unchanged member | Not re-parsed; its page's fetch date moves to the new crawl date (D9) |
 
 ### P2SR01-05 Console, CLI and the tenant-facing path

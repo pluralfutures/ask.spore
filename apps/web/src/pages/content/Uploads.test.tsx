@@ -9,7 +9,13 @@ import type { ContentSite, ContentSiteDetail, SiteUpload, UploadReport } from ".
 import { declarationText, emptyUpload, errorMessage, uploadForm } from "../../lib/content";
 import { SiteSummary } from "./SiteDetail";
 import { SiteTable, lastCrawl } from "./Sites";
-import { ReleaseUpload, SiteUploads, UploadReportView, importCounts } from "./Uploads";
+import {
+  ReleaseUpload,
+  SiteUploads,
+  UploadReportView,
+  importCounts,
+  releaseLabel,
+} from "./Uploads";
 
 // P2SR01-05: uploaded crawls in the content console. Synthetic rows only (CLAUDE.md).
 const ID = "55555555-5555-4555-8555-555555555555";
@@ -173,6 +179,16 @@ describe("uploaded crawls", () => {
     const one = render(<ReleaseUpload site={staged} upload={staged.uploads[0]!} />);
     expect(one).toContain("Approve site and release");
     expect(one).toMatch(/<button[^>]*disabled=""[^>]*>Reject/); // a note is required
+  });
+
+  it("names a full upload's withdrawals on the release button, only when there are any", () => {
+    expect(releaseLabel("approved", null)).toBe("Release");
+    expect(releaseLabel("approved", undefined)).toBe("Release");
+    expect(releaseLabel("approved", 0)).toBe("Release");
+    expect(releaseLabel("approved", 1)).toBe("Release and withdraw 1 page");
+    expect(releaseLabel("approved", 4)).toBe("Release and withdraw 4 pages");
+    expect(releaseLabel("proposed", null)).toBe("Approve site and release");
+    expect(releaseLabel("proposed", 2)).toBe("Approve site, release and withdraw 2 pages");
   });
 
   it("shows the report: outcomes, notes and the full upload's withdrawals", () => {

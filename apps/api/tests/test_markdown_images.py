@@ -45,6 +45,17 @@ def test_an_image_keeps_its_alt_text_and_links_are_untouched() -> None:
     )
 
 
+def test_an_escaped_image_tag_leaves_no_stray_backslash() -> None:
+    """The extractor escapes an ``<img …>`` written as page text; the escape goes with it."""
+    page = 'Before \\<img src="https://img.example.org/a.png"> after.'
+    assert strip_image_references(page) == "Before  after."
+
+
+def test_a_backslash_elsewhere_is_kept() -> None:
+    page = r"A path C:\reports and an escaped \*star\*."
+    assert strip_image_references(page) == page
+
+
 def test_a_page_without_images_is_unchanged() -> None:
     page = "# Synthetic\n\nSynthetic exclamation! [x](https://example.org/)\n\n[1]: https://example.org/\n"
     assert strip_image_references(page) == page
@@ -64,6 +75,22 @@ def test_the_crawler_renders_pages_without_image_references() -> None:
     _, markdown = rendered
     assert not IMAGE_REFERENCE.search(markdown)
     assert "b.png" not in markdown  # the <img> tag is gone (the extractor drops it)
+
+
+def test_the_crawler_leaves_no_backslash_where_an_image_tag_was_written_as_text() -> None:
+    html = (
+        b"<html><head><title>Synthetic page</title></head><body><article>"
+        b"<h1>Synthetic heading</h1><p>Synthetic paragraph about a report, long enough to be "
+        b"readable content for the extractor to keep as the main text of this page.</p>"
+        b'<p>Before &lt;img src="https://img.example.org/c.png"&gt; after, in a synthetic '
+        b"sentence that is long enough to stay in the extracted text.</p>"
+        b"</article></body></html>"
+    )
+    rendered = render(html, "https://site.example/page")
+    assert rendered is not None
+    _, markdown = rendered
+    assert not IMAGE_REFERENCE.search(markdown)
+    assert "Before" in markdown and "\\" not in markdown
 
 
 def _fetched(body: bytes) -> Fetched:

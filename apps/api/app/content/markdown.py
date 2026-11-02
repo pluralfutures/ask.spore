@@ -12,7 +12,8 @@ import re
 IMAGE_REFERENCE = re.compile(r"!\[[^\]]*\][(\[]|\bsrc\s*=|<img\b", re.IGNORECASE)
 _IMAGE_INLINE = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
 _IMAGE_BY_REFERENCE = re.compile(r"!\[([^\]]*)\]\[[^\]]*\]")
-_IMG_TAG = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+# With its escape, if any: the extractor writes an `<img …>` typed as page text as `\<img …>`.
+_IMG_TAG = re.compile(r"\\?<img\b[^>]*>", re.IGNORECASE)
 
 
 def strip_image_references(markdown: str) -> str:

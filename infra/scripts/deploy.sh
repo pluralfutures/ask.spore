@@ -28,17 +28,25 @@
 #      password in any .env stops the deploy, key names only)
 #   7. build every image we build: migrate, api, worker, web-build (Phase 1b F1)
 #   8. the three Authentik services; migrations (`run --rm migrate`) and the Alembic head
-#   9. RAGFlow with its embedding service (the Compose dependency, Phase 1b F3) and Caddy;
-#      api and worker recreated so their startup lines are fresh
-#  10. checks: /healthz (loopback, and the public host if given), auth/mode, ragflow-tei
-#      running, the worker's startup line and no `worker.mail_not_configured` since the
-#      start, RAGFlow's dataset counts equal to those before
+#   9. RAGFlow with its embedding service (the Compose dependency, Phase 1b F3), its loopback
+#      web UI proxy and Caddy; api and worker recreated so their startup lines are fresh.
+#      A network whose settings changed (P2B-06: `ragflow` became internal) is first
+#      recreated with every service on it, which Compose cannot do on its own here
+#  10. checks: /healthz (loopback, and the public host if given), auth/mode, ragflow-tei,
+#      ragflow and ragflow-ui running, ragflow healthy, the worker's startup line and no
+#      `worker.mail_not_configured` since the start, RAGFlow's dataset counts equal to those
+#      before
 #  11. a metadata-only summary: no secret, address, query or document text is printed.
 #
 # Secrets stay in .env and infra/*/.env; this script never prints them (`config --quiet`
 # only, no environment dumps).
 
 set -Eeuo pipefail
+
+# The rest of the script is one compound command, so bash reads all of it before running
+# any: step 1 checks out another commit, and bash would otherwise go on reading the new
+# file at the old offset (a deploy that changes this script would run a mix of the two).
+{
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="$ROOT/infra/compose.dev.yml"
@@ -49,7 +57,7 @@ EXPECT_AUTH_MODE="oidc"
 TIMEOUT=300
 DRY_RUN=0
 
-usage() { sed -n '2,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,39p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 fail() { printf 'deploy: FAILED at %s: %s\n' "$STEP" "$1" >&2; exit 1; }
 step() { STEP="$1"; printf '\n== %s\n' "$1"; }
 STEP="arguments"
@@ -176,11 +184,91 @@ HEAD_REVISION="$(compose run --rm migrate alembic current 2>/dev/null |
 [ -n "$HEAD_REVISION" ] || fail "the database is not at the Alembic head"
 printf 'alembic head: %s\n' "$HEAD_REVISION"
 
-step "9. RAGFlow (with ragflow-tei), api, worker, Caddy"
+# The services step 9 starts; ragflow-ui only where the file has it (a commit from before
+# P2B-06 published the web UI from ragflow itself).
+UP_SERVICES=(ragflow caddy api worker)
+HAS_RAGFLOW_UI=0
+if grep -qx ragflow-ui <<<"$(compose_all config --services)"; then
+  HAS_RAGFLOW_UI=1
+  UP_SERVICES+=(ragflow-ui)
+fi
+
+# Networks Compose would remove and create again for step 9 because a setting changed
+# (P2B-06: `ragflow` became internal), one full name per line: from Compose's own dry run,
+# and, should its wording change, any network whose `internal` differs from the file.
+changed_networks() {
+  local plan name internal
+  plan="$(compose --profile public --dry-run up -d "${UP_SERVICES[@]}" 2>&1)" ||
+    fail "docker compose up --dry-run"
+  {
+    sed -nE 's/^ *Network ([^ ]+) Removing *$/\1/p' <<<"$plan"
+    while read -r name internal; do
+      docker network inspect "$name" >/dev/null 2>&1 || continue
+      [ "$(docker network inspect -f '{{.Internal}}' "$name")" = "$internal" ] || echo "$name"
+    done < <(compose --profile public config --format json | python3 -c '
+import json, sys
+for net in json.load(sys.stdin).get("networks", {}).values():
+    if not net.get("external"):
+        print(net["name"], "true" if net.get("internal") else "false")
+')
+  } | sort -u
+}
+
+# The services the file attaches to network $1 (its full name), one per line.
+services_on_network() {
+  compose --profile public config --format json | python3 -c '
+import json, sys
+config, name = json.load(sys.stdin), sys.argv[1]
+keys = {key for key, net in config.get("networks", {}).items() if net.get("name") == name}
+for service, spec in config["services"].items():
+    if keys & set(spec.get("networks") or {}):
+        print(service)
+' "$1"
+}
+
+# Compose cannot apply a changed network setting by itself here (findings 2B §3): it stops
+# only the services it was asked for, then fails to remove the network while other
+# containers are still on it, leaving those stopped; and containers it re-attaches
+# unchanged lose their service names, so RAGFlow could not find its stores. So: take every
+# other container off the network (api and worker, recreated next anyway; a container
+# whose service the file no longer has is removed, for example ragflow-ui when deploying
+# a commit from before it), then recreate every service on it at once.
+recreate_network() {
+  local network="$1" container service project all
+  local -a tier=()
+  mapfile -t tier < <(services_on_network "$network" | grep -vx -e api -e worker || true)
+  [ "${#tier[@]}" -gt 0 ] || fail "no service in the compose file joins $network"
+  all="$(compose_all config --services)"
+  for container in $(docker network inspect -f '{{range .Containers}}{{.Name}} {{end}}' "$network"); do
+    project="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$container")"
+    service="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$container")"
+    [ "$project" = "$PROJECT" ] || fail "$container, not in this Compose project, is on $network"
+    printf '%s\n' "${tier[@]}" | grep -qxF "$service" && continue
+    if grep -qxF "$service" <<<"$all"; then
+      docker network disconnect "$network" "$container" >/dev/null ||
+        fail "could not take $service off $network"
+      printf '%s: %s taken off (recreated below)\n' "$network" "$service"
+    else
+      docker rm -f "$container" >/dev/null || fail "could not remove $service"
+      printf '%s: %s removed (no longer in the compose file)\n' "$network" "$service"
+    fi
+  done
+  printf '%s: recreating %s\n' "$network" "${tier[*]}"
+  compose --profile public up -d --force-recreate "${tier[@]}" ||
+    fail "recreating the services on $network (recovery: up -d --force-recreate $(printf '%s ' "${tier[@]}"))"
+}
+
+step "9. RAGFlow (with ragflow-tei and ragflow-ui), api, worker, Caddy"
+PROJECT="$(compose config --format json | python3 -c 'import json, sys; print(json.load(sys.stdin)["name"])')"
+NETWORKS_RECREATED="$(changed_networks)"
+for network in $NETWORKS_RECREATED; do
+  recreate_network "$network"
+done
 # api and worker are recreated even when nothing changed, so the startup lines checked
 # below are fresh (a re-run of the same commit after a failed check would otherwise find
 # no new "worker.started" line).
 compose --profile public up -d ragflow caddy || fail "docker compose up"
+[ "$HAS_RAGFLOW_UI" = 0 ] || compose --profile public up -d ragflow-ui || fail "docker compose up (ragflow-ui)"
 compose --profile public up -d --force-recreate api worker || fail "docker compose up (api, worker)"
 
 step "10. checks"
@@ -204,6 +292,14 @@ AUTH_MODE="$(curl -fsS "$API_URL/api/v1/auth/mode" |
 RUNNING="$(running)"
 grep -qx ragflow-tei <<<"$RUNNING" || fail "ragflow-tei (the embedding service) is not running"
 grep -qx ragflow <<<"$RUNNING" || fail "ragflow is not running"
+# A recreated RAGFlow takes about three minutes to answer; the counts below need it.
+deadline=$((SECONDS + TIMEOUT))
+until [ "$(docker inspect -f '{{.State.Health.Status}}' "$(compose ps -q ragflow)")" = healthy ]; do
+  [ "$SECONDS" -lt "$deadline" ] || fail "ragflow was not healthy within ${TIMEOUT}s"
+  sleep 5
+done
+[ "$HAS_RAGFLOW_UI" = 0 ] || grep -qx ragflow-ui <<<"$RUNNING" ||
+  fail "ragflow-ui (the web UI proxy) is not running"
 deadline=$((SECONDS + 60))
 until grep -q '"event":"worker.started"' <<<"$(since_start worker)"; do
   [ "$SECONDS" -lt "$deadline" ] || fail "no worker.started line from the worker"
@@ -232,8 +328,12 @@ printf 'healthz (loopback):  %s\n' "$HEALTH"
 printf 'healthz (public):    %s\n' "$PUBLIC_HEALTH"
 printf 'auth mode:           %s\n' "$AUTH_MODE"
 printf 'ragflow-tei:         running\n'
+NETWORKS_RECREATED="${NETWORKS_RECREATED:-none}"
+printf 'networks recreated:  %s\n' "${NETWORKS_RECREATED//$'\n'/ }"
 printf 'worker:              started; mail warnings: %s\n' "$MAIL_WARNINGS"
 printf 'datasets:            %s, %s\n' "$DATASETS" "$COUNTS"
 sed 's/^/  /' "$WORK/counts.after"
 printf 'started at:          %s\n' "$STARTED"
 printf '\ndeploy: done\n'
+exit
+}

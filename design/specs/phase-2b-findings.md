@@ -235,6 +235,48 @@ listing found nothing left.
    to step 9, or a `deploy.sh` change that does the sequence when the network differs. Not
    changed here.
 
+   **Owner decision, Nov 2, 2026: the `deploy.sh` change.** Done in §3.1 below; the manual
+   sequence in Check 2 stays as the fallback and as the recovery.
+
+### 3.1 `deploy.sh` applies a changed network itself
+
+- **Detection.** Before step 9 starts anything, the script asks Compose for a dry run of the
+  same `up` and collects every network it says it would remove (`Network … Removing`). As a
+  second check, should that wording change, it also counts any network whose `internal`
+  flag differs from the file. Nothing found: step 9 is as before, and no RAGFlow container
+  restarts.
+- **Recreation**, per changed network: every container of this project on it that is not a
+  service of the file on that network is taken off it (`api`, `worker`; recreated at the
+  end of step 9 anyway), or removed if its service is no longer in the file (`ragflow-ui`
+  when deploying a commit from before P2B-06). A container from another Compose project on
+  the network stops the deploy. Then every service on the network is recreated in one
+  `up -d --force-recreate`, so the network is free to be replaced and every container joins
+  it with its service name.
+- **Step 9** also starts `ragflow-ui` when the file has it, and step 10 checks it runs and
+  waits for `ragflow` to be healthy before counting datasets (a recreated RAGFlow takes
+  about three minutes to answer).
+- **The script is read whole before it runs.** Step 1 checks out the commit being deployed,
+  which rewrites `deploy.sh` on disk, and bash reads a script as it goes: a deploy that
+  changes the script ran the rest of it from the new file at the old offset (reproduced).
+  The body is now one `{ … }` block. The first deploy of this change still starts from
+  `main`'s copy of the script, so run `git pull --ff-only` in `/root/ask.spore` first;
+  `deploy.sh` then finds `main` already at `origin/main`.
+
+Rehearsed Nov 2 in a scratch project (`p2bdeploy`) with the script's step 9 run verbatim,
+starting from `main`'s compose files with `sample-reports` holding one synthetic PDF
+(5 chunks):
+
+| Run | Result |
+|---|---|
+| Forward (to this branch) | api and worker taken off; `ragflow ragflow-es ragflow-minio ragflow-mysql ragflow-redis ragflow-tei ragflow-ui` recreated. Step 9 exit 0 at 98 s; RAGFlow healthy at 180 s with 0 restarts; API `/healthz` down 22 s. After: network internal, egress `curl` exit 6, counts 1 document / 5 chunks, UI 200 on the loopback port |
+| Again, nothing changed | "networks recreated: none"; RAGFlow not restarted; only api and worker recreated (18 s) |
+| Rollback (`main`'s files, new script) | `ragflow-ui` removed, the tier recreated. Exit 0 at 100 s; RAGFlow healthy at 183 s, 0 restarts; API down 23 s; network not internal; counts unchanged; the UI port served by `ragflow` again. The empty `ragflow-ui` network stays behind (harmless) |
+
+`tests/test_deploy.py` covers the order (off the network, tier, plain `up`, `ragflow-ui`,
+api and worker), the `internal`-only trigger, the unchanged case, the rollback and the
+foreign-container refusal with a stand-in `docker`, and the read-whole fix (it fails on
+`main`'s script).
+
 ### Check 1: RAGFlow has no route out
 
 | | Result | Evidence |

@@ -4,9 +4,10 @@
 # (docker/docker-compose.yml + docker/docker-compose-base.yml). Differences from
 # upstream are deliberate and listed in ./README.md; re-apply them when upgrading.
 #
-# No service publishes a port to the host except the RAGFlow web UI, which binds
-# to 127.0.0.1 for the content editor's spot checks. Everything else, including
-# the RAGFlow HTTP API on 9380, is reachable only on the `ragflow` Compose network.
+# No service publishes a port to the host except `ragflow-ui`, a proxy to the RAGFlow web
+# UI on 127.0.0.1 for the content editor's spot checks. Everything else, including the
+# RAGFlow HTTP API on 9380, is reachable only on the `ragflow` Compose network, which is
+# internal (no route to the internet; P2B-06).
 
 services:
   ragflow-es:

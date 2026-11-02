@@ -62,11 +62,20 @@ It does what the Phase 1b release did by hand (findings 1b §8 sections 0 and
 6. builds `migrate`, `api`, `worker` and `web-build` (F1: `migrate` has its own image);
 7. starts the three Authentik services only, then `run --rm migrate` and reads the
    Alembic head;
-8. `--profile public up -d ragflow api worker caddy` (RAGFlow pulls in `ragflow-tei`, F3);
+8. `--profile public up -d ragflow caddy`, then `ragflow-ui`, then `--force-recreate api
+   worker` (RAGFlow pulls in `ragflow-tei`, F3). When a network's settings changed (Compose's
+   own dry run says it would recreate it, or its `internal` flag differs from the file), the
+   script first takes every other container of the project off that network (api and worker;
+   a container whose service the file no longer has is removed) and recreates every service
+   on it in one `up --force-recreate`. Compose cannot do this alone: it fails on the attached
+   containers and leaves the tier stopped, and re-attached containers lose their names
+   (Phase 2B findings §3). Expect about three minutes without answers and the API down for
+   about 20 seconds; a deploy that changes nothing restarts no RAGFlow container;
 9. checks `/healthz` (loopback, and the public host over TLS), `auth/mode` (`oidc` unless
-   `--expect-auth-mode` says otherwise), that `ragflow-tei` and `ragflow` run, the
-   worker's `worker.started` line and no `worker.mail_not_configured` since the start (F2),
-   and that the dataset counts equal those of step 5;
+   `--expect-auth-mode` says otherwise), that `ragflow-tei`, `ragflow` and `ragflow-ui` run
+   and `ragflow` is healthy, the worker's `worker.started` line and no
+   `worker.mail_not_configured` since the start (F2), and that the dataset counts equal
+   those of step 5;
 10. prints a summary: commit, deploy version, Alembic head, the checks and the counts per
     tag. No secret, address, query or document text is printed (`config --quiet` only).
 

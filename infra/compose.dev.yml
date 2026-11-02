@@ -10,8 +10,8 @@
 #   # one public host with TLS (Phase 1a release): docker compose ... up -d caddy
 #
 # Host ports bind to 127.0.0.1 only, except Caddy's 80 and 443 (profile `public`).
-# RAGFlow publishes only its web UI; the API
-# reaches RAGFlow's HTTP API over the `ragflow` network.
+# RAGFlow publishes nothing: its web UI is on loopback through the `ragflow-ui` proxy, and
+# the API reaches RAGFlow's HTTP API over the internal `ragflow` network.
 
 name: ask-spore-dev
 

@@ -11,7 +11,7 @@ COPY src ./src
 COPY public ./public
 RUN pnpm build
 
-FROM busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+FROM busybox:1.37.0@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
 COPY --from=build /srv/web/dist /dist
 # Replace the volume's contents so files from an earlier build do not linger.
 CMD ["sh", "-c", "find /out -mindepth 1 -delete && cp -a /dist/. /out/"]

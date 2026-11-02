@@ -1,10 +1,10 @@
 """The job queue (P1b-02): ``jobs`` rows run by ``ask-spore worker``.
 
-Mirrors alembic revisions 0014, 0030 (``send_mail``, P1b-11) and 0040
-(``purge_retention``, P1b-14); the migrations are authoritative. Operator-owned and
-shared, outside tenant RLS: a payload carries identifiers and settings only (a check
-constraint allows a fixed set of keys), and an outcome is ``status`` and ``error_code``
-only, never an error text.
+Mirrors alembic revisions 0014, 0030 (``send_mail``, P1b-11), 0040
+(``purge_retention``, P1b-14) and 0080 (``import_crawl``, P2SR01-01); the migrations are
+authoritative. Operator-owned and shared, outside tenant RLS: a payload carries
+identifiers and settings only (a check constraint allows a fixed set of keys), and an
+outcome is ``status`` and ``error_code`` only, never an error text.
 
 - ``enqueue`` adds a job inside the caller's transaction, so an approval and its job
   commit together; a second enqueue for the same subject while one is queued or
@@ -43,13 +43,16 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 
-JobType = Literal["ingest_source", "withdraw_source", "crawl_site", "send_mail", "purge_retention"]
+JobType = Literal[
+    "ingest_source", "withdraw_source", "crawl_site", "send_mail", "purge_retention", "import_crawl"
+]
 JOB_TYPES: Final[tuple[JobType, ...]] = (
     "ingest_source",
     "withdraw_source",
     "crawl_site",
     "send_mail",
     "purge_retention",
+    "import_crawl",
 )
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 FINISHED: Final = frozenset({"succeeded", "failed"})
@@ -57,9 +60,19 @@ PAYLOAD_KEYS: Final = frozenset(
     {"source_id", "site_id", "add_tags", "downloadable", "parse_timeout"}
     # send_mail (P1b-11): the template and who it is for, identifiers only.
     | {"template", "tenant_id", "user_id", "notice_id"}
+    # import_crawl (P2SR01-01): the upload, its identifier only.
+    | {"upload_id"}
 )
-# What the one-active-job-per-subject index compares besides the type (revision 0030).
-SUBJECT_KEYS: Final = ("source_id", "site_id", "template", "tenant_id", "user_id", "notice_id")
+# What the one-active-job-per-subject index compares besides the type (revisions 0030, 0080).
+SUBJECT_KEYS: Final = (
+    "source_id",
+    "site_id",
+    "template",
+    "tenant_id",
+    "user_id",
+    "notice_id",
+    "upload_id",
+)
 DEFAULT_MAX_ATTEMPTS: Final = 3
 LEASE_SECONDS: Final = 300
 BACKOFF_BASE_SECONDS: Final = 60
@@ -87,6 +100,7 @@ class Job(Base):
             text("(payload->>'tenant_id')"),
             text("(payload->>'user_id')"),
             text("(payload->>'notice_id')"),
+            text("(payload->>'upload_id')"),
             unique=True,
             postgresql_nulls_not_distinct=True,
             postgresql_where=text("status IN ('queued', 'running')"),

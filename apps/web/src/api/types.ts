@@ -86,6 +86,10 @@ export type ContentSiteDetail = Schemas["SiteDetail"];
 export type SitePage = Schemas["SitePageOut"];
 export type SiteCreateIn = Schemas["SiteCreateIn"];
 export type SiteSettingsIn = Schemas["SiteSettingsIn"];
+// P2SR01: uploaded crawls.
+export type UploadReport = Schemas["UploadReportOut"];
+export type UploadMember = Schemas["UploadMemberOut"];
+export type SiteUpload = Schemas["SiteUploadOut"];
 export type ContentTag = Schemas["TagOut"];
 export type TagSync = Schemas["TagSyncOut"];
 // Operator console, one tenant per page (P1b-12).

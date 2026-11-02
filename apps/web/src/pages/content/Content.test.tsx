@@ -319,6 +319,8 @@ describe("sites", () => {
     next_crawl_at: "2026-10-28T10:00:00Z",
     page_count: 0,
     blocked_count: 2,
+    origin: "crawl",
+    last_crawled_on: null,
   };
 
   it("lists sites with their allow decision, last crawl and blocked count", () => {
@@ -342,6 +344,7 @@ describe("sites", () => {
       withdrawal_reason: null,
       pages: [],
       jobs: [],
+      uploads: [],
     };
     expect(render(<SiteSummary site={full} />)).toContain(
       "crawl /reports/*; never /reports/draft-*",
@@ -456,6 +459,7 @@ describe("sites", () => {
       next_crawl_at: null,
       pages: [],
       jobs: [],
+      uploads: [],
     };
     const html = render(<SiteSummary site={reinstated} />);
     expect(html).toContain('data-testid="site-reinstated"');

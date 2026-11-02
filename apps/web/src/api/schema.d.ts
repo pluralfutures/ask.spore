@@ -471,6 +471,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/content/sites/uploads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Upload Crawl New Site
+     * @description An editor registers an upload site (``proposed``) and stages its first ZIP in one
+     *     transaction; a reviewer's release approves the site and imports the pages.
+     */
+    post: operations["upload_crawl_new_site_api_v1_content_sites_uploads_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/content/sites/{site_id}": {
     parameters: {
       query?: never;
@@ -591,6 +612,85 @@ export interface paths {
     get?: never;
     /** Site Whitelist */
     put: operations["site_whitelist_api_v1_content_sites__site_id__special_category_allow_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}/uploads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Upload Crawl
+     * @description An editor stages a ZIP for an upload site, for a reviewer to release.
+     */
+    post: operations["upload_crawl_api_v1_content_sites__site_id__uploads_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}/uploads/{upload_id}/reject": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reject Upload */
+    post: operations["reject_upload_api_v1_content_sites__site_id__uploads__upload_id__reject_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}/uploads/{upload_id}/release": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Release Upload
+     * @description A reviewer releases a staged upload (D7); on a proposed site this approves the
+     *     site too. The worker imports the pages.
+     */
+    post: operations["release_upload_api_v1_content_sites__site_id__uploads__upload_id__release_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/content/sites/{site_id}/uploads/{upload_id}/report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Upload Report
+     * @description A staged upload's inspection report again (member names, URLs, titles and
+     *     outcomes), read from the staged ZIP for the reviewer's release (D7); never stored.
+     */
+    get: operations["upload_report_api_v1_content_sites__site_id__uploads__upload_id__report_get"];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -1805,6 +1905,58 @@ export interface components {
       /** Url */
       url?: string | null;
     };
+    /** Body_upload_crawl_api_v1_content_sites__site_id__uploads_post */
+    Body_upload_crawl_api_v1_content_sites__site_id__uploads_post: {
+      /**
+       * Crawled On
+       * Format: date
+       */
+      crawled_on: string;
+      /**
+       * Declared Robots Honoured
+       * @default false
+       */
+      declared_robots_honoured: boolean;
+      /** File */
+      file: string;
+      /**
+       * Mode
+       * @default partial
+       * @enum {string}
+       */
+      mode: "full" | "partial";
+    };
+    /** Body_upload_crawl_new_site_api_v1_content_sites_uploads_post */
+    Body_upload_crawl_new_site_api_v1_content_sites_uploads_post: {
+      /**
+       * Crawled On
+       * Format: date
+       */
+      crawled_on: string;
+      /**
+       * Declared Robots Honoured
+       * @default false
+       */
+      declared_robots_honoured: boolean;
+      /** File */
+      file: string;
+      /** Licence Basis */
+      licence_basis: string;
+      /**
+       * Mode
+       * @default partial
+       * @enum {string}
+       */
+      mode: "full" | "partial";
+      /** Name */
+      name: string;
+      /** Publisher */
+      publisher: string;
+      /** Start Url */
+      start_url: string;
+      /** Tags */
+      tags: string[];
+    };
     /**
      * ChatStreamEvents
      * @description Documentation-only: the data payload of each SSE event name.
@@ -2898,6 +3050,8 @@ export interface components {
       last_crawl_at: string | null;
       /** Last Crawl Status */
       last_crawl_status: string | null;
+      /** Last Crawled On */
+      last_crawled_on: string | null;
       /** Licence Basis */
       licence_basis: string;
       /** Max Pages */
@@ -2906,6 +3060,8 @@ export interface components {
       name: string;
       /** Next Crawl At */
       next_crawl_at: string | null;
+      /** Origin */
+      origin: string;
       /** Page Count */
       page_count: number;
       /** Pages */
@@ -2926,6 +3082,8 @@ export interface components {
       status: string;
       /** Tags */
       tags: string[];
+      /** Uploads */
+      uploads: components["schemas"]["SiteUploadOut"][];
       /** Withdrawal Reason */
       withdrawal_reason: string | null;
       /** Withdrawn At */
@@ -2950,6 +3108,8 @@ export interface components {
       last_crawl_at: string | null;
       /** Last Crawl Status */
       last_crawl_status: string | null;
+      /** Last Crawled On */
+      last_crawled_on: string | null;
       /** Licence Basis */
       licence_basis: string;
       /** Max Pages */
@@ -2958,6 +3118,8 @@ export interface components {
       name: string;
       /** Next Crawl At */
       next_crawl_at: string | null;
+      /** Origin */
+      origin: string;
       /** Page Count */
       page_count: number;
       /** Publisher */
@@ -3012,6 +3174,59 @@ export interface components {
        * @enum {string}
        */
       schedule: "none" | "weekly" | "monthly";
+    };
+    /**
+     * SiteUploadOut
+     * @description An upload's record: counts and codes only.
+     */
+    SiteUploadOut: {
+      /** Accepted Count */
+      accepted_count: number;
+      /** Blocked Count */
+      blocked_count: number;
+      /** Changed Count */
+      changed_count: number;
+      /**
+       * Crawled On
+       * Format: date
+       */
+      crawled_on: string;
+      /** Error */
+      error: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Member Count */
+      member_count: number;
+      /** Mode */
+      mode: string;
+      /** New Count */
+      new_count: number;
+      /** Refused Count */
+      refused_count: number;
+      /** Released At */
+      released_at: string | null;
+      /** Released By */
+      released_by: string | null;
+      /** Review Note */
+      review_note: string | null;
+      /** Skipped Count */
+      skipped_count: number;
+      /** Status */
+      status: string;
+      /** Unchanged Count */
+      unchanged_count: number;
+      /**
+       * Uploaded At
+       * Format: date-time
+       */
+      uploaded_at: string;
+      /** Uploaded By */
+      uploaded_by: string | null;
+      /** Withdrawn Count */
+      withdrawn_count: number;
     };
     /**
      * SiteWithdrawnOut
@@ -3428,6 +3643,61 @@ export interface components {
     TokenData: {
       /** Text */
       text: string;
+    };
+    /**
+     * UploadMemberOut
+     * @description One member of an uploaded ZIP as the inspection judged it (P2SR01-02). Its name,
+     *     URL and title are shown on the editor's or reviewer's screen only, never stored.
+     */
+    UploadMemberOut: {
+      /** Index */
+      index: number;
+      /** Name */
+      name: string;
+      /** Note */
+      note: string | null;
+      /** Outcome */
+      outcome: string;
+      /** Published On */
+      published_on: string | null;
+      /** Special Category */
+      special_category: string | null;
+      /** Title */
+      title: string | null;
+      /** Url */
+      url: string | null;
+    };
+    /** UploadReportOut */
+    UploadReportOut: {
+      /** Accepted */
+      accepted: number;
+      /**
+       * Crawled On
+       * Format: date
+       */
+      crawled_on: string;
+      /** Members */
+      members: components["schemas"]["UploadMemberOut"][];
+      /** Mode */
+      mode: string;
+      /** Refused */
+      refused: number;
+      /**
+       * Site Id
+       * Format: uuid
+       */
+      site_id: string;
+      /** Skipped */
+      skipped: number;
+      /** Status */
+      status: string;
+      /**
+       * Upload Id
+       * Format: uuid
+       */
+      upload_id: string;
+      /** Would Withdraw */
+      would_withdraw: number | null;
     };
     /**
      * UsageActiveUsersOut
@@ -4461,6 +4731,39 @@ export interface operations {
       };
     };
   };
+  upload_crawl_new_site_api_v1_content_sites_uploads_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_upload_crawl_new_site_api_v1_content_sites_uploads_post"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadReportOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   site_detail_api_v1_content_sites__site_id__get: {
     parameters: {
       query?: never;
@@ -4680,6 +4983,143 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  upload_crawl_api_v1_content_sites__site_id__uploads_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_upload_crawl_api_v1_content_sites__site_id__uploads_post"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadReportOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reject_upload_api_v1_content_sites__site_id__uploads__upload_id__reject_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+        upload_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NoteIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  release_upload_api_v1_content_sites__site_id__uploads__upload_id__release_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+        upload_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SiteApproveIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobQueuedOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  upload_report_api_v1_content_sites__site_id__uploads__upload_id__report_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        site_id: string;
+        upload_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadReportOut"];
+        };
       };
       /** @description Validation Error */
       422: {

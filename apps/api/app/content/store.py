@@ -14,7 +14,8 @@ naming rule (``stage``): the ingestion worker runs in its own container and read
 file from this store, so a job's payload never carries document contents. A licence or
 permission letter (P1b-01) is kept as ``licences/<sha256>.<ext>`` (``store_licence``), and
 a crawled page's raw HTML snapshot (P1b-04, provenance) as ``snapshots/<sha256>.html``
-(``store_snapshot``); neither ever goes to RAGFlow.
+(``store_snapshot``), and an uploaded crawl's ZIP (P2SR01-02) as ``uploads/<sha256>.zip``
+until its import (``stage_upload_zip``); none of them ever goes to RAGFlow.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ STORABLE_TYPES = ("pdf", "docx", "pptx")
 STAGED_TYPES = ("pdf", "docx", "pptx", "html", "markdown")
 LICENCE_DIR = "licences"
 SNAPSHOT_DIR = "snapshots"
+UPLOAD_DIR = "uploads"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _EXTENSION = re.compile(r"^[a-z0-9]{1,8}$")
 
@@ -99,6 +101,27 @@ def store_snapshot(root: Path, content: bytes) -> str:
     relative = f"{SNAPSHOT_DIR}/{hashlib.sha256(content).hexdigest()}.html"
     _write_once(root, relative, content)
     return relative
+
+
+def stage_upload_zip(root: Path, content: bytes) -> tuple[str, str]:
+    """Keep an uploaded crawl's ZIP (P2SR01-02) as ``uploads/<sha256>.zip`` until its
+    import; return its SHA-256 and relative path. The import reads it from here, so the
+    job's payload carries the upload's ID only. Never sent to RAGFlow."""
+    if not content:
+        raise ValueError("empty upload")
+    sha = hashlib.sha256(content).hexdigest()
+    relative = f"{UPLOAD_DIR}/{sha}.zip"
+    _write_once(root, relative, content)
+    return sha, relative
+
+
+def resolve(root: Path, relative: str) -> Path:
+    """The absolute path of a staged or stored copy, checked to stay under ``root``."""
+    base = root.resolve()
+    path = (base / relative).resolve()
+    if not path.is_relative_to(base) or path == base:
+        raise StoredFileError("bad_path")
+    return path
 
 
 def read(root: Path, stored_path: str, sha256: str) -> bytes:

@@ -11,6 +11,8 @@ concurrency stays as tuned in Phase 1a, findings §9). Each job type has a handl
 - ``crawl_site``: ``app.content.sitecrawl.crawl_site`` (P1b-04), one crawl of one
   approved site, at the worker's per-host rate limit; between jobs the worker queues
   the crawls that are due (``app.content.sites.schedule_due_crawls``);
+- ``import_crawl`` (P2SR01-03): ``app.content.uploadcrawl.import_crawl``, the import of
+  one released uploaded crawl; its payload names the upload only;
 - ``send_mail`` (P1b-11): ``app.mail.jobs.send_mail``, when the worker was given a mail
   context; mail failures that may pass (timeouts, 429, 5xx) are retried with backoff;
 - ``purge_retention`` (P1b-14): ``app.tenancy.purge.purge_retention``, every tenant's
@@ -52,6 +54,7 @@ from app.content.ingest import (
 from app.content.jobs import LEASE_SECONDS, ClaimedJob, claim, finish, release, renew
 from app.content.sitecrawl import crawl_site
 from app.content.tags import TagConfig
+from app.content.uploadcrawl import import_crawl
 from app.content.withdraw import withdraw_source
 from app.core.logging import log
 from app.mail.jobs import MailContext, send_mail
@@ -184,6 +187,20 @@ def crawl_handler(ctx: Context) -> Handler:
     return handle
 
 
+def import_handler(ctx: Context) -> Handler:
+    async def handle(job: ClaimedJob) -> Outcome:
+        try:
+            upload_id = UUID(str(job.payload["upload_id"]))
+        except (KeyError, ValueError):
+            return Outcome("bad_payload")
+        result = await import_crawl(ctx.factory, upload_id, content_root=ctx.content_root)
+        # A failed import is recorded on the upload; it is not retried (a reviewer
+        # releases a new upload instead).
+        return Outcome(result.error_code, site_id=result.site_id)
+
+    return handle
+
+
 def mail_handler(mail: MailContext) -> Handler:
     async def handle(job: ClaimedJob) -> Outcome:
         result = await send_mail(mail, job)
@@ -231,6 +248,7 @@ def handlers(ctx: Context) -> dict[str, Handler]:
         "ingest_source": ingest_handler(ctx),
         "withdraw_source": withdraw_handler(ctx),
         "crawl_site": crawl_handler(ctx),
+        "import_crawl": import_handler(ctx),
         "purge_retention": purge_handler(ctx),
     }
     if ctx.mail is not None:

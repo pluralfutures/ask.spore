@@ -4,7 +4,8 @@
 
 export type Tone = "neutral" | "accent" | "warning" | "danger" | "success";
 
-export type StatusKind = "user" | "tenant" | "source" | "site" | "takedown" | "job" | "page";
+export type StatusKind =
+  "user" | "tenant" | "source" | "site" | "takedown" | "job" | "page" | "upload";
 
 const TONES: Record<StatusKind, Record<string, Tone>> = {
   user: { active: "success", invited: "accent", deactivated: "neutral" },
@@ -22,6 +23,14 @@ const TONES: Record<StatusKind, Record<string, Tone>> = {
   takedown: { open: "warning", done: "success", withdrawn: "neutral" },
   job: { queued: "neutral", running: "accent", succeeded: "success", failed: "danger" },
   page: { live: "success", blocked: "warning", withdrawn: "neutral" },
+  // P2SR01: an uploaded crawl's ZIP.
+  upload: {
+    staged: "accent",
+    queued: "accent",
+    imported: "success",
+    failed: "danger",
+    rejected: "neutral",
+  },
 };
 
 export function statusTone(kind: StatusKind, status: string): Tone {

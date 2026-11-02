@@ -34,7 +34,7 @@ Plain text below the line is the note shown to users.
 
 ### Which models answer
 
-By default, models run by Scaleway in the European Union: DeepSeek V4.1 Flash and Qwen 3.8 27B. You may pick the model when you start a conversation, among those your organisation has enabled.
+By default, models run by Scaleway in the European Union: DeepSeek V4.1 Flash and Qwen 3.8 27B. You may pick the model when you start a conversation, among those your organisation has enabled. The companies that run the models are listed on the [sub-processor list](/legal/sub-processors).
 
 Some models can "reason" before answering. If you switch reasoning on, the answer shows a "reasoning on" badge. The reasoning text itself is never shown or stored. (DeepSeek V4.1 Flash is offered with reasoning off only.)
 

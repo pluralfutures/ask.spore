@@ -7,7 +7,7 @@
 | Status | **DRAFT** |
 | Date | Oct 21, 2026 |
 | Author | Drafted for owner review (spec item P1b-09) |
-| Placeholders | [security lead name], [document store], [30] (sub-processor notice period, days), [date] |
+| Placeholders | [security lead name], [document store], [date] |
 | To finalise, the owner must | (1) file the vendor documents listed in `paperwork-checklist.md` items 1 to 3 and 13; (2) collect Scaleway's SOC 2 or ISO 27001 evidence; (3) approve and sign. |
 
 ---
@@ -23,7 +23,7 @@ How we choose, contract, monitor and leave vendors that process platform data, a
 3. **Every outbound host is on the allow-list** in `config/models.toml`; a vendor not on it cannot be reached.
 4. **External models** (OpenRouter EU endpoint, upstream Amazon Bedrock and Microsoft Azure) only for a tenant with the entitlement, the client's signed acceptance and ZDR routing; off for every tenant today.
 5. **Exactly one email provider is active**: Scaleway Transactional Email (fr-par). Mailgun EU is a backup, not active, and needs its DPA filed before it is switched on.
-6. **Clients get [30] days' notice** of a new or replacement sub-processor (client DPA clause 5.2).
+6. **Clients get 30 days' notice** of a new or replacement sub-processor (client DPA clause 5.2), except where an urgent replacement is needed for security or continuity, when we notify as soon as possible and the objection right still applies.
 7. **Annual review** of each vendor: DPA version, security report, region, retention terms, ZDR status, the upstream list for OpenRouter. Recorded in `sub-processors.md` change log.
 8. **Content licences** are vendor terms too: each source carries a licence basis in the source register; downloads only for sources flagged `downloadable`.
 9. **Exit.** When a vendor is removed, request deletion and confirmation, remove the host from the allow-list and rotate keys.

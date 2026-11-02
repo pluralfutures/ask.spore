@@ -52,6 +52,8 @@ Where a measure is not built yet, the row says so and names the spec item.
 | Retention | While the source is licensed and relevant. Removed on takedown or a successful objection. The withdrawal cascade (index, cache, stored citations flagged) comes from Phase 1b (P1b-03); until then withdrawal is a manual operator procedure |
 | TOMs | Source register with licence basis; robots.txt, TDMRep and `noai`/`noindex` honoured by the crawler today, per-site decisions from P1b-04; downloads only for sources flagged `downloadable`; citations and excerpts, no full-document viewer; RAGFlow has no public listener |
 
+Uploaded crawls (Oct 31, 2026, Phase 2SR01): pages of a public website crawled outside the platform and uploaded by the content team as a ZIP of Markdown are a source of the same category as crawled pages and are recorded in C1. The uploader's declaration that the crawl honoured robots.txt, the TDM reservation and page-level directives stands in for the crawler's own check; the staged ZIP is deleted once imported, and no HTML snapshot is kept.
+
 Scope note (DRAFT addition, Oct 22, 2026 (P1b-19 step 1; architecture §15).): C1 covers platform-gathered sources only. Documents a client supplies for its own workspaces are processed as processor and recorded in that client's Part 2 sheet, not here; public content we add to supplement a client stays in C1.
 
 ### C2. Own analysis (DOCX and PPTX written by our team)

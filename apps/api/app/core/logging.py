@@ -54,6 +54,8 @@ ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "attempts",
         # Crawl management (P1b-04): which registered site (an identifier, never its URL).
         "site_id",
+        # Uploaded crawls (P2SR01): which upload (an identifier, never a member name).
+        "upload_id",
         # Platform mail (P1b-11): which template a send_mail job sent. Never the
         # recipient's address, the subject or the body.
         "template",

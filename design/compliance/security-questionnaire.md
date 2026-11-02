@@ -126,7 +126,7 @@ Scope: SporeBot, a multi-tenant research assistant answering questions from a cu
 | --- | --- | --- | --- |
 | 11.1 | List of sub-processors | Yes | `sub-processors.md`: Scaleway (hosting, inference, email); Mailgun EU (backup email, not active); OpenRouter, AWS Bedrock, Microsoft Azure only for the optional external-models mode, off for every customer |
 | 11.2 | DPAs with sub-processors | Partial | Scaleway DPA [owner: reference]; OpenRouter DPA with SCCs to be filed before external models are ever enabled (`paperwork-checklist.md`) |
-| 11.3 | Notice of sub-processor changes | Yes (contractual) | [30] days' notice with a right to object (DPA clause 5.2, draft) |
+| 11.3 | Notice of sub-processor changes | Yes (contractual) | 30 days' notice with a right to object, except where an urgent replacement is needed for security or continuity (DPA clause 5.2, draft) |
 | 11.4 | Vendor security reviews | Partial | Process in `policy-vendor-management.md` (draft) |
 
 ## 12. Incident response

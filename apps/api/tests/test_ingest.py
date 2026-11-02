@@ -89,6 +89,7 @@ async def reset_register(admin_conn: asyncpg.Connection) -> None:
     await admin_conn.execute("DELETE FROM downloads")
     await admin_conn.execute("DELETE FROM site_pages")
     await admin_conn.execute("DELETE FROM sources")
+    await admin_conn.execute("DELETE FROM site_uploads")
     await admin_conn.execute("DELETE FROM sites")
     await admin_conn.execute("DELETE FROM datasets")
 

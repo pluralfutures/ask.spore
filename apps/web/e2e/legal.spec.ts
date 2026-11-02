@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { FakeApi } from "./fakeApi";
 
-// P2A-L1, P2A-L2: the Legal link is the last thing on every page, and /legal and its three
+// P2A-L1, P2A-L2: the Legal link is the last thing on every page, and /legal and its four
 // documents are plain files outside the app (no sign-in, no consent redirect, no API call).
 // The dev server mirrors the Caddyfile's routes as if ASKSPORE_LEGAL=published.
 
@@ -20,6 +20,7 @@ test("the legal pages are served without sign-in, a script or an API call", asyn
     ["Privacy notice", "/legal/privacy", "Privacy notice"],
     ["AI transparency note", "/legal/ai", "AI transparency note"],
     ["Terms of Use", "/legal/terms", "Terms of Use"],
+    ["Sub-processors", "/legal/sub-processors", "Sub-processors"],
   ]) {
     await page.goto("/legal");
     await expect(page.getByRole("heading", { level: 1, name: "Legal" })).toBeVisible();
@@ -41,6 +42,7 @@ test("the files' own names are not served", async ({ request }) => {
     "/legal/privacy.html",
     "/legal/ai.html",
     "/legal/terms.html",
+    "/legal/sub-processors.html",
   ]) {
     expect((await request.get(path)).status(), path).toBe(404);
   }

@@ -11,8 +11,8 @@ No grants change. The downgrade refuses to run while a ``text`` source exists, r
 deleting a document; remove or re-type those first. Stored paths of Markdown files are
 cleared on downgrade (the copy stays in the content store).
 
-Revision ID: 0071
-Revises: 0065
+Revision ID: 0081
+Revises: 0080
 Create Date: 2026-10-27 12:00:00
 """
 
@@ -20,8 +20,8 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0071"
-down_revision: str | None = "0065"
+revision: str = "0081"
+down_revision: str | None = "0080"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

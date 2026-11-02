@@ -22,7 +22,7 @@ include:
 
 services:
   postgres:
-    image: postgres:16.15-bookworm@sha256:d81f7b51697014367236d07ec58b54153fc28f828b72bf247fe5c7487520bcb0
+    image: postgres:16.15-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938
     environment:
       POSTGRES_DB: askspore
       POSTGRES_USER: askspore
@@ -43,7 +43,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7.4.11-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541
+    image: redis:7.4.11-alpine@sha256:d9436322172a5b482c187bf1f363d3c4fea086fcca6b9c8a94de8f0f39ed3193
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
       - 127.0.0.1:${REDIS_PORT:-6379}:6379
@@ -195,7 +195,7 @@ services:
 
   caddy:
     profiles: ["public"]
-    image: caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
+    image: caddy:2.11.7-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
     depends_on:
       web-build:
         condition: service_completed_successfully
@@ -209,9 +209,9 @@ services:
       # P2A-11: "published" serves the trust page at /trust; anything else but the
       # default stops Caddy at start. Set in infra/.env by the owner (paperwork item 4).
       ASKSPORE_TRUST_PAGE: ${ASKSPORE_TRUST_PAGE:-unpublished}
-      # P2A-L2: "published" serves /legal and the privacy notice, AI transparency note and
-      # Terms of Use under it; anything else but the default stops Caddy at start. Set in
-      # infra/.env by the owner once counsel has signed the three texts.
+      # P2A-L2: "published" serves /legal and the privacy notice, AI transparency note,
+      # Terms of Use and sub-processor list under it; anything else but the default stops Caddy at start. Set in
+      # infra/.env by the owner once counsel has signed the four texts.
       ASKSPORE_LEGAL: ${ASKSPORE_LEGAL:-unpublished}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro

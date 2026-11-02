@@ -21,11 +21,13 @@ import { Checkbox } from "../../ui/Checkbox";
 import { Notice } from "../../ui/Notice";
 import { cardClass } from "../../ui/cardClass";
 import { Globe } from "lucide-react";
-import { StatusBadge } from "../../ui/Badge";
+import { Badge, StatusBadge } from "../../ui/Badge";
+import { UploadCrawl } from "./Uploads";
 import { Table, Td, Th } from "../../ui/Table";
 
 // Sites (P1b-04, P1b-05): registered websites, their crawl state, and the editor's form
-// to register one for a reviewer to approve.
+// to register one for a reviewer to approve. P2SR01-05: upload sites carry an "uploaded"
+// badge and their crawl date, and an editor may upload a crawl for a new site.
 export function Sites({ roles }: { roles: string[] }) {
   const sites = useQuery({ queryKey: ["content", "sites"], queryFn: contentApi.sites });
   return (
@@ -35,6 +37,7 @@ export function Sites({ roles }: { roles: string[] }) {
       ) : null}
       {sites.data ? <SiteTable sites={sites.data} /> : <Skeleton />}
       {canEdit(roles) ? <RegisterSite /> : null}
+      {canEdit(roles) ? <UploadCrawl /> : null}
     </section>
   );
 }
@@ -62,6 +65,12 @@ export function SiteTable({ sites }: { sites: ContentSite[] }) {
                 {site.name}
               </Link>{" "}
               <span className="text-fg-subtle">{site.host}</span>
+              {site.origin === "upload" ? (
+                <>
+                  {" "}
+                  <Badge data-testid="site-uploaded">uploaded</Badge>
+                </>
+              ) : null}
             </Td>
             <Td label="Status">
               <StatusBadge kind="site" status={site.status} />
@@ -69,12 +78,8 @@ export function SiteTable({ sites }: { sites: ContentSite[] }) {
             <Td label="Allow decision">
               {ALLOW_DECISIONS[site.allow_decision] ?? site.allow_decision}
             </Td>
-            <Td label="Schedule">{site.schedule}</Td>
-            <Td label="Last crawl">
-              {site.last_crawl_at
-                ? `${formatDate(site.last_crawl_at)} · ${site.last_crawl_status}`
-                : "never"}
-            </Td>
+            <Td label="Schedule">{site.origin === "upload" ? "uploads" : site.schedule}</Td>
+            <Td label="Last crawl">{lastCrawl(site)}</Td>
             <Td label="Pages" numeric>
               {site.page_count}
             </Td>
@@ -86,6 +91,16 @@ export function SiteTable({ sites }: { sites: ContentSite[] }) {
       </tbody>
     </Table>
   );
+}
+
+/** P2SR01: an upload site's last crawl is the crawl date of its last imported upload. */
+export function lastCrawl(site: ContentSite): string {
+  if (site.origin === "upload") {
+    return site.last_crawled_on ? `crawled ${formatDate(site.last_crawled_on)}` : "no upload yet";
+  }
+  return site.last_crawl_at
+    ? `${formatDate(site.last_crawl_at)} · ${site.last_crawl_status}`
+    : "never";
 }
 
 function RegisterSite() {

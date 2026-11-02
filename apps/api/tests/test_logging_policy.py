@@ -475,3 +475,122 @@ def test_every_ragflow_error_handler_in_the_app_is_scanned() -> None:
         seen += len(handlers)
         assert scan_coded_errors(path.read_text(encoding="utf-8"), path) == [], path
     assert seen >= 9
+
+
+# P2SR01-06: uploaded crawls. An upload's member names, page URLs and titles are the
+# editor's own and appear only in the inspection report; in the upload modules every
+# log() carries identifiers, codes and counts, every audit record a literal mapping of
+# those keys (``_audit`` callers are held to the same keys), every raised exception a
+# constant, a code or a member index, and nothing reads a name, URL, title or text into
+# any of them.
+UPLOAD_MODULES = (APP_DIR / "content" / "uploads.py", APP_DIR / "content" / "uploadcrawl.py")
+UPLOAD_LOG_FIELDS = frozenset({"level", "upload_id", "site_id", "status", "count", "error_code"})
+UPLOAD_AUDIT_KEYS = frozenset(
+    {
+        "upload_id",
+        "site_id",
+        "mode",
+        "method",
+        "members",
+        "accepted",
+        "refused",
+        "skipped",
+        "new",
+        "changed",
+        "unchanged",
+        "blocked",
+        "withdrawn",
+        "before",
+        "after",
+        "roles",
+        "self_approval",
+        "status",
+        "error_code",
+    }
+)
+UPLOAD_RAISE_NAMES = frozenset({"index", "code", "member"})
+UPLOAD_NAMES = frozenset({"name", "filename", "url", "title", "markdown", "text"})
+
+
+def _reads_a_name(node: ast.AST) -> str | None:
+    for inner in ast.walk(node):
+        if isinstance(inner, ast.Attribute) and inner.attr in UPLOAD_NAMES:
+            return ast.unparse(inner)
+    return None
+
+
+def _raise_arg_ok(arg: ast.expr) -> bool:
+    if isinstance(arg, ast.Constant):
+        return True
+    if isinstance(arg, ast.Name):
+        return arg.id in UPLOAD_RAISE_NAMES
+    if isinstance(arg, ast.Attribute):
+        return arg.attr in UPLOAD_RAISE_NAMES
+    if isinstance(arg, ast.IfExp):
+        return _raise_arg_ok(arg.body) and _raise_arg_ok(arg.orelse)
+    return False
+
+
+def scan_uploads(source: str, path: Path) -> list[str]:
+    tree = ast.parse(source, filename=str(path))
+    violations: list[str] = []
+    functions = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)]
+    for function in functions or [tree]:  # type: ignore[list-item]
+        name_of_function = getattr(function, "name", "")
+        for node in ast.walk(function):
+            if not isinstance(node, ast.Call):
+                if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
+                    for arg in node.exc.args:
+                        if not _raise_arg_ok(arg):
+                            violations.append(f"{node.lineno}: raise with {ast.unparse(arg)}")
+                continue
+            name = node.func.id if isinstance(node.func, ast.Name) else None
+            if name == "log":
+                for keyword in node.keywords:
+                    if keyword.arg not in UPLOAD_LOG_FIELDS:
+                        violations.append(f"{node.lineno}: log() field {keyword.arg!r}")
+            if name == "_audit":
+                for keyword in node.keywords:
+                    if keyword.arg not in UPLOAD_AUDIT_KEYS:
+                        violations.append(f"{node.lineno}: _audit() key {keyword.arg!r}")
+            if name == "record":
+                metadata = next((k.value for k in node.keywords if k.arg == "metadata"), None)
+                if not isinstance(metadata, ast.Dict):
+                    violations.append(f"{node.lineno}: record() metadata is not a literal mapping")
+                    continue
+                for key in metadata.keys:
+                    if key is None and name_of_function == "_audit":
+                        continue  # **extra: the _audit callers' keys, checked above
+                    if not (isinstance(key, ast.Constant) and key.value in UPLOAD_AUDIT_KEYS):
+                        violations.append(
+                            f"{node.lineno}: record() key {ast.unparse(key) if key else '**'}"
+                        )
+            if name in ("log", "record", "_audit"):
+                found = _reads_a_name(node)
+                if found:
+                    violations.append(f"{node.lineno}: {name}() reads {found}")
+    return sorted(set(violations))
+
+
+@pytest.mark.parametrize("path", UPLOAD_MODULES, ids=lambda p: p.name)
+def test_the_upload_modules_log_and_audit_identifiers_codes_and_counts_only(path: Path) -> None:
+    assert scan_uploads(path.read_text(encoding="utf-8"), path) == []
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "log('content.upload_staged', upload_id=u, name=m.name)",
+        "log('content.upload_staged', count=len(m.title))",
+        "await record(s, tenant_id=t, actor_user_id=None, event='e', metadata={'url': u})",
+        "await record(s, tenant_id=t, actor_user_id=None, event='e', metadata=values)",
+        "await record(s, tenant_id=t, actor_user_id=None, event='e', metadata={**extra})",
+        "await _audit(s, None, 'site.upload_failed', upload, member_name=n)",
+        "await _audit(s, None, 'site.upload_failed', upload, status=page.url)",
+        "raise UploadRefused(info.filename)",
+        "raise UploadRefused(f'bad {name}', index)",
+        "raise RegisterError('site_' + site.status)",
+    ],
+)
+def test_the_upload_scan_rejects(line: str) -> None:
+    assert scan_uploads(f"async def f():\n    {line}\n", UPLOAD_MODULES[0])

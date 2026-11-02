@@ -152,7 +152,7 @@ The client DPA shrinks to queries, history and account data; the heavier legal w
 **Content licensing and crawling (primary legal risk)**
 
 - Review publisher licences before ingesting PDFs; many research licences bar redistribution, text-and-data mining or AI use. Where in doubt, obtain written permission or exclude the document.
-- Honour robots.txt, site terms and the EU text-and-data-mining opt-out (DSM Directive Article 4): if a site has reserved rights in a machine-readable way, do not crawl it.
+- Honour robots.txt, site terms and the EU text-and-data-mining opt-out (DSM Directive Article 4): if a site has reserved rights in a machine-readable way, do not crawl it. *For crawls made outside the platform and uploaded, see the Nov 2, 2026 addendum.*
 - Keep the source register current with licence basis and review date; it is your defence in a dispute.
 - Serve citations and short excerpts, not full reproductions, and block bulk extraction.
 - Takedown process with a named contact and a response window.
@@ -363,3 +363,31 @@ Owner decisions of Oct 18, 2026, recorded for the Phase 1 build. They change the
 - [ ] Intake channel for files agreed and documented (open-questions J)
 - [ ] Privacy notice Part B §13 published; security questionnaire and trust page updated for the client
 - [ ] Declaration for the first batch on file and referenced in the register
+
+## Addendum (Nov 2, 2026): uploaded crawls
+
+**DRAFT for owner and counsel review.** Owner decision D3 of Oct 31, 2026 (`design/specs/phase-2sr01-build-spec.md`), built in Phase 2SR01 (system design: architecture §6.2 and §6.4; procedure: `policy-content-sourcing.md` §4.2). This addendum records how the crawling rule under "Content licensing and crawling" applies to a site crawled outside the platform and uploaded to it.
+
+**The rule still applies to everything we ingest.** "If a site has reserved rights in a machine-readable way, do not crawl it" exists to keep reserved content out of the corpus, so it binds an uploaded crawl as much as one the platform makes: a site whose robots.txt, text-and-data-mining reservation (DSM Directive Article 4) or page-level `noai` directive reserves its rights is not uploaded either.
+
+**What changes is who checks.** For a site the platform crawls, the crawler checks robots.txt and the reservation itself, before every crawl. For an uploaded crawl the platform fetches nothing from the site and makes no check; the guarantee is:
+
+- **A declaration per upload.** The editor who uploads the ZIP ticks a fixed sentence, which the console and the command line show with the site's host and the crawl date filled in: "I confirm that this crawl of `<host>` was made on `<crawled_on>` honouring the site's robots.txt, its text-and-data-mining reservation if any, and page-level noai and noindex directives, and that the pages are public and were fetched without signing in." No upload is accepted without it; the database refuses an upload row without it (`site_uploads.declared_robots_honoured`, constrained true).
+- **A reviewer's release of every upload**, also on a site already approved, with the upload's report (every file, its page URL and title, and what the import will do) in front of the reviewer. Nothing reaches the index before the release. The release, the declaration and the site's allow decision (`declared`) are audited.
+- **The page checks of a crawl**: special-category, scope, takedown and duplicate-content checks apply to uploaded pages as to crawled ones (this guide's special-category rule unchanged).
+- **The takedown path**: a reservation or a rights holder's claim brought to our attention is handled as a takedown (`policy-content-sourcing.md` §6, 10 working days), and the site can be withdrawn whole.
+
+**Residual risk.** A declaration made in error, or a reservation added to the site between the crawl and the upload, reaches the index until someone notices: risk register R-38 (likelihood low, impact high). A domain-level re-check at release (one fetch of the site's robots.txt and the start URL's headers, as the crawler makes) would narrow this to page-level directives; it is a later option (`backlog.md`), needs no schema change, and is not built.
+
+**Personal data.** Uploaded pages are public web pages, processed as crawled pages are (records of processing C1); the purpose, basis and retention do not change. The platform deletes the uploaded ZIP once it is imported or rejected (a ZIP whose import failed is kept for the operator to look into; how long is an open question in `design/specs/backlog.md`, Phase 2SR01), and stores no file names; the register keeps each page's URL and title, as for a crawled page.
+
+**Control-to-framework additions.**
+
+| Control | SOC 2 criterion (TSC 2017) | GDPR basis | Evidence |
+| --- | --- | --- | --- |
+| Declaration per uploaded crawl, reviewer release of every upload | CC3.2, CC5.3 | — (copyright: DSM Directive Art. 4) | `site_uploads` rows, `site.upload_staged` and `site.upload_released` audit events, register rows with method `crawl_upload` |
+
+**Checklist additions.**
+
+- [ ] Counsel has seen the declaration sentence (open-questions F5)
+- [ ] Editors who upload crawls are told the rule above (an uploaded crawl honours the same reservations as ours) — *in `policy-content-sourcing.md` §4.2*

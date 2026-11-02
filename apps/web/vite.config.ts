@@ -14,6 +14,7 @@ const PUBLIC_PAGES: Record<string, string> = {
   "/legal/privacy": "/legal/privacy.html",
   "/legal/ai": "/legal/ai.html",
   "/legal/terms": "/legal/terms.html",
+  "/legal/sub-processors": "/legal/sub-processors.html",
 };
 const NOT_SERVED = new Set([
   "/security-disclosure.html",
@@ -23,6 +24,7 @@ const NOT_SERVED = new Set([
   "/legal/privacy.html",
   "/legal/ai.html",
   "/legal/terms.html",
+  "/legal/sub-processors.html",
 ]);
 
 const publicPages: Connect.NextHandleFunction = (req, res, next) => {

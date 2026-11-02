@@ -240,7 +240,7 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
   the gap is built. `.txt` is new (`text/plain`).
 - **Types.** A new source type `text`, in `SOURCE_TYPES` (`content/models.py`),
   `STAGED_TYPES` (`content/store.py`), `SourceType` (`content/tags.py`), `config/tags.toml`
-  (every tag parses `text` with "naive") and the database: migration 0071 extends
+  (every tag parses `text` with "naive") and the database: migration 0081 extends
   `ck_sources_type_valid` and `ck_sources_stored_path_by_hash` (the stored path rule now
   allows `markdown` and `text`). Uploaded Markdown is stored as a file and downloadable;
   crawled or fetched Markdown pages stay pages with no download. The two are told apart by
@@ -309,7 +309,7 @@ reviewer's upload and manifest ingest, and make both downloadable from the works
   browser; `e2e/conversationSearch.spec.ts`, `tests/test_conversation_rename.py`), P2B-05
   (`GET /v1/workspaces/{id}/summary`, `app/core/library_events.py`, the home page card;
   `tests/test_workspace_summary.py`, `e2e/workspaceSummary.spec.ts`) and P2B-06 (migration
-  0071, `check_file_content`, stored copies, list and download; `tests/test_text_files.py`).
+  0081, `check_file_content`, stored copies, list and download; `tests/test_text_files.py`).
 - **P2B-04's reproduction** holds the first load until after the answer has ended. The reload
   now cancels it first. The UX scenario fake no longer delays its answer by 300 ms.
 - **P2B-03:** a rename does not change `updated_at`, so the list keeps its order; the

@@ -37,7 +37,7 @@ Only the owner or counsel can answer these. Duplicates across the documents are 
 | B4 | Prices: per seat, platform fee, onboarding and SSO setup, external-model usage (included or pass-through) | terms-of-service Annex A | |
 | B5 | Support channel, hours, first-response time; state an availability target at all on a single Instance? | terms-of-service | |
 | B6 | Export window at termination: the ToS drafts [10] working days on a request [15] days before the end, the offboarding pack proposes 30 days. Pick one; export is a manual operator job (no export feature is built), so offer it at all given 30-day retention? Format and delivery method? | terms-of-service, offboarding-pack | |
-| B7 | Client breach-notification window ([48] hours in DPA clause 9.1) and sub-processor notice period ([30] days, clause 5.2) | incident-runbook, policy-incident-response, policy-vendor-management | |
+| B7 | Client breach-notification window ([48] hours in DPA clause 9.1) and sub-processor notice period (30 days, decided Oct 27, 2026, with an urgent-replacement exception, clause 5.2) | incident-runbook, policy-incident-response, policy-vendor-management | |
 | B8 | Wording of the acceptable-use ban on special-category data and on Annex III (high-risk) uses without telling us first | terms-of-service | |
 | B9 | Customer-facing names of the three `cc` workspaces in Annex A, and which files carry `cc-shared` (P1b-13d) | terms-of-service | |
 
@@ -84,6 +84,7 @@ Only the owner or counsel can answer these. Duplicates across the documents are 
 | F2 | **C** Legitimate interests as the basis for people named in sources: does counsel accept the balancing test and the Art. 14(5)(b) disproportionate-effort reasoning? | legitimate-interest-assessment, privacy-notice | |
 | F3 | **C** Prior consultation (Art. 36) not needed: confirm against the lead authority's DPIA list | dpia | |
 | F4 | **C** Is notice plus in-app acceptance the right mechanism for the P1b-10 gate (it is not GDPR consent as a legal basis)? | onboarding-pack, privacy-notice | |
+| F5 | **C** **Uploaded crawls** (Phase 2SR01, decision D3 of Oct 31, 2026): for a site crawled outside the platform, robots.txt, the TDM reservation and `noai` are the uploader's declaration per upload, not a check we make. Is the declaration sentence (compliance guide, addendum of Nov 2, 2026) adequate as our record that the crawl honoured an Art. 4(3) DSM reservation, and should a domain-level re-check at release be added before the first uploaded site goes live? | compliance guide (Nov 2 addendum), policy-content-sourcing §4.2, risk-register R-38 | |
 
 ## G. EU AI Act (C for all)
 

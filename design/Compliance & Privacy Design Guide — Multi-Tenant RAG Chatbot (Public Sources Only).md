@@ -379,7 +379,7 @@ Owner decisions of Oct 18, 2026, recorded for the Phase 1 build. They change the
 
 **Residual risk.** A declaration made in error, or a reservation added to the site between the crawl and the upload, reaches the index until someone notices: risk register R-38 (likelihood low, impact high). A domain-level re-check at release (one fetch of the site's robots.txt and the start URL's headers, as the crawler makes) would narrow this to page-level directives; it is a later option (`backlog.md`), needs no schema change, and is not built.
 
-**Personal data.** Uploaded pages are public web pages, processed as crawled pages are (records of processing C1); the purpose, basis and retention do not change. The platform deletes the uploaded ZIP once it is imported or rejected (a ZIP whose import failed is kept for the operator to look into; how long is open, `phase-2sr01-findings.md` question 7), and stores no file names; the register keeps each page's URL and title, as for a crawled page.
+**Personal data.** Uploaded pages are public web pages, processed as crawled pages are (records of processing C1); the purpose, basis and retention do not change. The platform deletes the uploaded ZIP once it is imported or rejected (a ZIP whose import failed is kept for the operator to look into; how long is an open question in `design/specs/backlog.md`, Phase 2SR01), and stores no file names; the register keeps each page's URL and title, as for a crawled page.
 
 **Control-to-framework additions.**
 

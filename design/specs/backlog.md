@@ -212,6 +212,16 @@ Raised during the build (Oct 31 to Nov 1, 2026, `phase-2sr01-findings.md` §1):
   read again from the staged ZIP on each view (up to 200 MB, inside the request).
 - **CLI `--propose-as` for `sites upload-crawl`**, to name an uploading editor other than the
   releasing reviewer; today the uploader is the operator's shell, or the `--approve-as` reviewer.
+- **Question for the owner (Nov 2, 2026): how long is a failed import's ZIP kept?** An import
+  that fails (`upload_missing`, `upload_altered`, an inspection code, `site_not_approved`,
+  `releaser_lacks_role`, `internal_error`) marks the upload `failed` and leaves its staged ZIP on
+  disk (`staged_path` set); nothing deletes it later. Keeping it helps the operator look into
+  the failure (an altered ZIP is evidence), but it is a copy of third-party pages with no end
+  date. Options: (a) delete it at failure, as after an import or a rejection (the error code and
+  the `site.upload_failed` event record why; the editor still has the original), recommended;
+  (b) keep it at most 30 days, deleted by a scheduled job; (c) keep it until an operator deletes
+  it, as today. Either (a) or (b) is a small change with a test; the compliance guide's
+  addendum of Nov 2, 2026 states the question is open.
 
 ## Enterprise requirements
 

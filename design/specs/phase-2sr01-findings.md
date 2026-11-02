@@ -169,4 +169,5 @@ Asked on Nov 1, 2026; the owner accepted every recommendation on Nov 2, 2026.
    Recommendation: delete it at failure like an imported or rejected one (the code and the
    audit event record why; the editor still has the original), or keep it at most 30 days
    with a scheduled deletion. Not built; the compliance guide's
-   addendum says the question is open.
+   addendum says the question is open. **Nov 2, 2026: moved to `backlog.md` as a question for
+   the owner** (Phase 2SR01 section), not decided in this phase.

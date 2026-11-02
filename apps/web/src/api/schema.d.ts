@@ -5932,6 +5932,7 @@ export interface operations {
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
           "application/xhtml+xml": unknown;
           "text/markdown": unknown;
+          "text/plain": unknown;
         };
       };
       /** @description Unknown, expired or already used link */

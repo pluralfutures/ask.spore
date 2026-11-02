@@ -185,7 +185,8 @@ admin_ui_document_path = "/chunk/parsed/chunks?id={dataset_id}&doc_id={document_
 [prompts]
 # Active versions of config/prompts/<name>/<version>.md. Changing a prompt means a
 # new version file and an eval run (CLAUDE.md); never edit a released version.
-corpus_only = "v5"   # P1a-06: findings section 11 (G9), eval gate of Oct 21, 2026
+corpus_only = "v7"   # owner decision, Nov 2, 2026: declines less; switched without a
+                     # live eval, which is still owed (backlog). Roll back: "v5".
 general_knowledge = "v2"   # P1a-06: the general-knowledge answer mode; findings section 11
 rewrite = "v1"
 # Faithfulness judge of the eval harness (packages/eval, P0-18); the API does not use it.

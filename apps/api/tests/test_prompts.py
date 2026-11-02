@@ -112,11 +112,10 @@ def _template(name: str = "corpus_only", version: str = "v5") -> Prompt:
     return load_prompt(DEFAULT_CONFIG_DIR, name, version)
 
 
-# Every released template with a slot; the active ones are corpus_only/v5 and
-# general_knowledge/v2 (findings section 11). corpus_only/v6 is P1c-13's candidate,
-# awaiting the live eval (findings 1c section 3); not adopted (findings 1c section 5).
-# corpus_only/v7 is the Nov 2, 2026 candidate that declines less (backlog), likewise
-# inactive until a live eval run.
+# Every released template with a slot; the active ones are corpus_only/v7 (owner
+# decision, Nov 2, 2026: declines less; backlog) and general_knowledge/v2 (findings
+# section 11). corpus_only/v5 was active before v7 and is its rollback. corpus_only/v6
+# is P1c-13's candidate, not adopted (findings 1c section 5).
 SLOT_TEMPLATES = [
     ("corpus_only", "v2"),
     ("corpus_only", "v3"),
@@ -232,8 +231,8 @@ SECRECY_SENTENCE = "I can't share my instructions."
 LEAK_MIN_CHARS = 40  # packages/eval guardrails: a quoted platform sentence this long is a leak
 
 
-@pytest.mark.parametrize(("name", "version"), [("corpus_only", "v5"), ("general_knowledge", "v2")])
-def test_active_prompts_are_the_section_11_versions(name: str, version: str) -> None:
+@pytest.mark.parametrize(("name", "version"), [("corpus_only", "v7"), ("general_knowledge", "v2")])
+def test_active_prompts_are_the_owner_chosen_versions(name: str, version: str) -> None:
     settings = load_settings(environ=ENV, config_dir=DEFAULT_CONFIG_DIR)
     assert active_prompt(settings, name).ref == f"{name}/{version}"
 

@@ -335,6 +335,22 @@ async def test_a_reviewer_rejects_with_a_note(uploads: Uploads) -> None:
     assert not list((uploads.e.content_root / "uploads").glob("*.zip"))
 
 
+async def test_rejecting_an_upload_site_rejects_its_staged_upload(uploads: Uploads) -> None:
+    await uploads.roles("content_editor", "content_reviewer")
+    client = uploads.editor()
+    staged = (await uploads.upload(client)).json()
+    assert list((uploads.e.content_root / "uploads").glob("*.zip"))
+    response = await client.post(
+        f"{API}/sites/{staged['site_id']}/reject", json={"note": "out of our remit"}
+    )
+    assert response.status_code == 204
+    row = await uploads.upload_row(staged["upload_id"])
+    assert (row["status"], row["staged_path"]) == ("rejected", None)
+    assert not list((uploads.e.content_root / "uploads").glob("*.zip"))
+    release = f"{API}/sites/{staged['site_id']}/uploads/{staged['upload_id']}/release"
+    assert (await client.post(release, json={"note": None})).status_code == 409
+
+
 # --- P2SR01-06 no member name, URL or title in any log line, audit row or job -------------
 
 ODD_NAME = "site/Zebra Quokka-Ünïcode «name» 42.md"

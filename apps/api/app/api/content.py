@@ -1012,7 +1012,15 @@ async def approve_site(
 async def reject_site(
     site_id: UUID, body: NoteIn, request: Request, user: ContentUser = Depends(require_content_user)
 ) -> Response:
-    await _decide(sites.reject_site(_factory(request), site_id, user.user_id, note=body.note))
+    await _decide(
+        uploadcrawl.reject_site(
+            _factory(request),
+            site_id,
+            user.user_id,
+            note=body.note,
+            content_root=_settings(request).models.files.content_root,
+        )
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

@@ -12,6 +12,9 @@ upload's pages are whatever the editor put in the ZIP, so each batch is a review
   ``site.upload_released``.
 - ``reject_upload``: ``staged -> rejected`` with the reviewer's note (required); the
   staged ZIP is deleted. Audited ``site.upload_rejected``.
+- ``reject_site``: the console's site rejection; a staged upload of the site is rejected
+  with it (audited ``site.upload_rejected`` with ``status = "site_rejected"``) and its
+  ZIP deleted.
 - ``upload_report``: the inspection of a staged upload again, for the reviewer's screen
   (the report with member names is never stored), with the number of live pages a full
   upload would withdraw.
@@ -57,7 +60,7 @@ from app.content.models import Site, SiteUpload
 from app.content.register import RegisterError
 from app.content.roles import REVIEWER, require, roles_of
 from app.content.sitecrawl import _Crawl, _finish, _known, _SiteWithdrawn
-from app.content.sites import _note, approve_locked
+from app.content.sites import _note, approve_locked, reject_locked
 from app.content.store import StoredFileError, remove
 from app.content.store import resolve as resolve_path
 from app.content.uploads import (
@@ -209,6 +212,57 @@ async def reject_upload(
             roles=sorted(roles),
         )
     await _discard(factory, content_root, staged)
+
+
+async def reject_site(
+    factory: async_sessionmaker[AsyncSession],
+    site_id: UUID,
+    reviewer_id: UUID,
+    *,
+    note: str,
+    content_root: Path,
+) -> None:
+    """``proposed -> rejected`` for any site; a staged upload of the site is rejected in
+    the same transaction, with the same note, and its ZIP deleted, so a rejected site
+    leaves no ZIP behind that nothing could release."""
+    checked = _note(note, required=True)
+    async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
+        roles = await require(session, reviewer_id, REVIEWER)
+        site = await session.scalar(select(Site).where(Site.id == site_id).with_for_update())
+        if site is None:
+            raise RegisterError("no_site")
+        await reject_locked(session, site, reviewer_id, roles, checked)
+        pending = (
+            await session.scalars(
+                select(SiteUpload)
+                .where(SiteUpload.site_id == site_id, SiteUpload.status == "staged")
+                .with_for_update()
+            )
+        ).all()
+        staged = [_Staged.of(upload) for upload in pending]
+        for upload in pending:
+            await session.execute(
+                update(SiteUpload)
+                .where(SiteUpload.id == upload.id)
+                .values(
+                    status="rejected",
+                    review_note=checked,
+                    staged_path=None,
+                    updated_at=func.now(),
+                )
+            )
+            await _audit(
+                session,
+                reviewer_id,
+                "site.upload_rejected",
+                upload,
+                before={"status": "staged"},
+                after={"status": "rejected"},
+                roles=sorted(roles),
+                status="site_rejected",
+            )
+    for each in staged:
+        await _discard(factory, content_root, each)
 
 
 @dataclass(frozen=True)

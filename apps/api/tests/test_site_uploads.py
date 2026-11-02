@@ -38,7 +38,7 @@ from app.content.sites import (
     set_special_category_allow,
     update_site,
 )
-from app.content.uploadcrawl import reject_upload, release_upload, upload_report
+from app.content.uploadcrawl import reject_site, reject_upload, release_upload, upload_report
 from app.content.uploads import (
     Page,
     StagedUpload,
@@ -711,6 +711,63 @@ async def test_a_rejected_upload_needs_a_note_and_leaves_nothing_behind(
     # A next upload for the site is accepted now that none is pending.
     again = await up.stage("markdown-new.zip", site_id=staged.site_id)
     assert again.site_id == staged.site_id
+
+
+async def test_rejecting_the_site_rejects_its_staged_upload_and_deletes_the_zip(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    # A rejected site takes no upload and cannot release one, so its staged ZIP would
+    # otherwise stay on disk with nothing able to release or reject it in one step.
+    staged = await up.stage("markdown-new.zip")
+    path = up.e.content_root / (await up.row(staged))["staged_path"]
+    reject = {
+        "factory": up.e.factory,
+        "site_id": staged.site_id,
+        "reviewer_id": up.e.user_id,
+        "content_root": up.e.content_root,
+    }
+    await content_user(admin_conn, "content_editor")
+    with pytest.raises(RoleError):
+        await reject_site(**reject, note="out of our remit")
+    await content_user(admin_conn, "content_editor", "content_reviewer")
+    with pytest.raises(RegisterError, match="note_required"):
+        await reject_site(**reject, note=" ")
+    assert path.exists()
+    await reject_site(**reject, note="out of our remit")
+    site = await up.c.site_row(staged.site_id)
+    assert (site["status"], site["review_note"]) == ("rejected", "out of our remit")
+    row = await up.row(staged)
+    assert (row["status"], row["review_note"], row["staged_path"]) == (
+        "rejected",
+        "out of our remit",
+        None,
+    )
+    assert not path.exists()
+    [event] = await up.c.events("site.upload_rejected", staged.site_id)
+    assert event["status"] == "site_rejected"
+    assert "remit" not in json.dumps(event, default=str)
+    assert len(await up.c.events("site.rejected", staged.site_id)) == 1
+    with pytest.raises(RegisterError, match="not_proposed"):
+        await reject_site(**reject, note="again")
+    assert await admin_conn.fetchval("SELECT count(*) FROM jobs") == 0
+
+
+async def test_rejecting_the_site_keeps_a_zip_another_pending_upload_shares(
+    up: Up, admin_conn: asyncpg.Connection
+) -> None:
+    first = await up.stage("markdown-new.zip")
+    other = await up.stage("markdown-new.zip", start_url="https://www.example.org/Products")
+    path = up.e.content_root / (await up.row(first))["staged_path"]
+    await reject_site(
+        up.e.factory,
+        first.site_id,
+        up.e.user_id,
+        note="out of our remit",
+        content_root=up.e.content_root,
+    )
+    assert (await up.row(first))["status"] == "rejected"
+    assert (await up.row(other))["status"] == "staged"
+    assert path.exists()  # the other site's upload still needs the same bytes
 
 
 async def test_a_special_category_member_is_blocked_until_whitelisted(up: Up) -> None:

@@ -357,27 +357,35 @@ async def approve_locked(
 async def reject_site(
     factory: async_sessionmaker[AsyncSession], site_id: UUID, reviewer_id: UUID, *, note: str
 ) -> None:
-    """``proposed -> rejected``, with the reviewer's note."""
+    """``proposed -> rejected``, with the reviewer's note. An upload site's staged upload
+    is rejected with it, by ``uploadcrawl.reject_site``, which the route calls."""
     checked = _note(note, required=True)
     async with tenant_session(factory, INTERNAL_TENANT_ID) as session:
         roles = await require(session, reviewer_id, REVIEWER)
         site = await _locked(session, site_id)
-        if site.status != "proposed":
-            raise RegisterError("not_proposed")
-        await session.execute(
-            update(Site)
-            .where(Site.id == site_id)
-            .values(status="rejected", review_note=checked, updated_at=func.now())
-        )
-        await _audit(
-            session,
-            reviewer_id,
-            "site.rejected",
-            site_id,
-            {"status": "proposed"},
-            {"status": "rejected"},
-            roles=sorted(roles),
-        )
+        await reject_locked(session, site, reviewer_id, roles, checked)
+
+
+async def reject_locked(
+    session: AsyncSession, site: Site, reviewer_id: UUID, roles: frozenset[str], note: str | None
+) -> None:
+    """Reject a proposed site already locked in ``session``; ``note`` already checked."""
+    if site.status != "proposed":
+        raise RegisterError("not_proposed")
+    await session.execute(
+        update(Site)
+        .where(Site.id == site.id)
+        .values(status="rejected", review_note=note, updated_at=func.now())
+    )
+    await _audit(
+        session,
+        reviewer_id,
+        "site.rejected",
+        site.id,
+        {"status": "proposed"},
+        {"status": "rejected"},
+        roles=sorted(roles),
+    )
 
 
 async def update_site(

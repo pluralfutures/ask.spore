@@ -100,8 +100,10 @@ holds the title, as for a crawled page. `test_no_bodies_in_errors` gained the 42
 Architecture §6.2 (row "Uploaded crawl") and §6.4 (the declaration paragraph, naming the
 departure from the compliance guide's crawling rule), `policy-content-sourcing.md` §4.2 and
 §7, `risk-register.md` (**R-38**, a declaration made in error), `records-of-processing.md`
-(C1 note). The compliance guide itself is not edited: question 3. `backlog.md` gained the
-ideas raised during the build.
+(C1 note). `backlog.md` gained the ideas raised during the build. **Nov 2, 2026 (question 3):**
+the compliance guide gained a dated draft addendum, "Uploaded crawls", with a pointer from its
+crawling rule, and `design/compliance/open-questions.md` gained F5 for counsel (the declaration
+sentence, and whether to add the domain re-check before the first uploaded site goes live).
 
 ### Checks run
 
@@ -123,15 +125,23 @@ not rerun. Not run: P2SR01-08 (the Instance release and drill).
 
 ### Questions for the owner
 
+Asked on Nov 1, 2026; the owner accepted every recommendation on Nov 2, 2026.
+
 1. **The reviewer's report.** D7 asks for the report in front of the reviewer, and the spec
    keeps no names on the server. The build adds a read-only route that inspects the staged ZIP
    again for the reviewer (nothing stored; available while the upload waits). Keep it?
+   **Answer: kept as built.**
 2. **Rejecting a new site's first upload** leaves the site `proposed`, ready for a corrected
-   ZIP. Should the rejection reject the site too when it has no other upload?
+   ZIP. Should the rejection reject the site too when it has no other upload? **Answer: no,
+   the site stays proposed** (a start URL is unique across every status, so a rejected site
+   could take no corrected upload). Found while answering: rejecting the site itself left its
+   staged upload and ZIP behind; fixed in the P2SR01-03 follow-up of Nov 2 (table above).
 3. **The compliance guide.** D3 departs from its "if a site has reserved rights in a
    machine-readable way, do not crawl it". The architecture, the sourcing policy and the risk
    register now say so (R-38). Should the guide carry a dated note as well, as the Oct 18
-   addendum did for external models?
+   addendum did for external models? **Answer: yes;** the draft addendum of Nov 2, 2026 is
+   written, with open-questions F5 for counsel. The domain-level re-check at release stays a
+   later item (backlog) unless the owner or counsel asks for it before go-live.
 4. **New console copy** (the UX rule: new words need approval): "Upload crawl", "One ZIP of
    Markdown pages from one crawl of …", the partial and full radio texts, "Uploaded: it waits
    for a reviewer to release it.", "uploaded" (badge), "uploads" (schedule column), "uploaded,
@@ -139,6 +149,24 @@ not rerun. Not run: P2SR01-08 (the Instance release and drill).
    and release", "Release (withdraws N)", "Releasing its upload approves the site.", the member
    outcome texts and the refusal messages in `apps/web/src/lib/content.ts`, and the allow
    decision "declared by the uploader (robots.txt, TDM and noai), released by a reviewer".
+   **Answer: approved, with one change:** the release button reads "Release and withdraw N
+   pages" (or "Approve site, release and withdraw N pages"), only when N is above zero; done in
+   the P2SR01-05 follow-up of Nov 2.
 5. **The CLI report goes to the controlling terminal only**, so names never enter a captured
-   log stream; a run without a terminal shows counts only. Acceptable?
-6. **D11** (ingest as supplied) is built as proposed.
+   log stream; a run without a terminal shows counts only. Acceptable? **Answer: accepted.**
+   For P2SR01-08: the runbook must run `ask-spore sites upload-crawl` with a terminal
+   (`docker compose exec -it`, not `-T`), or the report is not shown; no `--report-file`
+   option (a file of names on disk would need its own deletion).
+6. **D11** (ingest as supplied) is built as proposed. **Answer: confirmed for now.** The
+   P2SR01-08 drill runs a few queries against the uploaded site and looks for navigation or
+   footer chunks among the results; if they appear, the trim goes in the owner's ZIP script
+   before upload, not in the platform (backlog).
+7. **New, Nov 2, 2026: a failed import's ZIP is never deleted.** An import that fails
+   (`upload_missing`, `upload_altered`, an inspection code, `site_not_approved`,
+   `releaser_lacks_role`, `internal_error`) sets `failed` and leaves `staged_path` and the file
+   in place; nothing removes it later. Keeping it helps the operator look into the failure
+   (an altered ZIP is evidence), but it is a copy of third-party pages kept with no end date.
+   Recommendation: delete it at failure like an imported or rejected one (the code and the
+   audit event record why; the editor still has the original), or keep it at most 30 days
+   with a scheduled deletion. Not built; the compliance guide's
+   addendum says the question is open.

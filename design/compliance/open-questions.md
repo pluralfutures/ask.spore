@@ -84,6 +84,7 @@ Only the owner or counsel can answer these. Duplicates across the documents are 
 | F2 | **C** Legitimate interests as the basis for people named in sources: does counsel accept the balancing test and the Art. 14(5)(b) disproportionate-effort reasoning? | legitimate-interest-assessment, privacy-notice | |
 | F3 | **C** Prior consultation (Art. 36) not needed: confirm against the lead authority's DPIA list | dpia | |
 | F4 | **C** Is notice plus in-app acceptance the right mechanism for the P1b-10 gate (it is not GDPR consent as a legal basis)? | onboarding-pack, privacy-notice | |
+| F5 | **C** **Uploaded crawls** (Phase 2SR01, decision D3 of Oct 31, 2026): for a site crawled outside the platform, robots.txt, the TDM reservation and `noai` are the uploader's declaration per upload, not a check we make. Is the declaration sentence (compliance guide, addendum of Nov 2, 2026) adequate as our record that the crawl honoured an Art. 4(3) DSM reservation, and should a domain-level re-check at release be added before the first uploaded site goes live? | compliance guide (Nov 2 addendum), policy-content-sourcing §4.2, risk-register R-38 | |
 
 ## G. EU AI Act (C for all)
 

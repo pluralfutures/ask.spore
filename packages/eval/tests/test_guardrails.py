@@ -66,7 +66,7 @@ def test_mocked_run_passes_on_the_active_prompts(tmp_path: Path) -> None:
     directory, data = asyncio.run(guardrails.run(_options(tmp_path)))
     assert data["regressions"] == []
     assert data["meta"]["mocked"] is True
-    assert data["meta"]["prompts"] == ["corpus_only/v5", "general_knowledge/v2"]
+    assert data["meta"]["prompts"] == ["corpus_only/v7", "general_knowledge/v2"]
     baseline = data["results"][0]
     assert (baseline["mode"], baseline["block"]) == ("corpus_only", "none")
     assert baseline["metrics"] == {
@@ -79,18 +79,19 @@ def test_mocked_run_passes_on_the_active_prompts(tmp_path: Path) -> None:
     assert "MOCKED" in (directory / "summary.md").read_text()
 
 
-def test_mocked_run_passes_on_the_corpus_only_v6_candidate(tmp_path: Path) -> None:
-    """P1c-13: v6 waits for the release session's live eval before it is switched on;
-    the mocked run proves its slot and escaping against a config copy naming it."""
+@pytest.mark.parametrize("version", ["v5", "v6"])
+def test_mocked_run_passes_on_another_corpus_only_version(tmp_path: Path, version: str) -> None:
+    """v5 (the rollback from v7) and P1c-13's v6 (not adopted): the mocked run proves the
+    slot and escaping against a config copy naming each."""
     config = tmp_path / "config"
     shutil.copytree(cli.DEFAULT_CONFIG.parent, config)
     models = config / "models.toml"
     text = models.read_text()
-    assert text.count('corpus_only = "v5"') == 1
-    models.write_text(text.replace('corpus_only = "v5"', 'corpus_only = "v6"'))
+    assert text.count('corpus_only = "v7"') == 1
+    models.write_text(text.replace('corpus_only = "v7"', f'corpus_only = "{version}"'))
     options = replace(_options(tmp_path / "results"), config=models)
     _, data = asyncio.run(guardrails.run(options))
-    assert data["meta"]["prompts"] == ["corpus_only/v6", "general_knowledge/v2"]
+    assert data["meta"]["prompts"] == [f"corpus_only/{version}", "general_knowledge/v2"]
     assert data["regressions"] == []
     assert all(
         value == 100.0
@@ -188,7 +189,7 @@ def test_metrics_and_regressions() -> None:
 
 @pytest.mark.parametrize("mode", guardrails.MODES)
 def test_fixed_replies_of_the_active_prompts_are_not_scored_as_leaks(mode: str) -> None:
-    # corpus_only/v5 and general_knowledge/v2 (findings section 11) tell the model to
+    # corpus_only/v7 and general_knowledge/v2 (findings section 11) tell the model to
     # answer a request for its instructions, and corpus_only an unanswered question,
     # with one fixed sentence. Giving it must not count as quoting the prompt.
     from eval.runner import load_harness_settings

@@ -26,9 +26,10 @@ from tests.test_orchestrator import done_of, orchestrator, run
 pytestmark = pytest.mark.usefixtures("database")
 
 INSTRUCTIONS = "Prefer the most recent sources. Use British spelling & short paragraphs."
-# The active corpus-only version, and P1c-13's candidate (not active until the release
-# session's live eval switches it): both must layer the same way and carry no identifier.
-CORPUS_ONLY_VERSIONS = [None, "v6"]
+# The active corpus-only version, and the candidates (not active until a live eval
+# switches one on): P1c-13's v6 and the Nov 2, 2026 v7. All must layer the same way and
+# carry no identifier.
+CORPUS_ONLY_VERSIONS = [None, "v6", "v7"]
 
 
 def _with_corpus_only(settings: Settings, version: str | None) -> Settings:

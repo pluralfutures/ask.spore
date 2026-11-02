@@ -79,18 +79,19 @@ def test_mocked_run_passes_on_the_active_prompts(tmp_path: Path) -> None:
     assert "MOCKED" in (directory / "summary.md").read_text()
 
 
-def test_mocked_run_passes_on_the_corpus_only_v6_candidate(tmp_path: Path) -> None:
-    """P1c-13: v6 waits for the release session's live eval before it is switched on;
-    the mocked run proves its slot and escaping against a config copy naming it."""
+@pytest.mark.parametrize("version", ["v6", "v7"])
+def test_mocked_run_passes_on_a_corpus_only_candidate(tmp_path: Path, version: str) -> None:
+    """P1c-13's v6 and the Nov 2, 2026 v7 wait for a live eval before one is switched on;
+    the mocked run proves the slot and escaping against a config copy naming each."""
     config = tmp_path / "config"
     shutil.copytree(cli.DEFAULT_CONFIG.parent, config)
     models = config / "models.toml"
     text = models.read_text()
     assert text.count('corpus_only = "v5"') == 1
-    models.write_text(text.replace('corpus_only = "v5"', 'corpus_only = "v6"'))
+    models.write_text(text.replace('corpus_only = "v5"', f'corpus_only = "{version}"'))
     options = replace(_options(tmp_path / "results"), config=models)
     _, data = asyncio.run(guardrails.run(options))
-    assert data["meta"]["prompts"] == ["corpus_only/v6", "general_knowledge/v2"]
+    assert data["meta"]["prompts"] == [f"corpus_only/{version}", "general_knowledge/v2"]
     assert data["regressions"] == []
     assert all(
         value == 100.0

@@ -14,6 +14,7 @@ from uuid import UUID
 import httpx
 import pytest
 
+from app.cli import build_parser
 from app.content.fetch import Fetched
 from app.content.ingest import (
     IngestError,
@@ -411,3 +412,12 @@ async def test_the_operator_may_open_the_download_gate_of_a_stored_file_only(
 
     assert is_file("text", "ab/abc.text") and not is_file("text", None)
     assert is_file("markdown", "ab/abc.markdown") and not is_file("markdown", None)
+
+
+def test_ingest_help_lists_text_files_but_not_for_a_url(capsys: pytest.CaptureFixture[str]) -> None:
+    """A ``.txt`` file is accepted; a URL served as ``text/plain`` is not (P2B-06)."""
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["ingest", "--help"])
+    shown = " ".join(capsys.readouterr().out.split())
+    assert "PDF, DOCX, PPTX, HTML, Markdown and text files" in shown
+    assert "http(s) URL serving PDF, DOCX, PPTX, HTML or Markdown" in shown

@@ -287,9 +287,10 @@ foreign-container refusal with a stand-in `docker`, and the read-whole fix (it f
 | 4. UI over the tunnel | pass (no SSH client) | No key was added to the host to open a real tunnel. Instead, on `127.0.0.1:18080`, the port a tunnel forwards to: `/` and `/dataset/dataset/<id>` 200 `text/html`; an asset 200; `/api/v1/system/healthz` 200. Through the proxy: register, sign in (session header), `users/me` and `datasets` all code 0, and the document list for a dataset showed `DONE ×4`. `tests/test_ragflow_integration.py` passes with `RAGFLOW_TEST_BASE_URL=http://127.0.0.1:18080` |
 | 5. Crawled page with images | pass | Real `crawl_site` in the worker image, with the tests' `resolve`/`MockTransport` injection, against a synthetic page holding `<img>` (https, relative, `data:`), `<figure>`, `<picture>`, literal `![..](..)` and `![..][..]` text, and escaped `<img src=…>` text. Stored Markdown: no image element left; the literal syntax survives only escaped by trafilatura (`!\[literal\](…)`), which neither `IMAGE_REFERENCE` nor RAGFlow's extractor matches. Ingested (1 chunk), 0 image references in RAGFlow's chunk text, no image attempt in RAGFlow's log |
 
-Minor, for the build: removing an escaped `<img …>` written as page text leaves a stray `\`
-in the sentence. `ask-spore ingest --help` still lists "PDF, DOCX, PPTX, HTML and
-Markdown", without text.
+Minor, for the build: removing an escaped `<img …>` written as page text left a stray `\`
+in the sentence, and `ask-spore ingest --help` listed "PDF, DOCX, PPTX, HTML and Markdown",
+without text. Both fixed Nov 2, 2026: the escape goes with the tag, and the help names text
+files but not for a URL (a URL served as `text/plain` is not accepted).
 
 ### Check 2: applying it on the live Instance (written down, not done)
 
